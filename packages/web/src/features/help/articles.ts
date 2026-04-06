@@ -1621,6 +1621,148 @@ When switching providers, existing files are migrated automatically with a progr
 
 ### How It Works
 All features (OCR, thumbnails, viewer) work identically regardless of provider. Cloud files are cached locally for processing and evicted after 24 hours.
+
+### Per-Tenant Configuration
+Each tenant configures their own OAuth app credentials from **Settings > File Storage**. Click **Configure** on any provider, enter your app key/secret from the provider's developer console, then click **Connect** to authorize.
+`,
+  },
+  {
+    id: 'bank-feed-review',
+    title: 'Reviewing Bank Feed Transactions',
+    category: 'Banking',
+    summary: 'How to review, edit, categorize, and approve imported bank transactions.',
+    body: `
+## Reviewing Bank Feed Transactions
+
+After importing a bank file or AI-parsed statement, transactions appear in the **Bank Feed** for review.
+
+### Bank Feed Layout
+Each row shows:
+- **Date** with the bank account name underneath
+- **Name** (cleaned payee) with the original bank description underneath
+- **Category** column shows the status (pending, categorized, matched, excluded)
+- **Amount** color-coded (red for expenses, green for deposits)
+
+### Editing a Transaction
+- **Double-click** any pending row to open inline editing
+- Edit the **date**, **name**, **contact**, **category** (account), and **memo**
+- Click **Save & Categorize** to create the accounting entry
+
+### Batch Actions
+Select multiple transactions using checkboxes:
+- **Categorize** — assign all selected to one account
+- **AI Categorize** — run AI suggestions (requires AI enabled)
+- **Approve** — approve selected items with suggestions
+- **Re-cleanse** — re-run the name cleaning pipeline after adding new rules
+- **Exclude** — mark selected as excluded
+
+### Filtering & Sorting
+- **Account dropdown** — filter by bank account
+- **Search box** — searches name and memo (debounced)
+- **Date range** — From/To pickers
+- **Status tabs** — All, Pending, Categorized, Matched, Excluded
+- **Column headers** — click to sort ascending/descending
+`,
+  },
+  {
+    id: 'bank-name-cleaning',
+    title: 'Bank Transaction Name Cleaning',
+    category: 'Banking',
+    summary: 'How automatic payee name cleaning works and how to improve it.',
+    body: `
+## Bank Transaction Name Cleaning
+
+Raw bank descriptions are automatically cleaned to readable names.
+
+### Cleaning Pipeline (in order)
+1. **Your bank rules** — if a rule matches, its contact name is used
+2. **Global rules** — system-wide rules from the admin
+3. **Categorization history** — learned from your past 3+ categorizations of this payee
+4. **AI categorization** — LLM suggests a clean vendor name (if AI enabled)
+5. **Basic cleaning** — strips bank prefixes, phone numbers, reference codes, URLs, business suffixes, and duplicate words
+
+### Improving Results
+Create bank rules at **Banking > Bank Rules**:
+- Set **Description Contains** to a keyword in the raw bank text
+- Set **Contact Name** to the clean name you want
+
+### Re-Cleansing
+Select transactions in the bank feed and click **Re-cleanse** to re-run the pipeline using the original description.
+`,
+  },
+  {
+    id: 'editing-transactions',
+    title: 'Editing Transactions',
+    category: 'Transactions',
+    summary: 'How to edit existing transactions including posted ones.',
+    body: `
+## Editing Transactions
+
+You can edit any non-voided transaction.
+
+### How to Edit
+1. Open the transaction detail view
+2. Click the **Edit** button (pencil icon)
+3. The form opens pre-populated with existing data
+4. Make changes and click **Save Changes**
+
+### What Happens
+- Original journal line balances are reversed
+- Old lines are replaced with new ones
+- Account balances are recalculated
+- An audit log entry records the change
+
+### Attachments
+The attachment panel appears on the edit form. You can add or remove files while editing.
+`,
+  },
+  {
+    id: 'transaction-attachments',
+    title: 'Attaching Files to Transactions',
+    category: 'Transactions',
+    summary: 'How to upload receipts and documents on transaction forms.',
+    body: `
+## Attaching Files to Transactions
+
+Every transaction form has a built-in attachment panel.
+
+### Upload Before Saving
+Drag and drop files onto the panel or click to browse — you can upload **before** saving the transaction. Files are linked automatically when you click Record.
+
+### Attach Existing Files
+Click **Attach Existing** to browse previously uploaded but unlinked files (receipts, abandoned drafts). Select and click **Attach Selected**.
+
+### Supported Formats
+Images, PDFs, spreadsheets, Word documents — up to 10MB each.
+
+### On the Detail Page
+The Transaction Detail and Invoice Detail pages also show the attachment panel for managing files on existing records.
+`,
+  },
+  {
+    id: 'cloud-storage-setup',
+    title: 'Setting Up Cloud Storage (Per-Tenant)',
+    category: 'Settings',
+    summary: 'Configure Dropbox, Google Drive, OneDrive, or S3 for your company.',
+    body: `
+## Setting Up Cloud Storage
+
+Each tenant configures their own cloud storage independently.
+
+### OAuth Providers (Dropbox, Google Drive, OneDrive)
+1. Go to **Settings > File Storage**
+2. Click **Configure** on your provider
+3. Create an OAuth app in the provider's developer console
+4. Enter the **callback URL** shown in the dialog
+5. Enter your **App Key** and **App Secret**
+6. Click **Save Credentials**, then **Connect** to authorize
+7. Click **Set Active** to make it primary
+
+### S3 Storage
+Click **Configure** on S3, enter bucket/region/keys, click **Save & Connect**.
+
+### Switching Providers
+Existing files can be migrated when switching. Migration runs in the background with progress tracking.
 `,
   },
 ];

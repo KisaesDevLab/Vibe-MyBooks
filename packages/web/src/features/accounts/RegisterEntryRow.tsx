@@ -122,7 +122,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
     );
   }
 
-  // Expanded QBO-style entry form
+  // Expanded inline entry form
   return (
     <div className="bg-blue-50 border-b-2 border-blue-300" onKeyDown={handleKeyDown}>
       {/* Transaction type tabs */}
@@ -145,7 +145,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
         </button>
       </div>
 
-      {/* Entry fields — two rows like QBO */}
+      {/* Entry fields — two-row layout */}
       <div className="bg-white border-l-4 border-primary-500 mx-4 my-3 rounded-lg shadow-sm p-4 space-y-3">
         {/* Row 1: Date, Ref, Payee/Received, Account */}
         <div className="flex gap-3">
