@@ -1,0 +1,36 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    volumes:
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/api/src:/app/packages/api/src
+      - ./data:/data
+    command: ["npx", "tsx", "watch", "packages/api/src/index.ts"]
+    environment:
+      NODE_ENV: development
+
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+    volumes:
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/web/src:/app/packages/web/src
+      - ./packages/web/index.html:/app/packages/web/index.html
+      - ./packages/web/vite.config.ts:/app/packages/web/vite.config.ts
+      - ./packages/web/tailwind.config.ts:/app/packages/web/tailwind.config.ts
+      - ./packages/web/postcss.config.js:/app/packages/web/postcss.config.js
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: http://api:3001
+
+  worker:
+    volumes:
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/worker/src:/app/packages/worker/src
+      - ./data:/data
+    command: ["npx", "tsx", "watch", "packages/worker/src/index.ts"]
+    environment:
+      NODE_ENV: development

@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   LIGHT MODE: Darken gray text for better readability
+   ============================================================ */
+
+.text-gray-500 { color: #374151 !important; }  /* was #6B7280, now gray-700 */
+.text-gray-600 { color: #1F2937 !important; }  /* was #4B5563, now gray-800 */
+.text-gray-400 { color: #4B5563 !important; }  /* was #9CA3AF, now gray-600 */
+.text-gray-300 { color: #6B7280 !important; }  /* was #D1D5DB, now gray-500 */
+
+/* ============================================================
+   DARK MODE OVERRIDES
+   Must be after @tailwind utilities so they win specificity.
+   Cannot use @import here — CSS hoists imports above everything.
+   ============================================================ */
+
+html {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+html.no-transition * {
+  transition: none !important;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Body */
+[data-theme="dark"] body {
+  background-color: #111827 !important;
+  color: #F9FAFB !important;
+}
+
+/* Backgrounds */
+[data-theme="dark"] .bg-white { background-color: #1F2937 !important; }
+[data-theme="dark"] .bg-gray-50 { background-color: #111827 !important; }
+[data-theme="dark"] .bg-gray-50\/30 { background-color: rgba(17, 24, 39, 0.3) !important; }
+[data-theme="dark"] .bg-gray-50\/40 { background-color: rgba(17, 24, 39, 0.4) !important; }
+[data-theme="dark"] .bg-gray-100 { background-color: #1F2937 !important; }
+[data-theme="dark"] .bg-gray-200 { background-color: #374151 !important; }
+[data-theme="dark"] .bg-gray-900 { background-color: #0F172A !important; }
+
+/* Text */
+[data-theme="dark"] .text-gray-900 { color: #FFFFFF !important; }
+[data-theme="dark"] .text-gray-800 { color: #F3F4F6 !important; }
+[data-theme="dark"] .text-gray-700 { color: #E5E7EB !important; }
+[data-theme="dark"] .text-gray-600 { color: #D1D5DB !important; }
+[data-theme="dark"] .text-gray-500 { color: #D1D5DB !important; }
+[data-theme="dark"] .text-gray-400 { color: #9CA3AF !important; }
+[data-theme="dark"] .text-gray-300 { color: #9CA3AF !important; }
+
+/* Borders */
+[data-theme="dark"] .border-gray-200 { border-color: #374151 !important; }
+[data-theme="dark"] .border-gray-300 { border-color: #4B5563 !important; }
+[data-theme="dark"] .border-gray-100 { border-color: #1F2937 !important; }
+[data-theme="dark"] .border-gray-700 { border-color: #374151 !important; }
+[data-theme="dark"] .border-blue-200 { border-color: #1E3A5F !important; }
+[data-theme="dark"] .border-blue-300 { border-color: #1E3A5F !important; }
+
+/* Dividers */
+[data-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #374151 !important; }
+[data-theme="dark"] .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1F2937 !important; }
+[data-theme="dark"] .divide-gray-50 > :not([hidden]) ~ :not([hidden]) { border-color: #1F2937 !important; }
+
+/* Inputs */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background-color: #1F2937 !important;
+  color: #F9FAFB !important;
+  border-color: #4B5563 !important;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #6B7280 !important;
+}
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+  border-color: #60A5FA !important;
+}
+
+/* Hover */
+[data-theme="dark"] .hover\:bg-gray-50:hover { background-color: #374151 !important; }
+[data-theme="dark"] .hover\:bg-gray-100:hover { background-color: #374151 !important; }
+[data-theme="dark"] .hover\:bg-blue-50:hover { background-color: #1E3A5F !important; }
+[data-theme="dark"] .hover\:bg-blue-50\/30:hover { background-color: rgba(30, 58, 138, 0.3) !important; }
+[data-theme="dark"] .hover\:bg-blue-100\/50:hover { background-color: rgba(30, 58, 138, 0.3) !important; }
+[data-theme="dark"] .hover\:border-gray-300:hover { border-color: #6B7280 !important; }
+[data-theme="dark"] .hover\:border-gray-400:hover { border-color: #6B7280 !important; }
+
+/* Special bg */
+[data-theme="dark"] .bg-blue-50 { background-color: #1E3A5F !important; }
+[data-theme="dark"] .bg-blue-100 { background-color: #1E3A5F !important; }
+[data-theme="dark"] .bg-green-50 { background-color: #14532D !important; }
+[data-theme="dark"] .bg-green-100 { background-color: #14532D !important; }
+[data-theme="dark"] .bg-red-50 { background-color: #450A0A !important; }
+[data-theme="dark"] .bg-red-100 { background-color: #450A0A !important; }
+[data-theme="dark"] .bg-yellow-100 { background-color: #422006 !important; }
+[data-theme="dark"] .bg-amber-50 { background-color: #422006 !important; }
+[data-theme="dark"] .bg-primary-50 { background-color: #1E3A5F !important; }
+[data-theme="dark"] .bg-primary-100 { background-color: #1E3A5F !important; }
+
+/* Gradient override */
+[data-theme="dark"] .bg-gradient-to-r { background-image: none !important; background-color: #1E3A5F !important; }
+
+/* Status badges */
+[data-theme="dark"] .bg-green-100.text-green-700 { background-color: #14532D !important; color: #86EFAC !important; }
+[data-theme="dark"] .bg-red-100.text-red-700 { background-color: #450A0A !important; color: #FCA5A5 !important; }
+[data-theme="dark"] .bg-yellow-100.text-yellow-700 { background-color: #422006 !important; color: #FDE68A !important; }
+[data-theme="dark"] .bg-blue-100.text-blue-700 { background-color: #1E3A5F !important; color: #93C5FD !important; }
+[data-theme="dark"] .bg-gray-100.text-gray-500 { background-color: #374151 !important; color: #9CA3AF !important; }
+[data-theme="dark"] .bg-gray-100.text-gray-700 { background-color: #374151 !important; color: #D1D5DB !important; }
+[data-theme="dark"] .bg-indigo-100.text-indigo-700 { background-color: #312E81 !important; color: #A5B4FC !important; }
+
+/* Shadows */
+[data-theme="dark"] .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.4) !important; }
+[data-theme="dark"] .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important; }
+[data-theme="dark"] .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5) !important; }
+
+/* Overlay */
+[data-theme="dark"] .bg-black\/50 { background-color: rgba(0, 0, 0, 0.7) !important; }
+
+/* Scrollbar */
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.15); }
+[data-theme="dark"] ::-webkit-scrollbar-track { background-color: transparent; }
+
+/* System theme — follow OS */
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] { color-scheme: dark; }
+  [data-theme="system"] body { background-color: #111827 !important; color: #F9FAFB !important; }
+  [data-theme="system"] .bg-white { background-color: #1F2937 !important; }
+  [data-theme="system"] .bg-gray-50 { background-color: #111827 !important; }
+  [data-theme="system"] .bg-gray-100 { background-color: #1F2937 !important; }
+  [data-theme="system"] .bg-gray-900 { background-color: #0F172A !important; }
+  [data-theme="system"] .text-gray-900 { color: #FFFFFF !important; }
+  [data-theme="system"] .text-gray-800 { color: #F3F4F6 !important; }
+  [data-theme="system"] .text-gray-700 { color: #E5E7EB !important; }
+  [data-theme="system"] .text-gray-600 { color: #D1D5DB !important; }
+  [data-theme="system"] .text-gray-500 { color: #D1D5DB !important; }
+  [data-theme="system"] .text-gray-400 { color: #9CA3AF !important; }
+  [data-theme="system"] .text-gray-300 { color: #9CA3AF !important; }
+  [data-theme="system"] .border-gray-200 { border-color: #374151 !important; }
+  [data-theme="system"] .border-gray-300 { border-color: #4B5563 !important; }
+  [data-theme="system"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #374151 !important; }
+  [data-theme="system"] input,
+  [data-theme="system"] select,
+  [data-theme="system"] textarea { background-color: #1F2937 !important; color: #F9FAFB !important; border-color: #4B5563 !important; }
+  [data-theme="system"] .hover\:bg-gray-50:hover { background-color: #374151 !important; }
+}
+
+/* Print: force light */
+@media print {
+  * {
+    background-color: white !important;
+    color: black !important;
+    border-color: #d1d5db !important;
+  }
+}

@@ -1,0 +1,27 @@
+Vibe MyBooks
+Copyright 2026 Kisaes LLC
+
+This product is licensed under the Elastic License 2.0 (ELv2).
+See the LICENSE file in the project root for the full license text.
+
+For commercial licensing inquiries (client-facing portal access),
+contact: licensing@kisaes.com
+
+---
+
+Third-Party Software Notices
+
+This product includes software developed by third parties under their
+respective open-source licenses. See package.json and package-lock.json
+for the complete list of dependencies and their licenses.
+
+Key dependencies:
+- React (MIT) - Meta Platforms, Inc.
+- Express (MIT) - TJ Holowaychuk
+- Drizzle ORM (Apache 2.0) - Drizzle Team
+- PostgreSQL (PostgreSQL License) - The PostgreSQL Global Development Group
+- Redis (BSD 3-Clause) - Redis Ltd.
+- TanStack Query (MIT) - Tanner Linsley
+- Tailwind CSS (MIT) - Tailwind Labs
+- Vite (MIT) - Evan You
+- Zod (MIT) - Colin McDonnell

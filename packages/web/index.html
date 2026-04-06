@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vibe MyBooks</title>
+    <script>
+      (function() {
+        try {
+          var prefs = JSON.parse(localStorage.getItem('kis-display-prefs'));
+          if (prefs) {
+            if (prefs.theme === 'dark' || (prefs.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+              document.documentElement.setAttribute('data-theme', 'dark');
+            } else if (prefs.theme === 'light') {
+              document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+              document.documentElement.setAttribute('data-theme', 'system');
+            }
+            if (prefs.fontScale && prefs.fontScale !== 1) {
+              document.documentElement.style.fontSize = (16 * prefs.fontScale) + 'px';
+            }
+          }
+        } catch(e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

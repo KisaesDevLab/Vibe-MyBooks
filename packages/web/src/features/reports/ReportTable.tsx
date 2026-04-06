@@ -1,0 +1,75 @@
+import { useNavigate } from 'react-router-dom';
+
+interface Column {
+  key: string;
+  label: string;
+  align?: 'left' | 'right' | 'center';
+  format?: 'money' | 'text';
+  drillDown?: (row: Record<string, unknown>) => string;
+}
+
+interface ReportTableProps {
+  columns: Column[];
+  data: Record<string, unknown>[];
+  totals?: Record<string, number>;
+}
+
+function fmt(val: unknown): string {
+  if (val === null || val === undefined) return '—';
+  const n = typeof val === 'string' ? parseFloat(val) : (val as number);
+  if (isNaN(n)) return String(val);
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+export function ReportTable({ columns, data, totals }: ReportTableProps) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            {columns.map((col) => (
+              <th key={col.key} className={`px-4 py-2 text-xs font-medium text-gray-500 uppercase ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                {col.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {data.map((row, i) => (
+            <tr key={i} className="hover:bg-gray-50">
+              {columns.map((col) => {
+                const val = row[col.key];
+                const isMoney = col.format === 'money';
+                const drillPath = col.drillDown?.(row);
+                return (
+                  <td key={col.key} className={`px-4 py-2 ${col.align === 'right' ? 'text-right font-mono' : ''}`}>
+                    {drillPath ? (
+                      <button onClick={() => navigate(drillPath)} className="text-primary-600 hover:underline">
+                        {isMoney ? `$${fmt(val)}` : String(val ?? '—')}
+                      </button>
+                    ) : (
+                      isMoney ? `$${fmt(val)}` : String(val ?? '—')
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+        {totals && (
+          <tfoot>
+            <tr className="font-bold bg-gray-50 border-t-2">
+              {columns.map((col, i) => (
+                <td key={col.key} className={`px-4 py-2 ${col.align === 'right' ? 'text-right font-mono' : ''}`}>
+                  {i === 0 ? 'Total' : totals[col.key] !== undefined ? `$${fmt(totals[col.key])}` : ''}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
+  );
+}

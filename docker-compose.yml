@@ -1,0 +1,82 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kisbooks
+      POSTGRES_PASSWORD: kisbooks
+      POSTGRES_DB: kisbooks
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${DB_HOST_PORT:-5434}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kisbooks"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3001}:3001"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://kisbooks:kisbooks@db:5432/kisbooks
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - app-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${VITE_PORT:-5173}:5173"
+    depends_on:
+      - api
+
+  worker:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    restart: unless-stopped
+    command: ["npx", "tsx", "packages/worker/src/index.ts"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://kisbooks:kisbooks@db:5432/kisbooks
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - app-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redis-data:
+  app-data:
