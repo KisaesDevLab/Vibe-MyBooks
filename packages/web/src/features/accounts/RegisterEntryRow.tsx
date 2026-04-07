@@ -149,7 +149,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
       <div className="bg-white border-l-4 border-primary-500 mx-4 my-3 rounded-lg shadow-sm p-4 space-y-3">
         {/* Row 1: Date, Ref, Payee/Received, Account */}
         <div className="flex gap-3">
-          <div className="w-36">
+          <div className="w-[70px]">
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Date</label>
             <input
               ref={dateRef}

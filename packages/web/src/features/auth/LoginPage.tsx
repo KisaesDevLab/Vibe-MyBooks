@@ -39,6 +39,25 @@ export function LoginPage() {
 
   const navigate = useNavigate();
 
+  // If the app has never been set up (no admin user exists yet), redirect
+  // to the first-run wizard instead of showing a login form no one can use.
+  // This is a common new-install footgun: the user lands on /login, types
+  // credentials that don't exist, gets "Invalid email or password", and has
+  // no indication that they needed to run through setup first.
+  useEffect(() => {
+    fetch('/api/setup/status')
+      .then((r) => r.json())
+      .then((status) => {
+        if (status && status.setupComplete === false && status.hasAdminUser === false) {
+          navigate('/first-run-setup', { replace: true });
+        }
+      })
+      .catch(() => {
+        // If the status endpoint is unreachable we silently fall through to
+        // showing the normal login form — better than blocking the user.
+      });
+  }, [navigate]);
+
   // Fetch available login methods on mount
   useEffect(() => {
     fetch('/api/v1/auth/methods').then((r) => r.json()).then(setMethods).catch(() => {});

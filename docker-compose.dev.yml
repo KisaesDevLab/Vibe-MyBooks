@@ -4,12 +4,18 @@ services:
       context: .
       dockerfile: packages/api/Dockerfile
     volumes:
+      # Source bind mounts for hot reload. The /data bind mount is inherited
+      # from the base docker-compose.yml — don't duplicate it here.
       - ./packages/shared/src:/app/packages/shared/src
       - ./packages/api/src:/app/packages/api/src
-      - ./data:/data
     command: ["npx", "tsx", "watch", "packages/api/src/index.ts"]
     environment:
       NODE_ENV: development
+      # Windows host -> Linux container bind mounts don't deliver inotify
+      # events, so chokidar (used by tsx watch) misses file changes. Polling
+      # is the reliable fallback on Docker Desktop for Windows.
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
 
   web:
     build:
@@ -30,7 +36,8 @@ services:
     volumes:
       - ./packages/shared/src:/app/packages/shared/src
       - ./packages/worker/src:/app/packages/worker/src
-      - ./data:/data
     command: ["npx", "tsx", "watch", "packages/worker/src/index.ts"]
     environment:
       NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"

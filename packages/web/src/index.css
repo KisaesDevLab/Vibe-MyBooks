@@ -128,29 +128,9 @@ html.no-transition * {
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.15); }
 [data-theme="dark"] ::-webkit-scrollbar-track { background-color: transparent; }
 
-/* System theme — follow OS */
-@media (prefers-color-scheme: dark) {
-  [data-theme="system"] { color-scheme: dark; }
-  [data-theme="system"] body { background-color: #111827 !important; color: #F9FAFB !important; }
-  [data-theme="system"] .bg-white { background-color: #1F2937 !important; }
-  [data-theme="system"] .bg-gray-50 { background-color: #111827 !important; }
-  [data-theme="system"] .bg-gray-100 { background-color: #1F2937 !important; }
-  [data-theme="system"] .bg-gray-900 { background-color: #0F172A !important; }
-  [data-theme="system"] .text-gray-900 { color: #FFFFFF !important; }
-  [data-theme="system"] .text-gray-800 { color: #F3F4F6 !important; }
-  [data-theme="system"] .text-gray-700 { color: #E5E7EB !important; }
-  [data-theme="system"] .text-gray-600 { color: #D1D5DB !important; }
-  [data-theme="system"] .text-gray-500 { color: #D1D5DB !important; }
-  [data-theme="system"] .text-gray-400 { color: #9CA3AF !important; }
-  [data-theme="system"] .text-gray-300 { color: #9CA3AF !important; }
-  [data-theme="system"] .border-gray-200 { border-color: #374151 !important; }
-  [data-theme="system"] .border-gray-300 { border-color: #4B5563 !important; }
-  [data-theme="system"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #374151 !important; }
-  [data-theme="system"] input,
-  [data-theme="system"] select,
-  [data-theme="system"] textarea { background-color: #1F2937 !important; color: #F9FAFB !important; border-color: #4B5563 !important; }
-  [data-theme="system"] .hover\:bg-gray-50:hover { background-color: #374151 !important; }
-}
+/* Note: there is intentionally no `[data-theme="system"]` block. The
+   ThemeProvider always resolves the user's preference to either `dark` or
+   `light` and writes that to the DOM, so the rules above cover every case. */
 
 /* Print: force light */
 @media print {

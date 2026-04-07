@@ -33,8 +33,14 @@ function scaleToLevel(scale: number): FontScaleLevel {
 }
 
 function applyToDOM(theme: ThemeMode, fontScale: number) {
+  // Always write the *resolved* value (`light` or `dark`) — never `system`.
+  // The user's preference (`theme`) lives in React state + localStorage; the
+  // DOM attribute exists so CSS can react to the actually-rendered mode.
+  // Writing `system` to data-theme would force the CSS to maintain a parallel
+  // `@media (prefers-color-scheme: dark) [data-theme="system"]` block that
+  // drifts out of sync with the canonical `[data-theme="dark"]` rules.
   const resolved = resolveTheme(theme);
-  document.documentElement.setAttribute('data-theme', theme === 'system' ? 'system' : resolved);
+  document.documentElement.setAttribute('data-theme', resolved);
   // Set font-size directly on the html element — this is what rem units reference
   document.documentElement.style.fontSize = `${16 * fontScale}px`;
 }

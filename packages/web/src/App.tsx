@@ -46,6 +46,7 @@ import { InvoiceTemplateEditor } from './features/invoicing/InvoiceTemplateEdito
 import { ReportsPage } from './features/reports/ReportsPage';
 import { ProfitAndLossReport } from './features/reports/ProfitAndLossReport';
 import { BalanceSheetReport } from './features/reports/BalanceSheetReport';
+import { GeneralLedgerReport } from './features/reports/GeneralLedgerReport';
 import { GenericReport } from './features/reports/GenericReport';
 import { SetupWizard } from './features/company/SetupWizard';
 import { BudgetEditorPage } from './features/budgets/BudgetEditorPage';
@@ -191,7 +192,7 @@ export function App() {
             <Route path="/reports/taxable-sales-summary" element={<GenericReport title="Taxable Sales Summary" endpoint="taxable-sales-summary" columns={[]} dataKey="__single" />} />
             <Route path="/reports/sales-tax-payments" element={<GenericReport title="Sales Tax Payments" endpoint="sales-tax-payments" columns={[{key:'txn_date',label:'Date'},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
             <Route path="/reports/vendor-1099-summary" element={<GenericReport title="1099 Vendor Summary" endpoint="vendor-1099-summary" useDateRange={false} columns={[{key:'display_name',label:'Vendor'},{key:'tax_id',label:'Tax ID'},{key:'total_paid',label:'Total Paid',align:'right',format:'money'}]} />} />
-            <Route path="/reports/general-ledger" element={<GenericReport title="General Ledger" endpoint="general-ledger" columns={[{key:'account_name',label:'Account'},{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'description',label:'Description'},{key:'debit',label:'Debit',align:'right',format:'money'},{key:'credit',label:'Credit',align:'right',format:'money'}]} />} />
+            <Route path="/reports/general-ledger" element={<GeneralLedgerReport />} />
             <Route path="/reports/trial-balance" element={<GenericReport title="Trial Balance" endpoint="trial-balance" useDateRange={true} columns={[{key:'account_number',label:'#'},{key:'name',label:'Account'},{key:'account_type',label:'Type'},{key:'total_debit',label:'Debit',align:'right',format:'money'},{key:'total_credit',label:'Credit',align:'right',format:'money'}]} />} />
             <Route path="/reports/transaction-list" element={<GenericReport title="Transaction List" endpoint="transaction-list" columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number'},{key:'contact_name',label:'Contact'},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />
             <Route path="/reports/journal-entry-report" element={<GenericReport title="Journal Entries" endpoint="journal-entry-report" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Number'},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />

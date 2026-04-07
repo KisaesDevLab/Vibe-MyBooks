@@ -8,6 +8,8 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Search, Download, Printer, ChevronLeft, ChevronRight, Ban } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const txnTypeLabels: Record<string, string> = {
   invoice: 'INV', customer_payment: 'PMT', cash_sale: 'SALE', expense: 'CHK',
@@ -62,6 +64,88 @@ export function RegisterPage() {
   const toggleSort = (col: string) => {
     if (sortBy === col) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
     else { setSortBy(col); setSortDir('asc'); }
+  };
+
+  const handlePrint = () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFontSize(14);
+    doc.text(`${account.name} Register`, 40, 36);
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    const subtitle = `${account.detailType?.replace(/_/g, ' ') || account.accountType}${account.accountNumber ? ' #' + account.accountNumber : ''}  |  ${startDate} to ${endDate}`;
+    doc.text(subtitle, 40, 50);
+    doc.setTextColor(0);
+
+    // Table data
+    const tableHead = [['Date', 'Type', 'Payee', 'Account', 'Memo', paymentLabel, depositLabel, 'Balance']];
+    const tableBody = lines.map((l) => [
+      l.txnDate,
+      `${txnTypeLabels[l.txnType] || l.txnType}${l.txnNumber ? ' #' + l.txnNumber : ''}${l.status === 'void' ? ' VOID' : ''}`,
+      l.payeeName || '',
+      l.accountName || '',
+      l.memo || '',
+      l.payment ? fmt(l.payment) : '',
+      l.deposit ? fmt(l.deposit) : '',
+      fmt(l.runningBalance),
+    ]);
+
+    // Footer row
+    const footRow = [
+      { content: `${lines.length} of ${pagination.totalRows} transactions`, colSpan: 5, styles: { fontStyle: 'bold' as const } },
+      { content: totalPayments > 0 ? fmt(totalPayments) : '', styles: { halign: 'right' as const, fontStyle: 'bold' as const } },
+      { content: totalDeposits > 0 ? fmt(totalDeposits) : '', styles: { halign: 'right' as const, fontStyle: 'bold' as const } },
+      { content: fmt(endingBalance), styles: { halign: 'right' as const, fontStyle: 'bold' as const } },
+    ];
+
+    autoTable(doc, {
+      startY: 60,
+      head: tableHead,
+      body: tableBody,
+      foot: [footRow],
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [240, 240, 240], textColor: [60, 60, 60], fontStyle: 'bold', fontSize: 7 },
+      footStyles: { fillColor: [245, 245, 245], textColor: [30, 30, 30] },
+      columnStyles: {
+        0: { cellWidth: 58 },
+        1: { cellWidth: 52 },
+        5: { halign: 'right', cellWidth: 62 },
+        6: { halign: 'right', cellWidth: 62 },
+        7: { halign: 'right', cellWidth: 68, fontStyle: 'bold' },
+      },
+      bodyStyles: { textColor: [40, 40, 40] },
+      didParseCell: (data) => {
+        // Red for negative balances
+        if (data.section === 'body' && data.column.index === 7) {
+          const raw = lines[data.row.index];
+          if (raw && raw.runningBalance < 0) {
+            data.cell.styles.textColor = [200, 0, 0];
+          }
+        }
+        // Gray out void rows
+        if (data.section === 'body') {
+          const raw = lines[data.row.index];
+          if (raw && raw.status === 'void') {
+            data.cell.styles.textColor = [170, 170, 170];
+          }
+        }
+      },
+      margin: { left: 40, right: 40 },
+    });
+
+    // Page numbers
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(150);
+      doc.text(`Page ${i} of ${pageCount}`, pageW - 80, doc.internal.pageSize.getHeight() - 20);
+    }
+
+    doc.save(`register-${account.name}.pdf`);
   };
 
   const handleExportCsv = () => {
@@ -138,7 +222,7 @@ export function RegisterPage() {
         <div className="ml-auto flex gap-2">
           <button onClick={() => navigate(`/banking/reconcile`)} className="text-xs text-primary-600 hover:underline">Reconcile</button>
           <button onClick={handleExportCsv} className="text-gray-400 hover:text-gray-600"><Download className="h-4 w-4" /></button>
-          <button onClick={() => window.print()} className="text-gray-400 hover:text-gray-600"><Printer className="h-4 w-4" /></button>
+          <button onClick={handlePrint} className="text-gray-400 hover:text-gray-600"><Printer className="h-4 w-4" /></button>
         </div>
       </div>
 
@@ -150,7 +234,7 @@ export function RegisterPage() {
         <table className="min-w-full text-xs">
           <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
-              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase cursor-pointer w-24" onClick={() => toggleSort('date')}>
+              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase cursor-pointer w-[5.5rem]" onClick={() => toggleSort('date')}>
                 Date {sortBy === 'date' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
               <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-16" onClick={() => toggleSort('type')}>
