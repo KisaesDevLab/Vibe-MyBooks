@@ -1,8 +1,8 @@
 # Vibe MyBooks
 
-A self-hosted, open-source bookkeeping application for solo entrepreneurs, freelancers, and CPA firms. Ships as a single Docker Compose appliance with everything you need to manage your books.
+A self-hosted, source-available bookkeeping application for solo entrepreneurs, freelancers, and CPA firms. Ships as a single Docker Compose appliance with everything you need to manage your books.
 
-**License:** Elastic License 2.0 (ELv2) | **Author:** [Kisaes LLC](https://kisaes.com)
+**License:** PolyForm Internal Use 1.0.0 | **Author:** [Kisaes LLC](https://kisaes.com)
 
 ---
 
@@ -192,11 +192,11 @@ Key settings:
 
 ## License
 
-**Elastic License 2.0 (ELv2)** — see [LICENSE](LICENSE) for full text.
+**PolyForm Internal Use License 1.0.0** — see [LICENSE](LICENSE) for full text.
 
+- Free to use and modify for personal or internal business operations
 - Free for individuals, freelancers, and firms for internal/staff-operated use
-- You may self-host, modify, and redistribute under ELv2 terms
-- You may **not** offer Vibe MyBooks as a hosted/managed service to third parties
+- **Distribution is not permitted** under this license
 - Commercial license required for client-facing portal access — see [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md)
 
 For licensing questions: licensing@kisaes.com

@@ -3,10 +3,10 @@
 ## General
 
 **Q: What license is Vibe MyBooks under?**
-A: Elastic License 2.0 (ELv2). The source code is publicly available and free to use under ELv2 terms.
+A: PolyForm Internal Use License 1.0.0. The source code is publicly viewable and free to use for personal or internal business operations, but distribution is not permitted.
 
 **Q: Is this open source?**
-A: It's source-available. The code is public and free to use, but ELv2 is not an OSI-approved open-source license. The key restriction is that you cannot offer Vibe MyBooks as a hosted/managed service to third parties.
+A: No. The source code is publicly viewable, but PolyForm Internal Use is not an OSI-approved open source license. It's a source-available license that permits use and modification for internal business operations only.
 
 ## Personal & Business Use
 
@@ -32,27 +32,30 @@ A: That requires a commercial license. See `COMMERCIAL_LICENSE.md` or contact li
 
 ## Development & Modification
 
-**Q: Can I fork and modify it?**
-A: Yes, as long as you keep the ELv2 license and don't remove copyright notices.
+**Q: Can I modify the code for my firm's needs?**
+A: Yes, for your own internal use. You may modify Vibe MyBooks freely as long as the modified software is used only for your own internal business operations.
+
+**Q: Can I share my modified version with another firm?**
+A: No. The PolyForm Internal Use License does not permit distribution of the software, modified or not.
 
 **Q: Can I contribute back to the project?**
-A: Contributions are welcome. By contributing, you agree that your contributions are licensed under the same ELv2 terms.
-
-**Q: Can I use parts of the code in my own project?**
-A: Yes, under ELv2 terms. You must include the license and cannot use it to build a competing hosted service.
+A: Contributions are welcome. By contributing, you agree that your contributions are licensed under the same PolyForm Internal Use License 1.0.0 terms.
 
 ## Prohibited Uses
 
 **Q: Can I fork and host it as a competing SaaS?**
-A: No. That's the primary restriction of ELv2 — you cannot provide the software as a hosted or managed service to third parties.
+A: No. The license restricts use to internal business operations. Hosting Vibe MyBooks as a service for third parties is not permitted without a commercial license.
+
+**Q: Can I redistribute the source code?**
+A: No. Distribution is explicitly prohibited under the PolyForm Internal Use License.
 
 **Q: Can I remove the license notices?**
-A: No. ELv2 requires that all licensing and copyright notices remain intact.
+A: No. All licensing and copyright notices must remain intact.
 
 ## Enforcement
 
 **Q: What happens if I violate the license?**
-A: Your license terminates automatically. If notified of a violation, you have 30 days to cure it. After reinstatement, any further violation causes permanent termination.
+A: You have 32 days to cure after receiving written notice of the violation. If you come into full compliance within that window and take practical steps to correct past violations, your license continues. Otherwise, all your licenses end immediately.
 
 ## Contact
 
