@@ -1,19 +1,23 @@
 Vibe MyBooks
 Copyright 2026 Kisaes LLC
 
-This product is licensed under the Elastic License 2.0 (ELv2).
+Vibe MyBooks is a self-hosted bookkeeping application for solo
+entrepreneurs, freelancers, and accounting firms.
+
+This product is licensed under the PolyForm Internal Use License 1.0.0.
 See the LICENSE file in the project root for the full license text.
+Distribution of the software is not permitted under this license.
 
 For commercial licensing inquiries (client-facing portal access),
-contact: licensing@kisaes.com
+see COMMERCIAL_LICENSE.md or contact: licensing@kisaes.com
 
 ---
 
 Third-Party Software Notices
 
 This product includes software developed by third parties under their
-respective open-source licenses. See package.json and package-lock.json
-for the complete list of dependencies and their licenses.
+respective licenses. See package.json and package-lock.json for the
+complete list of dependencies and their licenses.
 
 Key dependencies:
 - React (MIT) - Meta Platforms, Inc.
@@ -25,3 +29,6 @@ Key dependencies:
 - Tailwind CSS (MIT) - Tailwind Labs
 - Vite (MIT) - Evan You
 - Zod (MIT) - Colin McDonnell
+- BullMQ (MIT) - Taskforce.sh
+- Puppeteer (Apache 2.0) - Google LLC
+- Nodemailer (MIT) - Andris Reinman
