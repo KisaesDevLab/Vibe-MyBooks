@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useMe } from '../../api/hooks/useAuth';
 import { apiClient, setTokens } from '../../api/client';
-import { ChevronDown, Plus, Building2, Check, Users } from 'lucide-react';
+import { AlertCircle, ChevronDown, Plus, Building2, Check, Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { BUSINESS_TYPE_OPTIONS } from '@kis-books/shared';
+import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 
 interface AddCompanyModalProps {
   mode: 'company' | 'client';
@@ -19,6 +19,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
   const [businessType, setBusinessType] = useState('general_business');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const businessTypeOptions = useCoaTemplateOptions();
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
@@ -82,7 +83,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
             <label className="block text-sm font-medium mb-1">Business Type</label>
             <select value={businessType} onChange={(e) => setBusinessType(e.target.value)}
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-              {BUSINESS_TYPE_OPTIONS.map((opt) => (
+              {businessTypeOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
@@ -107,11 +108,13 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
 }
 
 export function CompanySwitcher() {
-  const { activeCompanyId, companies, activeCompanyName, setActiveCompany, refreshCompanies } = useCompanyContext();
+  const { activeCompanyId, companies, activeCompanyName, setActiveCompany, refreshCompanies, clearActiveCompany } = useCompanyContext();
   const { data: meData } = useMe();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState<'company' | 'client' | null>(null);
+  const [switchError, setSwitchError] = useState('');
+  const [switchingTenantId, setSwitchingTenantId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const accessibleTenants = (meData as any)?.accessibleTenants || [];
@@ -143,18 +146,39 @@ export function CompanySwitcher() {
   };
 
   const handleSwitchTenant = async (tenantId: string) => {
-    setIsOpen(false);
+    setSwitchError('');
+    setSwitchingTenantId(tenantId);
     try {
       const result = await apiClient<{ tokens: { accessToken: string; refreshToken: string } }>('/auth/switch-tenant', {
         method: 'POST',
         body: JSON.stringify({ tenantId }),
       });
+      if (!result?.tokens?.accessToken) {
+        throw new Error('Server did not return new access tokens.');
+      }
       setTokens(result.tokens);
-      // Clear all caches and reload
+      // CRITICAL: drop the stored activeCompanyId before reloading. It
+      // belongs to the previous tenant — keeping it causes every X-Company-Id
+      // header on the new tenant's first page load to fail companyContext
+      // validation with 403 ("Company not found or access denied"), which
+      // looks like the switch itself failed.
+      clearActiveCompany();
       queryClient.clear();
+      setIsOpen(false);
       window.location.href = '/';
-    } catch {
-      alert('Failed to switch tenant');
+    } catch (err) {
+      // Surface the real reason instead of a generic message. The user
+      // could be hitting "no access to this tenant", a network failure, or
+      // a server error — each needs different action.
+      // eslint-disable-next-line no-console
+      console.error('[CompanySwitcher] tenant switch failed:', err);
+      const message = err instanceof Error ? err.message : 'Could not switch tenant.';
+      setSwitchError(
+        message === 'Request failed'
+          ? 'Could not switch tenant. Please try again or sign out and back in.'
+          : message,
+      );
+      setSwitchingTenantId(null);
     }
   };
 
@@ -164,7 +188,7 @@ export function CompanySwitcher() {
     <>
       <div className="px-3 py-2 relative" ref={dropdownRef} style={{ borderBottom: '1px solid #374151' }}>
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => { if (!isOpen) setSwitchError(''); setIsOpen(!isOpen); }}
           className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors"
           style={{ color: '#E5E7EB', backgroundColor: isOpen ? '#1F2937' : 'transparent' }}
           onMouseEnter={(e) => { if (!isOpen) e.currentTarget.style.backgroundColor = '#1F2937'; }}
@@ -185,23 +209,45 @@ export function CompanySwitcher() {
                 <div className="px-3 py-1.5 text-xs font-semibold uppercase" style={{ color: '#6B7280' }}>
                   Switch Client
                 </div>
-                {accessibleTenants.map((t: any) => (
-                  <button
-                    key={t.tenantId}
-                    onClick={() => t.tenantId === activeTenantId ? null : handleSwitchTenant(t.tenantId)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-sm transition-colors"
-                    style={{ color: t.tenantId === activeTenantId ? '#FFFFFF' : '#D1D5DB', backgroundColor: t.tenantId === activeTenantId ? '#374151' : 'transparent' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#374151'; }}
-                    onMouseLeave={(e) => { if (t.tenantId !== activeTenantId) e.currentTarget.style.backgroundColor = ''; }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Users className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
-                      <span className="truncate">{t.tenantName}</span>
-                      <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: '#374151', color: '#9CA3AF' }}>{t.role}</span>
-                    </div>
-                    {t.tenantId === activeTenantId && <Check className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#60A5FA' }} />}
-                  </button>
-                ))}
+                {switchError && (
+                  <div className="mx-3 mb-2 flex items-start gap-2 rounded-md border px-2 py-1.5 text-xs"
+                    role="alert"
+                    style={{ borderColor: '#7F1D1D', backgroundColor: '#450A0A', color: '#FCA5A5' }}>
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                    <span>{switchError}</span>
+                  </div>
+                )}
+                {accessibleTenants.map((t: any) => {
+                  const isActive = t.tenantId === activeTenantId;
+                  const isSwitching = switchingTenantId === t.tenantId;
+                  const disabled = isActive || switchingTenantId !== null;
+                  return (
+                    <button
+                      key={t.tenantId}
+                      onClick={() => { if (!disabled) handleSwitchTenant(t.tenantId); }}
+                      disabled={disabled}
+                      className="w-full flex items-center justify-between px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed"
+                      style={{
+                        color: isActive ? '#FFFFFF' : (switchingTenantId !== null && !isSwitching ? '#6B7280' : '#D1D5DB'),
+                        backgroundColor: isActive ? '#374151' : 'transparent',
+                        opacity: switchingTenantId !== null && !isActive && !isSwitching ? 0.6 : 1,
+                      }}
+                      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.backgroundColor = '#374151'; }}
+                      onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = ''; }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
+                        <span className="truncate">{t.tenantName}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: '#374151', color: '#9CA3AF' }}>{t.role}</span>
+                      </div>
+                      {isSwitching ? (
+                        <span className="text-xs" style={{ color: '#9CA3AF' }}>switching…</span>
+                      ) : isActive ? (
+                        <Check className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#60A5FA' }} />
+                      ) : null}
+                    </button>
+                  );
+                })}
                 <div style={{ borderTop: '1px solid #374151' }} />
                 <div className="px-3 py-1.5 text-xs font-semibold uppercase" style={{ color: '#6B7280' }}>
                   {activeTenantName} Companies

@@ -14,6 +14,7 @@ interface CompanyContextValue {
   activeCompanyName: string;
   setActiveCompany: (companyId: string) => void;
   refreshCompanies: () => void;
+  clearActiveCompany: () => void;
 }
 
 const CompanyContext = createContext<CompanyContextValue | null>(null);
@@ -65,6 +66,17 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     queryClient.removeQueries();
   }, [queryClient]);
 
+  // Used during tenant switching: drop the current company id so the next
+  // tenant's CompanyProvider load will auto-pick its own first company
+  // instead of carrying the old tenant's id and triggering 403 cascades
+  // from the company-context middleware.
+  const clearActiveCompany = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setActiveCompanyIdState(null);
+    setCompanies([]);
+    queryClient.removeQueries();
+  }, [queryClient]);
+
   const activeCompanyName = companies.find((c) => c.id === activeCompanyId)?.businessName || '';
 
   return (
@@ -74,6 +86,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       activeCompanyName,
       setActiveCompany,
       refreshCompanies: fetchCompanies,
+      clearActiveCompany,
     }}>
       {children}
     </CompanyContext.Provider>

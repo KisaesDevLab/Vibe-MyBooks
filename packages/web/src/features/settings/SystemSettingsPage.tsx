@@ -9,6 +9,7 @@ export function SystemSettingsPage() {
     backupSchedule: 'none',
     applicationUrl: window.location.origin,
     maxFileSizeMb: '10',
+    appName: '',
     smtpHost: '',
     smtpPort: '587',
     smtpUser: '',
@@ -51,6 +52,7 @@ export function SystemSettingsPage() {
             backupSchedule: data.backupSchedule || 'none',
             applicationUrl: data.applicationUrl || window.location.origin,
             maxFileSizeMb: String(data.maxFileSizeMb || data.maxFileSizeMB || 10),
+            appName: data.appName || '',
             smtpHost: data.smtpHost || '',
             smtpPort: String(data.smtpPort || 587),
             smtpUser: data.smtpUser || '',
@@ -170,6 +172,7 @@ export function SystemSettingsPage() {
           applicationUrl: form.applicationUrl,
           maxFileSizeMb: form.maxFileSizeMb,
           backupSchedule: form.backupSchedule,
+          appName: form.appName,
         }),
       });
       if (!appRes.ok) throw new Error('Failed to save application settings');
@@ -368,6 +371,18 @@ export function SystemSettingsPage() {
         {/* Application Section */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">Application</h2>
+          <div>
+            <Input
+              label="App Name"
+              value={form.appName}
+              onChange={set('appName')}
+              placeholder="Vibe MyBooks"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Shown in the sidebar header. Leave blank to use the default ("Vibe MyBooks"). When set to a
+              custom name, a small "powered by VibeMB.com" footer is added to the sidebar.
+            </p>
+          </div>
           <Input label="Application URL" value={form.applicationUrl} onChange={set('applicationUrl')} placeholder="https://books.example.com" />
           <Input label="Max File Upload Size (MB)" value={form.maxFileSizeMb} onChange={set('maxFileSizeMb')} type="number" />
         </div>
