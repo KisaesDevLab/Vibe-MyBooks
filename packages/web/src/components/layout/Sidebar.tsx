@@ -91,7 +91,7 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: 'Expenses',
+    label: 'Payables',
     items: [
       { to: '/bills', label: 'Bills', icon: Receipt },
       { to: '/pay-bills', label: 'Pay Bills', icon: Banknote },
