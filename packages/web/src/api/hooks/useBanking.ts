@@ -59,6 +59,26 @@ export function useMatchFeedItem() {
   });
 }
 
+export interface MatchCandidate {
+  id: string;
+  txnType: string;
+  txnNumber: string | null;
+  txnDate: string;
+  total: string;
+  memo: string | null;
+  checkNumber: number | null;
+  printStatus: string | null;
+  contactName: string | null;
+}
+
+export function useMatchCandidates(feedItemId: string | null) {
+  return useQuery({
+    queryKey: ['bank-feed', 'match-candidates', feedItemId],
+    queryFn: () => apiClient<{ candidates: MatchCandidate[] }>(`/banking/feed/${feedItemId}/match-candidates`),
+    enabled: !!feedItemId,
+  });
+}
+
 export function useExcludeFeedItem() {
   const qc = useQueryClient();
   return useMutation({

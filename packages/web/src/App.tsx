@@ -43,6 +43,12 @@ import { InvoiceListPage } from './features/invoicing/InvoiceListPage';
 import { InvoiceForm } from './features/invoicing/InvoiceForm';
 import { InvoiceDetailPage } from './features/invoicing/InvoiceDetailPage';
 import { InvoiceTemplateEditor } from './features/invoicing/InvoiceTemplateEditor';
+import { BillListPage } from './features/ap/BillListPage';
+import { EnterBillPage } from './features/ap/EnterBillPage';
+import { BillDetailPage } from './features/ap/BillDetailPage';
+import { EnterVendorCreditPage } from './features/ap/EnterVendorCreditPage';
+import { VendorCreditListPage } from './features/ap/VendorCreditListPage';
+import { PayBillsPage } from './features/ap/PayBillsPage';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { ProfitAndLossReport } from './features/reports/ProfitAndLossReport';
 import { BalanceSheetReport } from './features/reports/BalanceSheetReport';
@@ -73,6 +79,7 @@ import { PlaidConfigPage } from './features/admin/PlaidConfigPage';
 import { PlaidConnectionsMonitorPage } from './features/admin/PlaidConnectionsMonitorPage';
 import { AiConfigPage } from './features/admin/AiConfigPage';
 import { McpConfigPage } from './features/admin/McpConfigPage';
+import { CoaTemplatesPage } from './features/admin/CoaTemplatesPage';
 import { OAuthConsentPage } from './features/auth/OAuthConsentPage';
 import { ConnectedAppsPage } from './features/settings/ConnectedAppsPage';
 import { StorageSettingsPage } from './features/settings/StorageSettingsPage';
@@ -129,6 +136,7 @@ export function App() {
             <Route path="/admin/users" element={<UserListPage />} />
             <Route path="/admin/system" element={<SystemSettingsPage />} />
             <Route path="/admin/bank-rules" element={<GlobalBankRulesPage />} />
+            <Route path="/admin/coa-templates" element={<CoaTemplatesPage />} />
             <Route path="/" element={<DashboardPage />} />
             <Route path="/accounts" element={<AccountsListPage />} />
             <Route path="/accounts/:id/register" element={<AccountRegisterPage />} />
@@ -168,6 +176,13 @@ export function App() {
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
             <Route path="/settings/invoice-template" element={<InvoiceTemplateEditor />} />
+            <Route path="/bills" element={<BillListPage />} />
+            <Route path="/bills/new" element={<EnterBillPage />} />
+            <Route path="/bills/:id" element={<BillDetailPage />} />
+            <Route path="/bills/:id/edit" element={<EnterBillPage />} />
+            <Route path="/vendor-credits" element={<VendorCreditListPage />} />
+            <Route path="/vendor-credits/new" element={<EnterVendorCreditPage />} />
+            <Route path="/pay-bills" element={<PayBillsPage />} />
             <Route path="/attachments" element={<AttachmentLibraryPage />} />
             <Route path="/recurring" element={<RecurringListPage />} />
             <Route path="/settings/tags" element={<TagManagerPage />} />
@@ -184,6 +199,11 @@ export function App() {
             <Route path="/reports/expense-by-vendor" element={<GenericReport title="Expenses by Vendor" endpoint="expense-by-vendor" columns={[{key:'vendor_name',label:'Vendor'},{key:'total',label:'Total',align:'right',format:'money'}]} />} />
             <Route path="/reports/expense-by-category" element={<GenericReport title="Expenses by Category" endpoint="expense-by-category" columns={[{key:'account_number',label:'#'},{key:'category',label:'Category'},{key:'total',label:'Total',align:'right',format:'money'}]} />} />
             <Route path="/reports/vendor-balance-summary" element={<GenericReport title="Vendor Balance Summary" endpoint="vendor-balance-summary" useDateRange={false} columns={[{key:'display_name',label:'Vendor'},{key:'total_spent',label:'Total Spent',align:'right',format:'money'}]} />} />
+            <Route path="/reports/ap-aging-summary" element={<GenericReport title="AP Aging Summary" endpoint="ap-aging-summary" useDateRange={false} useAsOfDate columns={[{key:'vendor_name',label:'Vendor'},{key:'current',label:'Current',align:'right',format:'money'},{key:'bucket1to30',label:'1-30',align:'right',format:'money'},{key:'bucket31to60',label:'31-60',align:'right',format:'money'},{key:'bucket61to90',label:'61-90',align:'right',format:'money'},{key:'bucketOver90',label:'90+',align:'right',format:'money'},{key:'total',label:'Total',align:'right',format:'money'}]} dataKey="vendors" />} />
+            <Route path="/reports/ap-aging-detail" element={<GenericReport title="AP Aging Detail" endpoint="ap-aging-detail" useDateRange={false} useAsOfDate columns={[{key:'txn_number',label:'Bill #'},{key:'vendor_name',label:'Vendor'},{key:'vendor_invoice_number',label:'Vendor Inv #'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'days_overdue',label:'Days Overdue',align:'right'},{key:'balance',label:'Balance',align:'right',format:'money'}]} dataKey="details" />} />
+            <Route path="/reports/unpaid-bills" element={<GenericReport title="Unpaid Bills" endpoint="unpaid-bills" useDateRange={false} columns={[{key:'vendor_name',label:'Vendor'},{key:'txn_number',label:'Bill #'},{key:'vendor_invoice_number',label:'Vendor Inv #'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'total',label:'Total',align:'right',format:'money'},{key:'balance_due',label:'Balance',align:'right',format:'money'}]} />} />
+            <Route path="/reports/bill-payment-history" element={<GenericReport title="Bill Payment History" endpoint="bill-payment-history" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Payment #'},{key:'vendor_name',label:'Vendor'},{key:'check_number',label:'Check #'},{key:'bill_count',label:'# Bills',align:'right'},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
+            <Route path="/reports/ap-1099-prep" element={<GenericReport title="1099 Preparation" endpoint="ap-1099-prep" useDateRange={false} columns={[{key:'vendor_name',label:'Vendor'},{key:'tax_id',label:'Tax ID'},{key:'total_paid',label:'Total Paid',align:'right',format:'money'}]} />} />
             <Route path="/reports/transaction-list-by-vendor" element={<GenericReport title="Transactions by Vendor" endpoint="transaction-list-by-vendor" columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number'},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
             <Route path="/reports/bank-reconciliation-summary" element={<GenericReport title="Bank Reconciliation" endpoint="bank-reconciliation-summary" useDateRange={false} columns={[]} />} />
             <Route path="/reports/deposit-detail" element={<GenericReport title="Deposit Detail" endpoint="deposit-detail" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Number'},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Landmark, FileText, ArrowRight, Wallet } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Landmark, FileText, ArrowRight, Wallet, Receipt, Banknote } from 'lucide-react';
 
 function fmt(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -71,6 +71,17 @@ export function DashboardPage() {
   const { data: receivables } = useQuery({
     queryKey: ['dashboard', 'receivables'],
     queryFn: () => apiClient<{ totalOutstanding: number; overdueCount: number; overdueAmount: number; invoiceCount: number }>('/dashboard/receivables'),
+  });
+
+  const { data: payables } = useQuery({
+    queryKey: ['dashboard', 'payables'],
+    queryFn: () => apiClient<{
+      totalOwed: number; billCount: number;
+      overdueCount: number; overdueAmount: number;
+      dueThisWeekCount: number; dueThisWeekAmount: number;
+      creditCount: number; creditAmount: number;
+      apBalance: number;
+    }>('/dashboard/payables'),
   });
 
   const { data: budgetPerf } = useQuery({
@@ -215,7 +226,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Receivables */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
@@ -236,6 +247,33 @@ export function DashboardPage() {
               <p className="text-xs text-gray-400">{receivables?.overdueCount || 0} invoices</p>
             </div>
           </div>
+        </div>
+
+        {/* Payables */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-700">Payables</h2>
+            <button onClick={() => navigate('/reports/ap-aging-summary')} className="text-xs text-primary-600 hover:underline flex items-center gap-1">
+              View Report <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-gray-500">Total Owed</p>
+              <p className="text-xl font-bold font-mono">{fmt(payables?.totalOwed || 0)}</p>
+              <p className="text-xs text-gray-400">{payables?.billCount || 0} bills</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Overdue</p>
+              <p className="text-xl font-bold font-mono text-red-600">{fmt(payables?.overdueAmount || 0)}</p>
+              <p className="text-xs text-gray-400">{payables?.overdueCount || 0} bills</p>
+            </div>
+          </div>
+          {(payables?.creditCount || 0) > 0 && (
+            <p className="text-xs text-gray-400 mt-3 pt-3 border-t">
+              {payables!.creditCount} vendor credit{payables!.creditCount > 1 ? 's' : ''} available ({fmt(payables!.creditAmount)})
+            </p>
+          )}
         </div>
 
         {/* Action Items */}
@@ -284,12 +322,30 @@ export function DashboardPage() {
               <button onClick={() => navigate('/checks/print')} className="flex items-center gap-3 w-full text-left p-2 rounded-lg hover:bg-gray-50">
                 <div className="p-2 bg-purple-100 rounded-lg"><FileText className="h-4 w-4 text-purple-600" /></div>
                 <div>
-                  <p className="text-sm font-medium">{actions!.printQueueCount} checks (${fmt(actions!.printQueueAmount)}) ready to print</p>
+                  <p className="text-sm font-medium">{actions!.printQueueCount} checks ({fmt(actions!.printQueueAmount)}) ready to print</p>
                   <p className="text-xs text-gray-400">Print queued checks</p>
                 </div>
               </button>
             )}
-            {!actions?.pendingFeedCount && !actions?.overdueInvoiceCount && !actions?.staleReconciliations.length && !actions?.pendingDepositCount && !actions?.printQueueCount && (
+            {(payables?.overdueCount || 0) > 0 && (
+              <button onClick={() => navigate('/pay-bills')} className="flex items-center gap-3 w-full text-left p-2 rounded-lg hover:bg-gray-50">
+                <div className="p-2 bg-red-100 rounded-lg"><Receipt className="h-4 w-4 text-red-600" /></div>
+                <div>
+                  <p className="text-sm font-medium">{payables!.overdueCount} overdue bill{payables!.overdueCount > 1 ? 's' : ''} ({fmt(payables!.overdueAmount)})</p>
+                  <p className="text-xs text-gray-400">Pay bills now</p>
+                </div>
+              </button>
+            )}
+            {(payables?.dueThisWeekCount || 0) > 0 && (
+              <button onClick={() => navigate('/pay-bills')} className="flex items-center gap-3 w-full text-left p-2 rounded-lg hover:bg-gray-50">
+                <div className="p-2 bg-orange-100 rounded-lg"><Banknote className="h-4 w-4 text-orange-600" /></div>
+                <div>
+                  <p className="text-sm font-medium">{payables!.dueThisWeekCount} bill{payables!.dueThisWeekCount > 1 ? 's' : ''} due this week ({fmt(payables!.dueThisWeekAmount)})</p>
+                  <p className="text-xs text-gray-400">Schedule payment</p>
+                </div>
+              </button>
+            )}
+            {!actions?.pendingFeedCount && !actions?.overdueInvoiceCount && !actions?.staleReconciliations.length && !actions?.pendingDepositCount && !actions?.printQueueCount && !payables?.overdueCount && !payables?.dueThisWeekCount && (
               <p className="text-sm text-gray-400 text-center py-4">All caught up!</p>
             )}
           </div>

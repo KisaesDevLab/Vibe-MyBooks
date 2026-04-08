@@ -31,6 +31,9 @@ import {
   UsersRound,
   HelpCircle,
   ChevronDown,
+  Receipt,
+  Banknote,
+  RotateCcw,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLogout, useMe } from '../../api/hooks/useAuth';
@@ -54,6 +57,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/tenants', label: 'Tenants', icon: Building2 },
   { to: '/admin/users', label: 'Users', icon: UsersRound },
   { to: '/admin/bank-rules', label: 'Global Bank Rules', icon: Shield },
+  { to: '/admin/coa-templates', label: 'COA Templates', icon: BookOpen },
   { to: '/admin/tfa', label: 'Two-Factor Auth', icon: Shield },
   { to: '/admin/plaid', label: 'Plaid Config', icon: Landmark },
   { to: '/admin/plaid/connections', label: 'Plaid Monitor', icon: Landmark },
@@ -84,6 +88,14 @@ const navGroups: NavGroup[] = [
       { to: '/invoices', label: 'Invoices', icon: FileText },
       { to: '/receive-payment', label: 'Receive Payment', icon: CreditCard },
       { to: '/items', label: 'Items', icon: Package },
+    ],
+  },
+  {
+    label: 'Expenses',
+    items: [
+      { to: '/bills', label: 'Bills', icon: Receipt },
+      { to: '/pay-bills', label: 'Pay Bills', icon: Banknote },
+      { to: '/vendor-credits', label: 'Vendor Credits', icon: RotateCcw },
     ],
   },
   {
@@ -188,6 +200,9 @@ function AdminSection({ onNavigate }: { onNavigate?: () => void }) {
 
 const newTxnOptions = [
   { label: 'Expense', path: '/transactions/new/expense' },
+  { label: 'Bill', path: '/bills/new' },
+  { label: 'Vendor Credit', path: '/vendor-credits/new' },
+  { label: 'Pay Bills', path: '/pay-bills' },
   { label: 'Deposit', path: '/transactions/new/deposit' },
   { label: 'Transfer', path: '/transactions/new/transfer' },
   { label: 'Cash Sale', path: '/transactions/new/cash-sale' },
@@ -258,12 +273,58 @@ function NewTransactionButton() {
   );
 }
 
+const COLLAPSED_GROUPS_STORAGE_KEY = 'sidebar-collapsed-groups';
+
+// First-view defaults: every labeled group starts collapsed *except*
+// Transactions, which is the most common entry point. Once the user
+// toggles a group, their preference is persisted to localStorage and
+// these defaults no longer apply.
+const DEFAULT_COLLAPSED_GROUPS: Record<string, boolean> = {
+  Sales: true,
+  Checks: true,
+  Banking: true,
+  Reporting: true,
+  Manage: true,
+};
+
+function useCollapsedGroups() {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem(COLLAPSED_GROUPS_STORAGE_KEY);
+      return stored ? (JSON.parse(stored) as Record<string, boolean>) : { ...DEFAULT_COLLAPSED_GROUPS };
+    } catch {
+      return { ...DEFAULT_COLLAPSED_GROUPS };
+    }
+  });
+
+  const toggle = (label: string) => {
+    setCollapsed((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try {
+        localStorage.setItem(COLLAPSED_GROUPS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore quota / privacy-mode errors
+      }
+      return next;
+    });
+  };
+
+  return { collapsed, toggle };
+}
+
+const DEFAULT_APP_NAME = 'Vibe MyBooks';
+
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const logout = useLogout();
   const { data: meData } = useMe();
   const isSuperAdmin = meData?.user?.isSuperAdmin === true;
   const userRole = meData?.user?.role;
   const isAccountantRole = userRole === 'accountant' || userRole === 'bookkeeper';
+  const { collapsed: collapsedGroups, toggle: toggleGroup } = useCollapsedGroups();
+  // Branding may be missing during the initial /me fetch — fall back to
+  // the default name so the header never flashes empty.
+  const appName = meData?.branding?.appName || DEFAULT_APP_NAME;
+  const isCustomAppName = meData?.branding?.isCustomName === true;
 
   const handleLogout = () => {
     logout.mutate(undefined, {
@@ -276,7 +337,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <aside className="flex flex-col w-64 h-full min-h-screen" style={{ backgroundColor: '#111827', color: '#D1D5DB' }}>
       <div className="px-6 py-5" style={{ borderBottom: '1px solid #374151' }}>
-        <h1 className="text-xl font-bold" style={{ color: '#FFFFFF' }}>Vibe MyBooks</h1>
+        <h1 className="text-xl font-bold" style={{ color: '#FFFFFF' }}>{appName}</h1>
       </div>
 
       <CompanySwitcher />
@@ -293,24 +354,41 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <AdminSection onNavigate={onNavigate} />
         )}
 
-        {navGroups.map((group, gi) => (
-          <div key={gi}>
-            {group.label && (
-              <div className="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
-                {group.label}
-              </div>
-            )}
-            {group.label === 'Transactions' && <NewTransactionButton />}
-            {group.items.map((item) => (
-              <SidebarLink
-                key={item.to}
-                item={item}
-                end={item.to === '/' || item.to === '/settings'}
-                onClick={onNavigate}
-              />
-            ))}
-          </div>
-        ))}
+        {navGroups.map((group, gi) => {
+          const isCollapsed = group.label ? collapsedGroups[group.label] === true : false;
+          const expanded = !isCollapsed;
+          return (
+            <div key={gi}>
+              {group.label && (
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.label!)}
+                  aria-expanded={expanded}
+                  className="flex items-center justify-between w-full px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity"
+                  style={{ color: '#9CA3AF' }}
+                >
+                  <span>{group.label}</span>
+                  <ChevronDown
+                    className={clsx('h-3.5 w-3.5 transition-transform duration-200', expanded && 'rotate-180')}
+                  />
+                </button>
+              )}
+              {expanded && (
+                <>
+                  {group.label === 'Transactions' && <NewTransactionButton />}
+                  {group.items.map((item) => (
+                    <SidebarLink
+                      key={item.to}
+                      item={item}
+                      end={item.to === '/' || item.to === '/settings'}
+                      onClick={onNavigate}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       <SidebarDisplayControls />
@@ -326,6 +404,20 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <LogOut className="h-5 w-5" />
           Log out
         </button>
+        {isCustomAppName && (
+          <div className="mt-2 px-3 text-center text-[11px]" style={{ color: '#6B7280' }}>
+            powered by{' '}
+            <a
+              href="https://VibeMB.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+              style={{ color: '#9CA3AF' }}
+            >
+              VibeMB.com
+            </a>
+          </div>
+        )}
       </div>
     </aside>
   );

@@ -33,6 +33,7 @@ const txnTypes = [
   { value: 'credit_card_charge', label: 'Credit Card Charges', needsAccount: true },
   { value: 'credit_card_credit', label: 'Credit Card Credits', needsAccount: true },
   { value: 'invoice', label: 'Invoices', needsAccount: false },
+  { value: 'bill', label: 'Bills', needsAccount: false },
   { value: 'credit_memo', label: 'Credit Memos', needsAccount: false },
   { value: 'journal_entry', label: 'Journal Entries', needsAccount: false },
   { value: 'customer_payment', label: 'Customer Payments', needsAccount: true },
@@ -75,6 +76,15 @@ const columnsByType: Record<string, Array<{ key: keyof GridRow; label: string; r
     { key: 'contactName', label: 'Customer', required: true, width: 'w-36' },
     { key: 'dueDate', label: 'Due Date', width: 'w-28' },
     { key: 'accountName', label: 'Account', required: true, width: 'w-36' },
+    { key: 'description', label: 'Description', width: 'w-40' },
+    { key: 'amount', label: 'Amount', required: true, width: 'w-24' },
+  ],
+  bill: [
+    { key: 'date', label: 'Bill Date', required: true, width: 'w-28' },
+    { key: 'invoiceNo', label: 'Vendor Inv #', width: 'w-24' },
+    { key: 'contactName', label: 'Vendor', required: true, width: 'w-36' },
+    { key: 'dueDate', label: 'Due Date', width: 'w-28' },
+    { key: 'accountName', label: 'Expense Account', required: true, width: 'w-36' },
     { key: 'description', label: 'Description', width: 'w-40' },
     { key: 'amount', label: 'Amount', required: true, width: 'w-24' },
   ],
@@ -362,7 +372,7 @@ export function BatchEntryPage() {
 
                     // Account dropdown cell
                     if (col.key === 'accountName') {
-                      const accountFilter = txnType === 'expense' || txnType === 'credit_card_charge' ? 'expense' as const
+                      const accountFilter = txnType === 'expense' || txnType === 'credit_card_charge' || txnType === 'bill' ? 'expense' as const
                         : txnType === 'deposit' ? 'revenue' as const
                         : undefined;
                       return (
