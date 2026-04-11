@@ -23,10 +23,19 @@ if ($Uninstall) {
         Set-Location $InstallDir
         & docker compose -f docker-compose.prod.yml down 2>$null
     } catch {}
-    Write-Status "Removing Docker volumes..."
+    Write-Status "Removing Docker volumes (database + queue)..."
     try {
-        & docker volume rm mybooks_pgdata mybooks_redis-data mybooks_app-data 2>$null
+        & docker volume rm mybooks_pgdata mybooks_redis-data 2>$null
     } catch {}
+    # Note: attachments and backups live in "$InstallDir\data" on the host.
+    # We intentionally do NOT delete them here — users may want to preserve
+    # their bookkeeping data (receipts, PDFs, backups) after uninstalling the
+    # application. Manual cleanup:
+    #   Remove-Item -Recurse -Force "$InstallDir\data"
+    if (Test-Path (Join-Path $InstallDir "data")) {
+        Write-Status "Your bookkeeping data is preserved at: $InstallDir\data"
+        Write-Status "Delete it manually if you no longer need it."
+    }
     Write-Status "Uninstall complete."
     exit 0
 }

@@ -29,7 +29,10 @@ Alternatively, from command line:
 
 - Application files in `C:\Program Files\Vibe MyBooks\`
 - Docker containers: `db` (PostgreSQL), `redis`, `api`, `web`, `worker`
-- Docker volumes: `pgdata`, `redis-data`, `app-data` (persistent data)
+- Docker volumes: `pgdata` (PostgreSQL data), `redis-data` (job queue)
+- Host data directory: `<install-dir>\data\` — uploaded attachments, generated
+  PDFs, and backups. Lives on disk as regular files so you can back them up
+  with any file-copy tool.
 - Desktop shortcut: `Vibe MyBooks` (starts containers + opens browser)
 - Start Menu: `Vibe MyBooks` group with Start, Stop, and Uninstall
 
@@ -37,8 +40,13 @@ Alternatively, from command line:
 
 Use **Add/Remove Programs** or the Start Menu uninstaller. This will:
 - Stop all Docker containers
-- Remove Docker volumes (database + uploaded files)
+- Remove Docker volumes `pgdata` and `redis-data` (database + job queue)
 - Remove application files
+
+**Your bookkeeping data is preserved.** The `data\` folder inside the install
+directory (attachments, PDFs, backups) is intentionally left in place so you
+don't lose business records on uninstall. Delete it manually if you truly
+want a clean slate.
 
 **Note:** Docker Desktop itself is NOT uninstalled — other applications may depend on it.
 

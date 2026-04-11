@@ -6,20 +6,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vibe MyBooks</title>
     <script>
+      // crypto.randomUUID polyfill for insecure contexts (plain HTTP over LAN).
+      // Runs before any module script so every useState(() => crypto.randomUUID())
+      // call site sees a working function. getRandomValues IS available in
+      // insecure contexts, so we build an RFC 4122 v4 UUID from it.
       (function() {
+        console.log('[cryptoPolyfill:html] before:', typeof (window.crypto && window.crypto.randomUUID));
+        if (!window.crypto || typeof window.crypto.getRandomValues !== 'function') {
+          console.warn('[cryptoPolyfill:html] no crypto.getRandomValues available; cannot polyfill');
+          return;
+        }
+        if (typeof window.crypto.randomUUID === 'function') {
+          console.log('[cryptoPolyfill:html] native randomUUID already present, no shim needed');
+          return;
+        }
+        var hex = [];
+        for (var i = 0; i < 256; i++) hex.push((i + 0x100).toString(16).slice(1));
+        function shim() {
+          var b = new Uint8Array(16);
+          window.crypto.getRandomValues(b);
+          b[6] = (b[6] & 0x0f) | 0x40;
+          b[8] = (b[8] & 0x3f) | 0x80;
+          return hex[b[0]] + hex[b[1]] + hex[b[2]] + hex[b[3]] + '-' +
+                 hex[b[4]] + hex[b[5]] + '-' +
+                 hex[b[6]] + hex[b[7]] + '-' +
+                 hex[b[8]] + hex[b[9]] + '-' +
+                 hex[b[10]] + hex[b[11]] + hex[b[12]] + hex[b[13]] + hex[b[14]] + hex[b[15]];
+        }
         try {
-          var prefs = JSON.parse(localStorage.getItem('kis-display-prefs'));
-          if (prefs) {
-            if (prefs.theme === 'dark' || (prefs.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-              document.documentElement.setAttribute('data-theme', 'dark');
-            } else if (prefs.theme === 'light') {
-              document.documentElement.setAttribute('data-theme', 'light');
-            } else {
-              document.documentElement.setAttribute('data-theme', 'system');
-            }
-            if (prefs.fontScale && prefs.fontScale !== 1) {
-              document.documentElement.style.fontSize = (16 * prefs.fontScale) + 'px';
-            }
+          Object.defineProperty(window.crypto, 'randomUUID', {
+            value: shim, writable: true, configurable: true,
+          });
+          console.log('[cryptoPolyfill:html] installed; test =', window.crypto.randomUUID());
+        } catch (e) {
+          console.error('[cryptoPolyfill:html] defineProperty failed', e);
+        }
+      })();
+    </script>
+    <script>
+      (function() {
+        // Resolve the user's theme preference to a concrete `dark` or `light`
+        // value before first paint. We never write `data-theme="system"` —
+        // see the matching comment in ThemeProvider.applyToDOM.
+        try {
+          var prefs = JSON.parse(localStorage.getItem('kis-display-prefs')) || {};
+          var pref = prefs.theme || 'system';
+          var resolved;
+          if (pref === 'dark') resolved = 'dark';
+          else if (pref === 'light') resolved = 'light';
+          else resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', resolved);
+          if (prefs.fontScale && prefs.fontScale !== 1) {
+            document.documentElement.style.fontSize = (16 * prefs.fontScale) + 'px';
           }
         } catch(e) {}
       })();

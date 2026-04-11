@@ -41,7 +41,10 @@ services:
       DATABASE_URL: postgresql://kisbooks:kisbooks@db:5432/kisbooks
       REDIS_URL: redis://redis:6379
     volumes:
-      - app-data:/data
+      # Host bind mount — attachments, backups, and generated files live on
+      # disk next to the compose file so they can be inspected, backed up
+      # with standard tools, and survive `docker volume prune`.
+      - ./data:/data
     depends_on:
       db:
         condition: service_healthy
@@ -55,6 +58,8 @@ services:
     restart: unless-stopped
     ports:
       - "${VITE_PORT:-5173}:5173"
+    environment:
+      VITE_API_URL: http://api:3001
     depends_on:
       - api
 
@@ -69,7 +74,7 @@ services:
       DATABASE_URL: postgresql://kisbooks:kisbooks@db:5432/kisbooks
       REDIS_URL: redis://redis:6379
     volumes:
-      - app-data:/data
+      - ./data:/data
     depends_on:
       db:
         condition: service_healthy
@@ -79,4 +84,3 @@ services:
 volumes:
   pgdata:
   redis-data:
-  app-data:

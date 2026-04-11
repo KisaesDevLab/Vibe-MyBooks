@@ -74,6 +74,8 @@ interface FormState {
   entityType: string;
   industry: string;
   businessType: string;
+  // Optional demo data
+  createDemoCompany: boolean;
 }
 
 function generateRandomPassword(): string {
@@ -92,14 +94,26 @@ export function FirstRunSetupWizard() {
   const [step, setStep] = useState(0);
 
   const [form, setForm] = useState<FormState>({
-    dbHost: 'localhost',
+    // Defaults match the Docker Compose install (the `db` and `redis`
+    // service names in docker-compose.yml, and the default password set
+    // by the postgres service). From inside the api container `localhost`
+    // resolves to the api container itself, NOT to Postgres, so the old
+    // `localhost` default made the wizard's test-connection step fail
+    // every time. Likewise the old `generateRandomPassword()` default
+    // generated a fresh random string on each page load that had zero
+    // chance of matching the running Postgres instance.
+    //
+    // If you're running against an external Postgres / Redis, change
+    // these in the wizard UI; the defaults are just the docker-compose
+    // install's working values.
+    dbHost: 'db',
     dbPort: '5432',
     dbName: 'kisbooks',
     dbUser: 'kisbooks',
-    dbPassword: generateRandomPassword(),
+    dbPassword: 'kisbooks',
     apiPort: '3001',
     frontendPort: '5173',
-    redisHost: 'localhost',
+    redisHost: 'redis',
     redisPort: '6379',
     jwtSecret: '',
     backupKey: '',
@@ -118,6 +132,7 @@ export function FirstRunSetupWizard() {
     entityType: 'sole_prop',
     industry: '',
     businessType: 'general_business',
+    createDemoCompany: false,
   });
 
   // Visibility toggles
@@ -350,6 +365,7 @@ export function FirstRunSetupWizard() {
             industry: form.industry || null,
             businessType: form.businessType,
           },
+          createDemoCompany: form.createDemoCompany,
         }),
       });
 
@@ -831,6 +847,33 @@ export function FirstRunSetupWizard() {
                   onChange={set('industry')}
                   placeholder="e.g., Consulting, Retail, Service"
                 />
+
+                {/* Optional demo data */}
+                <div className="pt-2 border-t border-gray-200">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.createDemoCompany}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, createDemoCompany: e.target.checked }))
+                      }
+                      className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">
+                        Also create a Demo Bookkeeping Co tenant with sample data
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Creates a second tenant named <strong>Demo Bookkeeping Co</strong>{' '}
+                        populated with ~200 realistic transactions (invoices, customer
+                        payments, cash sales, expenses, bank deposits, transfers, and
+                        payroll) spanning the current year and the prior year. Useful for
+                        exploring the app and testing reports without touching your real
+                        books. You can switch between the two tenants from the app UI.
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
             )}
 
@@ -977,8 +1020,12 @@ export function FirstRunSetupWizard() {
               </div>
             )}
 
-            {/* Navigation buttons (not shown on finalizing step) */}
-            {step < 7 && (
+            {/* Navigation buttons — hidden only on the Finalizing step (8),
+                which has its own "Go to Login" / "Retry" controls. The bar
+                DOES render on step 7 (Review) with a "Complete Setup"
+                button; previously it was hidden on step 7 too, leaving
+                users stranded with no way to finish the wizard. */}
+            {step < 8 && (
               <div className="flex justify-between mt-6 pt-4 border-t border-gray-100">
                 {step > 0 ? (
                   <Button variant="secondary" onClick={handleBack}>
