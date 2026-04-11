@@ -34,6 +34,8 @@ import {
   Receipt,
   Banknote,
   RotateCcw,
+  Upload,
+  ClipboardList,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLogout, useMe } from '../../api/hooks/useAuth';
@@ -96,6 +98,13 @@ const navGroups: NavGroup[] = [
       { to: '/bills', label: 'Bills', icon: Receipt },
       { to: '/pay-bills', label: 'Pay Bills', icon: Banknote },
       { to: '/vendor-credits', label: 'Vendor Credits', icon: RotateCcw },
+    ],
+  },
+  {
+    label: 'Payroll',
+    items: [
+      { to: '/payroll/import', label: 'Import Payroll', icon: Upload },
+      { to: '/payroll/imports', label: 'Import History', icon: ClipboardList },
     ],
   },
   {

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
-import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useMatchFeedItem, useMatchCandidates } from '../../api/hooks/useBanking';
+import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
 import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/hooks/useAi';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
@@ -383,6 +383,7 @@ export function BankFeedPage() {
                           <input value={editState.memo}
                             onChange={(e) => setEditState((s) => ({ ...s, memo: e.target.value }))}
                             className="block w-full rounded border border-gray-300 px-2 py-1 text-sm" placeholder="Memo" />
+                          <PayrollOverlapBanner feedItemId={item.id} />
                         </div>
                       ) : (
                         <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[item.status] || ''}`}>
@@ -526,6 +527,24 @@ function MatchCandidatesModal({ feedItemId, onClose, onMatch, isPending }: {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+function PayrollOverlapBanner({ feedItemId }: { feedItemId: string }) {
+  const { data } = usePayrollOverlapCheck(feedItemId);
+  const overlaps = data?.overlaps || [];
+  if (overlaps.length === 0) return null;
+
+  return (
+    <div className="mt-1 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+      <p className="font-medium">Possible payroll overlap</p>
+      {overlaps.map(o => (
+        <p key={o.txnId} className="mt-0.5">
+          {o.memo} on {o.date} (${o.amount})
+        </p>
+      ))}
+      <p className="mt-1 text-yellow-600">This amount may already be covered by a payroll journal entry. Categorizing it could double-count the transaction.</p>
     </div>
   );
 }

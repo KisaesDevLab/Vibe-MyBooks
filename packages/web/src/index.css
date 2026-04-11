@@ -4,12 +4,25 @@
 
 /* ============================================================
    LIGHT MODE: Darken gray text for better readability
+   WCAG 2.1 AA requires 4.5:1 contrast for normal text.
    ============================================================ */
 
-.text-gray-500 { color: #374151 !important; }  /* was #6B7280, now gray-700 */
-.text-gray-600 { color: #1F2937 !important; }  /* was #4B5563, now gray-800 */
-.text-gray-400 { color: #4B5563 !important; }  /* was #9CA3AF, now gray-600 */
-.text-gray-300 { color: #6B7280 !important; }  /* was #D1D5DB, now gray-500 */
+.text-gray-500 { color: #374151 !important; }  /* was #6B7280 (4.83:1), now gray-700 (10.31:1) */
+.text-gray-600 { color: #1F2937 !important; }  /* was #4B5563 (7.56:1), now gray-800 (14.68:1) */
+.text-gray-400 { color: #4B5563 !important; }  /* was #9CA3AF (2.54:1 FAIL), now gray-600 (7.56:1) */
+.text-gray-300 { color: #6B7280 !important; }  /* was #D1D5DB (1.55:1 FAIL), now gray-500 (4.83:1) */
+
+/* Semantic text colors: ensure AA contrast (4.5:1) on their light backgrounds.
+   -600 shades fail on -50 backgrounds; remap to -700 or -800. */
+.text-amber-600 { color: #B45309 !important; }  /* amber-700: 5.02:1 on white — AA */
+.text-green-600 { color: #15803D !important; }   /* green-700: 4.79:1 on green-50 — AA */
+.text-red-600   { color: #B91C1C !important; }   /* red-700: 5.91:1 on red-50 — AA */
+
+/* Placeholder text: ensure 4.5:1 contrast against white inputs */
+input::placeholder,
+textarea::placeholder {
+  color: #6B7280 !important; /* gray-500: 4.83:1 on white — AA pass */
+}
 
 /* ============================================================
    DARK MODE OVERRIDES
@@ -116,6 +129,10 @@ html.no-transition * {
 [data-theme="dark"] .bg-gray-100.text-gray-700 { background-color: #374151 !important; color: #D1D5DB !important; }
 [data-theme="dark"] .bg-indigo-100.text-indigo-700 { background-color: #312E81 !important; color: #A5B4FC !important; }
 
+/* Disabled / muted text — ensure 4.5:1 minimum on dark backgrounds */
+[data-theme="dark"] .text-gray-400 { color: #9CA3AF !important; }  /* 6.99:1 on #111827 — AA */
+[data-theme="dark"] .disabled\:opacity-50:disabled { opacity: 0.6 !important; } /* Stronger disabled hint */
+
 /* Shadows */
 [data-theme="dark"] .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.4) !important; }
 [data-theme="dark"] .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important; }
@@ -131,6 +148,13 @@ html.no-transition * {
 /* Note: there is intentionally no `[data-theme="system"]` block. The
    ThemeProvider always resolves the user's preference to either `dark` or
    `light` and writes that to the DOM, so the rules above cover every case. */
+
+/* Focus ring: use primary-700 for stronger 5:1+ contrast on white backgrounds.
+   WCAG 2.4.7 requires focus indicators to be visible; 2.4.11 (AAA) requires
+   a contrast ratio of at least 3:1 against the adjacent color. */
+.focus\:ring-primary-500:focus {
+  --tw-ring-color: #1D4ED8 !important; /* primary-700: 8.59:1 on white */
+}
 
 /* Print: force light */
 @media print {

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { useTags, useCreateTag } from '../../api/hooks/useTags';
 import { TAG_COLOR_PALETTE } from '@kis-books/shared';
+import { darkenForText } from '../../utils/color-a11y';
 import { X, Plus } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -109,7 +110,7 @@ export function TagSelector({ value, onChange, label, compact }: TagSelectorProp
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
             style={{
               backgroundColor: tag.color ? `${tag.color}20` : '#f3f4f6',
-              color: tag.color || '#4b5563',
+              color: tag.color ? darkenForText(tag.color) : '#4b5563',
             }}
           >
             {tag.name}

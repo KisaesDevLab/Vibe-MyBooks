@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { AdminRoute } from './components/layout/AdminRoute';
 import { LoginPage } from './features/auth/LoginPage';
 import { RegisterPage } from './features/auth/RegisterPage';
 import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
@@ -87,9 +88,13 @@ import { OAuthConsentPage } from './features/auth/OAuthConsentPage';
 import { ConnectedAppsPage } from './features/settings/ConnectedAppsPage';
 import { StorageSettingsPage } from './features/settings/StorageSettingsPage';
 import { StatementUploadPage } from './features/banking/StatementUploadPage';
+import { PayrollImportPage } from './features/payroll/PayrollImportPage';
+import { PayrollHistoryPage } from './features/payroll/PayrollHistoryPage';
+import { PayrollAccountMappingPage } from './features/payroll/PayrollAccountMappingPage';
 import { TfaSettingsPage } from './features/settings/TfaSettingsPage';
 import { KnowledgeBasePage } from './features/help/KnowledgeBasePage';
 import { ArticlePage } from './features/help/ArticlePage';
+import { NotFoundPage } from './features/NotFoundPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -133,13 +138,13 @@ export function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/tenants" element={<TenantListPage />} />
-            <Route path="/admin/tenants/:id" element={<TenantDetailPage />} />
-            <Route path="/admin/users" element={<UserListPage />} />
-            <Route path="/admin/system" element={<SystemSettingsPage />} />
-            <Route path="/admin/bank-rules" element={<GlobalBankRulesPage />} />
-            <Route path="/admin/coa-templates" element={<CoaTemplatesPage />} />
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="/admin/tenants" element={<AdminRoute><TenantListPage /></AdminRoute>} />
+            <Route path="/admin/tenants/:id" element={<AdminRoute><TenantDetailPage /></AdminRoute>} />
+            <Route path="/admin/users" element={<AdminRoute><UserListPage /></AdminRoute>} />
+            <Route path="/admin/system" element={<AdminRoute><SystemSettingsPage /></AdminRoute>} />
+            <Route path="/admin/bank-rules" element={<AdminRoute><GlobalBankRulesPage /></AdminRoute>} />
+            <Route path="/admin/coa-templates" element={<AdminRoute><CoaTemplatesPage /></AdminRoute>} />
             <Route path="/" element={<DashboardPage />} />
             <Route path="/accounts" element={<AccountsListPage />} />
             <Route path="/accounts/:id/register" element={<AccountRegisterPage />} />
@@ -236,14 +241,18 @@ export function App() {
             <Route path="/settings/security" element={<TfaSettingsPage />} />
             <Route path="/settings/connected-apps" element={<ConnectedAppsPage />} />
             <Route path="/settings/storage" element={<StorageSettingsPage />} />
-            <Route path="/admin/tfa" element={<TfaConfigPage />} />
-            <Route path="/admin/plaid" element={<PlaidConfigPage />} />
-            <Route path="/admin/plaid/connections" element={<PlaidConnectionsMonitorPage />} />
-            <Route path="/admin/ai" element={<AiConfigPage />} />
-            <Route path="/admin/mcp" element={<McpConfigPage />} />
+            <Route path="/admin/tfa" element={<AdminRoute><TfaConfigPage /></AdminRoute>} />
+            <Route path="/admin/plaid" element={<AdminRoute><PlaidConfigPage /></AdminRoute>} />
+            <Route path="/admin/plaid/connections" element={<AdminRoute><PlaidConnectionsMonitorPage /></AdminRoute>} />
+            <Route path="/admin/ai" element={<AdminRoute><AiConfigPage /></AdminRoute>} />
+            <Route path="/admin/mcp" element={<AdminRoute><McpConfigPage /></AdminRoute>} />
+            <Route path="/payroll/import" element={<PayrollImportPage />} />
+            <Route path="/payroll/imports" element={<PayrollHistoryPage />} />
+            <Route path="/settings/payroll-accounts" element={<PayrollAccountMappingPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/help" element={<KnowledgeBasePage />} />
             <Route path="/help/:id" element={<ArticlePage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

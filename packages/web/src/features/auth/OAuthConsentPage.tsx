@@ -20,10 +20,26 @@ export function OAuthConsentPage() {
   const [error, setError] = useState('');
 
   const clientId = params.get('client_id') || '';
-  const redirectUri = params.get('redirect_uri') || '';
+  const rawRedirectUri = params.get('redirect_uri') || '';
   const scope = params.get('scope') || 'all';
   const state = params.get('state') || '';
   const scopes = scope.split(',').filter(Boolean);
+
+  // Validate redirect URI to prevent open redirect attacks
+  const isRedirectSafe = (uri: string): boolean => {
+    try {
+      const parsed = new URL(uri);
+      const allowed = new URL(window.location.origin);
+      // Allow same-origin redirects and localhost for development
+      return parsed.origin === allowed.origin
+        || parsed.hostname === 'localhost'
+        || parsed.hostname === '127.0.0.1';
+    } catch {
+      return false;
+    }
+  };
+
+  const redirectUri = isRedirectSafe(rawRedirectUri) ? rawRedirectUri : '';
 
   const handleApprove = async () => {
     setLoading(true);

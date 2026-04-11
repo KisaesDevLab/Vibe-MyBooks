@@ -50,6 +50,16 @@ export function useCategorizeFeedItem() {
   });
 }
 
+export function usePayrollOverlapCheck(feedItemId: string | null) {
+  return useQuery({
+    queryKey: ['bank-feed', 'payroll-overlap', feedItemId],
+    queryFn: () => apiClient<{ overlaps: Array<{ txnId: string; memo: string; date: string; amount: string }> }>(
+      `/banking/feed/${feedItemId}/payroll-overlap`,
+    ),
+    enabled: !!feedItemId,
+  });
+}
+
 export function useMatchFeedItem() {
   const qc = useQueryClient();
   return useMutation({
