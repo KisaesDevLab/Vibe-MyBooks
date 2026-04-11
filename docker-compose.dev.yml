@@ -31,6 +31,12 @@ services:
       # api always sees the freshly-compiled output.
       - ./packages/shared/dist:/app/packages/shared/dist
       - ./packages/api/src:/app/packages/api/src
+      # Read-only mount of the web source so the chat-knowledge
+      # generator (services/chat-knowledge-generator.ts) can scan
+      # App.tsx + page files to build the screen catalog. Read-only
+      # so the API process can never write to web source by accident.
+      - ./packages/web/src:/app/packages/web/src:ro
+      - ./packages/web/index.html:/app/packages/web/index.html:ro
     command: ["npx", "tsx", "watch", "packages/api/src/index.ts"]
     environment:
       NODE_ENV: development

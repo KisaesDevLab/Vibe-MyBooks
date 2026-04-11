@@ -13,6 +13,9 @@ import {
   Mail,
   Key,
   Shield,
+  FileArchive,
+  Upload,
+  Cloud,
 } from 'lucide-react';
 
 const settingsCards = [
@@ -75,6 +78,24 @@ const settingsCards = [
     icon: Scale,
     title: 'Opening Balances',
     description: 'Set starting balances when migrating from another system',
+  },
+  {
+    to: '/settings/tenant-export',
+    icon: FileArchive,
+    title: 'Export Company Data',
+    description: 'Export your company data as an encrypted file for your accountant',
+  },
+  {
+    to: '/settings/tenant-import',
+    icon: Upload,
+    title: 'Import Client Data',
+    description: 'Import a client\'s company data from another Vibe MyBooks installation',
+  },
+  {
+    to: '/settings/remote-backup',
+    icon: Cloud,
+    title: 'Remote Backups',
+    description: 'Schedule automatic backups to SFTP, WebDAV, or email',
   },
 ];
 

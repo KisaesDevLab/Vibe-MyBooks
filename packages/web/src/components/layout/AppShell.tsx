@@ -2,11 +2,14 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Menu } from 'lucide-react';
+import { ChatFab } from '../../features/chat/ChatFab';
+import { ChatProvider } from '../../features/chat/ChatController';
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
+    <ChatProvider>
     <div className="flex min-h-screen bg-gray-50">
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -41,6 +44,11 @@ export function AppShell() {
           <Outlet />
         </div>
       </main>
+
+      {/* AI chat assistant — only renders if chat is enabled at both
+          the system and company level (handled inside ChatFab). */}
+      <ChatFab />
     </div>
+    </ChatProvider>
   );
 }

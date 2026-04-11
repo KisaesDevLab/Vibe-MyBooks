@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useBill, useVoidBill } from '../../api/hooks/useAp';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { AttachmentPanel } from '../attachments/AttachmentPanel';
 
 const STATUS_COLORS: Record<string, string> = {
   unpaid: 'bg-yellow-100 text-yellow-800',
@@ -48,11 +49,13 @@ export function BillDetailPage() {
           </h1>
         </div>
         <div className="flex gap-2">
+          {!isVoid && (
+            <Button variant="secondary" onClick={() => navigate(`/bills/${id}/edit`)}>
+              {status === 'unpaid' ? 'Edit' : 'Edit Lines'}
+            </Button>
+          )}
           {!isVoid && status === 'unpaid' && (
-            <>
-              <Button variant="secondary" onClick={() => navigate(`/bills/${id}/edit`)}>Edit</Button>
-              <Button variant="danger" onClick={() => setShowVoid(true)}>Void</Button>
-            </>
+            <Button variant="danger" onClick={() => setShowVoid(true)}>Void</Button>
           )}
           <Button onClick={() => navigate('/pay-bills')}>Pay Bill</Button>
         </div>
@@ -130,6 +133,15 @@ export function BillDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Attachments — vendor invoices, supporting docs, etc.
+          Uses attachableType="bill" so the same panel that the
+          Enter Bill page uses in edit mode shows the same files.
+          The bill OCR upload zone on EnterBillPage stores files
+          under this same key after the bill is saved. */}
+      <div className="mt-4">
+        <AttachmentPanel attachableType="bill" attachableId={bill.id} />
       </div>
 
       {showVoid && (

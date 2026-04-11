@@ -1,10 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, type FormEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { CheckCircle, Eye, EyeOff, RefreshCw, Download, ChevronRight } from 'lucide-react';
-import { BUSINESS_TYPE_OPTIONS } from '@kis-books/shared';
+import { CheckCircle, Eye, EyeOff, RefreshCw, Download, ChevronRight, Upload, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 
 const SETUP_API = '/api/setup';
 
@@ -92,6 +92,70 @@ function generateRandomPassword(): string {
 export function FirstRunSetupWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+  const businessTypeOptions = useCoaTemplateOptions();
+
+  // Restore from backup state
+  const [restoreMode, setRestoreMode] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restorePassphrase, setRestorePassphrase] = useState('');
+  const [showRestorePassphrase, setShowRestorePassphrase] = useState(false);
+  const [restoreValidation, setRestoreValidation] = useState<Record<string, unknown> | null>(null);
+  const [restoreValidating, setRestoreValidating] = useState(false);
+  const [restoreExecuting, setRestoreExecuting] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<Record<string, unknown> | null>(null);
+  const [restoreError, setRestoreError] = useState('');
+  const restoreFileRef = useRef<HTMLInputElement>(null);
+
+  const handleRestoreFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setRestoreFile(e.target.files?.[0] ?? null);
+    setRestoreValidation(null);
+    setRestoreResult(null);
+    setRestoreError('');
+  };
+
+  const handleRestoreValidate = async () => {
+    if (!restoreFile || !restorePassphrase) return;
+    setRestoreValidating(true);
+    setRestoreError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', restoreFile);
+      formData.append('passphrase', restorePassphrase);
+      const res = await fetch('/api/setup/restore/validate', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: 'Validation failed' } }));
+        throw new Error(err.error?.message || 'Validation failed');
+      }
+      const data = await res.json();
+      setRestoreValidation(data);
+    } catch (err: any) {
+      setRestoreError(err.message || 'Validation failed');
+    } finally {
+      setRestoreValidating(false);
+    }
+  };
+
+  const handleRestoreExecute = async () => {
+    if (!restoreFile || !restorePassphrase) return;
+    setRestoreExecuting(true);
+    setRestoreError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', restoreFile);
+      formData.append('passphrase', restorePassphrase);
+      const res = await fetch('/api/setup/restore/execute', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
+        throw new Error(err.error?.message || 'Restore failed');
+      }
+      const data = await res.json();
+      setRestoreResult(data);
+    } catch (err: any) {
+      setRestoreError(err.message || 'Restore failed');
+    } finally {
+      setRestoreExecuting(false);
+    }
+  };
 
   const [form, setForm] = useState<FormState>({
     // Defaults match the Docker Compose install (the `db` and `redis`
@@ -504,17 +568,163 @@ export function FirstRunSetupWizard() {
         <div className="w-full max-w-2xl">
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
             {/* Step 0: Welcome */}
-            {step === 0 && (
-              <div className="text-center py-8 space-y-4">
+            {step === 0 && !restoreMode && !restoreResult && (
+              <div className="text-center py-8 space-y-6">
                 <h2 className="text-3xl font-bold text-gray-900">Welcome to Vibe MyBooks</h2>
                 <p className="text-lg text-gray-600 max-w-md mx-auto">
-                  Your self-hosted bookkeeping solution. This wizard will guide you through the
-                  initial setup in just a few minutes.
+                  Your self-hosted bookkeeping solution. Choose how you'd like to get started.
                 </p>
+
+                <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto pt-2">
+                  <button
+                    onClick={() => setStep(1)}
+                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-all text-left group"
+                  >
+                    <ChevronRight className="h-6 w-6 text-primary-600 mb-2" />
+                    <h3 className="font-semibold text-gray-900 group-hover:text-primary-700">New Installation</h3>
+                    <p className="text-xs text-gray-500 mt-1">Set up a fresh Vibe MyBooks instance from scratch</p>
+                  </button>
+                  <button
+                    onClick={() => setRestoreMode(true)}
+                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group"
+                  >
+                    <Upload className="h-6 w-6 text-amber-600 mb-2" />
+                    <h3 className="font-semibold text-gray-900 group-hover:text-amber-700">Restore from Backup</h3>
+                    <p className="text-xs text-gray-500 mt-1">Restore a previous installation from a .vmb backup file</p>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Restore from backup flow */}
+            {step === 0 && restoreMode && !restoreResult && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <Upload className="h-5 w-5 text-amber-600" />
+                  Restore from Backup
+                </h2>
                 <p className="text-sm text-gray-500">
-                  We'll configure your database, security keys, email, admin account, and company
-                  profile.
+                  Upload a .vmb backup file and enter the passphrase to restore your data.
                 </p>
+
+                {restoreError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    {restoreError}
+                  </div>
+                )}
+
+                <div className="space-y-3 max-w-md">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Backup File (.vmb)</label>
+                    <input
+                      ref={restoreFileRef}
+                      type="file"
+                      accept=".vmb,.kbk"
+                      onChange={handleRestoreFileChange}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border file:border-gray-300 file:text-sm file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
+                    />
+                  </div>
+
+                  {restoreFile && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Passphrase</label>
+                      <div className="relative">
+                        <input
+                          type={showRestorePassphrase ? 'text' : 'password'}
+                          value={restorePassphrase}
+                          onChange={(e) => setRestorePassphrase(e.target.value)}
+                          placeholder="Enter backup passphrase"
+                          className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <button type="button" onClick={() => setShowRestorePassphrase(!showRestorePassphrase)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          {showRestorePassphrase ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!restoreValidation && (
+                    <div className="flex gap-3">
+                      <Button variant="secondary" onClick={() => { setRestoreMode(false); setRestoreFile(null); setRestorePassphrase(''); }}>
+                        Back
+                      </Button>
+                      <Button onClick={handleRestoreValidate} loading={restoreValidating}
+                        disabled={!restoreFile || !restorePassphrase}>
+                        Validate Backup
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Validation result */}
+                  {restoreValidation && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ShieldCheck className="h-5 w-5 text-green-600" />
+                        <span className="font-semibold text-green-800">Backup Validated</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                        <span className="text-gray-600">Type:</span>
+                        <span className="text-gray-900 capitalize">{String(restoreValidation['backup_type'])} backup</span>
+                        <span className="text-gray-600">Version:</span>
+                        <span className="text-gray-900">{String((restoreValidation['metadata'] as Record<string, unknown>)?.['source_version'] || 'unknown')}</span>
+                        <span className="text-gray-600">Created:</span>
+                        <span className="text-gray-900">{new Date(String((restoreValidation['metadata'] as Record<string, unknown>)?.['created_at'] || '')).toLocaleDateString()}</span>
+                        <span className="text-gray-600">Companies:</span>
+                        <span className="text-gray-900">{String((restoreValidation['metadata'] as Record<string, unknown>)?.['tenant_count'] || 1)}</span>
+                        <span className="text-gray-600">Users:</span>
+                        <span className="text-gray-900">{String((restoreValidation['metadata'] as Record<string, unknown>)?.['user_count'] || 0)}</span>
+                        <span className="text-gray-600">Transactions:</span>
+                        <span className="text-gray-900">{Number((restoreValidation['metadata'] as Record<string, unknown>)?.['transaction_count'] || 0).toLocaleString()}</span>
+                      </div>
+
+                      <div className="mt-4 flex gap-3">
+                        <Button variant="secondary" onClick={() => { setRestoreValidation(null); }}>
+                          Back
+                        </Button>
+                        <Button onClick={handleRestoreExecute} loading={restoreExecuting}>
+                          Restore Now
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Post-restore checklist */}
+            {step === 0 && restoreResult && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                  <h2 className="text-lg font-semibold text-gray-800">Restore Complete</h2>
+                </div>
+                <p className="text-sm text-gray-600">{String(restoreResult['message'])}</p>
+
+                {/* Checklist */}
+                {restoreResult['checklist'] && (
+                  <div className="space-y-2 mt-4">
+                    <h3 className="text-sm font-semibold text-gray-700">Post-Restore Checklist</h3>
+                    {Object.entries(restoreResult['checklist'] as Record<string, { status: string; message: string }>).map(([key, item]) => (
+                      <div key={key} className="flex items-start gap-2 text-sm">
+                        {item.status === 'ok' ? (
+                          <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                        )}
+                        <span className={item.status === 'ok' ? 'text-green-700' : 'text-amber-700'}>
+                          {item.message}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-gray-100">
+                  <Button onClick={() => navigate('/login')}>
+                    Go to Login <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -835,7 +1045,7 @@ export function FirstRunSetupWizard() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
                   <select value={form.businessType} onChange={set('businessType')}
                     className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                    {BUSINESS_TYPE_OPTIONS.map((opt) => (
+                    {businessTypeOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                   </select>
@@ -1025,7 +1235,7 @@ export function FirstRunSetupWizard() {
                 DOES render on step 7 (Review) with a "Complete Setup"
                 button; previously it was hidden on step 7 too, leaving
                 users stranded with no way to finish the wizard. */}
-            {step < 8 && (
+            {step < 8 && step > 0 && !restoreMode && !restoreResult && (
               <div className="flex justify-between mt-6 pt-4 border-t border-gray-100">
                 {step > 0 ? (
                   <Button variant="secondary" onClick={handleBack}>
@@ -1035,7 +1245,7 @@ export function FirstRunSetupWizard() {
                   <div />
                 )}
                 <Button onClick={handleNext} disabled={!canProceed()}>
-                  {step === 0 ? 'Get Started' : step === 7 ? 'Complete Setup' : 'Next'}
+                  {step === 7 ? 'Complete Setup' : 'Next'}
                 </Button>
               </div>
             )}

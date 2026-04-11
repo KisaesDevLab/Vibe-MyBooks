@@ -4,7 +4,7 @@ const API = 'http://localhost:3001/api/v1';
 const uniqueEmail = `e2e-${Date.now()}@test.com`;
 let token = '';
 
-test.describe.serial('KIS Books E2E Flow', () => {
+test.describe.serial('Vibe MyBooks E2E Flow', () => {
 
   test('1. Register new account', async ({ request }) => {
     const res = await request.post(`${API}/auth/register`, {

@@ -61,6 +61,9 @@ import { BudgetOverviewReport } from './features/reports/BudgetOverviewReport';
 import { BackupRestorePage } from './features/settings/BackupRestorePage';
 import { AuditLogPage } from './features/settings/AuditLogPage';
 import { DataExportPage } from './features/settings/DataExportPage';
+import { TenantExportPage } from './features/settings/TenantExportPage';
+import { TenantImportPage } from './features/settings/TenantImportPage';
+import { RemoteBackupSettingsPage } from './features/settings/RemoteBackupSettingsPage';
 import { OpeningBalancesPage } from './features/settings/OpeningBalancesPage';
 import { CompanyProvider } from './providers/CompanyProvider';
 import { FirstRunSetupWizard } from './features/setup/FirstRunSetupWizard';
@@ -222,6 +225,9 @@ export function App() {
             <Route path="/settings/backup" element={<BackupRestorePage />} />
             <Route path="/settings/audit-log" element={<AuditLogPage />} />
             <Route path="/settings/export" element={<DataExportPage />} />
+            <Route path="/settings/tenant-export" element={<TenantExportPage />} />
+            <Route path="/settings/tenant-import" element={<TenantImportPage />} />
+            <Route path="/settings/remote-backup" element={<RemoteBackupSettingsPage />} />
             <Route path="/settings/opening-balances" element={<OpeningBalancesPage />} />
             <Route path="/settings/preferences" element={<PreferencesPage />} />
             <Route path="/settings/email" element={<EmailSettingsPage />} />

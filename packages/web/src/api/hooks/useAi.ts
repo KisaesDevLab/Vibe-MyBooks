@@ -8,6 +8,33 @@ export function useAiConfig() {
   });
 }
 
+/**
+ * Feature-availability hook for AI features, safe for ALL authenticated
+ * users (unlike useAiConfig which hits the super-admin-only endpoint).
+ *
+ * Returns booleans for each AI feature so pages can decide whether to
+ * render the associated UI (bill OCR drop zone, receipt camera, etc.)
+ * without needing to know about API keys or provider configuration.
+ */
+export interface AiStatus {
+  isEnabled: boolean;
+  hasBillOcr: boolean;
+  hasReceiptOcr: boolean;
+  hasCategorization: boolean;
+  hasStatementParser: boolean;
+  hasDocumentClassifier: boolean;
+}
+
+export function useAiStatus() {
+  return useQuery({
+    queryKey: ['ai', 'status'],
+    queryFn: () => apiClient<AiStatus>('/ai/status'),
+    // Status rarely changes during a session, so a longer stale time
+    // avoids hammering the endpoint on every page navigation.
+    staleTime: 60_000,
+  });
+}
+
 export function useUpdateAiConfig() {
   const qc = useQueryClient();
   return useMutation({

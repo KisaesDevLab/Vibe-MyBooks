@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useBills } from '../../api/hooks/useAp';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { EmptyStateChat } from '../chat/EmptyStateChat';
 import type { BillStatus } from '@kis-books/shared';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -59,9 +60,17 @@ export function BillListPage() {
         {isLoading ? (
           <LoadingSpinner className="py-12" />
         ) : bills.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-12">
-            No bills found. <Link to="/bills/new" className="text-primary-600">Enter your first bill →</Link>
-          </p>
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-gray-500 text-center">
+              No bills found. <Link to="/bills/new" className="text-primary-600">Enter your first bill →</Link>
+            </p>
+            <EmptyStateChat
+              screenName="Bills"
+              headline="New to Accounts Payable?"
+              subhead="Ask the assistant how the bill → pay flow works."
+              promptText="Walk me through the bill-to-payment workflow in Vibe MyBooks."
+            />
+          </div>
         ) : (
           <table className="min-w-full">
             <thead className="bg-gray-50 border-b">
