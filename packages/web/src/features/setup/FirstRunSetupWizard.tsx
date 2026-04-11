@@ -1,9 +1,9 @@
-import { useState, useRef, type FormEvent, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { CheckCircle, Eye, EyeOff, RefreshCw, Download, ChevronRight, Upload, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { CheckCircle, Eye, EyeOff, RefreshCw, Download, ChevronRight, Upload, AlertTriangle, ShieldCheck, Lock } from 'lucide-react';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 
 const SETUP_API = '/api/setup';
@@ -89,10 +89,103 @@ function generateRandomPassword(): string {
   return result;
 }
 
+function RestoreChecklist({ items }: { items: Record<string, { status: string; message: string }> }) {
+  return (
+    <div className="space-y-2 mt-4">
+      <h3 className="text-sm font-semibold text-gray-700">Post-Restore Checklist</h3>
+      {Object.entries(items).map(([key, item]) => (
+        <div key={key} className="flex items-start gap-2 text-sm">
+          {item.status === 'ok' ? (
+            <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+          ) : (
+            <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+          )}
+          <span className={item.status === 'ok' ? 'text-green-700' : 'text-amber-700'}>
+            {item.message}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function FirstRunSetupWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const businessTypeOptions = useCoaTemplateOptions();
+
+  // Bootstrap state: poll /api/setup/status on mount so we can (a) refuse
+  // to render the wizard at all on an already-initialized system and
+  // (b) explicitly surface a "waiting for database" state instead of
+  // letting the operator click through a form that will then fail.
+  const [bootstrapState, setBootstrapState] = useState<'checking' | 'ready' | 'already-complete' | 'db-unavailable' | 'error'>('checking');
+  const [bootstrapError, setBootstrapError] = useState('');
+
+  // Setup token state: required before the user can initiate a new install
+  // or restore a backup. The token is printed to the server console on
+  // first boot and verified via /api/setup/validate-token.
+  const [setupToken, setSetupToken] = useState('');
+  const [tokenValid, setTokenValid] = useState(false);
+  const [tokenChecking, setTokenChecking] = useState(false);
+  const [tokenError, setTokenError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch('/api/setup/status');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const status = await res.json();
+        if (cancelled) return;
+        if (status.setupComplete && !status.statusCheckFailed) {
+          setBootstrapState('already-complete');
+          return;
+        }
+        if (status.statusCheckFailed) {
+          setBootstrapState('db-unavailable');
+          return;
+        }
+        setBootstrapState('ready');
+      } catch (err: any) {
+        if (cancelled) return;
+        setBootstrapError(err?.message || 'Unable to contact the server');
+        setBootstrapState('error');
+      }
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleValidateToken = async () => {
+    if (!setupToken.trim()) {
+      setTokenError('Enter the setup token printed in the server console');
+      return;
+    }
+    setTokenChecking(true);
+    setTokenError('');
+    try {
+      const res = await fetch('/api/setup/validate-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: setupToken.trim() }),
+      });
+      const data = await res.json();
+      if (data.valid === true) {
+        setTokenValid(true);
+        setTokenError('');
+      } else {
+        setTokenValid(false);
+        setTokenError('Invalid token. Check the server console output for the token printed during startup.');
+      }
+    } catch (err: any) {
+      setTokenValid(false);
+      setTokenError(err?.message || 'Unable to validate token');
+    } finally {
+      setTokenChecking(false);
+    }
+  };
 
   // Restore from backup state
   const [restoreMode, setRestoreMode] = useState(false);
@@ -137,13 +230,21 @@ export function FirstRunSetupWizard() {
 
   const handleRestoreExecute = async () => {
     if (!restoreFile || !restorePassphrase) return;
+    if (!tokenValid) {
+      setRestoreError('Setup token must be verified before restoring');
+      return;
+    }
     setRestoreExecuting(true);
     setRestoreError('');
     try {
       const formData = new FormData();
       formData.append('file', restoreFile);
       formData.append('passphrase', restorePassphrase);
-      const res = await fetch('/api/setup/restore/execute', { method: 'POST', body: formData });
+      const res = await fetch('/api/setup/restore/execute', {
+        method: 'POST',
+        headers: { 'X-Setup-Token': setupToken.trim() },
+        body: formData,
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
         throw new Error(err.error?.message || 'Restore failed');
@@ -389,8 +490,12 @@ export function FirstRunSetupWizard() {
       updateStep(3, 'active');
 
       // The actual API call
+      if (!tokenValid) {
+        throw new Error('Setup token must be verified before finalizing');
+      }
       await setupFetch('/initialize', {
         method: 'POST',
+        headers: { 'X-Setup-Token': setupToken.trim() },
         body: JSON.stringify({
           db: {
             host: form.dbHost,
@@ -516,6 +621,74 @@ export function FirstRunSetupWizard() {
     partnership: 'Partnership',
   };
 
+  // --- Bootstrap gates --------------------------------------------------
+  // Render blocking screens before the real wizard whenever we can't be
+  // sure the wizard is safe to use. These are the outermost line of
+  // defense against the user clicking through a form that would fail or,
+  // worse, succeed against an already-initialized system.
+  if (bootstrapState === 'checking') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="text-center">
+          <LoadingSpinner />
+          <p className="mt-3 text-sm text-gray-600">Checking installation state...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (bootstrapState === 'already-complete') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center space-y-4">
+          <ShieldCheck className="h-10 w-10 text-green-600 mx-auto" />
+          <h2 className="text-xl font-bold text-gray-900">Setup already complete</h2>
+          <p className="text-sm text-gray-600">
+            This Vibe MyBooks instance is already configured. The first-run setup wizard is disabled.
+          </p>
+          <Button onClick={() => navigate('/login')} className="w-full">
+            Go to login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (bootstrapState === 'db-unavailable') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-lg border border-amber-200 shadow-sm p-6 text-center space-y-4">
+          <AlertTriangle className="h-10 w-10 text-amber-600 mx-auto" />
+          <h2 className="text-xl font-bold text-gray-900">Database not yet reachable</h2>
+          <p className="text-sm text-gray-600">
+            The API couldn't verify the database state. Setup is disabled until the database is reachable — this prevents a transient outage from allowing destructive operations.
+          </p>
+          <p className="text-xs text-gray-500">
+            If Postgres is still starting, wait a few seconds and refresh. If it's down, check the database container logs.
+          </p>
+          <Button onClick={() => window.location.reload()} className="w-full">
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (bootstrapState === 'error') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-lg border border-red-200 shadow-sm p-6 text-center space-y-4">
+          <AlertTriangle className="h-10 w-10 text-red-600 mx-auto" />
+          <h2 className="text-xl font-bold text-gray-900">Unable to reach the API</h2>
+          <p className="text-sm text-gray-600">{bootstrapError}</p>
+          <Button onClick={() => window.location.reload()} className="w-full">
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
@@ -575,10 +748,56 @@ export function FirstRunSetupWizard() {
                   Your self-hosted bookkeeping solution. Choose how you'd like to get started.
                 </p>
 
+                {/* Setup token gate — must be verified before any destructive
+                    action is permitted. The token is printed to the API
+                    server console on first boot. */}
+                <div className="max-w-lg mx-auto text-left bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <Lock className="h-5 w-5 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <h3 className="font-semibold text-amber-900 text-sm">Setup Token Required</h3>
+                      <p className="text-xs text-amber-800 mt-1">
+                        Paste the setup token from the API server console. It is also saved
+                        to <code className="bg-amber-100 px-1 rounded">/data/config/.setup-token</code> on
+                        the API container.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Paste setup token"
+                      value={setupToken}
+                      onChange={(e) => {
+                        setSetupToken(e.target.value);
+                        setTokenValid(false);
+                        setTokenError('');
+                      }}
+                      disabled={tokenValid}
+                      className="flex-1 font-mono text-xs"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleValidateToken}
+                      disabled={tokenChecking || tokenValid || !setupToken.trim()}
+                    >
+                      {tokenValid ? (
+                        <span className="flex items-center gap-1">
+                          <CheckCircle className="h-4 w-4" /> Verified
+                        </span>
+                      ) : tokenChecking ? 'Checking...' : 'Verify'}
+                    </Button>
+                  </div>
+                  {tokenError && (
+                    <p className="text-xs text-red-700">{tokenError}</p>
+                  )}
+                </div>
+
                 <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto pt-2">
                   <button
                     onClick={() => setStep(1)}
-                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-all text-left group"
+                    disabled={!tokenValid}
+                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-transparent"
                   >
                     <ChevronRight className="h-6 w-6 text-primary-600 mb-2" />
                     <h3 className="font-semibold text-gray-900 group-hover:text-primary-700">New Installation</h3>
@@ -586,13 +805,17 @@ export function FirstRunSetupWizard() {
                   </button>
                   <button
                     onClick={() => setRestoreMode(true)}
-                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group"
+                    disabled={!tokenValid}
+                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-transparent"
                   >
                     <Upload className="h-6 w-6 text-amber-600 mb-2" />
                     <h3 className="font-semibold text-gray-900 group-hover:text-amber-700">Restore from Backup</h3>
                     <p className="text-xs text-gray-500 mt-1">Restore a previous installation from a .vmb backup file</p>
                   </button>
                 </div>
+                {!tokenValid && (
+                  <p className="text-xs text-gray-500">Verify the setup token to continue.</p>
+                )}
               </div>
             )}
 
@@ -702,22 +925,8 @@ export function FirstRunSetupWizard() {
                 <p className="text-sm text-gray-600">{String(restoreResult['message'])}</p>
 
                 {/* Checklist */}
-                {restoreResult['checklist'] && (
-                  <div className="space-y-2 mt-4">
-                    <h3 className="text-sm font-semibold text-gray-700">Post-Restore Checklist</h3>
-                    {Object.entries(restoreResult['checklist'] as Record<string, { status: string; message: string }>).map(([key, item]) => (
-                      <div key={key} className="flex items-start gap-2 text-sm">
-                        {item.status === 'ok' ? (
-                          <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                        ) : (
-                          <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                        )}
-                        <span className={item.status === 'ok' ? 'text-green-700' : 'text-amber-700'}>
-                          {item.message}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                {restoreResult['checklist'] != null && (
+                  <RestoreChecklist items={restoreResult['checklist'] as Record<string, { status: string; message: string }>} />
                 )}
 
                 <div className="pt-4 border-t border-gray-100">
