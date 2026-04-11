@@ -68,6 +68,7 @@ import { RemoteBackupSettingsPage } from './features/settings/RemoteBackupSettin
 import { OpeningBalancesPage } from './features/settings/OpeningBalancesPage';
 import { CompanyProvider } from './providers/CompanyProvider';
 import { FirstRunSetupWizard } from './features/setup/FirstRunSetupWizard';
+import { DiagnosticRouter } from './features/diagnostics/DiagnosticRouter';
 import { SystemSettingsPage } from './features/settings/SystemSettingsPage';
 import { PreferencesPage } from './features/settings/PreferencesPage';
 import { EmailSettingsPage } from './features/settings/EmailSettingsPage';
@@ -79,6 +80,7 @@ import { TenantDetailPage } from './features/admin/TenantDetailPage';
 import { UserListPage } from './features/admin/UserListPage';
 import { GlobalBankRulesPage } from './features/admin/GlobalBankRulesPage';
 import { TfaConfigPage } from './features/admin/TfaConfigPage';
+import { InstallationSecurityPage } from './features/admin/InstallationSecurityPage';
 import { PlaidConfigPage } from './features/admin/PlaidConfigPage';
 import { PlaidConnectionsMonitorPage } from './features/admin/PlaidConnectionsMonitorPage';
 import { AiConfigPage } from './features/admin/AiConfigPage';
@@ -108,6 +110,7 @@ const queryClient = new QueryClient({
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <DiagnosticRouter>
       <CompanyProvider>
       <BrowserRouter>
         <Routes>
@@ -242,6 +245,7 @@ export function App() {
             <Route path="/settings/connected-apps" element={<ConnectedAppsPage />} />
             <Route path="/settings/storage" element={<StorageSettingsPage />} />
             <Route path="/admin/tfa" element={<AdminRoute><TfaConfigPage /></AdminRoute>} />
+            <Route path="/admin/security" element={<AdminRoute><InstallationSecurityPage /></AdminRoute>} />
             <Route path="/admin/plaid" element={<AdminRoute><PlaidConfigPage /></AdminRoute>} />
             <Route path="/admin/plaid/connections" element={<AdminRoute><PlaidConnectionsMonitorPage /></AdminRoute>} />
             <Route path="/admin/ai" element={<AdminRoute><AiConfigPage /></AdminRoute>} />
@@ -257,6 +261,7 @@ export function App() {
         </Routes>
       </BrowserRouter>
       </CompanyProvider>
+      </DiagnosticRouter>
     </QueryClientProvider>
   );
 }

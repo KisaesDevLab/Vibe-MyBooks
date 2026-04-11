@@ -37,7 +37,7 @@ services:
       # so the API process can never write to web source by accident.
       - ./packages/web/src:/app/packages/web/src:ro
       - ./packages/web/index.html:/app/packages/web/index.html:ro
-    command: ["npx", "tsx", "watch", "packages/api/src/index.ts"]
+    command: ["npx", "tsx", "watch", "packages/api/src/bootstrap.ts"]
     environment:
       NODE_ENV: development
       # Windows host -> Linux container bind mounts don't deliver inotify

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { CheckCircle, Eye, EyeOff, RefreshCw, Download, ChevronRight, Upload, AlertTriangle, ShieldCheck, Lock } from 'lucide-react';
+import { CheckCircle, Eye, EyeOff, RefreshCw, Download, ChevronRight, Upload, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 
 const SETUP_API = '/api/setup';
@@ -56,6 +56,7 @@ interface FormState {
   // Security
   jwtSecret: string;
   backupKey: string;
+  encryptionKey: string;
   // Email
   skipEmail: boolean;
   smtpPreset: string;
@@ -118,16 +119,11 @@ export function FirstRunSetupWizard() {
   // to render the wizard at all on an already-initialized system and
   // (b) explicitly surface a "waiting for database" state instead of
   // letting the operator click through a form that will then fail.
-  const [bootstrapState, setBootstrapState] = useState<'checking' | 'ready' | 'already-complete' | 'db-unavailable' | 'error'>('checking');
+  const [bootstrapState, setBootstrapState] = useState<
+    'checking' | 'ready' | 'already-complete' | 'db-unavailable' | 'error' | 'pending-recovery-key'
+  >('checking');
   const [bootstrapError, setBootstrapError] = useState('');
-
-  // Setup token state: required before the user can initiate a new install
-  // or restore a backup. The token is printed to the server console on
-  // first boot and verified via /api/setup/validate-token.
-  const [setupToken, setSetupToken] = useState('');
-  const [tokenValid, setTokenValid] = useState(false);
-  const [tokenChecking, setTokenChecking] = useState(false);
-  const [tokenError, setTokenError] = useState('');
+  const [pendingInstallationId, setPendingInstallationId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +133,27 @@ export function FirstRunSetupWizard() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const status = await res.json();
         if (cancelled) return;
+        // F22: setup is done but the recovery key was never acknowledged —
+        // re-fetch it from the server-side pending map and render the
+        // recovery-key screen.
+        if (status.setupComplete && status.pendingRecoveryKey && status.installationId) {
+          try {
+            const pendingRes = await fetch(
+              `/api/setup/pending-recovery-key?installationId=${encodeURIComponent(status.installationId)}`,
+            );
+            if (pendingRes.ok) {
+              const body = await pendingRes.json();
+              if (!cancelled && body?.recoveryKey) {
+                setRecoveryKey(body.recoveryKey);
+                setPendingInstallationId(status.installationId);
+                setBootstrapState('pending-recovery-key');
+                return;
+              }
+            }
+          } catch {
+            // Fall through to already-complete handling if pending lookup fails.
+          }
+        }
         if (status.setupComplete && !status.statusCheckFailed) {
           setBootstrapState('already-complete');
           return;
@@ -156,36 +173,10 @@ export function FirstRunSetupWizard() {
     return () => {
       cancelled = true;
     };
+    // `setRecoveryKey` / `setPendingInstallationId` are stable setters so an
+    // empty deps array still matches React's exhaustive-deps expectations.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleValidateToken = async () => {
-    if (!setupToken.trim()) {
-      setTokenError('Enter the setup token printed in the server console');
-      return;
-    }
-    setTokenChecking(true);
-    setTokenError('');
-    try {
-      const res = await fetch('/api/setup/validate-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: setupToken.trim() }),
-      });
-      const data = await res.json();
-      if (data.valid === true) {
-        setTokenValid(true);
-        setTokenError('');
-      } else {
-        setTokenValid(false);
-        setTokenError('Invalid token. Check the server console output for the token printed during startup.');
-      }
-    } catch (err: any) {
-      setTokenValid(false);
-      setTokenError(err?.message || 'Unable to validate token');
-    } finally {
-      setTokenChecking(false);
-    }
-  };
 
   // Restore from backup state
   const [restoreMode, setRestoreMode] = useState(false);
@@ -230,10 +221,6 @@ export function FirstRunSetupWizard() {
 
   const handleRestoreExecute = async () => {
     if (!restoreFile || !restorePassphrase) return;
-    if (!tokenValid) {
-      setRestoreError('Setup token must be verified before restoring');
-      return;
-    }
     setRestoreExecuting(true);
     setRestoreError('');
     try {
@@ -242,7 +229,6 @@ export function FirstRunSetupWizard() {
       formData.append('passphrase', restorePassphrase);
       const res = await fetch('/api/setup/restore/execute', {
         method: 'POST',
-        headers: { 'X-Setup-Token': setupToken.trim() },
         body: formData,
       });
       if (!res.ok) {
@@ -282,6 +268,7 @@ export function FirstRunSetupWizard() {
     redisPort: '6379',
     jwtSecret: '',
     backupKey: '',
+    encryptionKey: '',
     skipEmail: true,
     smtpPreset: 'custom',
     smtpHost: '',
@@ -319,6 +306,8 @@ export function FirstRunSetupWizard() {
   // Finalizing step
   const [finalizeStatus, setFinalizeStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [finalizeError, setFinalizeError] = useState('');
+  const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
+  const [recoveryKeySaved, setRecoveryKeySaved] = useState(false);
   const [finalizeSteps, setFinalizeSteps] = useState([
     { label: 'Writing configuration', status: 'pending' as 'pending' | 'active' | 'done' | 'error' },
     { label: 'Connecting to database', status: 'pending' as 'pending' | 'active' | 'done' | 'error' },
@@ -358,13 +347,15 @@ export function FirstRunSetupWizard() {
 
   const handleGenerateSecrets = async () => {
     try {
-      const data = await setupFetch<{ jwtSecret: string; backupKey: string }>('/generate-secrets', {
-        method: 'POST',
-      });
+      const data = await setupFetch<{ jwtSecret: string; backupKey: string; encryptionKey: string }>(
+        '/generate-secrets',
+        { method: 'POST' },
+      );
       setForm((f) => ({
         ...f,
         jwtSecret: data.jwtSecret,
         backupKey: data.backupKey,
+        encryptionKey: data.encryptionKey,
       }));
     } catch {
       // Fallback to client-side generation
@@ -372,6 +363,7 @@ export function FirstRunSetupWizard() {
         ...f,
         jwtSecret: generateRandomPassword() + generateRandomPassword(),
         backupKey: generateRandomPassword() + generateRandomPassword(),
+        encryptionKey: generateRandomPassword() + generateRandomPassword(),
       }));
     }
   };
@@ -490,12 +482,8 @@ export function FirstRunSetupWizard() {
       updateStep(3, 'active');
 
       // The actual API call
-      if (!tokenValid) {
-        throw new Error('Setup token must be verified before finalizing');
-      }
-      await setupFetch('/initialize', {
+      const initResult = await setupFetch<{ recoveryKey?: string; installationId?: string }>('/initialize', {
         method: 'POST',
-        headers: { 'X-Setup-Token': setupToken.trim() },
         body: JSON.stringify({
           db: {
             host: form.dbHost,
@@ -510,6 +498,7 @@ export function FirstRunSetupWizard() {
           },
           jwtSecret: form.jwtSecret,
           backupKey: form.backupKey,
+          encryptionKey: form.encryptionKey,
           ports: {
             api: Number(form.apiPort),
             frontend: Number(form.frontendPort),
@@ -543,6 +532,17 @@ export function FirstRunSetupWizard() {
       // Step 4: Done
       updateStep(4, 'done');
       setFinalizeStatus('done');
+
+      // Capture the recovery key surfaced by /initialize. The server writes
+      // /data/.env.recovery before this response lands, so the key is the
+      // ONLY way the operator can ever decrypt that file — we must display
+      // it before letting them navigate away.
+      if (initResult?.recoveryKey) {
+        setRecoveryKey(initResult.recoveryKey);
+      }
+      if ((initResult as { installationId?: string })?.installationId) {
+        setPendingInstallationId((initResult as { installationId?: string }).installationId!);
+      }
     } catch (err: any) {
       setFinalizeError(err.message || 'Setup failed');
       setFinalizeStatus('error');
@@ -654,6 +654,97 @@ export function FirstRunSetupWizard() {
     );
   }
 
+  // F22: the wizard previously completed but the operator never clicked
+  // "I have saved this" on the recovery-key screen. The key is still held
+  // server-side in the pending map — re-display it here and gate progress
+  // on a successful acknowledgement call.
+  if (bootstrapState === 'pending-recovery-key' && recoveryKey) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-xl w-full bg-white rounded-lg border-2 border-amber-400 shadow-md p-6 space-y-5">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="h-8 w-8 text-amber-600 flex-shrink-0 mt-1" />
+            <div>
+              <h2 className="text-xl font-bold text-amber-900">Save your recovery key before continuing</h2>
+              <p className="text-sm text-amber-800 mt-1">
+                Setup has finished but the previous session never confirmed the recovery key was
+                saved. The key is cached server-side for a few more minutes — this is your last
+                chance to save it before it expires.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-300 rounded p-4">
+            <p className="font-mono text-xl tracking-wider text-center text-gray-900 select-all break-all">
+              {recoveryKey}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => navigator.clipboard.writeText(recoveryKey)}
+            >
+              Copy to clipboard
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const win = window.open('', '_blank', 'width=500,height=400');
+                if (!win) return;
+                win.document.write(
+                  `<html><head><title>KIS Books Recovery Key</title></head>` +
+                    `<body style="font-family:monospace;padding:2em;">` +
+                    `<h2>KIS Books Recovery Key</h2>` +
+                    `<p style="font-size:1.5em;letter-spacing:0.1em;background:#fef3c7;padding:1em;border:2px solid #f59e0b;">${recoveryKey}</p>` +
+                    `</body></html>`,
+                );
+                win.document.close();
+                win.print();
+              }}
+            >
+              Print
+            </Button>
+          </div>
+
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={recoveryKeySaved}
+              onChange={(e) => setRecoveryKeySaved(e.target.checked)}
+              className="mt-1"
+            />
+            <span className="text-sm text-amber-900">
+              I have saved this recovery key. I understand it will not be shown again.
+            </span>
+          </label>
+
+          <Button
+            className="w-full"
+            disabled={!recoveryKeySaved}
+            onClick={async () => {
+              if (pendingInstallationId) {
+                try {
+                  await fetch('/api/setup/acknowledge-recovery-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ installationId: pendingInstallationId }),
+                  });
+                } catch {
+                  // Ignore — acknowledgement is best-effort; the TTL will
+                  // clear it soon enough either way.
+                }
+              }
+              navigate('/login');
+            }}
+          >
+            Continue to login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (bootstrapState === 'db-unavailable') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -748,56 +839,10 @@ export function FirstRunSetupWizard() {
                   Your self-hosted bookkeeping solution. Choose how you'd like to get started.
                 </p>
 
-                {/* Setup token gate — must be verified before any destructive
-                    action is permitted. The token is printed to the API
-                    server console on first boot. */}
-                <div className="max-w-lg mx-auto text-left bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
-                  <div className="flex items-start gap-2">
-                    <Lock className="h-5 w-5 text-amber-700 shrink-0 mt-0.5" />
-                    <div>
-                      <h3 className="font-semibold text-amber-900 text-sm">Setup Token Required</h3>
-                      <p className="text-xs text-amber-800 mt-1">
-                        Paste the setup token from the API server console. It is also saved
-                        to <code className="bg-amber-100 px-1 rounded">/data/config/.setup-token</code> on
-                        the API container.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Paste setup token"
-                      value={setupToken}
-                      onChange={(e) => {
-                        setSetupToken(e.target.value);
-                        setTokenValid(false);
-                        setTokenError('');
-                      }}
-                      disabled={tokenValid}
-                      className="flex-1 font-mono text-xs"
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleValidateToken}
-                      disabled={tokenChecking || tokenValid || !setupToken.trim()}
-                    >
-                      {tokenValid ? (
-                        <span className="flex items-center gap-1">
-                          <CheckCircle className="h-4 w-4" /> Verified
-                        </span>
-                      ) : tokenChecking ? 'Checking...' : 'Verify'}
-                    </Button>
-                  </div>
-                  {tokenError && (
-                    <p className="text-xs text-red-700">{tokenError}</p>
-                  )}
-                </div>
-
                 <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto pt-2">
                   <button
                     onClick={() => setStep(1)}
-                    disabled={!tokenValid}
-                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-transparent"
+                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-all text-left group"
                   >
                     <ChevronRight className="h-6 w-6 text-primary-600 mb-2" />
                     <h3 className="font-semibold text-gray-900 group-hover:text-primary-700">New Installation</h3>
@@ -805,17 +850,13 @@ export function FirstRunSetupWizard() {
                   </button>
                   <button
                     onClick={() => setRestoreMode(true)}
-                    disabled={!tokenValid}
-                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-transparent"
+                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group"
                   >
                     <Upload className="h-6 w-6 text-amber-600 mb-2" />
                     <h3 className="font-semibold text-gray-900 group-hover:text-amber-700">Restore from Backup</h3>
                     <p className="text-xs text-gray-500 mt-1">Restore a previous installation from a .vmb backup file</p>
                   </button>
                 </div>
-                {!tokenValid && (
-                  <p className="text-xs text-gray-500">Verify the setup token to continue.</p>
-                )}
               </div>
             )}
 
@@ -1420,12 +1461,100 @@ export function FirstRunSetupWizard() {
                 )}
 
                 {finalizeStatus === 'done' && (
-                  <div className="text-center pt-4">
-                    <p className="text-sm text-gray-600 mb-4">
-                      Your Vibe MyBooks installation is ready. You can now log in with your admin
-                      credentials.
-                    </p>
-                    <Button onClick={() => navigate('/login')}>Go to Login</Button>
+                  <div className="pt-4 space-y-5">
+                    {recoveryKey && (
+                      <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-5 space-y-4">
+                        <div className="flex items-start gap-3">
+                          <ShieldCheck className="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <h3 className="font-bold text-amber-900">Recovery Key — save this now</h3>
+                            <p className="text-sm text-amber-800 mt-1">
+                              This key is the only way to recover your installation if you lose the
+                              contents of <code className="bg-amber-100 px-1 rounded">/data/config/.env</code>.
+                              It will be shown exactly once and never stored in plaintext on the server.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="bg-white border border-amber-300 rounded p-4">
+                          <p className="font-mono text-xl tracking-wider text-center text-gray-900 select-all break-all">
+                            {recoveryKey}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="secondary"
+                            onClick={() => navigator.clipboard.writeText(recoveryKey)}
+                          >
+                            Copy to Clipboard
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              const win = window.open('', '_blank', 'width=500,height=400');
+                              if (!win) return;
+                              win.document.write(
+                                `<html><head><title>KIS Books Recovery Key</title></head>` +
+                                  `<body style="font-family:monospace;padding:2em;">` +
+                                  `<h2>KIS Books Recovery Key</h2>` +
+                                  `<p>Installation date: ${new Date().toLocaleString()}</p>` +
+                                  `<p style="font-size:1.5em;letter-spacing:0.1em;background:#fef3c7;padding:1em;border:2px solid #f59e0b;">${recoveryKey}</p>` +
+                                  `<p>Keep this in a secure location. It is the only way to recover your .env file if it is lost.</p>` +
+                                  `</body></html>`,
+                              );
+                              win.document.close();
+                              win.print();
+                            }}
+                          >
+                            Print
+                          </Button>
+                        </div>
+
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={recoveryKeySaved}
+                            onChange={(e) => setRecoveryKeySaved(e.target.checked)}
+                            className="mt-1 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className="text-sm text-amber-900">
+                            I have saved this recovery key in a secure location. I understand it will
+                            not be shown again, and that losing it along with my <code>.env</code> file
+                            means encrypted data (Plaid tokens, 2FA secrets) becomes unrecoverable.
+                          </span>
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600 mb-4">
+                        Your Vibe MyBooks installation is ready. You can now log in with your admin
+                        credentials.
+                      </p>
+                      <Button
+                        onClick={async () => {
+                          // F22: acknowledge the pending key server-side so a
+                          // refresh of the wizard URL no longer shows the
+                          // recovery screen.
+                          if (recoveryKey && pendingInstallationId) {
+                            try {
+                              await fetch('/api/setup/acknowledge-recovery-key', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ installationId: pendingInstallationId }),
+                              });
+                            } catch {
+                              // Non-fatal — TTL will clean up.
+                            }
+                          }
+                          navigate('/login');
+                        }}
+                        disabled={!!recoveryKey && !recoveryKeySaved}
+                      >
+                        {recoveryKey && !recoveryKeySaved ? 'Confirm the checkbox first' : 'Go to Login'}
+                      </Button>
+                    </div>
                   </div>
                 )}
 
