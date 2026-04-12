@@ -1,9 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useContact, useDeactivateContact, useContactTransactions } from '../../api/hooks/useContacts';
+import { useBills, useVendorCredits } from '../../api/hooks/useAp';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
-import { Mail, Phone, MapPin, Edit, UserX } from 'lucide-react';
+import { Mail, Phone, MapPin, Edit, UserX, Receipt, Banknote, RotateCcw } from 'lucide-react';
 
 export function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,7 @@ export function ContactDetailPage() {
   if (isError || !data) return <ErrorMessage onRetry={() => refetch()} />;
 
   const contact = data.contact;
+  const isVendor = contact.contactType === 'vendor' || contact.contactType === 'both';
 
   const handleDeactivate = () => {
     deactivateContact.mutate(contact.id, { onSuccess: () => navigate('/contacts') });
@@ -101,6 +103,149 @@ export function ContactDetailPage() {
             <p className="text-sm text-gray-500">{txnData.total} transactions</p>
           )}
         </div>
+      </div>
+
+      {isVendor && <VendorApSection contactId={contact.id} />}
+    </div>
+  );
+}
+
+function VendorApSection({ contactId }: { contactId: string }) {
+  const navigate = useNavigate();
+  const { data: billsData, isLoading: billsLoading } = useBills({ contactId, limit: 100 });
+  const { data: creditsData, isLoading: creditsLoading } = useVendorCredits({ contactId, limit: 50 });
+
+  const bills = billsData?.data || [];
+  const credits = creditsData?.data || [];
+
+  // Roll-ups
+  const unpaid = bills.filter((b) => b.billStatus !== 'paid' && parseFloat(b.balanceDue || '0') > 0);
+  const overdue = unpaid.filter((b) => b.daysOverdue > 0);
+  const totalOwed = unpaid.reduce((s, b) => s + parseFloat(b.balanceDue || '0'), 0);
+  const totalOverdue = overdue.reduce((s, b) => s + parseFloat(b.balanceDue || '0'), 0);
+  const availableCredits = credits.filter((c: any) => parseFloat(c.balanceDue || '0') > 0);
+  const totalAvailableCredits = availableCredits.reduce((s, c: any) => s + parseFloat(c.balanceDue || '0'), 0);
+
+  return (
+    <div className="mt-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-800">Accounts Payable</h2>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => navigate('/bills/new')}>
+            <Receipt className="h-4 w-4 mr-1" /> Create Bill
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => navigate('/vendor-credits/new')}>
+            <RotateCcw className="h-4 w-4 mr-1" /> Enter Credit
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => navigate('/pay-bills')}>
+            <Banknote className="h-4 w-4 mr-1" /> Pay Bills
+          </Button>
+        </div>
+      </div>
+
+      {/* AP Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <div className="text-xs text-gray-500 uppercase">Unpaid Bills</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{unpaid.length}</div>
+          <div className="text-sm font-mono text-gray-600">${totalOwed.toFixed(2)}</div>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <div className="text-xs text-gray-500 uppercase">Overdue</div>
+          <div className={`text-2xl font-bold mt-1 ${overdue.length > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+            {overdue.length}
+          </div>
+          <div className={`text-sm font-mono ${overdue.length > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+            ${totalOverdue.toFixed(2)}
+          </div>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <div className="text-xs text-gray-500 uppercase">Available Credits</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{availableCredits.length}</div>
+          <div className="text-sm font-mono text-gray-600">${totalAvailableCredits.toFixed(2)}</div>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <div className="text-xs text-gray-500 uppercase">Net Owed</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">
+            ${Math.max(0, totalOwed - totalAvailableCredits).toFixed(2)}
+          </div>
+        </div>
+      </div>
+
+      {/* Bills */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b font-medium text-sm text-gray-700">Bills</div>
+        {billsLoading ? (
+          <LoadingSpinner className="py-8" />
+        ) : bills.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-8">No bills for this vendor.</p>
+        ) : (
+          <table className="min-w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Bill #</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Vendor Inv #</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Date</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Due</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Status</th>
+                <th className="text-right text-xs font-medium text-gray-500 uppercase py-2 px-3">Total</th>
+                <th className="text-right text-xs font-medium text-gray-500 uppercase py-2 px-3">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bills.map((b) => (
+                <tr
+                  key={b.id}
+                  className="border-b last:border-0 hover:bg-gray-50 cursor-pointer"
+                  onClick={() => navigate(`/bills/${b.id}`)}
+                >
+                  <td className="py-2 px-3 text-sm font-mono">{b.txnNumber}</td>
+                  <td className="py-2 px-3 text-sm">{b.vendorInvoiceNumber || '—'}</td>
+                  <td className="py-2 px-3 text-sm">{b.txnDate}</td>
+                  <td className={`py-2 px-3 text-sm ${b.daysOverdue > 0 ? 'text-red-600' : ''}`}>
+                    {b.dueDate || '—'}
+                  </td>
+                  <td className="py-2 px-3 text-xs uppercase">{b.billStatus}</td>
+                  <td className="py-2 px-3 text-sm text-right font-mono">${parseFloat(b.total || '0').toFixed(2)}</td>
+                  <td className="py-2 px-3 text-sm text-right font-mono">${parseFloat(b.balanceDue || '0').toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Vendor Credits */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b font-medium text-sm text-gray-700">Vendor Credits</div>
+        {creditsLoading ? (
+          <LoadingSpinner className="py-8" />
+        ) : credits.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-8">No credits for this vendor.</p>
+        ) : (
+          <table className="min-w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Credit #</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Date</th>
+                <th className="text-right text-xs font-medium text-gray-500 uppercase py-2 px-3">Total</th>
+                <th className="text-right text-xs font-medium text-gray-500 uppercase py-2 px-3">Available</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Memo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {credits.map((c: any) => (
+                <tr key={c.id} className="border-b last:border-0">
+                  <td className="py-2 px-3 text-sm font-mono">{c.txnNumber}</td>
+                  <td className="py-2 px-3 text-sm">{c.txnDate}</td>
+                  <td className="py-2 px-3 text-sm text-right font-mono">${parseFloat(c.total || '0').toFixed(2)}</td>
+                  <td className="py-2 px-3 text-sm text-right font-mono">${parseFloat(c.balanceDue || '0').toFixed(2)}</td>
+                  <td className="py-2 px-3 text-sm">{c.memo || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

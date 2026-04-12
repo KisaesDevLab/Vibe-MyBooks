@@ -1,4 +1,4 @@
-# KIS Books — Production Deployment Guide
+# Vibe MyBooks — Production Deployment Guide
 
 ## Prerequisites
 

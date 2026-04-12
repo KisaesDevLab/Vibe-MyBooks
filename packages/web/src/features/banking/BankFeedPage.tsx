@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
-import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse } from '../../api/hooks/useBanking';
+import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
 import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/hooks/useAi';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw } from 'lucide-react';
+import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2 } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 const statusColors: Record<string, string> = {
@@ -75,6 +75,7 @@ export function BankFeedPage() {
   const [connectionFilter, setConnectionFilter] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('feedDate');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [matchModalFor, setMatchModalFor] = useState<string | null>(null);
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -96,6 +97,7 @@ export function BankFeedPage() {
   const bulkRecleanse = useBulkRecleanse();
   const aiCategorize = useAiCategorize();
   const aiBatch = useAiBatchCategorize();
+  const matchFeedItem = useMatchFeedItem();
 
   const aiEnabled = aiConfig?.isEnabled === true;
   const firstLoad = isLoading && !data;
@@ -381,6 +383,7 @@ export function BankFeedPage() {
                           <input value={editState.memo}
                             onChange={(e) => setEditState((s) => ({ ...s, memo: e.target.value }))}
                             className="block w-full rounded border border-gray-300 px-2 py-1 text-sm" placeholder="Memo" />
+                          <PayrollOverlapBanner feedItemId={item.id} />
                         </div>
                       ) : (
                         <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[item.status] || ''}`}>
@@ -419,6 +422,10 @@ export function BankFeedPage() {
                                 <Brain className="h-4 w-4" />
                               </button>
                             )}
+                            <button onClick={() => setMatchModalFor(item.id)}
+                              className="p-1.5 rounded hover:bg-gray-100 text-blue-500 hover:text-blue-700" title="Find existing transaction to match">
+                              <Link2 className="h-4 w-4" />
+                            </button>
                             <button onClick={() => exclude.mutate(item.id)}
                               className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500" title="Exclude">
                               <Trash2 className="h-4 w-4" />
@@ -435,6 +442,109 @@ export function BankFeedPage() {
         </div>
       )}
       <p className="text-sm text-gray-500 mt-2">{data?.total ?? 0} items</p>
+
+      {matchModalFor && (
+        <MatchCandidatesModal
+          feedItemId={matchModalFor}
+          onClose={() => setMatchModalFor(null)}
+          onMatch={(transactionId) => {
+            matchFeedItem.mutate(
+              { id: matchModalFor, transactionId },
+              { onSuccess: () => { setMatchModalFor(null); refetch(); } },
+            );
+          }}
+          isPending={matchFeedItem.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+function MatchCandidatesModal({ feedItemId, onClose, onMatch, isPending }: {
+  feedItemId: string;
+  onClose: () => void;
+  onMatch: (transactionId: string) => void;
+  isPending: boolean;
+}) {
+  const { data, isLoading } = useMatchCandidates(feedItemId);
+  const candidates = data?.candidates || [];
+
+  const typeLabel = (type: string) => {
+    if (type === 'bill_payment') return 'Bill Payment';
+    if (type === 'expense') return 'Check / Expense';
+    if (type === 'deposit') return 'Deposit';
+    if (type === 'transfer') return 'Transfer';
+    return type;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold">Match to Existing Transaction</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          Same-amount transactions within ±5 days. Bill payments are listed first — match them
+          to avoid creating a duplicate expense.
+        </p>
+        {isLoading ? (
+          <LoadingSpinner className="py-8" />
+        ) : candidates.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-8">No matching transactions found.</p>
+        ) : (
+          <table className="min-w-full">
+            <thead className="border-b">
+              <tr>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Type</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Number</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Date</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Vendor</th>
+                <th className="text-right text-xs font-medium text-gray-500 uppercase py-2">Amount</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {candidates.map((c) => (
+                <tr key={c.id} className="border-b last:border-0">
+                  <td className="py-2 text-sm">{typeLabel(c.txnType)}</td>
+                  <td className="py-2 text-sm font-mono">
+                    {c.checkNumber ? `#${c.checkNumber}` : c.txnNumber}
+                  </td>
+                  <td className="py-2 text-sm">{c.txnDate}</td>
+                  <td className="py-2 text-sm">{c.contactName || '—'}</td>
+                  <td className="py-2 text-sm text-right font-mono">${parseFloat(c.total).toFixed(2)}</td>
+                  <td className="py-2 text-right">
+                    <Button size="sm" onClick={() => onMatch(c.id)} disabled={isPending}>
+                      Match
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PayrollOverlapBanner({ feedItemId }: { feedItemId: string }) {
+  const { data } = usePayrollOverlapCheck(feedItemId);
+  const overlaps = data?.overlaps || [];
+  if (overlaps.length === 0) return null;
+
+  return (
+    <div className="mt-1 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+      <p className="font-medium">Possible payroll overlap</p>
+      {overlaps.map(o => (
+        <p key={o.txnId} className="mt-0.5">
+          {o.memo} on {o.date} (${o.amount})
+        </p>
+      ))}
+      <p className="mt-1 text-yellow-600">This amount may already be covered by a payroll journal entry. Categorizing it could double-count the transaction.</p>
     </div>
   );
 }

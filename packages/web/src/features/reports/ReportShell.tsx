@@ -4,9 +4,11 @@ import { Download, FileSpreadsheet } from 'lucide-react';
 
 async function downloadReport(url: string, filename: string) {
   const token = localStorage.getItem('accessToken');
-  const res = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  const companyId = localStorage.getItem('activeCompanyId');
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (companyId) headers['X-Company-Id'] = companyId;
+  const res = await fetch(url, { headers });
   if (!res.ok) throw new Error('Export failed');
   const blob = await res.blob();
   const a = document.createElement('a');

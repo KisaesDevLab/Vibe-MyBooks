@@ -226,6 +226,12 @@ export function AiConfigPage() {
           <PromptEditorSection />
         </div>
 
+        {/* Chat Support — see AI_CHAT_SUPPORT_PLAN.md */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-800">Chat Assistant</h2>
+          <ChatSettingsSection />
+        </div>
+
         {updateConfig.error && <p className="text-sm text-red-600">{(updateConfig.error as any).message}</p>}
         <Button onClick={() => { updateConfig.mutate(form); setSaved(true); setTimeout(() => setSaved(false), 3000); }} loading={updateConfig.isPending}>
           Save Configuration
@@ -324,6 +330,275 @@ function PromptEditorSection() {
           + New Template
         </Button>
       )}
+    </div>
+  );
+}
+
+// ─── Chat Assistant Settings ────────────────────────────────────
+
+interface ChatConfigDto {
+  chatSupportEnabled: boolean;
+  chatProvider: string | null;
+  chatModel: string | null;
+  chatMaxHistory: number;
+  chatDataAccessLevel: 'none' | 'contextual' | 'full';
+  isEnabled: boolean;
+  hasAnthropicKey?: boolean;
+  hasOpenaiKey?: boolean;
+  hasGeminiKey?: boolean;
+  ollamaBaseUrl?: string | null;
+}
+
+interface KnowledgeStatusDto {
+  byteLength: number;
+  estimatedTokens: number;
+  hasPromptFile: boolean;
+  hasDataFile: boolean;
+  promptFilePath: string;
+  dataFilePath: string;
+  screenCount: number | null;
+  workflowCount: number | null;
+  termCount: number | null;
+  curatedFileCount: number | null;
+  generatedAt: string | null;
+}
+
+interface ChatStatsDto {
+  conversationsThisMonth: number;
+  messagesThisMonth: number;
+  estimatedCostThisMonth: number;
+}
+
+function ChatSettingsSection() {
+  const queryClient = useQueryClient();
+  const { data: config } = useQuery({
+    queryKey: ['chat', 'admin', 'config'],
+    queryFn: () => apiClient<ChatConfigDto>('/chat/admin/config'),
+  });
+  const { data: knowledge } = useQuery({
+    queryKey: ['chat', 'admin', 'knowledge-status'],
+    queryFn: () => apiClient<KnowledgeStatusDto>('/chat/admin/knowledge-status'),
+  });
+  const { data: stats } = useQuery({
+    queryKey: ['chat', 'admin', 'stats'],
+    queryFn: () => apiClient<ChatStatsDto>('/chat/admin/stats'),
+  });
+
+  const [form, setForm] = useState<{
+    chatSupportEnabled: boolean;
+    chatProvider: string;
+    chatModel: string;
+    chatMaxHistory: number;
+    chatDataAccessLevel: 'none' | 'contextual' | 'full';
+  }>({
+    chatSupportEnabled: false,
+    chatProvider: '',
+    chatModel: '',
+    chatMaxHistory: 50,
+    chatDataAccessLevel: 'contextual',
+  });
+  const [savedNote, setSavedNote] = useState(false);
+
+  useEffect(() => {
+    if (config) {
+      setForm({
+        chatSupportEnabled: config.chatSupportEnabled,
+        chatProvider: config.chatProvider || '',
+        chatModel: config.chatModel || '',
+        chatMaxHistory: config.chatMaxHistory,
+        chatDataAccessLevel: config.chatDataAccessLevel,
+      });
+    }
+  }, [config]);
+
+  const saveMutation = useMutation({
+    mutationFn: (input: typeof form) => apiClient('/chat/admin/config', {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'admin', 'config'] });
+      queryClient.invalidateQueries({ queryKey: ['chat', 'status'] });
+      setSavedNote(true);
+      setTimeout(() => setSavedNote(false), 3000);
+    },
+  });
+
+  const regenMutation = useMutation({
+    mutationFn: () => apiClient('/chat/admin/regenerate-knowledge', { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chat', 'admin', 'knowledge-status'] }),
+  });
+
+  const providerOptions: Array<{ value: string; label: string; available: boolean }> = [
+    { value: 'anthropic', label: 'Anthropic', available: !!config?.hasAnthropicKey },
+    { value: 'openai', label: 'OpenAI', available: !!config?.hasOpenaiKey },
+    { value: 'gemini', label: 'Gemini', available: !!config?.hasGeminiKey },
+    { value: 'ollama', label: 'Ollama (local)', available: !!config?.ollamaBaseUrl },
+  ];
+
+  const aiSystemReady = !!config?.isEnabled;
+
+  return (
+    <div className="space-y-4">
+      {!aiSystemReady && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          AI processing is not enabled at the system level. Enable the master AI switch above before turning on the chat assistant.
+        </div>
+      )}
+
+      <label className="flex items-center gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={form.chatSupportEnabled}
+          onChange={(e) => setForm((f) => ({ ...f, chatSupportEnabled: e.target.checked }))}
+          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-5 w-5"
+        />
+        <div>
+          <span className="text-sm font-medium text-gray-700">Enable chat assistant</span>
+          <p className="text-xs text-gray-500">Adds a slide-out chat panel accessible from every screen for opted-in companies.</p>
+        </div>
+      </label>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Chat Provider</label>
+        <select
+          value={form.chatProvider}
+          onChange={(e) => setForm((f) => ({ ...f, chatProvider: e.target.value }))}
+          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option value="">— Use categorization provider —</option>
+          {providerOptions.map((p) => (
+            <option key={p.value} value={p.value} disabled={!p.available}>
+              {p.label}{!p.available ? ' (not configured)' : ''}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 mt-1">
+          For best chat quality, use a model with strong instruction following (Claude Sonnet, GPT-4o, Gemini Pro). If left blank, falls back to your categorization provider.
+        </p>
+      </div>
+
+      <Input
+        label="Chat Model"
+        value={form.chatModel}
+        onChange={(e) => setForm((f) => ({ ...f, chatModel: e.target.value }))}
+        placeholder="e.g. claude-sonnet-4-20250514"
+      />
+
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Data Access Level</label>
+        <select
+          value={form.chatDataAccessLevel}
+          onChange={(e) => setForm((f) => ({ ...f, chatDataAccessLevel: e.target.value as 'none' | 'contextual' | 'full' }))}
+          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option value="none">None — help and concepts only</option>
+          <option value="contextual">Contextual — current screen context</option>
+          <option value="full">Full — read-only data lookup (coming soon)</option>
+        </select>
+        <p className="text-xs text-gray-500 mt-1">
+          Controls how much of the user's data the assistant can see. Contextual is the recommended default.
+        </p>
+      </div>
+
+      <Input
+        label="Max Conversation History"
+        type="number"
+        min="10"
+        max="200"
+        value={String(form.chatMaxHistory)}
+        onChange={(e) => setForm((f) => ({ ...f, chatMaxHistory: parseInt(e.target.value) || 50 }))}
+      />
+
+      {/* Knowledge base status */}
+      <div className="border-t border-gray-200 pt-4">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">Knowledge Base</h3>
+        {knowledge ? (
+          <div className="text-xs text-gray-600 space-y-0.5">
+            <p>
+              Status:{' '}
+              {knowledge.hasPromptFile
+                ? <span className="text-green-700">loaded</span>
+                : <span className="text-red-700">missing — run regenerate</span>}
+            </p>
+            {knowledge.generatedAt && (
+              <p>Generated: {new Date(knowledge.generatedAt).toLocaleString()}</p>
+            )}
+            {knowledge.screenCount !== null && (
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                <div className="bg-gray-50 rounded p-1.5 text-center">
+                  <p className="text-[10px] text-gray-500 uppercase">Screens</p>
+                  <p className="text-sm font-semibold text-gray-900">{knowledge.screenCount}</p>
+                </div>
+                <div className="bg-gray-50 rounded p-1.5 text-center">
+                  <p className="text-[10px] text-gray-500 uppercase">Workflows</p>
+                  <p className="text-sm font-semibold text-gray-900">{knowledge.workflowCount}</p>
+                </div>
+                <div className="bg-gray-50 rounded p-1.5 text-center">
+                  <p className="text-[10px] text-gray-500 uppercase">Terms</p>
+                  <p className="text-sm font-semibold text-gray-900">{knowledge.termCount}</p>
+                </div>
+                <div className="bg-gray-50 rounded p-1.5 text-center">
+                  <p className="text-[10px] text-gray-500 uppercase">Sources</p>
+                  <p className="text-sm font-semibold text-gray-900">{knowledge.curatedFileCount}</p>
+                </div>
+              </div>
+            )}
+            <p className="mt-1">Prompt size: ~{knowledge.estimatedTokens.toLocaleString()} tokens, {(knowledge.byteLength / 1024).toFixed(1)} KB</p>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">Loading…</p>
+        )}
+        <Button
+          size="sm"
+          variant="secondary"
+          className="mt-2"
+          loading={regenMutation.isPending}
+          onClick={() => regenMutation.mutate()}
+        >
+          Regenerate from sources
+        </Button>
+      </div>
+
+      {/* Usage stats */}
+      <div className="border-t border-gray-200 pt-4">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">Usage This Month</h3>
+        {stats ? (
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-500">Conversations</p>
+              <p className="text-lg font-semibold text-gray-900">{stats.conversationsThisMonth}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-500">Messages</p>
+              <p className="text-lg font-semibold text-gray-900">{stats.messagesThisMonth}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-500">Est. Cost</p>
+              <p className="text-lg font-semibold text-gray-900">${stats.estimatedCostThisMonth.toFixed(2)}</p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">Loading…</p>
+        )}
+      </div>
+
+      {savedNote && (
+        <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-2">
+          Chat settings saved.
+        </div>
+      )}
+      {saveMutation.error && (
+        <p className="text-sm text-red-600">{(saveMutation.error as Error).message}</p>
+      )}
+
+      <Button
+        size="sm"
+        loading={saveMutation.isPending}
+        onClick={() => saveMutation.mutate(form)}
+      >
+        Save Chat Settings
+      </Button>
     </div>
   );
 }

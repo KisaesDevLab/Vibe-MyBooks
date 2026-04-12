@@ -4,7 +4,7 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useRegister } from '../../api/hooks/useAuth';
-import { BUSINESS_TYPE_OPTIONS } from '@kis-books/shared';
+import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 
 export function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -12,6 +12,7 @@ export function RegisterPage() {
   const [displayName, setDisplayName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [businessType, setBusinessType] = useState('general_business');
+  const businessTypeOptions = useCoaTemplateOptions();
   const register = useRegister();
   const navigate = useNavigate();
 
@@ -37,7 +38,7 @@ export function RegisterPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
           <select value={businessType} onChange={(e) => setBusinessType(e.target.value)}
             className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-            {BUSINESS_TYPE_OPTIONS.map((opt) => (
+            {businessTypeOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>

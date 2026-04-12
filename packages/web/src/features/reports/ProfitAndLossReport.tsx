@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
+import { ReportScopeSelector } from './ReportScopeSelector';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 function fmt(n: number) { return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' }); }
@@ -16,11 +18,13 @@ export function ProfitAndLossReport() {
   const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
   const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
   const [compare, setCompare] = useState<CompareMode>('');
+  const [scope, setScope] = useState<'company' | 'consolidated'>('company');
+  const { activeCompanyId } = useCompanyContext();
 
-  const queryParams = `start_date=${startDate}&end_date=${endDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}`;
+  const queryParams = `start_date=${startDate}&end_date=${endDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}`;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports', 'profit-loss', startDate, endDate, basis, compare],
+    queryKey: ['reports', 'profit-loss', startDate, endDate, basis, compare, activeCompanyId, scope],
     queryFn: () => apiClient<any>(`/reports/profit-loss?${queryParams}`),
   });
 
@@ -45,6 +49,7 @@ export function ProfitAndLossReport() {
             <option value="previous_year">vs. Previous Year</option>
             <option value="multi_period">Monthly Breakdown</option>
           </select>
+          <ReportScopeSelector scope={scope} onScopeChange={setScope} />
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (

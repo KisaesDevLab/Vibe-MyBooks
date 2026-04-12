@@ -1,10 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { CheckCircle, Eye, EyeOff, RefreshCw, Download, ChevronRight } from 'lucide-react';
-import { BUSINESS_TYPE_OPTIONS } from '@kis-books/shared';
+import { CheckCircle, Eye, EyeOff, RefreshCw, Download, ChevronRight, Upload, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 
 const SETUP_API = '/api/setup';
 
@@ -56,6 +56,7 @@ interface FormState {
   // Security
   jwtSecret: string;
   backupKey: string;
+  encryptionKey: string;
   // Email
   skipEmail: boolean;
   smtpPreset: string;
@@ -89,9 +90,159 @@ function generateRandomPassword(): string {
   return result;
 }
 
+function RestoreChecklist({ items }: { items: Record<string, { status: string; message: string }> }) {
+  return (
+    <div className="space-y-2 mt-4">
+      <h3 className="text-sm font-semibold text-gray-700">Post-Restore Checklist</h3>
+      {Object.entries(items).map(([key, item]) => (
+        <div key={key} className="flex items-start gap-2 text-sm">
+          {item.status === 'ok' ? (
+            <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+          ) : (
+            <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+          )}
+          <span className={item.status === 'ok' ? 'text-green-700' : 'text-amber-700'}>
+            {item.message}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function FirstRunSetupWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+  const businessTypeOptions = useCoaTemplateOptions();
+
+  // Bootstrap state: poll /api/setup/status on mount so we can (a) refuse
+  // to render the wizard at all on an already-initialized system and
+  // (b) explicitly surface a "waiting for database" state instead of
+  // letting the operator click through a form that will then fail.
+  const [bootstrapState, setBootstrapState] = useState<
+    'checking' | 'ready' | 'already-complete' | 'db-unavailable' | 'error' | 'pending-recovery-key'
+  >('checking');
+  const [bootstrapError, setBootstrapError] = useState('');
+  const [pendingInstallationId, setPendingInstallationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch('/api/setup/status');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const status = await res.json();
+        if (cancelled) return;
+        // F22: setup is done but the recovery key was never acknowledged —
+        // re-fetch it from the server-side pending map and render the
+        // recovery-key screen.
+        if (status.setupComplete && status.pendingRecoveryKey && status.installationId) {
+          try {
+            const pendingRes = await fetch(
+              `/api/setup/pending-recovery-key?installationId=${encodeURIComponent(status.installationId)}`,
+            );
+            if (pendingRes.ok) {
+              const body = await pendingRes.json();
+              if (!cancelled && body?.recoveryKey) {
+                setRecoveryKey(body.recoveryKey);
+                setPendingInstallationId(status.installationId);
+                setBootstrapState('pending-recovery-key');
+                return;
+              }
+            }
+          } catch {
+            // Fall through to already-complete handling if pending lookup fails.
+          }
+        }
+        if (status.setupComplete && !status.statusCheckFailed) {
+          setBootstrapState('already-complete');
+          return;
+        }
+        if (status.statusCheckFailed) {
+          setBootstrapState('db-unavailable');
+          return;
+        }
+        setBootstrapState('ready');
+      } catch (err: any) {
+        if (cancelled) return;
+        setBootstrapError(err?.message || 'Unable to contact the server');
+        setBootstrapState('error');
+      }
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
+    // `setRecoveryKey` / `setPendingInstallationId` are stable setters so an
+    // empty deps array still matches React's exhaustive-deps expectations.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Restore from backup state
+  const [restoreMode, setRestoreMode] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restorePassphrase, setRestorePassphrase] = useState('');
+  const [showRestorePassphrase, setShowRestorePassphrase] = useState(false);
+  const [restoreValidation, setRestoreValidation] = useState<Record<string, unknown> | null>(null);
+  const [restoreValidating, setRestoreValidating] = useState(false);
+  const [restoreExecuting, setRestoreExecuting] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<Record<string, unknown> | null>(null);
+  const [restoreError, setRestoreError] = useState('');
+  const restoreFileRef = useRef<HTMLInputElement>(null);
+
+  const handleRestoreFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setRestoreFile(e.target.files?.[0] ?? null);
+    setRestoreValidation(null);
+    setRestoreResult(null);
+    setRestoreError('');
+  };
+
+  const handleRestoreValidate = async () => {
+    if (!restoreFile || !restorePassphrase) return;
+    setRestoreValidating(true);
+    setRestoreError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', restoreFile);
+      formData.append('passphrase', restorePassphrase);
+      const res = await fetch('/api/setup/restore/validate', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: 'Validation failed' } }));
+        throw new Error(err.error?.message || 'Validation failed');
+      }
+      const data = await res.json();
+      setRestoreValidation(data);
+    } catch (err: any) {
+      setRestoreError(err.message || 'Validation failed');
+    } finally {
+      setRestoreValidating(false);
+    }
+  };
+
+  const handleRestoreExecute = async () => {
+    if (!restoreFile || !restorePassphrase) return;
+    setRestoreExecuting(true);
+    setRestoreError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', restoreFile);
+      formData.append('passphrase', restorePassphrase);
+      const res = await fetch('/api/setup/restore/execute', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
+        throw new Error(err.error?.message || 'Restore failed');
+      }
+      const data = await res.json();
+      setRestoreResult(data);
+    } catch (err: any) {
+      setRestoreError(err.message || 'Restore failed');
+    } finally {
+      setRestoreExecuting(false);
+    }
+  };
 
   const [form, setForm] = useState<FormState>({
     // Defaults match the Docker Compose install (the `db` and `redis`
@@ -117,6 +268,7 @@ export function FirstRunSetupWizard() {
     redisPort: '6379',
     jwtSecret: '',
     backupKey: '',
+    encryptionKey: '',
     skipEmail: true,
     smtpPreset: 'custom',
     smtpHost: '',
@@ -154,6 +306,8 @@ export function FirstRunSetupWizard() {
   // Finalizing step
   const [finalizeStatus, setFinalizeStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [finalizeError, setFinalizeError] = useState('');
+  const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
+  const [recoveryKeySaved, setRecoveryKeySaved] = useState(false);
   const [finalizeSteps, setFinalizeSteps] = useState([
     { label: 'Writing configuration', status: 'pending' as 'pending' | 'active' | 'done' | 'error' },
     { label: 'Connecting to database', status: 'pending' as 'pending' | 'active' | 'done' | 'error' },
@@ -193,13 +347,15 @@ export function FirstRunSetupWizard() {
 
   const handleGenerateSecrets = async () => {
     try {
-      const data = await setupFetch<{ jwtSecret: string; backupKey: string }>('/generate-secrets', {
-        method: 'POST',
-      });
+      const data = await setupFetch<{ jwtSecret: string; backupKey: string; encryptionKey: string }>(
+        '/generate-secrets',
+        { method: 'POST' },
+      );
       setForm((f) => ({
         ...f,
         jwtSecret: data.jwtSecret,
         backupKey: data.backupKey,
+        encryptionKey: data.encryptionKey,
       }));
     } catch {
       // Fallback to client-side generation
@@ -207,6 +363,7 @@ export function FirstRunSetupWizard() {
         ...f,
         jwtSecret: generateRandomPassword() + generateRandomPassword(),
         backupKey: generateRandomPassword() + generateRandomPassword(),
+        encryptionKey: generateRandomPassword() + generateRandomPassword(),
       }));
     }
   };
@@ -325,7 +482,7 @@ export function FirstRunSetupWizard() {
       updateStep(3, 'active');
 
       // The actual API call
-      await setupFetch('/initialize', {
+      const initResult = await setupFetch<{ recoveryKey?: string; installationId?: string }>('/initialize', {
         method: 'POST',
         body: JSON.stringify({
           db: {
@@ -341,6 +498,7 @@ export function FirstRunSetupWizard() {
           },
           jwtSecret: form.jwtSecret,
           backupKey: form.backupKey,
+          encryptionKey: form.encryptionKey,
           ports: {
             api: Number(form.apiPort),
             frontend: Number(form.frontendPort),
@@ -374,6 +532,17 @@ export function FirstRunSetupWizard() {
       // Step 4: Done
       updateStep(4, 'done');
       setFinalizeStatus('done');
+
+      // Capture the recovery key surfaced by /initialize. The server writes
+      // /data/.env.recovery before this response lands, so the key is the
+      // ONLY way the operator can ever decrypt that file — we must display
+      // it before letting them navigate away.
+      if (initResult?.recoveryKey) {
+        setRecoveryKey(initResult.recoveryKey);
+      }
+      if ((initResult as { installationId?: string })?.installationId) {
+        setPendingInstallationId((initResult as { installationId?: string }).installationId!);
+      }
     } catch (err: any) {
       setFinalizeError(err.message || 'Setup failed');
       setFinalizeStatus('error');
@@ -452,6 +621,165 @@ export function FirstRunSetupWizard() {
     partnership: 'Partnership',
   };
 
+  // --- Bootstrap gates --------------------------------------------------
+  // Render blocking screens before the real wizard whenever we can't be
+  // sure the wizard is safe to use. These are the outermost line of
+  // defense against the user clicking through a form that would fail or,
+  // worse, succeed against an already-initialized system.
+  if (bootstrapState === 'checking') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="text-center">
+          <LoadingSpinner />
+          <p className="mt-3 text-sm text-gray-600">Checking installation state...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (bootstrapState === 'already-complete') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center space-y-4">
+          <ShieldCheck className="h-10 w-10 text-green-600 mx-auto" />
+          <h2 className="text-xl font-bold text-gray-900">Setup already complete</h2>
+          <p className="text-sm text-gray-600">
+            This Vibe MyBooks instance is already configured. The first-run setup wizard is disabled.
+          </p>
+          <Button onClick={() => navigate('/login')} className="w-full">
+            Go to login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // F22: the wizard previously completed but the operator never clicked
+  // "I have saved this" on the recovery-key screen. The key is still held
+  // server-side in the pending map — re-display it here and gate progress
+  // on a successful acknowledgement call.
+  if (bootstrapState === 'pending-recovery-key' && recoveryKey) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-xl w-full bg-white rounded-lg border-2 border-amber-400 shadow-md p-6 space-y-5">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="h-8 w-8 text-amber-600 flex-shrink-0 mt-1" />
+            <div>
+              <h2 className="text-xl font-bold text-amber-900">Save your recovery key before continuing</h2>
+              <p className="text-sm text-amber-800 mt-1">
+                Setup has finished but the previous session never confirmed the recovery key was
+                saved. The key is cached server-side for a few more minutes — this is your last
+                chance to save it before it expires.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-300 rounded p-4">
+            <p className="font-mono text-xl tracking-wider text-center text-gray-900 select-all break-all">
+              {recoveryKey}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => navigator.clipboard.writeText(recoveryKey)}
+            >
+              Copy to clipboard
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const win = window.open('', '_blank', 'width=500,height=400');
+                if (!win) return;
+                win.document.write(
+                  `<html><head><title>KIS Books Recovery Key</title></head>` +
+                    `<body style="font-family:monospace;padding:2em;">` +
+                    `<h2>KIS Books Recovery Key</h2>` +
+                    `<p style="font-size:1.5em;letter-spacing:0.1em;background:#fef3c7;padding:1em;border:2px solid #f59e0b;">${recoveryKey}</p>` +
+                    `</body></html>`,
+                );
+                win.document.close();
+                win.print();
+              }}
+            >
+              Print
+            </Button>
+          </div>
+
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={recoveryKeySaved}
+              onChange={(e) => setRecoveryKeySaved(e.target.checked)}
+              className="mt-1"
+            />
+            <span className="text-sm text-amber-900">
+              I have saved this recovery key. I understand it will not be shown again.
+            </span>
+          </label>
+
+          <Button
+            className="w-full"
+            disabled={!recoveryKeySaved}
+            onClick={async () => {
+              if (pendingInstallationId) {
+                try {
+                  await fetch('/api/setup/acknowledge-recovery-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ installationId: pendingInstallationId }),
+                  });
+                } catch {
+                  // Ignore — acknowledgement is best-effort; the TTL will
+                  // clear it soon enough either way.
+                }
+              }
+              navigate('/login');
+            }}
+          >
+            Continue to login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (bootstrapState === 'db-unavailable') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-lg border border-amber-200 shadow-sm p-6 text-center space-y-4">
+          <AlertTriangle className="h-10 w-10 text-amber-600 mx-auto" />
+          <h2 className="text-xl font-bold text-gray-900">Database not yet reachable</h2>
+          <p className="text-sm text-gray-600">
+            The API couldn't verify the database state. Setup is disabled until the database is reachable — this prevents a transient outage from allowing destructive operations.
+          </p>
+          <p className="text-xs text-gray-500">
+            If Postgres is still starting, wait a few seconds and refresh. If it's down, check the database container logs.
+          </p>
+          <Button onClick={() => window.location.reload()} className="w-full">
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (bootstrapState === 'error') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-lg border border-red-200 shadow-sm p-6 text-center space-y-4">
+          <AlertTriangle className="h-10 w-10 text-red-600 mx-auto" />
+          <h2 className="text-xl font-bold text-gray-900">Unable to reach the API</h2>
+          <p className="text-sm text-gray-600">{bootstrapError}</p>
+          <Button onClick={() => window.location.reload()} className="w-full">
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
@@ -504,17 +832,149 @@ export function FirstRunSetupWizard() {
         <div className="w-full max-w-2xl">
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
             {/* Step 0: Welcome */}
-            {step === 0 && (
-              <div className="text-center py-8 space-y-4">
+            {step === 0 && !restoreMode && !restoreResult && (
+              <div className="text-center py-8 space-y-6">
                 <h2 className="text-3xl font-bold text-gray-900">Welcome to Vibe MyBooks</h2>
                 <p className="text-lg text-gray-600 max-w-md mx-auto">
-                  Your self-hosted bookkeeping solution. This wizard will guide you through the
-                  initial setup in just a few minutes.
+                  Your self-hosted bookkeeping solution. Choose how you'd like to get started.
                 </p>
+
+                <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto pt-2">
+                  <button
+                    onClick={() => setStep(1)}
+                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-all text-left group"
+                  >
+                    <ChevronRight className="h-6 w-6 text-primary-600 mb-2" />
+                    <h3 className="font-semibold text-gray-900 group-hover:text-primary-700">New Installation</h3>
+                    <p className="text-xs text-gray-500 mt-1">Set up a fresh Vibe MyBooks instance from scratch</p>
+                  </button>
+                  <button
+                    onClick={() => setRestoreMode(true)}
+                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group"
+                  >
+                    <Upload className="h-6 w-6 text-amber-600 mb-2" />
+                    <h3 className="font-semibold text-gray-900 group-hover:text-amber-700">Restore from Backup</h3>
+                    <p className="text-xs text-gray-500 mt-1">Restore a previous installation from a .vmb backup file</p>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Restore from backup flow */}
+            {step === 0 && restoreMode && !restoreResult && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <Upload className="h-5 w-5 text-amber-600" />
+                  Restore from Backup
+                </h2>
                 <p className="text-sm text-gray-500">
-                  We'll configure your database, security keys, email, admin account, and company
-                  profile.
+                  Upload a .vmb backup file and enter the passphrase to restore your data.
                 </p>
+
+                {restoreError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    {restoreError}
+                  </div>
+                )}
+
+                <div className="space-y-3 max-w-md">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Backup File (.vmb)</label>
+                    <input
+                      ref={restoreFileRef}
+                      type="file"
+                      accept=".vmb,.kbk"
+                      onChange={handleRestoreFileChange}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border file:border-gray-300 file:text-sm file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
+                    />
+                  </div>
+
+                  {restoreFile && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Passphrase</label>
+                      <div className="relative">
+                        <input
+                          type={showRestorePassphrase ? 'text' : 'password'}
+                          value={restorePassphrase}
+                          onChange={(e) => setRestorePassphrase(e.target.value)}
+                          placeholder="Enter backup passphrase"
+                          className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <button type="button" onClick={() => setShowRestorePassphrase(!showRestorePassphrase)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          {showRestorePassphrase ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!restoreValidation && (
+                    <div className="flex gap-3">
+                      <Button variant="secondary" onClick={() => { setRestoreMode(false); setRestoreFile(null); setRestorePassphrase(''); }}>
+                        Back
+                      </Button>
+                      <Button onClick={handleRestoreValidate} loading={restoreValidating}
+                        disabled={!restoreFile || !restorePassphrase}>
+                        Validate Backup
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Validation result */}
+                  {restoreValidation && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ShieldCheck className="h-5 w-5 text-green-600" />
+                        <span className="font-semibold text-green-800">Backup Validated</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                        <span className="text-gray-600">Type:</span>
+                        <span className="text-gray-900 capitalize">{String(restoreValidation['backup_type'])} backup</span>
+                        <span className="text-gray-600">Version:</span>
+                        <span className="text-gray-900">{String((restoreValidation['metadata'] as Record<string, unknown>)?.['source_version'] || 'unknown')}</span>
+                        <span className="text-gray-600">Created:</span>
+                        <span className="text-gray-900">{new Date(String((restoreValidation['metadata'] as Record<string, unknown>)?.['created_at'] || '')).toLocaleDateString()}</span>
+                        <span className="text-gray-600">Companies:</span>
+                        <span className="text-gray-900">{String((restoreValidation['metadata'] as Record<string, unknown>)?.['tenant_count'] || 1)}</span>
+                        <span className="text-gray-600">Users:</span>
+                        <span className="text-gray-900">{String((restoreValidation['metadata'] as Record<string, unknown>)?.['user_count'] || 0)}</span>
+                        <span className="text-gray-600">Transactions:</span>
+                        <span className="text-gray-900">{Number((restoreValidation['metadata'] as Record<string, unknown>)?.['transaction_count'] || 0).toLocaleString()}</span>
+                      </div>
+
+                      <div className="mt-4 flex gap-3">
+                        <Button variant="secondary" onClick={() => { setRestoreValidation(null); }}>
+                          Back
+                        </Button>
+                        <Button onClick={handleRestoreExecute} loading={restoreExecuting}>
+                          Restore Now
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Post-restore checklist */}
+            {step === 0 && restoreResult && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                  <h2 className="text-lg font-semibold text-gray-800">Restore Complete</h2>
+                </div>
+                <p className="text-sm text-gray-600">{String(restoreResult['message'])}</p>
+
+                {/* Checklist */}
+                {restoreResult['checklist'] != null && (
+                  <RestoreChecklist items={restoreResult['checklist'] as Record<string, { status: string; message: string }>} />
+                )}
+
+                <div className="pt-4 border-t border-gray-100">
+                  <Button onClick={() => navigate('/login')}>
+                    Go to Login <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -835,7 +1295,7 @@ export function FirstRunSetupWizard() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
                   <select value={form.businessType} onChange={set('businessType')}
                     className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                    {BUSINESS_TYPE_OPTIONS.map((opt) => (
+                    {businessTypeOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                   </select>
@@ -1001,12 +1461,100 @@ export function FirstRunSetupWizard() {
                 )}
 
                 {finalizeStatus === 'done' && (
-                  <div className="text-center pt-4">
-                    <p className="text-sm text-gray-600 mb-4">
-                      Your Vibe MyBooks installation is ready. You can now log in with your admin
-                      credentials.
-                    </p>
-                    <Button onClick={() => navigate('/login')}>Go to Login</Button>
+                  <div className="pt-4 space-y-5">
+                    {recoveryKey && (
+                      <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-5 space-y-4">
+                        <div className="flex items-start gap-3">
+                          <ShieldCheck className="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <h3 className="font-bold text-amber-900">Recovery Key — save this now</h3>
+                            <p className="text-sm text-amber-800 mt-1">
+                              This key is the only way to recover your installation if you lose the
+                              contents of <code className="bg-amber-100 px-1 rounded">/data/config/.env</code>.
+                              It will be shown exactly once and never stored in plaintext on the server.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="bg-white border border-amber-300 rounded p-4">
+                          <p className="font-mono text-xl tracking-wider text-center text-gray-900 select-all break-all">
+                            {recoveryKey}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="secondary"
+                            onClick={() => navigator.clipboard.writeText(recoveryKey)}
+                          >
+                            Copy to Clipboard
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              const win = window.open('', '_blank', 'width=500,height=400');
+                              if (!win) return;
+                              win.document.write(
+                                `<html><head><title>KIS Books Recovery Key</title></head>` +
+                                  `<body style="font-family:monospace;padding:2em;">` +
+                                  `<h2>KIS Books Recovery Key</h2>` +
+                                  `<p>Installation date: ${new Date().toLocaleString()}</p>` +
+                                  `<p style="font-size:1.5em;letter-spacing:0.1em;background:#fef3c7;padding:1em;border:2px solid #f59e0b;">${recoveryKey}</p>` +
+                                  `<p>Keep this in a secure location. It is the only way to recover your .env file if it is lost.</p>` +
+                                  `</body></html>`,
+                              );
+                              win.document.close();
+                              win.print();
+                            }}
+                          >
+                            Print
+                          </Button>
+                        </div>
+
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={recoveryKeySaved}
+                            onChange={(e) => setRecoveryKeySaved(e.target.checked)}
+                            className="mt-1 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className="text-sm text-amber-900">
+                            I have saved this recovery key in a secure location. I understand it will
+                            not be shown again, and that losing it along with my <code>.env</code> file
+                            means encrypted data (Plaid tokens, 2FA secrets) becomes unrecoverable.
+                          </span>
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600 mb-4">
+                        Your Vibe MyBooks installation is ready. You can now log in with your admin
+                        credentials.
+                      </p>
+                      <Button
+                        onClick={async () => {
+                          // F22: acknowledge the pending key server-side so a
+                          // refresh of the wizard URL no longer shows the
+                          // recovery screen.
+                          if (recoveryKey && pendingInstallationId) {
+                            try {
+                              await fetch('/api/setup/acknowledge-recovery-key', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ installationId: pendingInstallationId }),
+                              });
+                            } catch {
+                              // Non-fatal — TTL will clean up.
+                            }
+                          }
+                          navigate('/login');
+                        }}
+                        disabled={!!recoveryKey && !recoveryKeySaved}
+                      >
+                        {recoveryKey && !recoveryKeySaved ? 'Confirm the checkbox first' : 'Go to Login'}
+                      </Button>
+                    </div>
                   </div>
                 )}
 
@@ -1025,7 +1573,7 @@ export function FirstRunSetupWizard() {
                 DOES render on step 7 (Review) with a "Complete Setup"
                 button; previously it was hidden on step 7 too, leaving
                 users stranded with no way to finish the wizard. */}
-            {step < 8 && (
+            {step < 8 && step > 0 && !restoreMode && !restoreResult && (
               <div className="flex justify-between mt-6 pt-4 border-t border-gray-100">
                 {step > 0 ? (
                   <Button variant="secondary" onClick={handleBack}>
@@ -1035,7 +1583,7 @@ export function FirstRunSetupWizard() {
                   <div />
                 )}
                 <Button onClick={handleNext} disabled={!canProceed()}>
-                  {step === 0 ? 'Get Started' : step === 7 ? 'Complete Setup' : 'Next'}
+                  {step === 7 ? 'Complete Setup' : 'Next'}
                 </Button>
               </div>
             )}

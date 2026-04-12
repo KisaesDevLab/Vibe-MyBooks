@@ -33,6 +33,17 @@ const reportGroups = [
     ],
   },
   {
+    title: 'Accounts Payable',
+    icon: Receipt,
+    reports: [
+      { label: 'AP Aging Summary', path: '/reports/ap-aging-summary' },
+      { label: 'AP Aging Detail', path: '/reports/ap-aging-detail' },
+      { label: 'Unpaid Bills', path: '/reports/unpaid-bills' },
+      { label: 'Bill Payment History', path: '/reports/bill-payment-history' },
+      { label: '1099 Preparation', path: '/reports/ap-1099-prep' },
+    ],
+  },
+  {
     title: 'Banking',
     icon: Landmark,
     reports: [

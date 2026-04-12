@@ -58,10 +58,15 @@ export function useLogout() {
   });
 }
 
+interface MeResponse {
+  user: User;
+  branding?: { appName: string; isCustomName: boolean };
+}
+
 export function useMe() {
   return useQuery({
     queryKey: ['me'],
-    queryFn: () => apiClient<{ user: User }>('/auth/me'),
+    queryFn: () => apiClient<MeResponse>('/auth/me'),
     retry: false,
     staleTime: 5 * 60 * 1000,
     enabled: !!localStorage.getItem('accessToken'),

@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power } from 'lucide-react';
+import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle } from 'lucide-react';
 
 interface TenantUser {
   id: string;
@@ -40,6 +41,11 @@ export function TenantDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // Delete confirmation state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const toggleAccessMutation = useMutation({
     mutationFn: (userId: string) =>
       apiClient(`/admin/users/${userId}/toggle-tenant-access`, {
@@ -48,6 +54,28 @@ export function TenantDetailPage() {
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', id] }),
   });
+
+  // Hard-delete the tenant. The backend rejects the request if any user
+  // would be stranded with no other tenant access (see deleteTenant() in
+  // admin.service.ts), and the error surfaces in the modal so the
+  // operator knows exactly which users to fix first.
+  const deleteMutation = useMutation({
+    mutationFn: () => apiClient(`/admin/tenants/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants'] });
+      navigate('/admin/tenants');
+    },
+    onError: (err: Error) => {
+      setDeleteError(err.message || 'Delete failed');
+    },
+  });
+
+  const closeDeleteModal = () => {
+    if (deleteMutation.isPending) return;
+    setShowDeleteModal(false);
+    setDeleteConfirmText('');
+    setDeleteError(null);
+  };
 
   const { data: tenant, isLoading, error } = useQuery({
     queryKey: ['admin', 'tenants', id],
@@ -298,6 +326,110 @@ export function TenantDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Danger Zone — destructive operations live here, separated from
+          the rest of the page so they can't be clicked by accident. */}
+      <div className="bg-white rounded-lg border-2 border-red-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-red-200 bg-red-50 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-red-600" />
+          <h2 className="text-lg font-semibold text-red-900">Danger Zone</h2>
+        </div>
+        <div className="p-6 flex items-center justify-between gap-4">
+          <div className="text-sm">
+            <p className="font-medium text-gray-900">Delete this tenant</p>
+            <p className="text-gray-600 mt-1">
+              Permanently removes <strong>{tenant.name}</strong> and all of its data — chart of
+              accounts, transactions, contacts, attachments, audit history, and access records.
+              This cannot be undone.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg whitespace-nowrap"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete tenant
+          </button>
+        </div>
+      </div>
+
+      {/* Delete confirmation modal — type-to-confirm pattern so a
+          stray click can't trigger destruction. */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={closeDeleteModal}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Delete this tenant?</h3>
+            </div>
+
+            <div className="text-sm text-gray-700 space-y-2">
+              <p>
+                This will permanently delete <strong>{tenant.name}</strong> and ALL of its data:
+              </p>
+              <ul className="list-disc pl-5 space-y-0.5 text-gray-600">
+                <li>{tenant.stats.accountCount} chart-of-account entries</li>
+                <li>{tenant.stats.transactionCount} transactions and journal lines</li>
+                <li>{tenant.stats.contactCount} contacts</li>
+                <li>{tenant.companies.length} {tenant.companies.length === 1 ? 'company' : 'companies'}</li>
+                <li>All attachments, bank rules, recurring schedules, audit history, and reports</li>
+              </ul>
+              <p className="text-xs text-gray-500 pt-1">
+                Users whose home tenant is this one will be reassigned to another tenant they have
+                access to. If any user has no other access, the deletion will be rejected and you'll
+                see which users need attention first.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                To confirm, type <span className="font-mono font-bold text-red-700">{tenant.name}</span> below:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none"
+                placeholder={tenant.name}
+                autoFocus
+                disabled={deleteMutation.isPending}
+              />
+            </div>
+
+            {deleteError && (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={closeDeleteModal}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setDeleteError(null);
+                  deleteMutation.mutate();
+                }}
+                disabled={deleteConfirmText !== tenant.name || deleteMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg"
+              >
+                {deleteMutation.isPending ? 'Deleting…' : 'Delete forever'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

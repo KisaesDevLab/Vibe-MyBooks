@@ -28,6 +28,7 @@ export function PreferencesPage() {
     categoryFilterMode: 'by_type',
     defaultLineEntryMode: 'category',
     lockDate: '',
+    chatSupportEnabled: false,
   });
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export function PreferencesPage() {
         categoryFilterMode: data.settings.categoryFilterMode ?? 'by_type',
         defaultLineEntryMode: (data.settings as any).defaultLineEntryMode ?? 'category',
         lockDate: (data.settings as any).lockDate ?? '',
+        chatSupportEnabled: (data.settings as any).chatSupportEnabled ?? false,
       });
     }
   }, [data]);
@@ -60,7 +62,7 @@ export function PreferencesPage() {
       categoryFilterMode: form.categoryFilterMode as CategoryFilterMode,
       fiscalYearStartMonth: Number(form.fiscalYearStartMonth),
       invoiceNextNumber: Number(form.invoiceNextNumber),
-    });
+    } as any);
   };
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -146,6 +148,27 @@ export function PreferencesPage() {
           </div>
           <Input label="Invoice Prefix" value={form.invoicePrefix} onChange={set('invoicePrefix')} />
           <Input label="Next Invoice Number" value={String(form.invoiceNextNumber)} onChange={set('invoiceNextNumber')} type="number" />
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-800">AI Chat Assistant</h2>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.chatSupportEnabled}
+              onChange={(e) => setForm((f) => ({ ...f, chatSupportEnabled: e.target.checked }))}
+              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-5 w-5 mt-0.5"
+            />
+            <div>
+              <span className="text-sm font-medium text-gray-700">Enable chat assistant for this company</span>
+              <p className="text-xs text-gray-500 mt-1">
+                Adds a slide-out AI chat panel to every screen for users in this company. The
+                assistant can answer questions about Vibe MyBooks, explain accounting concepts,
+                and read your current screen context. Requires a system administrator to also
+                enable AI processing and chat support at the system level.
+              </p>
+            </div>
+          </label>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">

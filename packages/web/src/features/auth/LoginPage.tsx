@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { AuthLayout } from '../../components/layout/AuthLayout';
@@ -6,7 +6,79 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { setTokens } from '../../api/client';
 import { TfaVerifyStep } from './TfaVerifyStep';
-import { Fingerprint, Mail, KeyRound } from 'lucide-react';
+import { AlertCircle, Fingerprint, Mail, KeyRound } from 'lucide-react';
+
+// ─── Error helpers ────────────────────────────────────────────
+//
+// The login flow has four fetch calls (methods lookup, password login,
+// passkey login, magic link). Each can fail in many distinct ways:
+// invalid credentials, deactivated account, rate-limited, network down,
+// server crash returning HTML, validation error, etc. Without specific
+// messages the user just sees "Login failed" and has no idea what to do.
+
+interface AuthErrorInput {
+  status?: number;
+  code?: string;
+  serverMessage?: string;
+  thrown?: unknown;
+  defaultMessage: string;
+}
+
+function describeAuthError({ status, code, serverMessage, thrown, defaultMessage }: AuthErrorInput): string {
+  // Network failures: fetch throws TypeError when it can't reach the server
+  // (DNS failure, server down, CORS preflight rejected, offline, etc.)
+  if (thrown instanceof TypeError) {
+    return 'Cannot reach the server. Check your internet connection, or contact your administrator if the problem persists.';
+  }
+
+  // Specific error codes returned by the API
+  if (code === 'INVALID_CREDENTIALS') return 'The email or password you entered is incorrect.';
+  if (code === 'ACCOUNT_DEACTIVATED') {
+    return serverMessage || 'This account has been deactivated. Please contact your administrator.';
+  }
+  if (code === 'RATE_LIMIT' || code === 'TOO_MANY_REQUESTS') {
+    return 'Too many sign-in attempts. Please wait a minute and try again.';
+  }
+  if (code === 'VALIDATION_ERROR') {
+    return serverMessage || 'Please check the form and try again.';
+  }
+
+  // Status-based fallbacks for codes we don't recognize
+  if (status === 401) return 'The email or password you entered is incorrect.';
+  if (status === 403) return serverMessage || 'You do not have permission to sign in.';
+  if (status === 429) return 'Too many sign-in attempts. Please wait a minute and try again.';
+  if (status === 502 || status === 503 || status === 504) {
+    return 'The server is temporarily unavailable. Please try again in a moment.';
+  }
+  if (status && status >= 500) {
+    return 'Something went wrong on our end. Please try again, and contact support if the problem persists.';
+  }
+
+  return serverMessage || defaultMessage;
+}
+
+// res.json() throws on empty bodies or non-JSON responses (e.g. an HTML
+// 502 page from a reverse proxy). Returning null lets the caller handle
+// the failure path with describeAuthError instead of crashing.
+async function safeJson(res: Response): Promise<any> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function ErrorAlert({ message }: { message: string }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+    >
+      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+      <span>{message}</span>
+    </div>
+  );
+}
 
 interface AuthMethods {
   loginMethods: { password: boolean; magicLink: boolean; passkey: boolean };
@@ -58,9 +130,13 @@ export function LoginPage() {
       });
   }, [navigate]);
 
-  // Fetch available login methods on mount
+  // Fetch available login methods on mount. Failures are silent — we just
+  // fall back to the password-only form rather than blocking the page.
   useEffect(() => {
-    fetch('/api/v1/auth/methods').then((r) => r.json()).then(setMethods).catch(() => {});
+    fetch('/api/v1/auth/methods')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((m) => { if (m) setMethods(m); })
+      .catch(() => {});
   }, []);
 
   // Resend cooldown timer
@@ -72,28 +148,54 @@ export function LoginPage() {
 
   // Personalize methods after email entered
   const handleEmailBlur = () => {
-    if (email) {
-      fetch(`/api/v1/auth/methods?email=${encodeURIComponent(email)}`).then((r) => r.json()).then(setMethods).catch(() => {});
+    const trimmed = email.trim();
+    if (trimmed) {
+      fetch(`/api/v1/auth/methods?email=${encodeURIComponent(trimmed)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((m) => { if (m) setMethods(m); })
+        .catch(() => {});
     }
+  };
+
+  // Clear any previous error as soon as the user starts editing — otherwise
+  // a stale "incorrect password" message lingers while they retype.
+  const handleEmailChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    if (error) setError('');
+  };
+  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    if (error) setError('');
   };
 
   // ─── Password Login ──────────────────────────────────────────
 
   const handlePasswordLogin = async (e: FormEvent) => {
     e.preventDefault();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) { setError('Please enter your email address.'); return; }
+    if (!password) { setError('Please enter your password.'); return; }
     setLoading(true);
     setError('');
     try {
       const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: trimmedEmail, password }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
 
-      if (!res.ok) { setError(data.error?.message || 'Login failed'); return; }
+      if (!res.ok) {
+        setError(describeAuthError({
+          status: res.status,
+          code: data?.error?.code,
+          serverMessage: data?.error?.message,
+          defaultMessage: 'Sign in failed. Please try again.',
+        }));
+        return;
+      }
 
-      if (data.tfa_required) {
+      if (data?.tfa_required) {
         setTfaRequired(true);
         setTfaToken(data.tfa_token);
         setTfaMethods(data.available_methods || []);
@@ -103,10 +205,15 @@ export function LoginPage() {
         return;
       }
 
+      if (!data?.tokens) {
+        setError('Unexpected response from server. Please try again.');
+        return;
+      }
+
       setTokens(data.tokens);
       setTimeout(() => navigate('/'), 50);
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
+    } catch (err) {
+      setError(describeAuthError({ thrown: err, defaultMessage: 'Sign in failed. Please try again.' }));
     } finally {
       setLoading(false);
     }
@@ -121,9 +228,18 @@ export function LoginPage() {
       const optRes = await fetch('/api/v1/auth/passkeys/login/options', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email || undefined }),
+        body: JSON.stringify({ email: email.trim() || undefined }),
       });
-      const options = await optRes.json();
+      const options = await safeJson(optRes);
+      if (!optRes.ok || !options) {
+        setError(describeAuthError({
+          status: optRes.status,
+          code: options?.error?.code,
+          serverMessage: options?.error?.message,
+          defaultMessage: 'Could not start passkey sign-in. Try another method.',
+        }));
+        return;
+      }
 
       const authResp = await startAuthentication({ optionsJSON: options });
 
@@ -132,17 +248,39 @@ export function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(authResp),
       });
-      const data = await verifyRes.json();
+      const data = await safeJson(verifyRes);
 
-      if (!verifyRes.ok) { setError(data.error?.message || 'Passkey login failed'); return; }
+      if (!verifyRes.ok) {
+        setError(describeAuthError({
+          status: verifyRes.status,
+          code: data?.error?.code,
+          serverMessage: data?.error?.message,
+          defaultMessage: 'Passkey sign-in failed. Try another method.',
+        }));
+        return;
+      }
+
+      if (!data?.tokens) {
+        setError('Unexpected response from server. Please try again.');
+        return;
+      }
 
       setTokens(data.tokens);
       setTimeout(() => navigate('/'), 50);
-    } catch (err: any) {
-      if (err.name === 'NotAllowedError') {
-        setError('Passkey authentication was cancelled.');
+    } catch (err: unknown) {
+      // WebAuthn-specific errors thrown by the browser API
+      const name = (err as { name?: string } | null)?.name;
+      if (name === 'NotAllowedError') {
+        setError('Passkey sign-in was cancelled or timed out.');
+      } else if (name === 'SecurityError') {
+        setError('Passkey sign-in is not allowed in this context. Try using HTTPS or another method.');
+      } else if (name === 'InvalidStateError') {
+        setError('No passkey is registered for this device. Try another sign-in method.');
       } else {
-        setError(err.message || 'Passkey login failed. Try another method.');
+        setError(describeAuthError({
+          thrown: err,
+          defaultMessage: 'Passkey sign-in failed. Try another method.',
+        }));
       }
     } finally {
       setLoading(false);
@@ -152,21 +290,33 @@ export function LoginPage() {
   // ─── Magic Link ──────────────────────────────────────────────
 
   const handleSendMagicLink = async () => {
-    if (!email) { setError('Enter your email address first.'); return; }
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) { setError('Please enter your email address first.'); return; }
     setMagicLinkLoading(true);
     setError('');
     try {
       const res = await fetch('/api/v1/auth/magic-link/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: trimmedEmail }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error?.message || 'Failed to send login link'); return; }
+      const data = await safeJson(res);
+      if (!res.ok) {
+        setError(describeAuthError({
+          status: res.status,
+          code: data?.error?.code,
+          serverMessage: data?.error?.message,
+          defaultMessage: 'Could not send the login link. Please try again.',
+        }));
+        return;
+      }
       setMagicLinkSent(true);
       setResendCooldown(60);
-    } catch (err: any) {
-      setError(err.message || 'Failed to send login link');
+    } catch (err) {
+      setError(describeAuthError({
+        thrown: err,
+        defaultMessage: 'Could not send the login link. Please try again.',
+      }));
     } finally {
       setMagicLinkLoading(false);
     }
@@ -246,7 +396,7 @@ export function LoginPage() {
         )}
 
         {/* Email field (always shown) */}
-        <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+        <Input label="Email" type="email" value={email} onChange={handleEmailChange}
           onBlur={handleEmailBlur} required autoComplete="email" />
 
         {/* Magic Link Button */}
@@ -274,15 +424,15 @@ export function LoginPage() {
             )}
             {/* When no alternatives, email is already above. Only show password here if alternatives exist and password section is expanded */}
             {!hasAlternatives && null}
-            <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+            <Input label="Password" type="password" value={password} onChange={handlePasswordChange}
               required autoComplete="current-password" />
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <ErrorAlert message={error} />}
             <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
           </form>
         )}
 
         {/* Show error outside form if password not shown */}
-        {!showPassword && error && <p className="text-sm text-red-600">{error}</p>}
+        {!showPassword && error && <ErrorAlert message={error} />}
 
         <div className="text-center text-sm text-gray-500 space-y-1">
           <p><Link to="/forgot-password" className="text-primary-600 hover:text-primary-500">Forgot your password?</Link></p>

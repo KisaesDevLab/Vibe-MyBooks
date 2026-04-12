@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
+import { ReportScopeSelector } from './ReportScopeSelector';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 function fmt(n: number) { return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' }); }
@@ -30,11 +32,13 @@ export function BalanceSheetReport() {
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().split('T')[0]!);
   const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
   const [compare, setCompare] = useState<CompareMode>('');
+  const [scope, setScope] = useState<'company' | 'consolidated'>('company');
+  const { activeCompanyId } = useCompanyContext();
 
-  const queryParams = `as_of_date=${asOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}`;
+  const queryParams = `as_of_date=${asOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}`;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports', 'balance-sheet', asOfDate, basis, compare],
+    queryKey: ['reports', 'balance-sheet', asOfDate, basis, compare, activeCompanyId, scope],
     queryFn: () => apiClient<any>(`/reports/balance-sheet?${queryParams}`),
   });
 
@@ -62,6 +66,7 @@ export function BalanceSheetReport() {
             <option value="previous_period">vs. Previous Period</option>
             <option value="previous_year">vs. Previous Year</option>
           </select>
+          <ReportScopeSelector scope={scope} onScopeChange={setScope} />
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (

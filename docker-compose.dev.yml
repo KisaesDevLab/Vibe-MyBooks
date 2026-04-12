@@ -1,4 +1,24 @@
 services:
+  # Compiles @kis-books/shared on file changes. The api/web/worker services
+  # all import from `@kis-books/shared`, which resolves to `dist/index.js`
+  # per the shared package's `main` field — meaning a stale dist will crash
+  # any consumer that imports a newly-added export. This watcher rebuilds
+  # dist into a host-bound directory so all three consumers see fresh
+  # output without an image rebuild.
+  shared:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    volumes:
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/shared/dist:/app/packages/shared/dist
+    working_dir: /app/packages/shared
+    command: ["npx", "tsc", "--watch", "--preserveWatchOutput"]
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+
   api:
     build:
       context: .
@@ -7,8 +27,17 @@ services:
       # Source bind mounts for hot reload. The /data bind mount is inherited
       # from the base docker-compose.yml — don't duplicate it here.
       - ./packages/shared/src:/app/packages/shared/src
+      # The shared service writes to this dist; mounting it here means the
+      # api always sees the freshly-compiled output.
+      - ./packages/shared/dist:/app/packages/shared/dist
       - ./packages/api/src:/app/packages/api/src
-    command: ["npx", "tsx", "watch", "packages/api/src/index.ts"]
+      # Read-only mount of the web source so the chat-knowledge
+      # generator (services/chat-knowledge-generator.ts) can scan
+      # App.tsx + page files to build the screen catalog. Read-only
+      # so the API process can never write to web source by accident.
+      - ./packages/web/src:/app/packages/web/src:ro
+      - ./packages/web/index.html:/app/packages/web/index.html:ro
+    command: ["npx", "tsx", "watch", "packages/api/src/bootstrap.ts"]
     environment:
       NODE_ENV: development
       # Windows host -> Linux container bind mounts don't deliver inotify
@@ -16,6 +45,8 @@ services:
       # is the reliable fallback on Docker Desktop for Windows.
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "300"
+    depends_on:
+      - shared
 
   web:
     build:
@@ -23,6 +54,7 @@ services:
       dockerfile: packages/web/Dockerfile
     volumes:
       - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/shared/dist:/app/packages/shared/dist
       - ./packages/web/src:/app/packages/web/src
       - ./packages/web/index.html:/app/packages/web/index.html
       - ./packages/web/vite.config.ts:/app/packages/web/vite.config.ts
@@ -31,13 +63,18 @@ services:
     environment:
       NODE_ENV: development
       VITE_API_URL: http://api:3001
+    depends_on:
+      - shared
 
   worker:
     volumes:
       - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/shared/dist:/app/packages/shared/dist
       - ./packages/worker/src:/app/packages/worker/src
     command: ["npx", "tsx", "watch", "packages/worker/src/index.ts"]
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "300"
+    depends_on:
+      - shared

@@ -1,4 +1,4 @@
-# KIS Books — API Reference
+# Vibe MyBooks — API Reference
 
 Base URL: `/api/v1`
 
