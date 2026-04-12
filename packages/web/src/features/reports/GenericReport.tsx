@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { ReportTable } from './ReportTable';
 import { DateRangePicker } from './DateRangePicker';
+import { ReportScopeSelector } from './ReportScopeSelector';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
@@ -29,13 +31,16 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
   const [startDate, setStartDate] = useState(`${today.getFullYear()}-01-01`);
   const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
   const [asOfDate, setAsOfDate] = useState(today.toISOString().split('T')[0]!);
+  const [scope, setScope] = useState<'company' | 'consolidated'>('company');
+  const { activeCompanyId } = useCompanyContext();
 
   const params = new URLSearchParams(extraParams);
   if (useDateRange) { params.set('start_date', startDate); params.set('end_date', endDate); }
   if (useAsOfDate) params.set('as_of_date', asOfDate);
+  if (scope === 'consolidated') params.set('scope', 'consolidated');
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['reports', endpoint, startDate, endDate, asOfDate, extraParams],
+    queryKey: ['reports', endpoint, startDate, endDate, asOfDate, extraParams, activeCompanyId, scope],
     queryFn: () => apiClient<any>(`/reports/${endpoint}?${params.toString()}`),
   });
 
@@ -54,6 +59,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
                 className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
             </div>
           )}
+          <ReportScopeSelector scope={scope} onScopeChange={setScope} />
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> :

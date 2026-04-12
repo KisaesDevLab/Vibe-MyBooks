@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
+import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
+import { ReportScopeSelector } from './ReportScopeSelector';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 // ─── Types matching the buildGeneralLedger response shape ────────
@@ -80,11 +82,13 @@ export function GeneralLedgerReport() {
   const today = new Date();
   const [startDate, setStartDate] = useState(`${today.getFullYear()}-01-01`);
   const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
+  const [scope, setScope] = useState<'company' | 'consolidated'>('company');
+  const { activeCompanyId } = useCompanyContext();
 
-  const queryParams = `start_date=${startDate}&end_date=${endDate}`;
+  const queryParams = `start_date=${startDate}&end_date=${endDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}`;
 
   const { data, isLoading, error } = useQuery<GLReportData>({
-    queryKey: ['reports', 'general-ledger', startDate, endDate],
+    queryKey: ['reports', 'general-ledger', startDate, endDate, activeCompanyId, scope],
     queryFn: () => apiClient<GLReportData>(`/reports/general-ledger?${queryParams}`),
   });
 
@@ -94,14 +98,17 @@ export function GeneralLedgerReport() {
       maxWidth="max-w-6xl"
       exportBaseUrl={`/api/v1/reports/general-ledger?${queryParams}`}
       filters={
-        <DateRangePicker
-          startDate={startDate}
-          endDate={endDate}
-          onChange={(s, e) => {
-            setStartDate(s);
-            setEndDate(e);
-          }}
-        />
+        <div className="flex items-center gap-4 flex-wrap">
+          <DateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onChange={(s, e) => {
+              setStartDate(s);
+              setEndDate(e);
+            }}
+          />
+          <ReportScopeSelector scope={scope} onScopeChange={setScope} />
+        </div>
       }
     >
       {isLoading ? (

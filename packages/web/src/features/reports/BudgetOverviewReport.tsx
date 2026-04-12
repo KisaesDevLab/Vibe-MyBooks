@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -17,9 +18,10 @@ function fmt(n: number) { return n.toLocaleString('en-US', { style: 'currency', 
 
 export function BudgetOverviewReport() {
   const [selectedBudgetId, setSelectedBudgetId] = useState('');
+  const { activeCompanyId } = useCompanyContext();
 
   const { data: budgetsData, isLoading: budgetsLoading } = useQuery({
-    queryKey: ['budgets'],
+    queryKey: ['budgets', activeCompanyId],
     queryFn: () => apiClient<{ budgets: Budget[] }>('/budgets'),
   });
 
@@ -29,7 +31,7 @@ export function BudgetOverviewReport() {
   }, [selectedBudgetId, budgetsData]);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['budgets', budgetId, 'overview'],
+    queryKey: ['budgets', budgetId, 'overview', activeCompanyId],
     queryFn: () => apiClient<{ revenue: OverviewRow[]; expenses: OverviewRow[]; budgetName: string; fiscalYear: number }>(`/budgets/${budgetId}/overview`),
     enabled: !!budgetId,
   });

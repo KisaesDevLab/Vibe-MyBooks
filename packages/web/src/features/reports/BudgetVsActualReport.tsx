@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -56,10 +57,11 @@ export function BudgetVsActualReport() {
   const [startDate, setStartDate] = useState(`${today.getFullYear()}-01-01`);
   const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
   const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
+  const { activeCompanyId } = useCompanyContext();
 
   // Fetch budgets for dropdown
   const { data: budgetsData, isLoading: budgetsLoading } = useQuery({
-    queryKey: ['budgets'],
+    queryKey: ['budgets', activeCompanyId],
     queryFn: () => apiClient<{ budgets: Budget[] }>('/budgets'),
   });
 
@@ -71,7 +73,7 @@ export function BudgetVsActualReport() {
 
   // Fetch budget vs actual data
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['budgets', budgetId, 'vs-actual', startDate, endDate],
+    queryKey: ['budgets', budgetId, 'vs-actual', startDate, endDate, activeCompanyId],
     queryFn: () =>
       apiClient<BvsAData>(
         `/budgets/${budgetId}/vs-actual?start_date=${startDate}&end_date=${endDate}`,

@@ -4,3 +4,6 @@ export { BalanceSheetReport } from './BalanceSheetReport';
 
 // Generic report wrapper pages
 export { GenericReport } from './GenericReport';
+
+// Report UI components
+export { ReportScopeSelector } from './ReportScopeSelector';
