@@ -1,6 +1,6 @@
 # Installation Sentinel
 
-KIS Books ships with a tamper-evident installation sentinel that prevents the
+Vibe MyBooks ships with a tamper-evident installation sentinel that prevents the
 first-run setup wizard from accidentally re-running on an already-configured
 installation. This document is the operator runbook.
 

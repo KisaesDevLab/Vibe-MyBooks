@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Licensing Questions
+    url: mailto:licensing@kisaes.com
+    about: For questions about commercial licensing or the PolyForm Internal Use License

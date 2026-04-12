@@ -40,17 +40,25 @@ irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/ins
 - **Double-entry accounting** with 9 transaction types (invoices, expenses, deposits, transfers, journal entries, cash sales, credit memos, customer refunds, customer payments)
 - **Chart of Accounts** with 4 industry-specific templates and system account protection
 - **Transaction editing** with full journal line reversal and reposting
-- **Account registers** with inline transaction entry
-- **Batch transaction entry** — spreadsheet-style power tool for bulk data entry
-- **Tags** for flexible transaction categorization with report filtering
-- **Recurring transactions** with auto-post scheduling
+- **Account registers** with inline transaction entry and running balances
+- **Batch transaction entry** — spreadsheet-style power tool for bulk data entry with paste-from-Excel and CSV import
+- **Tags** for flexible transaction categorization with report filtering and tag groups (single/multi-select)
+- **Recurring transactions** with auto-post scheduling (daily, weekly, monthly, quarterly, annually)
 - **Duplicate detection** with merge/dismiss workflow
 
 ### Sales & Invoicing
 - **Invoicing** with PDF generation, email delivery, payment tracking, and template customization
-- **Items catalog** for quick invoice line entry
-- **Receive Payment to Bank Deposit** workflow
-- **Check writing & printing** with voucher and standard formats
+- **Estimates** that convert to invoices
+- **Items catalog** (Products & Services) for quick invoice line entry with default pricing
+- **Receive Payment → Bank Deposit** workflow with Payments Clearing account
+- **Check writing & printing** with voucher and standard formats, batch print queue
+
+### Accounts Payable
+- **Bills** with vendor terms, due dates, and partial payment tracking
+- **Vendor credits** with apply-to-bill workflow
+- **Pay Bills** — batch payment screen with credit application
+- **Bill OCR** — AI-powered scanning of vendor invoices to pre-fill bill entry
+- **AP Aging** reports (summary and detail)
 
 ### Banking
 - **Bank feed import** (CSV, OFX, QFX) with multi-step name cleansing pipeline
@@ -58,34 +66,66 @@ irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/ins
 - **Bank rules** (tenant + global) with auto-confirm for hands-free categorization
 - **Categorization learning** — learns from your accept/override decisions over time
 - **Bank statement import** — AI extracts transactions from PDF/image statements
-- **Bank reconciliation** with clearing workflow
+- **Bank reconciliation** with clearing workflow and reconciliation history
 - **Duplicate detection** on import (date + amount + description matching)
-- **Plaid integration** for live bank connections (optional)
+- **Plaid integration** for live bank connections with auto-sync (optional)
 
 ### File Attachments
 - **Drag-and-drop attachments** on every transaction form — upload before or after saving
 - **Attach existing files** — picker modal to link previously uploaded receipts/documents
 - **Receipt capture** with AI-powered OCR (vendor, date, total, tax extraction)
+- **Attachment library** — browse and manage all uploaded files across the company
 - **Cloud storage providers** — Local disk, S3, Dropbox, Google Drive, OneDrive (per-tenant config)
 - **Storage migration** between providers with progress tracking
 
+### AI Features
+- **Multi-provider support** — Anthropic (Claude), OpenAI (GPT-4o), Google Gemini, Ollama (self-hosted)
+- **Transaction categorization** with configurable confidence thresholds
+- **Receipt OCR** — extract vendor, date, total, and tax from receipt photos
+- **Bill scanning** — extract vendor invoices into structured bill data
+- **Statement parsing** — AI-powered extraction of transactions from PDF statements
+- **In-app chat assistant** — context-aware help with accounting concepts and app navigation
+- **Chat knowledge base** — 13 curated articles plus auto-generated screen catalog
+
 ### Reports
-- **24 financial reports** (P&L, Balance Sheet, Cash Flow, AR Aging, Trial Balance, General Ledger, and more)
+- **30+ financial reports** including P&L, Balance Sheet, Cash Flow, AR/AP Aging (summary + detail), Trial Balance, General Ledger, Customer/Vendor Balance, Expense by Vendor/Category, Check Register, Deposit Detail, Sales Tax, 1099 Preparation, and more
 - **Comparative reports** (previous period, previous year, multi-period, budget vs actual)
-- **Budgets** with monthly granularity
+- **Budgets** with monthly granularity, quick-setup options, and actuals comparison
+- **Tag filtering** on all reports for project/department/location analysis
+- **Export** — CSV, Excel, and PDF for all reports
+
+### Payroll
+- **Payroll import** — CSV/Excel upload from any payroll provider
+- **Two import modes** — employee-level detail (Mode A) or pre-built journal entries (Mode B)
+- **Auto-detection** of payroll provider format with column mapping
+- **Preview and post** — review generated journal entries before recording
+
+### Security & Authentication
+- **Two-factor authentication** — TOTP (authenticator apps), SMS, and email codes
+- **Passkey / WebAuthn** login — fingerprint, face recognition, or hardware security keys
+- **Magic link** email login (requires 2FA configured)
+- **Recovery codes** — single-use backup codes for 2FA recovery
+- **Trusted devices** — optional 30-day 2FA bypass per browser
+- **OAuth 2.0** for third-party application integration
 
 ### Administration
 - **Multi-tenant** architecture with row-level isolation
-- **Multi-company** support per tenant with company switching
+- **Multi-company** support per tenant with one-click company switching
 - **Super admin dashboard** with tenant/user management
-- **AI processing config** — multi-provider (Anthropic, OpenAI, Gemini, Ollama)
-- **MCP server** with API key management and OAuth
-- **Two-factor authentication** (TOTP, SMS, email)
-- **Passkey / WebAuthn** login
+- **Team management** — invite users with role-based access per company
+- **AI processing config** — per-task provider selection with usage tracking
+- **MCP server** with API key management for AI assistant integration
+- **Installation sentinel** — tamper-evident protection against accidental re-setup
+- **Recovery key** system — 25-character key to recover encrypted secrets after env loss
 - **Dark mode** and font size scaling
 - **Full audit trail** with before/after diff viewer
-- **Backup & restore** with AES-256 encryption
-- **Data export** (CSV, JSON)
+
+### Backup & Data
+- **Portable backups** — passphrase-encrypted `.vmb` files, restorable on any instance
+- **Legacy backups** — server-key encrypted `.kbk` files
+- **Cloud backup** — scheduled remote backups to S3, Dropbox, Google Drive, OneDrive with GFS retention
+- **Data export** — CSV, JSON, Excel for all entity types
+- **Tenant export/import** — move company data between instances
 
 ---
 

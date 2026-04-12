@@ -1,0 +1,90 @@
+name: Bug Report
+description: Report a bug in Vibe MyBooks
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please fill out the sections below so we can reproduce and fix it.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear description of what went wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Step-by-step instructions to trigger the bug.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened. Include error messages or screenshots if applicable.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the app is affected?
+      options:
+        - Dashboard
+        - Transactions
+        - Invoicing
+        - Banking / Bank Feed
+        - Reconciliation
+        - Bills / Accounts Payable
+        - Checks
+        - Reports
+        - Chart of Accounts
+        - Contacts
+        - Tags / Budgets
+        - Attachments
+        - AI / Chat
+        - Settings
+        - Admin
+        - Authentication / 2FA
+        - Backup / Restore
+        - Setup / Installation
+        - API
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "App version or commit hash (check Settings > About or `git rev-parse --short HEAD`)"
+      placeholder: "e.g., v0.2.0 or 1aad6dd"
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      options:
+        - Docker Compose (dev)
+        - Docker Compose (production)
+        - Windows installer
+        - Other
