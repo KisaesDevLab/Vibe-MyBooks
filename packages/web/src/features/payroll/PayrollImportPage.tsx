@@ -96,7 +96,7 @@ export function PayrollImportPage() {
               id="payroll-file-input"
               type="file"
               className="hidden"
-              accept=".csv,.tsv,.xls,.xlsx"
+              accept=".csv,.tsv,.xls,.xlsx,.txt"
               multiple
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
@@ -106,9 +106,9 @@ export function PayrollImportPage() {
             />
             <div className="text-gray-500">
               <p className="text-lg font-medium">Drop your payroll file here</p>
-              <p className="mt-1 text-sm">or click to browse. Supports CSV, TSV, XLS, XLSX</p>
+              <p className="mt-1 text-sm">or click to browse. Supports CSV, TSV, XLS, XLSX, TXT</p>
               <p className="mt-1 text-xs text-gray-400">
-                For Payroll Relief: drop both GLEntries.csv and Checks.csv together
+                For pre-built JE imports (Payroll Relief, ADP GLI, etc.): you can drop a companion Checks file together with the main file
               </p>
             </div>
           </div>
@@ -146,9 +146,26 @@ export function PayrollImportPage() {
               onChange={(e) => setSelectedTemplate(e.target.value)}
             >
               <option value="">Auto-detect</option>
-              {templates.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
+              {(() => {
+                // Group templates by provider display name
+                const groups = new Map<string, typeof templates>();
+                for (const t of templates) {
+                  const groupName = t.name.split(' — ')[0] || 'Other';
+                  if (!groups.has(groupName)) groups.set(groupName, []);
+                  groups.get(groupName)!.push(t);
+                }
+                return Array.from(groups.entries()).map(([group, tpls]) =>
+                  tpls.length > 1 ? (
+                    <optgroup key={group} label={group}>
+                      {tpls.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </optgroup>
+                  ) : (
+                    <option key={tpls[0]!.id} value={tpls[0]!.id}>{tpls[0]!.name}</option>
+                  )
+                );
+              })()}
             </select>
           </div>
 
@@ -199,12 +216,31 @@ export function PayrollImportPage() {
                     Duplicate file detected
                   </span>
                 )}
+                {uploadResult.preview.isDuplicateByKey && !uploadResult.preview.isDuplicate && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                    Matching payroll data already posted
+                  </span>
+                )}
               </div>
             </div>
           )}
 
+          {/* Dual-mode hint: suggest Mode B when Mode A detected for dual-mode providers */}
+          {importMode === 'employee_level' && uploadResult?.preview?.detectedProvider &&
+            ['adp_run', 'paychex_flex'].includes(uploadResult.preview.detectedProvider) && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+              We detected {uploadResult.preview.detectedProvider === 'adp_run' ? 'ADP Run' : 'Paychex Flex'} employee-level data.
+              If you have the {uploadResult.preview.detectedProvider === 'adp_run'
+                ? 'GL Interface "Other" export' : 'GLS (General Ledger Summary) export'}, that format is recommended for a faster, more accurate import.
+            </div>
+          )}
+
           {importMode === 'prebuilt_je' ? (
-            <DescriptionMapper sessionId={sessionId} onComplete={handleMappingComplete} />
+            <DescriptionMapper
+              sessionId={sessionId}
+              providerKey={uploadResult?.preview?.detectedProvider || 'payroll_relief_gl'}
+              onComplete={handleMappingComplete}
+            />
           ) : (
             <ColumnMapper
               sessionId={sessionId}

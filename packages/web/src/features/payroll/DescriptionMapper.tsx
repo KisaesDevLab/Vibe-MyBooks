@@ -5,10 +5,11 @@ import { useAccounts } from '../../api/hooks/useAccounts';
 
 interface Props {
   sessionId: string;
+  providerKey?: string;
   onComplete: () => void;
 }
 
-export function DescriptionMapper({ sessionId, onComplete }: Props) {
+export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl', onComplete }: Props) {
   const { data: descData, isLoading } = useDescriptionMap(sessionId);
   const { data: accountsData } = useAccounts({ limit: 500 });
   const saveMutation = useSaveDescriptionMap();
@@ -58,7 +59,7 @@ export function DescriptionMapper({ sessionId, onComplete }: Props) {
 
     await saveMutation.mutateAsync({
       sessionId,
-      providerKey: 'payroll_relief',
+      providerKey,
       mappings: entries,
     });
     onComplete();
@@ -88,6 +89,12 @@ export function DescriptionMapper({ sessionId, onComplete }: Props) {
           <span className="text-red-600 ml-1">{unmappedCount} unmapped</span>
         )}
       </p>
+
+      {providerKey === 'toast_je_report' && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          Tip-related descriptions (Tips Owed, Gratuity Owed) typically map to liability accounts, not expense accounts.
+        </div>
+      )}
 
       <div className="space-y-1">
         <div className="grid grid-cols-12 gap-2 py-2 text-xs font-medium text-gray-500 border-b border-gray-200">
