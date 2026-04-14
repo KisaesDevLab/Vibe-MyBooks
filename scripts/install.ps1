@@ -209,21 +209,21 @@ $envFile = Join-Path $InstallDir ".env"
 if (-not (Test-Path $envFile)) {
     Write-Info "Generating configuration with secure secrets..."
 
-    function New-SecretB64([int]$Bytes) {
-        $buf = New-Object byte[] $Bytes
-        [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($buf)
-        [Convert]::ToBase64String($buf).TrimEnd('=') -replace '[+/]', ''
-    }
+    # All secrets are hex-encoded so the output length is fully predictable:
+    # N bytes of hex = 2N characters, no padding or character stripping
+    # needed. The earlier base64 approach stripped `+` and `/` after the
+    # fact, which produced strings shorter than the requested Substring
+    # length and crashed on a fresh Windows install.
     function New-SecretHex([int]$Bytes) {
         $buf = New-Object byte[] $Bytes
         [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($buf)
         ($buf | ForEach-Object { $_.ToString('x2') }) -join ''
     }
 
-    $jwtSecret           = (New-SecretB64 36).Substring(0, 48)  # ~48 url-safe chars
-    $encryptionKey       = New-SecretHex 32                     # 64 hex chars / 32 bytes
-    $plaidEncryptionKey  = New-SecretHex 32
-    $postgresPassword    = (New-SecretB64 24).Substring(0, 32)
+    $jwtSecret           = New-SecretHex 24  # 48 hex chars (JWT_SECRET min is 20)
+    $encryptionKey       = New-SecretHex 32  # 64 hex chars / 32 bytes
+    $plaidEncryptionKey  = New-SecretHex 32  # 64 hex chars / 32 bytes
+    $postgresPassword    = New-SecretHex 16  # 32 hex chars
     $generatedAt         = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss UTC')
 
     $envContent = @"
