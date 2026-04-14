@@ -3,15 +3,19 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: kisbooks
-      POSTGRES_PASSWORD: kisbooks
-      POSTGRES_DB: kisbooks
+      POSTGRES_USER: ${POSTGRES_USER:-kisbooks}
+      # Refuse to start if POSTGRES_PASSWORD is not set in .env. A shared
+      # default across installations is worse than a loud failure — operators
+      # who see the error fix it once; operators who inherit a default hang
+      # onto it forever.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-kisbooks}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "${DB_HOST_PORT:-5434}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kisbooks"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kisbooks}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -38,7 +42,7 @@ services:
       - "${PORT:-3001}:3001"
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://kisbooks:kisbooks@db:5432/kisbooks
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kisbooks}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set — put it in .env, do not run with the default}@db:5432/${POSTGRES_DB:-kisbooks}
       REDIS_URL: redis://redis:6379
       TAILSCALE_SOCKET_PATH: /var/run/tailscale/tailscaled.sock
     volumes:
@@ -75,7 +79,7 @@ services:
     command: ["npx", "tsx", "packages/worker/src/index.ts"]
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://kisbooks:kisbooks@db:5432/kisbooks
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kisbooks}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set — put it in .env, do not run with the default}@db:5432/${POSTGRES_DB:-kisbooks}
       REDIS_URL: redis://redis:6379
     volumes:
       - ./data:/data
