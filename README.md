@@ -20,12 +20,23 @@ Vibe MyBooks runs as Docker containers, so **Docker must be installed and runnin
 
 Docker Desktop bundles everything; on Linux you can install Docker Engine directly with the one-liner above. Either way you also need **Docker Compose v2** (the `docker compose` subcommand), which is included in all modern Docker installs.
 
-The installer also needs **git** — already present on most Linux and macOS systems; on Windows install from [git-scm.com](https://git-scm.com/downloads).
+### Install git
 
-Before running the installer, make sure:
+The installer clones this repo via `git`, so it must be on `PATH`.
+
+| OS | Install |
+|----|---------|
+| **Linux** | Preinstalled on most distros. If missing: `sudo apt-get install -y git` (Debian/Ubuntu), `sudo dnf install -y git` (Fedora/RHEL), `sudo pacman -S git` (Arch). |
+| **macOS** | Preinstalled via Xcode Command Line Tools. If missing: run `xcode-select --install` or `brew install git`. |
+| **Windows** | `winget install --id Git.Git -e --source winget` (works on Win 10 2004+ / Win 11 out of the box). Fallback: download the installer from [git-scm.com/download/win](https://git-scm.com/download/win). |
+
+### Sanity check
+
+Before running the installer, confirm in your terminal:
 1. Docker Desktop is running (macOS/Windows) or `systemctl start docker` (Linux).
-2. `docker info` succeeds in your terminal.
+2. `docker info` succeeds.
 3. `docker compose version` prints `v2.x` or higher.
+4. `git --version` prints a version number.
 
 ---
 
