@@ -62,7 +62,7 @@ export function TenantListPage() {
 
   const handleSwitchToTenant = async (tenantId: string) => {
     try {
-      const result = await apiClient<{ tokens: { accessToken: string; refreshToken: string } }>('/auth/switch-tenant', {
+      const result = await apiClient<{ tokens: { accessToken: string } }>('/auth/switch-tenant', {
         method: 'POST',
         body: JSON.stringify({ tenantId }),
       });

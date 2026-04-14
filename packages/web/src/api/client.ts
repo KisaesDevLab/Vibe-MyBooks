@@ -1,22 +1,32 @@
-import type { AuthTokens } from '@kis-books/shared';
-
 const API_BASE = '/api/v1';
 
+// What the web actually handles. The refresh token lives in an HttpOnly
+// cookie now, so this side of the wire only ever sees the access token.
+export interface AuthTokens {
+  accessToken: string;
+}
+
+// The refresh token used to live in localStorage, which made it reachable by
+// any script on the page (i.e. any XSS). It now lives in an HttpOnly cookie
+// the server sets on every token-issuing response; the browser ships it
+// automatically on /api/v1/auth/refresh and no JS ever sees it. We still
+// keep the short-lived access token in localStorage so reloads can reuse it
+// without a refresh round-trip, but the long-lived credential is gone.
+
 let accessToken: string | null = localStorage.getItem('accessToken');
-let refreshToken: string | null = localStorage.getItem('refreshToken');
 let isRefreshing = false;
-let refreshPromise: Promise<AuthTokens> | null = null;
+let refreshPromise: Promise<AuthTokens | null> | null = null;
 
 export function setTokens(tokens: AuthTokens) {
   accessToken = tokens.accessToken;
-  refreshToken = tokens.refreshToken;
   localStorage.setItem('accessToken', tokens.accessToken);
-  localStorage.setItem('refreshToken', tokens.refreshToken);
+  // Proactively scrub any refresh token left over from a previous version of
+  // the client so it can't linger in localStorage after an upgrade.
+  localStorage.removeItem('refreshToken');
 }
 
 export function clearTokens() {
   accessToken = null;
-  refreshToken = null;
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
 }
@@ -25,18 +35,17 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
-async function refreshAccessToken(): Promise<AuthTokens> {
-  if (!refreshToken) throw new Error('No refresh token');
-
+async function refreshAccessToken(): Promise<AuthTokens | null> {
   const res = await fetch(`${API_BASE}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
+    credentials: 'include',
+    body: JSON.stringify({}),
   });
 
   if (!res.ok) {
     clearTokens();
-    throw new Error('Token refresh failed');
+    return null;
   }
 
   const data = await res.json();
@@ -64,10 +73,9 @@ export async function apiClient<T>(
     headers['X-Company-Id'] = activeCompanyId;
   }
 
-  let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  let res = await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
 
-  // If 401, try refreshing the token once
-  if (res.status === 401 && refreshToken) {
+  if (res.status === 401) {
     if (!isRefreshing) {
       isRefreshing = true;
       refreshPromise = refreshAccessToken().finally(() => {
@@ -76,15 +84,13 @@ export async function apiClient<T>(
       });
     }
 
-    try {
-      await refreshPromise;
-      headers['Authorization'] = `Bearer ${accessToken}`;
-      res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-    } catch {
-      clearTokens();
+    const tokens = await refreshPromise;
+    if (!tokens) {
       window.location.href = '/login';
       throw new Error('Session expired');
     }
+    headers['Authorization'] = `Bearer ${accessToken}`;
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
   }
 
   if (!res.ok) {
