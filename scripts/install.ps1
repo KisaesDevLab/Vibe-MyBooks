@@ -122,9 +122,40 @@ try {
 } catch {}
 
 if (-not $gitInstalled) {
-    Write-Err "Git is not installed."
-    Write-Host "  Install from: https://git-scm.com/downloads"
-    Pause-Then-Exit 1
+    # Try winget — it's built into Win 10 2004+ and Win 11 and can
+    # install git unattended. If winget is also missing we fall back to
+    # telling the user where to get the installer.
+    $wingetAvailable = $false
+    try {
+        $null = & winget --version 2>$null
+        $wingetAvailable = ($LASTEXITCODE -eq 0)
+    } catch {}
+
+    if ($wingetAvailable) {
+        Write-Info "Git is not installed. Installing via winget..."
+        & winget install --id Git.Git -e --source winget --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Host
+        # winget sets git on PATH for new shells; for the current shell,
+        # add the default install path explicitly so `git` resolves now.
+        $gitBin = "$env:ProgramFiles\Git\cmd"
+        if (Test-Path "$gitBin\git.exe") { $env:PATH = "$gitBin;$env:PATH" }
+        try {
+            $null = & git --version 2>$null
+            $gitInstalled = ($LASTEXITCODE -eq 0)
+        } catch {}
+    }
+
+    if (-not $gitInstalled) {
+        Write-Err "Git is not installed and could not be installed automatically."
+        Write-Host ""
+        Write-Host "  Install manually:"
+        Write-Host "    winget install --id Git.Git -e --source winget"
+        Write-Host "  Or download from:"
+        Write-Host "    https://git-scm.com/download/win"
+        Write-Host ""
+        Write-Host "  Close this window, install git, open a NEW PowerShell, and re-run the installer."
+        Pause-Then-Exit 1
+    }
+    Write-Ok "Git installed."
 }
 
 Write-Info "Docker and git are ready."
