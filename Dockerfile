@@ -1,7 +1,7 @@
 # Stage 1: Build shared + API
 FROM node:20-alpine AS api-build
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
 RUN npm install --workspace=@kis-books/shared --workspace=@kis-books/api
@@ -13,7 +13,7 @@ RUN npm run build --workspace=@kis-books/api
 # Stage 2: Build web
 FROM node:20-alpine AS web-build
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
 RUN npm install --workspace=@kis-books/shared --workspace=@kis-books/web
@@ -27,7 +27,7 @@ FROM node:20-alpine AS runtime
 WORKDIR /app
 
 # Install production dependencies only
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
 RUN npm install --workspace=@kis-books/shared --workspace=@kis-books/api --omit=dev
