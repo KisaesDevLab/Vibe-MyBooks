@@ -52,7 +52,11 @@ curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scri
 irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.ps1 | iex
 ```
 
-This clones the repo into `~/vibe-mybooks` (`%USERPROFILE%\vibe-mybooks` on Windows), generates a `.env` with random secure secrets, builds the production Docker image, and starts the app. Open **http://localhost:3001** when it's ready and complete the first-run setup wizard.
+This clones the repo into `~/vibe-mybooks` (`%USERPROFILE%\vibe-mybooks` on Windows), generates a `.env` with random secure secrets, **pulls the pre-built production image** from `ghcr.io/kisaesdevlab/vibe-mybooks`, and starts the app. The image contains the compiled API + web bundle, so there's no local TypeScript build — first run takes about as long as your connection needs to fetch ~300 MB. Open **http://localhost:3001** when it's ready and complete the first-run setup wizard.
+
+> **Pin a version** by adding `VIBE_MYBOOKS_TAG=v1.2.3` (or any published tag, including `main-<sha>`) to your `.env` before running the installer. Defaults to `latest`. Browse published images at [ghcr.io/kisaesdevlab/vibe-mybooks](https://github.com/KisaesDevLab/Vibe-MyBooks/pkgs/container/vibe-mybooks).
+
+> **Building from source** (contributors only): clone the repo and run `docker compose -f docker-compose.yml -f docker-compose.dev.yml up` for the hot-reload dev stack, or `docker compose -f docker-compose.prod.yml build` to exercise the production Dockerfile locally.
 
 ### Update to Latest
 

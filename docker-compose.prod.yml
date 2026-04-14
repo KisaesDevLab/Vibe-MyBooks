@@ -1,5 +1,11 @@
 services:
   app:
+    # Pre-built image from GHCR — installs pull this instead of building
+    # locally. Pin a specific release via VIBE_MYBOOKS_TAG in .env.
+    # The build: stanza is kept so `docker compose build` still works for
+    # contributors who cloned the repo and want to exercise the Dockerfile.
+    image: ghcr.io/kisaesdevlab/vibe-mybooks:${VIBE_MYBOOKS_TAG:-latest}
+    pull_policy: always
     build:
       context: .
       dockerfile: Dockerfile
