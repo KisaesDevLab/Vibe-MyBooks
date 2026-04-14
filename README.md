@@ -6,6 +6,29 @@ A self-hosted, source-available bookkeeping application for solo entrepreneurs, 
 
 ---
 
+## Prerequisites
+
+Vibe MyBooks runs as Docker containers, so **Docker must be installed and running** before you run the installer. The installer will exit with instructions if it isn't.
+
+### Install Docker
+
+| OS | Install |
+|----|---------|
+| **Linux** (Debian / Ubuntu / Fedora / Arch / etc.) | `curl -fsSL https://get.docker.com \| sh` then `sudo usermod -aG docker $USER && newgrp docker` |
+| **macOS** | [Docker Desktop](https://docker.com/products/docker-desktop) — also works with [OrbStack](https://orbstack.dev) or Colima |
+| **Windows** | [Docker Desktop](https://docker.com/products/docker-desktop) (requires WSL 2 on Win 10/11) |
+
+Docker Desktop bundles everything; on Linux you can install Docker Engine directly with the one-liner above. Either way you also need **Docker Compose v2** (the `docker compose` subcommand), which is included in all modern Docker installs.
+
+The installer also needs **git** — already present on most Linux and macOS systems; on Windows install from [git-scm.com](https://git-scm.com/downloads).
+
+Before running the installer, make sure:
+1. Docker Desktop is running (macOS/Windows) or `systemctl start docker` (Linux).
+2. `docker info` succeeds in your terminal.
+3. `docker compose version` prints `v2.x` or higher.
+
+---
+
 ## One-Line Install
 
 **Linux / macOS:**
@@ -18,7 +41,7 @@ curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scri
 irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.ps1 | iex
 ```
 
-This will clone the repo, generate secure secrets, build the Docker images, and start all services. Open **http://localhost:5173** when complete.
+This clones the repo into `~/vibe-mybooks` (`%USERPROFILE%\vibe-mybooks` on Windows), generates a `.env` with random secure secrets, builds the production Docker image, and starts the app. Open **http://localhost:3001** when it's ready and complete the first-run setup wizard.
 
 ### Update to Latest
 
@@ -29,7 +52,17 @@ curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scri
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.ps1 | iex -update
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.ps1))) -update
+```
+
+### Stop / start manually
+
+After install, the app lives at `~/vibe-mybooks`. From there:
+
+```bash
+docker compose -f docker-compose.prod.yml down      # stop
+docker compose -f docker-compose.prod.yml up -d     # start
+docker compose -f docker-compose.prod.yml logs -f   # tail logs
 ```
 
 ---
