@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Download, FileSpreadsheet } from 'lucide-react';
+import { apiClient } from '../../api/client';
 
 async function downloadReport(url: string, filename: string) {
   const token = localStorage.getItem('accessToken');
@@ -22,14 +23,19 @@ async function downloadReport(url: string, filename: string) {
 }
 
 /** Open a PDF in a new browser tab via direct URL navigation.
- *  Passes the JWT as a query param so no fetch/blob is needed —
- *  works on mobile Safari, Android Chrome, and desktop alike. */
-function openPdfInTab(baseUrl: string) {
-  const token = localStorage.getItem('accessToken');
+ *  We can't set Authorization on a window.open navigation, so the server
+ *  issues a single-use ~60s download token via /downloads/token. The token
+ *  rides along as ?_dl= and is consumed on first use — so even if it winds
+ *  up in browser history or a proxy log, a replay fails and the long-lived
+ *  access token is never exposed in a URL. */
+async function openPdfInTab(baseUrl: string) {
+  const { token: dlToken } = await apiClient<{ token: string; expiresIn: number }>(
+    '/downloads/token',
+    { method: 'POST', body: JSON.stringify({}) },
+  );
   const companyId = localStorage.getItem('activeCompanyId');
   const sep = baseUrl.includes('?') ? '&' : '?';
-  let url = `${baseUrl}${sep}format=pdf`;
-  if (token) url += `&_token=${encodeURIComponent(token)}`;
+  let url = `${baseUrl}${sep}format=pdf&_dl=${encodeURIComponent(dlToken)}`;
   if (companyId) url += `&_company=${encodeURIComponent(companyId)}`;
   window.open(url, '_blank', 'noopener');
 }
@@ -66,7 +72,7 @@ export function ReportShell({ title, children, filters, onExportCsv, onExportPdf
   const handlePdf = () => {
     if (onExportPdf) return onExportPdf();
     if (!exportBaseUrl) return;
-    openPdfInTab(exportBaseUrl);
+    openPdfInTab(exportBaseUrl).catch(() => { /* ignore */ });
   };
 
   return (
