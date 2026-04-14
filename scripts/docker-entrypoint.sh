@@ -17,12 +17,12 @@ if [ ! -f "$CONFIG_FILE" ]; then
   echo "============================================="
   echo ""
   echo "Starting in setup mode..."
-  node dist/index.js
+  exec node packages/api/dist/bootstrap.js
 else
   echo "Loading configuration from $CONFIG_FILE..."
   set -a
   . "$CONFIG_FILE"
   set +a
   echo "Starting Vibe MyBooks..."
-  node dist/index.js
+  exec node packages/api/dist/bootstrap.js
 fi

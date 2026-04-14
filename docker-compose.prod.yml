@@ -8,7 +8,7 @@ services:
       - "3001:3001"
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://kisbooks:${DB_PASSWORD:-kisbooks}@db:5432/kisbooks
+      DATABASE_URL: postgresql://kisbooks:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env for production}@db:5432/kisbooks
       REDIS_URL: redis://redis:6379
     volumes:
       # Host bind mount — see docker-compose.yml for rationale. Data lives at
@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: kisbooks
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-kisbooks}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env for production}
       POSTGRES_DB: kisbooks
     volumes:
       - pgdata:/var/lib/postgresql/data
