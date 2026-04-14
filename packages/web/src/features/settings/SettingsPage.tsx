@@ -16,6 +16,7 @@ import {
   FileArchive,
   Upload,
   Cloud,
+  CreditCard,
 } from 'lucide-react';
 
 const settingsCards = [
@@ -42,6 +43,12 @@ const settingsCards = [
     icon: Mail,
     title: 'Email (SMTP)',
     description: 'Configure outbound email for invoices and notifications',
+  },
+  {
+    to: '/settings/online-payments',
+    icon: CreditCard,
+    title: 'Online Payments (Stripe)',
+    description: 'Accept credit card and digital wallet payments on invoice links',
   },
   {
     to: '/settings/check-printing',

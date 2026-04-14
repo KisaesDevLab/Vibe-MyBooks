@@ -3,7 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, setTokens } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Building2, Eye, Power, LogIn, Search } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Building2, Eye, Power, LogIn, Search, Plus, X } from 'lucide-react';
 
 interface TenantRow {
   id: string;
@@ -20,6 +22,23 @@ export function TenantListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [newCompany, setNewCompany] = useState({ companyName: '', industry: '', entityType: '' });
+  const [createError, setCreateError] = useState('');
+
+  const createMutation = useMutation({
+    mutationFn: (input: { companyName: string; industry?: string; entityType?: string }) =>
+      apiClient('/admin/create-client', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants'] });
+      setShowCreate(false);
+      setNewCompany({ companyName: '', industry: '', entityType: '' });
+      setCreateError('');
+    },
+    onError: (err: any) => {
+      setCreateError(err.message || 'Failed to create company');
+    },
+  });
 
   const { data: tenants, isLoading, error } = useQuery({
     queryKey: ['admin', 'tenants'],
@@ -89,15 +108,20 @@ export function TenantListPage() {
           <h1 className="text-2xl font-bold text-gray-900">Tenants</h1>
           <span className="text-sm text-gray-500">({filtered?.length ?? 0} of {tenants?.length ?? 0})</span>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search tenants..."
-            className="pl-9 pr-4 py-2 rounded-lg border border-gray-300 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search tenants..."
+              className="pl-9 pr-4 py-2 rounded-lg border border-gray-300 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+          <Button size="sm" onClick={() => setShowCreate(true)}>
+            <Plus className="h-4 w-4 mr-1" /> New Company
+          </Button>
         </div>
       </div>
 
@@ -178,6 +202,71 @@ export function TenantListPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Create Company Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCreate(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">New Company</h2>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                if (!newCompany.companyName.trim()) return;
+                createMutation.mutate({
+                  companyName: newCompany.companyName.trim(),
+                  industry: newCompany.industry.trim() || undefined,
+                  entityType: newCompany.entityType.trim() || undefined,
+                });
+              }}
+              className="px-6 py-4 space-y-4"
+            >
+              <Input
+                label="Company Name *"
+                value={newCompany.companyName}
+                onChange={e => setNewCompany(f => ({ ...f, companyName: e.target.value }))}
+                placeholder="Acme Corp"
+                autoFocus
+              />
+              <Input
+                label="Industry"
+                value={newCompany.industry}
+                onChange={e => setNewCompany(f => ({ ...f, industry: e.target.value }))}
+                placeholder="e.g. Consulting, Restaurant, Retail"
+              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Entity Type</label>
+                <select
+                  value={newCompany.entityType}
+                  onChange={e => setNewCompany(f => ({ ...f, entityType: e.target.value }))}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">Select...</option>
+                  <option value="sole_prop">Sole Proprietorship</option>
+                  <option value="llc">LLC</option>
+                  <option value="s_corp">S Corporation</option>
+                  <option value="c_corp">C Corporation</option>
+                  <option value="partnership">Partnership</option>
+                  <option value="nonprofit">Nonprofit</option>
+                </select>
+              </div>
+              {createError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{createError}</div>
+              )}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button type="submit" loading={createMutation.isPending} disabled={!newCompany.companyName.trim()}>
+                  Create Company
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

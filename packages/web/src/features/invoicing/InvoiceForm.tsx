@@ -230,11 +230,11 @@ export function InvoiceForm() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Invoice' : 'New Invoice'}</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 sm:p-6 space-y-4">
           <ContactSelector label="Customer" value={contactId} onChange={setContactId} contactTypeFilter="customer" required />
-          <div className="grid grid-cols-3 gap-4">
-            <DatePicker label="Invoice Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
-            <DatePicker label="Due Date" value={dueDate} onChange={(e) => { setDueDate(e.target.value); setDueDateManual(true); }} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <DatePicker label="Invoice Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required className="!max-w-[75%] sm:!max-w-none" />
+            <DatePicker label="Due Date" value={dueDate} onChange={(e) => { setDueDate(e.target.value); setDueDateManual(true); }} className="!max-w-[75%] sm:!max-w-none" />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Payment Terms</label>
               <select value={paymentTerms} onChange={(e) => { setPaymentTerms(e.target.value); setDueDateManual(false); }}
@@ -249,7 +249,7 @@ export function InvoiceForm() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-medium text-gray-700">Line Items</h2>
             <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-xs">
@@ -272,27 +272,85 @@ export function InvoiceForm() {
             </div>
           </div>
 
-          <table className="min-w-full">
-            <thead>
-              <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">
-                  {defaultMode === 'item' ? 'Item / Account' : 'Account'}
-                </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
-                <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-16">Qty</th>
-                <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-36">Rate</th>
-                <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-12">Tax</th>
-                <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Tax %</th>
-                <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-24">Amount</th>
-                <th className="w-8 pb-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((line, i) => {
-                const lineAmount = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
-                return (
-                  <tr key={i} className="align-top">
-                    <td className="pr-2 py-1">
+          {/* ── Desktop: table layout ── */}
+          <div className="hidden md:block">
+            <table className="min-w-full">
+              <thead>
+                <tr>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">
+                    {defaultMode === 'item' ? 'Item / Account' : 'Account'}
+                  </th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
+                  <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-16">Qty</th>
+                  <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-36">Rate</th>
+                  <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-12">Tax</th>
+                  <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Tax %</th>
+                  <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-24">Amount</th>
+                  <th className="w-8 pb-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line, i) => {
+                  const lineAmount = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
+                  return (
+                    <tr key={i} className="align-top">
+                      <td className="pr-2 py-1">
+                        {line.entryMode === 'item' ? (
+                          <SearchableDropdown
+                            options={itemOptions}
+                            value={line.itemId}
+                            onChange={(val) => handleItemSelect(i, val)}
+                            placeholder="Select item..."
+                          />
+                        ) : (
+                          <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} accountTypeFilter="revenue" />
+                        )}
+                      </td>
+                      <td className="px-2 py-1">
+                        <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
+                          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
+                      </td>
+                      <td className="px-2 py-1">
+                        <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
+                          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center" type="number" min="1" />
+                      </td>
+                      <td className="px-2 py-1"><MoneyInput value={line.unitPrice} onChange={(v) => updateLine(i, 'unitPrice', v)} /></td>
+                      <td className="px-2 py-1 text-center pt-2.5">
+                        <input type="checkbox" checked={line.isTaxable}
+                          onChange={(e) => setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, isTaxable: e.target.checked } : l))}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                      </td>
+                      <td className="px-1 py-1">
+                        {line.isTaxable && (
+                          <input type="number" step="0.0001" value={line.taxRate}
+                            onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
+                            className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right" />
+                        )}
+                      </td>
+                      <td className="px-2 py-1 text-right font-mono text-sm pt-2.5">${lineAmount.toFixed(2)}</td>
+                      <td className="pl-1 py-1 pt-2.5">
+                        {lines.length > 1 && (
+                          <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── Mobile: compact card layout ── */}
+          <div className="md:hidden space-y-2">
+            {lines.map((line, i) => {
+              const lineAmount = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
+              return (
+                <div key={i} className="border border-gray-200 rounded-lg p-2.5 space-y-2">
+                  {/* Row 1: Account/Item selector + delete */}
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1">
                       {line.entryMode === 'item' ? (
                         <SearchableDropdown
                           options={itemOptions}
@@ -303,41 +361,47 @@ export function InvoiceForm() {
                       ) : (
                         <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} accountTypeFilter="revenue" />
                       )}
-                    </td>
-                    <td className="px-2 py-1">
-                      <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
-                    </td>
-                    <td className="px-2 py-1">
-                      <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center" type="number" min="1" />
-                    </td>
-                    <td className="px-2 py-1"><MoneyInput value={line.unitPrice} onChange={(v) => updateLine(i, 'unitPrice', v)} /></td>
-                    <td className="px-2 py-1 text-center pt-2.5">
-                      <input type="checkbox" checked={line.isTaxable}
-                        onChange={(e) => setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, isTaxable: e.target.checked } : l))}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                    </td>
-                    <td className="px-1 py-1">
-                      {line.isTaxable && (
+                    </div>
+                    {lines.length > 1 && (
+                      <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500 mt-2 shrink-0">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Row 2: Description */}
+                  <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
+                    className="block w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm" placeholder="Description" />
+
+                  {/* Row 3: Qty × Rate = Amount */}
+                  <div className="flex items-center gap-2">
+                    <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
+                      className="w-14 rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-center shrink-0" type="number" min="1" placeholder="Qty" />
+                    <span className="text-gray-400 text-xs shrink-0">&times;</span>
+                    <div className="flex-1"><MoneyInput value={line.unitPrice} onChange={(v) => updateLine(i, 'unitPrice', v)} /></div>
+                    <span className="text-gray-400 text-xs shrink-0">=</span>
+                    <span className="font-mono font-semibold text-sm w-20 text-right shrink-0">${lineAmount.toFixed(2)}</span>
+                  </div>
+
+                  {/* Row 4: Tax toggle (compact) */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={line.isTaxable}
+                      onChange={(e) => setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, isTaxable: e.target.checked } : l))}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                    <span className="text-gray-600 text-xs">Tax</span>
+                    {line.isTaxable && (
+                      <>
                         <input type="number" step="0.0001" value={line.taxRate}
                           onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
-                          className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right" />
-                      )}
-                    </td>
-                    <td className="px-2 py-1 text-right font-mono text-sm pt-2.5">${lineAmount.toFixed(2)}</td>
-                    <td className="pl-1 py-1 pt-2.5">
-                      {lines.length > 1 && (
-                        <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          className="w-16 rounded border border-gray-300 px-1.5 py-0.5 text-xs text-right" />
+                        <span className="text-xs text-gray-400">%</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
           <button type="button" onClick={() => setLines((p) => [...p, emptyLine(defaultMode, defaultTaxRatePercent)])}
             className="mt-3 flex items-center gap-1 text-sm text-primary-600"><Plus className="h-4 w-4" /> Add line item</button>
@@ -353,7 +417,7 @@ export function InvoiceForm() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 sm:p-6 space-y-4">
           <Input label="Memo to Customer" value={memo} onChange={(e) => setMemo(e.target.value)} />
           <Input label="Internal Notes" value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} />
           {!isEdit && <TagSelector label="Tags" value={tagIds} onChange={setTagIds} />}
@@ -361,7 +425,7 @@ export function InvoiceForm() {
 
         {error && <p className="text-sm text-red-600">{error.message}</p>}
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Button type="submit" loading={isPending && !andNew}>{isEdit ? 'Save Changes' : 'Create Invoice'}</Button>
           {!isEdit && (
             <Button type="button" variant="secondary" loading={isPending && andNew}

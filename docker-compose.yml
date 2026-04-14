@@ -40,11 +40,15 @@ services:
     environment:
       DATABASE_URL: postgresql://kisbooks:kisbooks@db:5432/kisbooks
       REDIS_URL: redis://redis:6379
+      TAILSCALE_SOCKET_PATH: /var/run/tailscale/tailscaled.sock
     volumes:
       # Host bind mount — attachments, backups, and generated files live on
       # disk next to the compose file so they can be inspected, backed up
       # with standard tools, and survive `docker volume prune`.
       - ./data:/data
+      # Read-only access to the Tailscale sidecar socket for super-admin
+      # remote-access management. Works on any Docker host OS.
+      - ts-socket:/var/run/tailscale:ro
     depends_on:
       db:
         condition: service_healthy
@@ -81,6 +85,26 @@ services:
       redis:
         condition: service_healthy
 
+  # Tailscale sidecar — joins the appliance to a tailnet so super-admins can
+  # reach MyBooks remotely without opening inbound ports. Userspace networking
+  # (TS_USERSPACE=true) keeps the container portable across Linux, Windows
+  # Docker Desktop, macOS, and Raspberry Pi without needing NET_ADMIN / tun.
+  tailscale:
+    image: tailscale/tailscale:latest
+    hostname: ${TS_HOSTNAME:-mybooks}
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SOCKET: /var/run/tailscale/tailscaled.sock
+      TS_USERSPACE: "true"
+      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:---ssh=false}
+    volumes:
+      - ts-state:/var/lib/tailscale
+      - ts-socket:/var/run/tailscale
+
 volumes:
   pgdata:
   redis-data:
+  ts-state:
+  ts-socket:

@@ -11,11 +11,27 @@ async function downloadReport(url: string, filename: string) {
   const res = await fetch(url, { headers });
   if (!res.ok) throw new Error('Export failed');
   const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = blobUrl;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  document.body.removeChild(a);
+  URL.revokeObjectURL(blobUrl);
+}
+
+/** Open a PDF in a new browser tab via direct URL navigation.
+ *  Passes the JWT as a query param so no fetch/blob is needed —
+ *  works on mobile Safari, Android Chrome, and desktop alike. */
+function openPdfInTab(baseUrl: string) {
+  const token = localStorage.getItem('accessToken');
+  const companyId = localStorage.getItem('activeCompanyId');
+  const sep = baseUrl.includes('?') ? '&' : '?';
+  let url = `${baseUrl}${sep}format=pdf`;
+  if (token) url += `&_token=${encodeURIComponent(token)}`;
+  if (companyId) url += `&_company=${encodeURIComponent(companyId)}`;
+  window.open(url, '_blank', 'noopener');
 }
 
 interface ReportShellProps {
@@ -32,7 +48,6 @@ interface ReportShellProps {
 
 export function ReportShell({ title, children, filters, onExportCsv, onExportPdf, exportBaseUrl, maxWidth = 'max-w-5xl' }: ReportShellProps) {
   const [csvLoading, setCsvLoading] = useState(false);
-  const [pdfLoading, setPdfLoading] = useState(false);
 
   const hasCsv = !!(onExportCsv || exportBaseUrl);
   const hasPdf = !!(onExportPdf || exportBaseUrl);
@@ -48,15 +63,10 @@ export function ReportShell({ title, children, filters, onExportCsv, onExportPdf
     setCsvLoading(false);
   };
 
-  const handlePdf = async () => {
+  const handlePdf = () => {
     if (onExportPdf) return onExportPdf();
     if (!exportBaseUrl) return;
-    setPdfLoading(true);
-    try {
-      const sep = exportBaseUrl.includes('?') ? '&' : '?';
-      await downloadReport(`${exportBaseUrl}${sep}format=pdf`, `${title.replace(/\s+/g, '_')}.pdf`);
-    } catch { /* ignore */ }
-    setPdfLoading(false);
+    openPdfInTab(exportBaseUrl);
   };
 
   return (
@@ -70,7 +80,7 @@ export function ReportShell({ title, children, filters, onExportCsv, onExportPdf
             </Button>
           )}
           {hasPdf && (
-            <Button variant="secondary" size="sm" onClick={handlePdf} loading={pdfLoading}>
+            <Button variant="secondary" size="sm" onClick={handlePdf}>
               <Download className="h-4 w-4 mr-1" /> PDF
             </Button>
           )}

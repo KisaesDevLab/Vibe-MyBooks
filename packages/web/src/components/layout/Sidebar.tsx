@@ -36,6 +36,7 @@ import {
   RotateCcw,
   Upload,
   ClipboardList,
+  Network,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLogout, useMe } from '../../api/hooks/useAuth';
@@ -65,6 +66,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/plaid/connections', label: 'Plaid Monitor', icon: Landmark },
   { to: '/admin/ai', label: 'AI Processing', icon: Shield },
   { to: '/admin/mcp', label: 'MCP / API', icon: Shield },
+  { to: '/admin/tailscale', label: 'Tailscale', icon: Network },
   { to: '/admin/system', label: 'System Settings', icon: Wrench },
 ];
 
@@ -290,6 +292,8 @@ const COLLAPSED_GROUPS_STORAGE_KEY = 'sidebar-collapsed-groups';
 // these defaults no longer apply.
 const DEFAULT_COLLAPSED_GROUPS: Record<string, boolean> = {
   Sales: true,
+  Payables: true,
+  Payroll: true,
   Checks: true,
   Banking: true,
   Reporting: true,

@@ -86,6 +86,7 @@ import { PlaidConnectionsMonitorPage } from './features/admin/PlaidConnectionsMo
 import { AiConfigPage } from './features/admin/AiConfigPage';
 import { McpConfigPage } from './features/admin/McpConfigPage';
 import { CoaTemplatesPage } from './features/admin/CoaTemplatesPage';
+import { TailscaleAdminPage } from './features/admin/TailscaleAdminPage';
 import { OAuthConsentPage } from './features/auth/OAuthConsentPage';
 import { ConnectedAppsPage } from './features/settings/ConnectedAppsPage';
 import { StorageSettingsPage } from './features/settings/StorageSettingsPage';
@@ -95,6 +96,8 @@ import { PayrollHistoryPage } from './features/payroll/PayrollHistoryPage';
 import { PayrollAccountMappingPage } from './features/payroll/PayrollAccountMappingPage';
 import { TfaSettingsPage } from './features/settings/TfaSettingsPage';
 import { KnowledgeBasePage } from './features/help/KnowledgeBasePage';
+import { PublicInvoicePage } from './features/public/PublicInvoicePage';
+import { StripeSettingsPage } from './features/settings/StripeSettingsPage';
 import { ArticlePage } from './features/help/ArticlePage';
 import { NotFoundPage } from './features/NotFoundPage';
 
@@ -122,6 +125,7 @@ export function App() {
           <Route path="/auth/magic" element={<MagicLinkVerifyPage />} />
           <Route path="/oauth/consent" element={<OAuthConsentPage />} />
           <Route path="/first-run-setup" element={<FirstRunSetupWizard />} />
+          <Route path="/pay/:token" element={<PublicInvoicePage />} />
 
           {/* Setup wizard */}
           <Route
@@ -214,7 +218,7 @@ export function App() {
             <Route path="/reports/ap-aging-detail" element={<GenericReport title="AP Aging Detail" endpoint="ap-aging-detail" useDateRange={false} useAsOfDate columns={[{key:'txn_number',label:'Bill #'},{key:'vendor_name',label:'Vendor'},{key:'vendor_invoice_number',label:'Vendor Inv #'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'days_overdue',label:'Days Overdue',align:'right'},{key:'balance',label:'Balance',align:'right',format:'money'}]} dataKey="details" />} />
             <Route path="/reports/unpaid-bills" element={<GenericReport title="Unpaid Bills" endpoint="unpaid-bills" useDateRange={false} columns={[{key:'vendor_name',label:'Vendor'},{key:'txn_number',label:'Bill #'},{key:'vendor_invoice_number',label:'Vendor Inv #'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'total',label:'Total',align:'right',format:'money'},{key:'balance_due',label:'Balance',align:'right',format:'money'}]} />} />
             <Route path="/reports/bill-payment-history" element={<GenericReport title="Bill Payment History" endpoint="bill-payment-history" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Payment #'},{key:'vendor_name',label:'Vendor'},{key:'check_number',label:'Check #'},{key:'bill_count',label:'# Bills',align:'right'},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
-            <Route path="/reports/ap-1099-prep" element={<GenericReport title="1099 Preparation" endpoint="ap-1099-prep" useDateRange={false} columns={[{key:'vendor_name',label:'Vendor'},{key:'tax_id',label:'Tax ID'},{key:'total_paid',label:'Total Paid',align:'right',format:'money'}]} />} />
+            <Route path="/reports/ap-1099-prep" element={<GenericReport title="1099 Preparation" endpoint="ap-1099-prep" useDateRange={false} columns={[{key:'vendor_name',label:'Vendor'},{key:'address',label:'Address'},{key:'tax_id',label:'Tax ID'},{key:'total_paid',label:'Total Paid',align:'right',format:'money'}]} />} />
             <Route path="/reports/transaction-list-by-vendor" element={<GenericReport title="Transactions by Vendor" endpoint="transaction-list-by-vendor" columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number'},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
             <Route path="/reports/bank-reconciliation-summary" element={<GenericReport title="Bank Reconciliation" endpoint="bank-reconciliation-summary" useDateRange={false} columns={[]} />} />
             <Route path="/reports/deposit-detail" element={<GenericReport title="Deposit Detail" endpoint="deposit-detail" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Number'},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />
@@ -239,6 +243,7 @@ export function App() {
             <Route path="/settings/opening-balances" element={<OpeningBalancesPage />} />
             <Route path="/settings/preferences" element={<PreferencesPage />} />
             <Route path="/settings/email" element={<EmailSettingsPage />} />
+            <Route path="/settings/online-payments" element={<StripeSettingsPage />} />
             <Route path="/settings/team" element={<TeamPage />} />
             <Route path="/settings/api-keys" element={<ApiKeysPage />} />
             <Route path="/settings/security" element={<TfaSettingsPage />} />
@@ -250,6 +255,7 @@ export function App() {
             <Route path="/admin/plaid/connections" element={<AdminRoute><PlaidConnectionsMonitorPage /></AdminRoute>} />
             <Route path="/admin/ai" element={<AdminRoute><AiConfigPage /></AdminRoute>} />
             <Route path="/admin/mcp" element={<AdminRoute><McpConfigPage /></AdminRoute>} />
+            <Route path="/admin/tailscale" element={<AdminRoute><TailscaleAdminPage /></AdminRoute>} />
             <Route path="/payroll/import" element={<PayrollImportPage />} />
             <Route path="/payroll/imports" element={<PayrollHistoryPage />} />
             <Route path="/settings/payroll-accounts" element={<PayrollAccountMappingPage />} />

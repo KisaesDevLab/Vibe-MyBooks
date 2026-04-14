@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, setTokens } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import {
   UsersRound,
   KeyRound,
@@ -9,6 +11,11 @@ import {
   ShieldCheck,
   UserCog,
   Building2,
+  Plus,
+  X,
+  Eye,
+  EyeOff,
+  Search,
 } from 'lucide-react';
 
 interface AdminUser {
@@ -23,11 +30,38 @@ interface AdminUser {
   lastLoginAt: string | null;
 }
 
+interface TenantOption { id: string; name: string }
+
 export function UserListPage() {
   const queryClient = useQueryClient();
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [companyAccessUserId, setCompanyAccessUserId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ email: '', password: '', displayName: '', tenantId: '', role: 'owner' });
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  const { data: tenantOptions } = useQuery({
+    queryKey: ['admin', 'tenants-for-select'],
+    queryFn: async () => {
+      const res = await apiClient<{ tenants: TenantOption[] }>('/admin/tenants');
+      return res.tenants;
+    },
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: (input: typeof createForm) =>
+      apiClient('/admin/users/create', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      setShowCreate(false);
+      setCreateForm({ email: '', password: '', displayName: '', tenantId: '', role: 'owner' });
+      setCreateError('');
+    },
+    onError: (err: any) => setCreateError(err.message || 'Failed to create user'),
+  });
 
   const { data: users, isLoading, error } = useQuery({
     queryKey: ['admin', 'users'],
@@ -102,10 +136,27 @@ export function UserListPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <UsersRound className="h-6 w-6 text-gray-700" />
-        <h1 className="text-2xl font-bold text-gray-900">All Users</h1>
-        <span className="text-sm text-gray-500">({users?.length ?? 0} total)</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <UsersRound className="h-6 w-6 text-gray-700" />
+          <h1 className="text-2xl font-bold text-gray-900">All Users</h1>
+          <span className="text-sm text-gray-500">({users?.length ?? 0} total)</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search users..."
+              className="pl-9 pr-4 py-2 rounded-lg border border-gray-300 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+          <Button size="sm" onClick={() => setShowCreate(true)}>
+            <Plus className="h-4 w-4 mr-1" /> New User
+          </Button>
+        </div>
       </div>
 
       {/* Reset Password Modal */}
@@ -161,9 +212,14 @@ export function UserListPage() {
         <CompanyAccessModal userId={companyAccessUserId} onClose={() => setCompanyAccessUserId(null)} />
       )}
 
-      {!users || users.length === 0 ? (
+      {(() => {
+        const query = search.toLowerCase().trim();
+        const filtered = query
+          ? users?.filter(u => u.email.toLowerCase().includes(query) || (u.displayName || '').toLowerCase().includes(query) || u.tenantName.toLowerCase().includes(query))
+          : users;
+        return !filtered || filtered.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500">
-          No users found.
+          {search ? 'No users match your search.' : 'No users found.'}
         </div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
@@ -182,7 +238,7 @@ export function UserListPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {filtered.map((u) => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-900">{u.email}</td>
                     <td className="px-4 py-3 text-gray-700">{u.displayName || '-'}</td>
@@ -288,6 +344,98 @@ export function UserListPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      );
+      })()}
+
+      {/* Create User Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCreate(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">New User</h2>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                if (!createForm.email || !createForm.password || !createForm.tenantId) return;
+                if (createForm.password.length < 8) { setCreateError('Password must be at least 8 characters'); return; }
+                createUserMutation.mutate(createForm);
+              }}
+              className="px-6 py-4 space-y-4"
+            >
+              <Input
+                label="Email *"
+                type="email"
+                value={createForm.email}
+                onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="user@example.com"
+                autoFocus
+              />
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">Password *</label>
+                <div className="relative">
+                  <input
+                    type={showCreatePassword ? 'text' : 'password'}
+                    value={createForm.password}
+                    onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
+                    placeholder="Min 8 characters"
+                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatePassword(!showCreatePassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showCreatePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <Input
+                label="Display Name"
+                value={createForm.displayName}
+                onChange={e => setCreateForm(f => ({ ...f, displayName: e.target.value }))}
+                placeholder="John Smith"
+              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tenant / Company *</label>
+                <select
+                  value={createForm.tenantId}
+                  onChange={e => setCreateForm(f => ({ ...f, tenantId: e.target.value }))}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">Select tenant...</option>
+                  {tenantOptions?.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={createForm.role}
+                  onChange={e => setCreateForm(f => ({ ...f, role: e.target.value }))}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="owner">Owner</option>
+                  <option value="accountant">Accountant</option>
+                  <option value="bookkeeper">Bookkeeper</option>
+                </select>
+              </div>
+              {createError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{createError}</div>
+              )}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button type="submit" loading={createUserMutation.isPending} disabled={!createForm.email || !createForm.password || !createForm.tenantId}>
+                  Create User
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

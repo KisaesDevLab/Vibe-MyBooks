@@ -8,6 +8,7 @@ import { RecordPaymentModal } from './RecordPaymentModal';
 import { SendInvoiceModal } from './SendInvoiceModal';
 import { Send, DollarSign, Download, Copy, Ban, CheckCircle, Pencil } from 'lucide-react';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
+import { ShareLinkButton } from './ShareLinkButton';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 
@@ -99,6 +100,12 @@ export function InvoiceDetailPage() {
               </Button>
             </>
           )}
+          <ShareLinkButton
+            invoiceId={inv.id}
+            invoiceNumber={inv.txnNumber || undefined}
+            total={inv.total || undefined}
+            contactPhone={(inv as any).contactPhone}
+          />
           <Button variant="secondary" size="sm" onClick={handleDownloadPdf} loading={pdfLoading}>
             <Download className="h-4 w-4 mr-1" /> PDF
           </Button>
