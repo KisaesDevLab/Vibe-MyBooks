@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
@@ -62,34 +63,50 @@ export function ProfitAndLossReport() {
 }
 
 function StandardView({ data }: { data: any }) {
+  const hasCogs = (data.cogs?.length ?? 0) > 0;
+  const hasOtherRev = (data.otherRevenue?.length ?? 0) > 0;
+  const hasOtherExp = (data.otherExpenses?.length ?? 0) > 0;
+  const showOperatingIncome = hasCogs || hasOtherRev || hasOtherExp;
+
+  const L = (data.labels as PLSectionLabels | undefined) ?? DEFAULT_PL_LABELS;
+
+  const Section = ({ title, items, total }: { title: string; items: any[]; total: number }) => (
+    <div>
+      <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
+      {items.map((r: any, i: number) => (
+        <div key={i} className="flex justify-between py-1 text-sm">
+          <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
+          <span className="font-mono">{fmt(r.amount)}</span>
+        </div>
+      ))}
+      <div className="flex justify-between py-1 font-semibold border-t mt-1">
+        <span>Total {title}</span><span className="font-mono">{fmt(total)}</span>
+      </div>
+    </div>
+  );
+
+  const Subtotal = ({ label, value }: { label: string; value: number }) => (
+    <div className="flex justify-between py-1.5 font-semibold border-t border-gray-300 bg-gray-50 px-2 -mx-2 rounded">
+      <span>{label}</span>
+      <span className={`font-mono ${value >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{fmt(value)}</span>
+    </div>
+  );
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
-      <div>
-        <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">Revenue</h2>
-        {data.revenue.map((r: any, i: number) => (
-          <div key={i} className="flex justify-between py-1 text-sm">
-            <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
-            <span className="font-mono">{fmt(r.amount)}</span>
-          </div>
-        ))}
-        <div className="flex justify-between py-1 font-semibold border-t mt-1">
-          <span>Total Revenue</span><span className="font-mono">{fmt(data.totalRevenue)}</span>
-        </div>
-      </div>
-      <div>
-        <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">Expenses</h2>
-        {data.expenses.map((e: any, i: number) => (
-          <div key={i} className="flex justify-between py-1 text-sm">
-            <span>{e.accountNumber ? `${e.accountNumber} — ` : ''}{e.name}</span>
-            <span className="font-mono">{fmt(e.amount)}</span>
-          </div>
-        ))}
-        <div className="flex justify-between py-1 font-semibold border-t mt-1">
-          <span>Total Expenses</span><span className="font-mono">{fmt(data.totalExpenses)}</span>
-        </div>
-      </div>
+      <Section title={L.revenue} items={data.revenue} total={data.totalRevenue} />
+      {hasCogs && (
+        <>
+          <Section title={L.cogs} items={data.cogs} total={data.totalCogs} />
+          <Subtotal label={L.grossProfit} value={data.grossProfit ?? 0} />
+        </>
+      )}
+      <Section title={L.expenses} items={data.expenses} total={data.totalExpenses} />
+      {showOperatingIncome && <Subtotal label={L.operatingIncome} value={data.operatingIncome ?? 0} />}
+      {hasOtherRev && <Section title={L.otherRevenue} items={data.otherRevenue} total={data.totalOtherRevenue} />}
+      {hasOtherExp && <Section title={L.otherExpenses} items={data.otherExpenses} total={data.totalOtherExpenses} />}
       <div className="flex justify-between py-2 font-bold text-lg border-t-2">
-        <span>Net Income</span>
+        <span>{L.netIncome}</span>
         <span className={`font-mono ${data.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(data.netIncome)}</span>
       </div>
     </div>
@@ -99,8 +116,45 @@ function StandardView({ data }: { data: any }) {
 function ComparativeView({ data }: { data: any }) {
   const columns: Array<{ label: string; type?: string }> = data.columns;
   const isVarianceCol = (col: any) => col.type === 'variance' || col.type === 'percent_variance';
-  const revenueRows = (data.rows as any[]).filter((r) => r.accountType === 'revenue');
-  const expenseRows = (data.rows as any[]).filter((r) => r.accountType === 'expense');
+
+  const allRows = (data.rows as any[]);
+  const byType = (t: string) => allRows.filter((r) => r.accountType === t);
+  const revenueRows = byType('revenue');
+  const cogsRows = byType('cogs');
+  const expenseRows = byType('expense');
+  const otherRevRows = byType('other_revenue');
+  const otherExpRows = byType('other_expense');
+
+  const hasCogs = cogsRows.length > 0;
+  const hasOtherRev = otherRevRows.length > 0;
+  const hasOtherExp = otherExpRows.length > 0;
+  const showOperatingIncome = hasCogs || hasOtherRev || hasOtherExp;
+
+  const L = (data.labels as PLSectionLabels | undefined) ?? DEFAULT_PL_LABELS;
+
+  // Build a subtotal row "a − b" across all period columns. For variance
+  // / % variance columns we re-derive from the new current & prior rather
+  // than subtracting the source percent figures (which would be nonsense).
+  const subtractRow = (a: number[], b: number[]): Array<number | null> => {
+    const base: Array<number | null> = a.map((v, i) =>
+      columns[i]?.type === 'percent_variance' ? null : (v ?? 0) - (b[i] ?? 0),
+    );
+    for (let i = 0; i < base.length; i++) {
+      const col = columns[i];
+      if (col?.type === 'variance') {
+        base[i] = (base[0] ?? 0) - (base[1] ?? 0);
+      } else if (col?.type === 'percent_variance') {
+        const cur = base[0] ?? 0;
+        const pr = base[1] ?? 0;
+        base[i] = pr === 0 ? null : ((cur - pr) / Math.abs(pr)) * 100;
+      }
+    }
+    return base;
+  };
+  const grossProfit = hasCogs ? subtractRow(data.totalRevenue, data.totalCogs) : null;
+  const operatingIncome = showOperatingIncome
+    ? subtractRow((grossProfit ?? data.totalRevenue) as number[], data.totalExpenses)
+    : null;
 
   function CellValue({ value, col }: { value: number | null; col: any }) {
     if (col.type === 'percent_variance') {
@@ -125,6 +179,29 @@ function ComparativeView({ data }: { data: any }) {
     );
   }
 
+  function SectionHeader({ label }: { label: string }) {
+    return (
+      <tr><td colSpan={columns.length + 1} className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-gray-500">{label}</td></tr>
+    );
+  }
+
+  function AccountRows({ rows }: { rows: any[] }) {
+    return (
+      <>
+        {rows.map((row: any, i: number) => (
+          <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+            <td className="px-3 py-1.5">{row.accountNumber ? `${row.accountNumber} — ` : ''}{row.account}</td>
+            {(row.values as any[]).map((v: any, j: number) => (
+              <td key={j} className={`px-3 py-1.5 text-right ${isVarianceCol(columns[j]) ? 'bg-gray-50' : ''}`}>
+                <CellValue value={v} col={columns[j]} />
+              </td>
+            ))}
+          </tr>
+        ))}
+      </>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
       <table className="w-full text-sm">
@@ -139,36 +216,42 @@ function ComparativeView({ data }: { data: any }) {
           </tr>
         </thead>
         <tbody>
-          {/* Revenue */}
-          <tr><td colSpan={columns.length + 1} className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-gray-500">Revenue</td></tr>
-          {revenueRows.map((row: any, i: number) => (
-            <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-              <td className="px-3 py-1.5">{row.accountNumber ? `${row.accountNumber} — ` : ''}{row.account}</td>
-              {(row.values as any[]).map((v: any, j: number) => (
-                <td key={j} className={`px-3 py-1.5 text-right ${isVarianceCol(columns[j]) ? 'bg-gray-50' : ''}`}>
-                  <CellValue value={v} col={columns[j]} />
-                </td>
-              ))}
-            </tr>
-          ))}
-          <TotalRow label="Total Revenue" values={data.totalRevenue} />
+          <SectionHeader label={L.revenue} />
+          <AccountRows rows={revenueRows} />
+          <TotalRow label={`Total ${L.revenue}`} values={data.totalRevenue} />
 
-          {/* Expenses */}
-          <tr><td colSpan={columns.length + 1} className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-gray-500">Expenses</td></tr>
-          {expenseRows.map((row: any, i: number) => (
-            <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-              <td className="px-3 py-1.5">{row.accountNumber ? `${row.accountNumber} — ` : ''}{row.account}</td>
-              {(row.values as any[]).map((v: any, j: number) => (
-                <td key={j} className={`px-3 py-1.5 text-right ${isVarianceCol(columns[j]) ? 'bg-gray-50' : ''}`}>
-                  <CellValue value={v} col={columns[j]} />
-                </td>
-              ))}
-            </tr>
-          ))}
-          <TotalRow label="Total Expenses" values={data.totalExpenses} />
+          {hasCogs && (
+            <>
+              <SectionHeader label={L.cogs} />
+              <AccountRows rows={cogsRows} />
+              <TotalRow label={`Total ${L.cogs}`} values={data.totalCogs} />
+              <TotalRow label={L.grossProfit} values={grossProfit!} />
+            </>
+          )}
 
-          {/* Net Income */}
-          <TotalRow label="Net Income" values={data.netIncome} bold />
+          <SectionHeader label={L.expenses} />
+          <AccountRows rows={expenseRows} />
+          <TotalRow label={`Total ${L.expenses}`} values={data.totalExpenses} />
+
+          {showOperatingIncome && <TotalRow label={L.operatingIncome} values={operatingIncome!} />}
+
+          {hasOtherRev && (
+            <>
+              <SectionHeader label={L.otherRevenue} />
+              <AccountRows rows={otherRevRows} />
+              <TotalRow label={`Total ${L.otherRevenue}`} values={data.totalOtherRevenue} />
+            </>
+          )}
+
+          {hasOtherExp && (
+            <>
+              <SectionHeader label={L.otherExpenses} />
+              <AccountRows rows={otherExpRows} />
+              <TotalRow label={`Total ${L.otherExpenses}`} values={data.totalOtherExpenses} />
+            </>
+          )}
+
+          <TotalRow label={L.netIncome} values={data.netIncome} bold />
         </tbody>
       </table>
     </div>

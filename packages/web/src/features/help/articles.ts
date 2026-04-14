@@ -1090,6 +1090,7 @@ https://your-server/api/docs/
 | GET | /api/v2/me | Current user, tenant, and companies |
 | GET | /api/v2/tenants | List accessible tenants |
 | POST | /api/v2/tenants/switch | Switch active tenant |
+| GET | /api/v2/docs | Self-describing endpoint inventory |
 
 ### Chart of Accounts
 | Method | Endpoint | Description |
@@ -1108,9 +1109,11 @@ https://your-server/api/docs/
 ### Transactions
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /api/v2/transactions | List/search transactions |
+| GET | /api/v2/transactions | List/search (filters: txnType, status, contactId, accountId, tagId, startDate, endDate, search) |
 | GET | /api/v2/transactions/:id | Get transaction with journal lines |
-| POST | /api/v2/transactions | Create transaction (expense, deposit, transfer, journal entry, cash sale) |
+| POST | /api/v2/transactions | Create (expense, deposit, transfer, journal_entry, cash_sale) |
+| POST | /api/v2/transactions/:id/void | Void with reversing entry |
+| POST | /api/v2/transactions/:id/tags | Replace tag set on a transaction |
 
 ### Invoices
 | Method | Endpoint | Description |
@@ -1119,6 +1122,102 @@ https://your-server/api/docs/
 | GET | /api/v2/invoices/:id | Get invoice detail |
 | POST | /api/v2/invoices | Create invoice |
 | PUT | /api/v2/invoices/:id | Update invoice |
+
+### Bills (Accounts Payable)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v2/bills | List bills (filters: contactId, billStatus, overdueOnly, search) |
+| GET | /api/v2/bills/payable | Unpaid bills with balance due |
+| GET | /api/v2/bills/:id | Get bill with journal lines |
+| POST | /api/v2/bills | Create bill |
+| PUT | /api/v2/bills/:id | Update bill |
+| POST | /api/v2/bills/:id/void | Void bill |
+
+### Bill Payments
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v2/bill-payments | List bill payments |
+| GET | /api/v2/bill-payments/:id | Get bill payment detail |
+| POST | /api/v2/bill-payments | Pay one or more bills (apply vendor credits optional) |
+| POST | /api/v2/bill-payments/:id/void | Void bill payment |
+
+### Vendor Credits
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v2/vendor-credits | List vendor credits |
+| GET | /api/v2/vendor-credits/available/:vendorId | Credits with remaining balance for a vendor |
+| GET | /api/v2/vendor-credits/:id | Get credit detail |
+| POST | /api/v2/vendor-credits | Create vendor credit |
+| POST | /api/v2/vendor-credits/:id/void | Void credit |
+
+### Customer Payments
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/v2/payments/receive | Record a payment and apply to open invoices |
+| GET | /api/v2/payments/open-invoices/:customerId | Open invoices for applications |
+
+### Checks
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v2/checks | List written checks |
+| GET | /api/v2/checks/print-queue | Checks queued for printing |
+| POST | /api/v2/checks | Write a check |
+
+### Recurring Transactions
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v2/recurring | List schedules |
+| POST | /api/v2/recurring | Create schedule from template transaction |
+| PUT | /api/v2/recurring/:id | Update schedule |
+| DELETE | /api/v2/recurring/:id | Deactivate schedule |
+| POST | /api/v2/recurring/:id/post-now | Post next occurrence immediately |
+
+### Budgets
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v2/budgets | List budgets |
+| GET | /api/v2/budgets/:id | Get budget detail |
+| GET | /api/v2/budgets/:id/lines | Monthly budget lines per account |
+| GET | /api/v2/budgets/:id/vs-actual | Budget vs Actual report |
+
+### Dashboard
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v2/dashboard/snapshot | Financial snapshot |
+| GET | /api/v2/dashboard/trend | Revenue/expense trend (?months) |
+| GET | /api/v2/dashboard/cash-position | Cash across bank accounts |
+| GET | /api/v2/dashboard/receivables | AR summary with aging buckets |
+| GET | /api/v2/dashboard/payables | AP summary with aging buckets |
+| GET | /api/v2/dashboard/action-items | Overdue invoices, bills due, pending feed items |
+
+### Tags
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v2/tags | List tags (filters: group_id, is_active, search) |
+| GET | /api/v2/tags/groups | List tag groups |
+| POST | /api/v2/tags | Create tag |
+
+### Banking
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v2/banking/connections | List Plaid / manual connections |
+| GET | /api/v2/banking/feed | List bank feed items |
+| GET | /api/v2/banking/feed/:id/match-candidates | Suggest matching transactions |
+| PUT | /api/v2/banking/feed/:id/categorize | Create transaction from feed item |
+| PUT | /api/v2/banking/feed/:id/match | Link feed item to existing transaction |
+| PUT | /api/v2/banking/feed/:id/exclude | Exclude from ledger |
+| POST | /api/v2/banking/feed/bulk-approve | Bulk-apply AI suggestions |
+| GET | /api/v2/banking/reconciliations | Reconciliation history (?account_id) |
+| POST | /api/v2/banking/reconciliations | Start a reconciliation session |
+| GET | /api/v2/banking/reconciliations/:id | Get reconciliation detail |
+
+### Attachments
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v2/attachments | List attachment metadata (?attachableType, ?attachableId) |
+| GET | /api/v2/attachments/:id | Single attachment metadata |
+
+> Uploads (multipart/form-data) still go through POST /api/v1/attachments.
 
 ### Items
 | Method | Endpoint | Description |
@@ -1134,6 +1233,20 @@ https://your-server/api/docs/
 | GET | /api/v2/reports/balance-sheet | as_of_date, basis |
 | GET | /api/v2/reports/cash-flow | start_date, end_date |
 | GET | /api/v2/reports/general-ledger | start_date, end_date |
+| GET | /api/v2/reports/ar-aging | as_of_date |
+| GET | /api/v2/reports/expense-by-vendor | start_date, end_date |
+| GET | /api/v2/reports/expense-by-category | start_date, end_date |
+| GET | /api/v2/reports/vendor-balance | — |
+| GET | /api/v2/reports/customer-balance | — |
+| GET | /api/v2/reports/1099-vendor-summary | year |
+| GET | /api/v2/reports/sales-tax-liability | start_date, end_date |
+| GET | /api/v2/reports/check-register | account_id, start_date, end_date |
+
+### What's still v1-only
+File uploads (multipart), Plaid link-token minting, reconciliation line
+updates/complete/undo, check print batch, bank rules, batch entry,
+import/export, backup, admin, AI chat, and estimates. Hit the corresponding
+\`/api/v1/*\` route or inspect \`packages/api/src/routes/\` for the shape.
 `,
   },
   {
@@ -1196,6 +1309,107 @@ Use \`POST /api/v2/transactions\` with a \`txnType\` field to specify the transa
 }
 \`\`\`
 
+### Cash Sale
+\`\`\`json
+{
+  "txnType": "cash_sale",
+  "txnDate": "2026-04-01",
+  "contactId": "uuid-customer",
+  "depositToAccountId": "uuid-bank-or-clearing",
+  "lines": [
+    {
+      "accountId": "uuid-revenue",
+      "description": "T-shirt",
+      "quantity": "2",
+      "unitPrice": "15.00",
+      "isTaxable": true,
+      "taxRate": "0.0825"
+    }
+  ]
+}
+\`\`\`
+
+### Bill (Accounts Payable)
+Use \`POST /api/v2/bills\` (not \`/transactions\`). A bill debits the expense
+account(s) and credits Accounts Payable.
+\`\`\`json
+{
+  "contactId": "uuid-vendor",
+  "txnDate": "2026-04-10",
+  "dueDate": "2026-05-10",
+  "paymentTerms": "net_30",
+  "vendorInvoiceNumber": "INV-99123",
+  "lines": [
+    { "accountId": "uuid-expense", "amount": "1250.00", "description": "Office supplies" }
+  ]
+}
+\`\`\`
+
+### Pay Bills
+\`POST /api/v2/bill-payments\`:
+\`\`\`json
+{
+  "bankAccountId": "uuid-bank",
+  "txnDate": "2026-04-12",
+  "method": "ach",
+  "bills": [ { "billId": "uuid-bill", "amount": "1250.00" } ],
+  "credits": [ { "creditId": "uuid-vc", "billId": "uuid-bill", "amount": "50.00" } ]
+}
+\`\`\`
+Methods: check, check_handwritten, ach, credit_card, cash, other. Setting
+\`printLater: true\` queues a check for batch printing.
+
+### Vendor Credit
+\`POST /api/v2/vendor-credits\`:
+\`\`\`json
+{
+  "contactId": "uuid-vendor",
+  "txnDate": "2026-04-11",
+  "lines": [ { "accountId": "uuid-expense", "amount": "75.00" } ]
+}
+\`\`\`
+
+### Customer Payment
+\`POST /api/v2/payments/receive\`. Sum of \`applications\` must equal
+\`amount\`.
+\`\`\`json
+{
+  "customerId": "uuid-customer",
+  "date": "2026-04-12",
+  "amount": "1500.00",
+  "depositTo": "uuid-bank-or-clearing",
+  "paymentMethod": "check",
+  "applications": [
+    { "invoiceId": "uuid-inv-1", "amount": "1000.00" },
+    { "invoiceId": "uuid-inv-2", "amount": "500.00" }
+  ]
+}
+\`\`\`
+
+### Check
+\`POST /api/v2/checks\`. \`sum(lines.amount) === amount\` is enforced.
+\`\`\`json
+{
+  "bankAccountId": "uuid-bank",
+  "txnDate": "2026-04-10",
+  "amount": "2500.00",
+  "payeeNameOnCheck": "Acme Property LLC",
+  "contactId": "uuid-vendor (optional)",
+  "printLater": false,
+  "lines": [ { "accountId": "uuid-expense", "amount": "2500.00" } ]
+}
+\`\`\`
+
+### Voiding
+\`POST /api/v2/transactions/:id/void\` with \`{ "reason": "..." }\` creates a
+reversing entry. The original is marked \`status: "void"\` but never deleted.
+Bills, bill payments, and vendor credits also expose type-specific void
+endpoints (\`POST /bills/:id/void\`, etc.).
+
+### Tagging
+\`POST /api/v2/transactions/:id/tags\` with \`{ "tagIds": ["uuid", ...] }\`
+replaces the full tag set on the transaction.
+
 ### Important Notes
 - All transactions must balance (total debits = total credits)
 - Amounts are strings to preserve decimal precision
@@ -1240,6 +1454,49 @@ GET /api/v2/reports/cash-flow?start_date=2026-01-01&end_date=2026-03-31
 \`\`\`
 GET /api/v2/reports/general-ledger?start_date=2026-01-01&end_date=2026-03-31
 \`\`\`
+
+### AR Aging
+\`\`\`
+GET /api/v2/reports/ar-aging?as_of_date=2026-04-14
+\`\`\`
+Per-customer open invoice totals bucketed current / 1-30 / 31-60 / 61-90 / 90+.
+
+### Expense by Vendor / Category
+\`\`\`
+GET /api/v2/reports/expense-by-vendor?start_date=...&end_date=...
+GET /api/v2/reports/expense-by-category?start_date=...&end_date=...
+\`\`\`
+Spend totals grouped by vendor (contact) or expense account.
+
+### Vendor / Customer Balance
+\`\`\`
+GET /api/v2/reports/vendor-balance
+GET /api/v2/reports/customer-balance
+\`\`\`
+Point-in-time outstanding AP/AR per contact.
+
+### 1099 Vendor Summary
+\`\`\`
+GET /api/v2/reports/1099-vendor-summary?year=2025
+\`\`\`
+Year-to-date payments per 1099-reportable vendor, ready for 1099-NEC filing.
+
+### Sales Tax Liability
+\`\`\`
+GET /api/v2/reports/sales-tax-liability?start_date=...&end_date=...
+\`\`\`
+Collected vs owed by jurisdiction.
+
+### Check Register
+\`\`\`
+GET /api/v2/reports/check-register?account_id=<bank>&start_date=...&end_date=...
+\`\`\`
+Chronological list of checks (cleared + outstanding) for a bank account.
+
+### Scoping by Company
+Every report endpoint accepts \`?scope=consolidated\` to aggregate across all
+companies in the tenant. Omitting \`scope\` (or anything else) scopes to the
+active company set by \`X-Company-Id\`.
 
 ### Tips
 - All date parameters use \`YYYY-MM-DD\` format
@@ -1512,24 +1769,104 @@ Go to **Banking > Import Statement**, upload a PDF or image, and AI extracts all
     body: `
 ## MCP Server
 
-The MCP server lets AI assistants interact with your data — query accounts, create transactions, run reports.
+The MCP server lets AI assistants interact with your data — read context, query
+balances, create and void transactions, run reports. It speaks the
+Model Context Protocol over JSON-RPC at \`/mcp\`.
 
 ### Quick Start
-1. Create an API key in **Settings > API Keys** (select scopes)
-2. Configure your AI assistant: URL \`https://your-instance.com/mcp\`, Bearer token = your key
-3. The assistant can call 40+ tools across accounts, contacts, transactions, reports, banking, and more
+1. Create an API key in **Settings > API Keys** (pick scopes and optionally lock it to specific companies)
+2. Turn on MCP for each company under **Settings > Company Profile > API & MCP Access** (off by default)
+3. Point your AI assistant at \`https://your-instance.com/mcp\` with \`Authorization: Bearer <api-key>\`
+4. Use \`tools/list\` to see every tool, \`resources/list\` to see read-only resources
+
+### Tools (79+)
+
+**Context:** list_companies, set_active_company, get_active_company, get_company_info.
+
+**Chart of Accounts:** list_accounts, get_account_balance.
+
+**Contacts:** list_contacts, get_contact, create_contact.
+
+**Items & Tags:** list_items, create_item, list_tags, tag_transaction.
+
+**Transactions:** list_transactions, get_transaction, create_expense,
+create_deposit, create_transfer, create_journal_entry, create_cash_sale,
+void_transaction, search.
+
+**Invoices & Customer Payments:** list_invoices, create_invoice,
+send_invoice, record_payment, get_open_invoices, get_overdue_summary.
+
+**Bills & AP:** list_bills, get_bill, create_bill, void_bill,
+get_payable_bills, list_bill_payments, pay_bills, void_bill_payment,
+list_vendor_credits, create_vendor_credit, get_available_vendor_credits.
+
+**Checks:** list_checks, write_check, get_check_print_queue.
+
+**Recurring & Budgets:** list_recurring, post_recurring_now, list_budgets,
+get_budget, run_budget_vs_actual.
+
+**Dashboard:** get_dashboard_snapshot, get_cash_position,
+get_receivables_summary, get_payables_summary, get_action_items,
+get_revexp_trend.
+
+**Bank feed:** list_bank_feed_items, categorize_feed_item, match_feed_item,
+find_feed_match_candidates, exclude_feed_item, bulk_approve_feed_items,
+get_bank_connections, sync_bank_connection.
+
+**Reconciliation:** get_reconciliation_status, get_reconciliation_history,
+start_reconciliation.
+
+**Attachments:** list_attachments.
+
+**Reports:** run_profit_loss, run_balance_sheet, run_balance_sheet_basis,
+run_cash_flow, run_trial_balance, run_general_ledger, run_ar_aging,
+run_expense_by_vendor, run_expense_by_category, run_vendor_balance,
+run_customer_balance, run_1099_vendor_summary, run_sales_tax_liability,
+run_check_register, run_budget_vs_actual.
+
+Array / object tool arguments (lines, applications, bills, credits, tag_ids,
+feed_item_ids) accept either a native array or a JSON string — handy
+because some MCP clients only send flat string parameters.
+
+### Resources
+Read-only snapshots the assistant can subscribe to:
+- \`kisbooks://companies\`
+- \`kisbooks://company/{id}/chart-of-accounts\`
+- \`kisbooks://company/{id}/contacts\`
+- \`kisbooks://company/{id}/recent-transactions\`
+- \`kisbooks://company/{id}/bank-feed/pending\`
+- \`kisbooks://company/{id}/invoices/overdue\`
+- \`kisbooks://company/{id}/bills/payable\`
+- \`kisbooks://company/{id}/bill-payments\`
+- \`kisbooks://company/{id}/vendor-credits\`
+- \`kisbooks://company/{id}/recurring\`
+- \`kisbooks://company/{id}/budgets\`
+- \`kisbooks://company/{id}/checks/print-queue\`
+- \`kisbooks://company/{id}/reconciliations\`
+- \`kisbooks://company/{id}/items\`
+- \`kisbooks://company/{id}/tags\`
+- \`kisbooks://company/{id}/dashboard\`
 
 ### Company Context
-If you have one company, it's auto-selected. With multiple companies, specify \`company_id\` per call or use \`set_active_company\`.
+If your key has access to exactly one company, it's auto-selected. When
+multiple companies are available, pass \`company_id\` on every call or
+persist one with \`set_active_company\`.
 
-### Scopes
-Keys can be restricted: Full Access, Read, Write, Reports, Banking, Invoicing.
+### Scopes & Roles
+Scopes gate each tool: \`all\` (full), \`read\`, \`write\`, \`reports\`,
+\`invoicing\`, \`banking\`. Assign scopes when generating the key.
 
 ### Rate Limiting
-Default 60 requests/minute per key. Admin configures system limits.
+Default 60 requests/minute per key. System-wide limits are configured in
+**Admin > MCP / API**.
+
+### Audit Trail
+Every MCP call is logged (tool, company, sanitized parameters, status,
+duration). View under **Admin > MCP Audit Log**.
 
 ### Admin
-Enable MCP in **Admin > MCP / API** and per-company in **Company Settings > API & MCP Access**.
+Enable MCP system-wide in **Admin > MCP / API**. Then enable it per-company
+in **Settings > Company Profile > API & MCP Access** — it is off by default.
 `,
   },
   {

@@ -21,8 +21,8 @@ const typeConfig: Record<string, {
   accountFilter: string | string[] | undefined;
   isDeposit: boolean;
 }> = {
-  expense: { label: 'Check / Expense', showPayee: true, showReceived: false, payeeType: 'vendor', accountFilter: 'expense', isDeposit: false },
-  deposit: { label: 'Deposit', showPayee: false, showReceived: true, payeeType: 'customer', accountFilter: 'revenue', isDeposit: true },
+  expense: { label: 'Check / Expense', showPayee: true, showReceived: false, payeeType: 'vendor', accountFilter: ['expense', 'cogs', 'other_expense'], isDeposit: false },
+  deposit: { label: 'Deposit', showPayee: false, showReceived: true, payeeType: 'customer', accountFilter: ['revenue', 'other_revenue'], isDeposit: true },
   transfer: { label: 'Transfer', showPayee: false, showReceived: false, payeeType: 'vendor', accountFilter: ['asset', 'liability'], isDeposit: false },
   journal_entry: { label: 'Journal Entry', showPayee: false, showReceived: false, payeeType: 'vendor', accountFilter: undefined, isDeposit: false },
 };

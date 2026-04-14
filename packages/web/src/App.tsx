@@ -72,6 +72,7 @@ import { DiagnosticRouter } from './features/diagnostics/DiagnosticRouter';
 import { SystemSettingsPage } from './features/settings/SystemSettingsPage';
 import { PreferencesPage } from './features/settings/PreferencesPage';
 import { EmailSettingsPage } from './features/settings/EmailSettingsPage';
+import { ReportLabelsPage } from './features/settings/ReportLabelsPage';
 import { TeamPage } from './features/settings/TeamPage';
 import { ApiKeysPage } from './features/settings/ApiKeysPage';
 import { AdminDashboard } from './features/admin/AdminDashboard';
@@ -243,6 +244,7 @@ export function App() {
             <Route path="/settings/opening-balances" element={<OpeningBalancesPage />} />
             <Route path="/settings/preferences" element={<PreferencesPage />} />
             <Route path="/settings/email" element={<EmailSettingsPage />} />
+            <Route path="/settings/report-labels" element={<ReportLabelsPage />} />
             <Route path="/settings/online-payments" element={<StripeSettingsPage />} />
             <Route path="/settings/team" element={<TeamPage />} />
             <Route path="/settings/api-keys" element={<ApiKeysPage />} />

@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import type { Account, AccountType, CreateAccountInput, UpdateAccountInput } from '@kis-books/shared';
-import { ACCOUNT_TYPES, DETAIL_TYPES } from '@kis-books/shared';
+import { ACCOUNT_TYPES, DETAIL_TYPES, formatAccountTypeLabel } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useCreateAccount, useUpdateAccount } from '../../api/hooks/useAccounts';
@@ -85,7 +85,7 @@ export function AccountFormModal({ account, onClose }: AccountFormModalProps) {
               disabled={account?.isSystem}
             >
               {ACCOUNT_TYPES.map((t) => (
-                <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                <option key={t} value={t}>{formatAccountTypeLabel(t)}</option>
               ))}
             </select>
           </div>

@@ -45,6 +45,12 @@ const settingsCards = [
     description: 'Configure outbound email for invoices and notifications',
   },
   {
+    to: '/settings/report-labels',
+    icon: FileText,
+    title: 'Report Headings',
+    description: 'Customize Profit & Loss section headings for the view, CSV, and PDF',
+  },
+  {
     to: '/settings/online-payments',
     icon: CreditCard,
     title: 'Online Payments (Stripe)',

@@ -34,6 +34,17 @@ Swagger UI at `<base>/api/docs` or the source in `packages/api/src/routes/`.
    - [Contacts](#contacts)
    - [Transactions](#transactions)
    - [Invoices](#invoices)
+   - [Bills (Accounts Payable)](#bills-accounts-payable)
+   - [Bill payments](#bill-payments)
+   - [Vendor credits](#vendor-credits)
+   - [Customer payments](#customer-payments)
+   - [Checks](#checks)
+   - [Recurring transactions](#recurring-transactions)
+   - [Budgets](#budgets)
+   - [Dashboard](#dashboard)
+   - [Tags](#tags)
+   - [Banking (connections, feed, reconciliation)](#banking-connections-feed-reconciliation)
+   - [Attachments](#attachments)
    - [Items / products](#items--products)
    - [Reports](#reports)
 7. [TypeScript client scaffold](#typescript-client-scaffold)
@@ -882,9 +893,14 @@ endpoint — use `POST /api/v1/bills` if you need them.
 { "transaction": { "id": "uuid", ... full transaction with lines ... } }
 ```
 
-**Voiding a transaction** is not in v2 yet. Use `POST /api/v1/transactions/:id/void`
-with `{ "reason": "..." }`. Voiding creates a reversing journal entry; the
+**Voiding a transaction:** `POST /api/v2/transactions/:id/void` with
+`{ "reason": "..." }`. Voiding creates a reversing journal entry; the
 original is marked `status: "void"` but never deleted (audit trail preserved).
+Works for all txn types including bills, bill payments, vendor credits —
+each also has a type-specific void endpoint (e.g. `POST /bills/:id/void`).
+
+**Tagging a transaction:** `POST /api/v2/transactions/:id/tags` with
+`{ "tagIds": ["uuid", ...] }`. Replaces the full tag set.
 
 ---
 
@@ -964,6 +980,404 @@ Update an invoice. Same body shape as create. Server enforces:
 - Paid / partial invoices have locked fields (total, customer, date) — you
   can only reallocate lines within the original total
 - Draft invoices can be edited freely
+
+---
+
+### Bills (Accounts Payable)
+
+Vendor bills. Stored as `txnType: "bill"`. Posting a bill debits expense
+accounts (or asset accounts for capital goods) and credits Accounts Payable.
+
+#### `GET /bills`
+
+Query: `?contactId&billStatus=unpaid|partial|paid|overdue&startDate&endDate&overdueOnly&search&limit&offset`
+
+```json
+{
+  "data": [{ "id": "uuid", "txnNumber": "BILL-00042", "contactId": "uuid", "txnDate": "2026-04-10", "dueDate": "2026-05-10", "total": "1250.00", "balanceDue": "1250.00", "billStatus": "unpaid" }],
+  "total": 87
+}
+```
+
+#### `GET /bills/payable`
+
+Unpaid bills eligible for payment. Query: `?contactId&dueOnOrBefore`.
+
+#### `GET /bills/:id`
+
+Full bill with journal lines.
+
+#### `POST /bills`
+
+```json
+{
+  "contactId": "uuid (vendor)",
+  "txnDate": "2026-04-10",
+  "dueDate": "2026-05-10",
+  "paymentTerms": "net_30",
+  "vendorInvoiceNumber": "INV-99123",
+  "memo": "April supplies",
+  "lines": [
+    { "accountId": "uuid (expense GL)", "amount": "1250.00", "description": "Office supplies" }
+  ]
+}
+```
+
+#### `PUT /bills/:id`
+
+Same body shape. Cannot edit void bills or paid lines.
+
+#### `POST /bills/:id/void`
+
+Body: `{ "reason": "..." }`. Creates reversing entry; original stays with
+`status: "void"`.
+
+---
+
+### Bill payments
+
+Payments applied to one or more bills. A bill payment debits AP and credits
+the bank account.
+
+#### `GET /bill-payments`
+
+Query: `?contactId&startDate&endDate&limit&offset`.
+
+#### `GET /bill-payments/:id`
+
+Full bill payment with applied bills and credits.
+
+#### `POST /bill-payments`
+
+```json
+{
+  "bankAccountId": "uuid",
+  "txnDate": "2026-04-12",
+  "method": "ach",
+  "printLater": false,
+  "memo": "April vendor run",
+  "bills": [
+    { "billId": "uuid", "amount": "1250.00" }
+  ],
+  "credits": [
+    { "creditId": "uuid", "billId": "uuid", "amount": "50.00" }
+  ]
+}
+```
+
+`method`: `check`, `check_handwritten`, `ach`, `credit_card`, `cash`, `other`.
+If `method === "check"` and `printLater === true`, the payment is queued in
+`/checks/print-queue` until you run the print job.
+
+#### `POST /bill-payments/:id/void`
+
+Body: `{ "reason": "..." }`.
+
+---
+
+### Vendor credits
+
+Credits from a vendor (returns, rebates). Can be applied against future bill
+payments.
+
+#### `GET /vendor-credits`
+
+Query: `?contactId&startDate&endDate&search&limit&offset`.
+
+#### `GET /vendor-credits/available/:vendorId`
+
+Credits with remaining unused balance for the given vendor — useful when
+building a bill payment that applies credits.
+
+#### `GET /vendor-credits/:id`
+
+#### `POST /vendor-credits`
+
+```json
+{
+  "contactId": "uuid (vendor)",
+  "txnDate": "2026-04-11",
+  "vendorInvoiceNumber": "CM-901",
+  "memo": "Return of defective item",
+  "lines": [
+    { "accountId": "uuid (expense account to credit back)", "amount": "75.00" }
+  ]
+}
+```
+
+#### `POST /vendor-credits/:id/void`
+
+Body: `{ "reason": "..." }`.
+
+---
+
+### Customer payments
+
+Record a customer payment and apply it to one or more open invoices.
+
+#### `POST /payments/receive`
+
+```json
+{
+  "customerId": "uuid",
+  "date": "2026-04-12",
+  "amount": "1500.00",
+  "depositTo": "uuid (bank account or Payments Clearing)",
+  "paymentMethod": "check",
+  "refNo": "1234",
+  "memo": "April invoice payment",
+  "applications": [
+    { "invoiceId": "uuid", "amount": "1000.00" },
+    { "invoiceId": "uuid", "amount": "500.00" }
+  ]
+}
+```
+
+Sum of `applications` must equal `amount`. Invoices whose balance becomes
+zero flip to `invoiceStatus: "paid"`.
+
+#### `GET /payments/open-invoices/:customerId`
+
+Open invoices for a customer (non-zero balance). Use this to build the
+`applications` array above.
+
+---
+
+### Checks
+
+Check writing + print queue.
+
+#### `GET /checks`
+
+Query: `?bank_account_id&print_status=pending|printed|voided&start_date&end_date&limit&offset`.
+
+#### `GET /checks/print-queue`
+
+Checks in `print_status: "pending"`, ready for the next print batch.
+
+#### `POST /checks`
+
+```json
+{
+  "bankAccountId": "uuid",
+  "txnDate": "2026-04-10",
+  "amount": "2500.00",
+  "payeeNameOnCheck": "Acme Property LLC",
+  "contactId": "uuid (optional — links to vendor record)",
+  "payeeAddress": "optional — prints on voucher",
+  "memo": "Internal memo",
+  "printedMemo": "Rent — April",
+  "printLater": false,
+  "lines": [
+    { "accountId": "uuid (expense GL)", "amount": "2500.00", "description": "Office rent" }
+  ]
+}
+```
+
+Sum of `lines[].amount` must equal `amount` (within one cent). Server
+validates and returns 400 on mismatch.
+
+- `printLater: false` (default) — allocates a check number atomically from
+  the company's `checkSettings.nextCheckNumber` counter and marks the check
+  as `hand_written`.
+- `printLater: true` — queues the check for batch printing. Run
+  `POST /api/v1/checks/print` to assign numbers and generate the PDF.
+
+Returns an `expense` transaction with `checkNumber` and `printStatus` set.
+
+---
+
+### Recurring transactions
+
+Schedule a template transaction to auto-post on a cadence.
+
+#### `GET /recurring`
+
+```json
+{
+  "schedules": [
+    { "id": "uuid", "templateTransactionId": "uuid", "frequency": "monthly", "startDate": "2026-01-01", "nextRunDate": "2026-05-01", "isActive": true }
+  ]
+}
+```
+
+#### `POST /recurring`
+
+```json
+{
+  "templateTransactionId": "uuid (existing transaction to clone)",
+  "frequency": "monthly",
+  "startDate": "2026-05-01",
+  "endDate": null,
+  "dayOfMonth": 1
+}
+```
+
+`frequency`: `daily`, `weekly`, `biweekly`, `monthly`, `quarterly`, `annually`.
+
+#### `PUT /recurring/:id`
+
+Update schedule fields.
+
+#### `DELETE /recurring/:id`
+
+Soft-deactivate — sets `isActive: false`, no future runs.
+
+#### `POST /recurring/:id/post-now`
+
+Force an immediate post using the template. Returns the new transaction.
+
+---
+
+### Budgets
+
+Annual budgets keyed to the chart of accounts.
+
+#### `GET /budgets`
+
+#### `GET /budgets/:id`
+
+#### `GET /budgets/:id/lines`
+
+Each line has `accountId` and 12 monthly values.
+
+#### `GET /budgets/:id/vs-actual`
+
+Query: `?start_date&end_date`. Returns a P&L-shaped comparison of budget vs
+posted actuals for the period, with variance dollar and percent per account.
+
+---
+
+### Dashboard
+
+Aggregate summaries for the home screen. All endpoints scope to the
+authenticated tenant.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /dashboard/snapshot` | Revenue, expenses, net income for a standard window |
+| `GET /dashboard/trend?months=6` | Monthly revenue/expense series |
+| `GET /dashboard/cash-position` | Balances across all bank + credit card accounts |
+| `GET /dashboard/receivables` | AR total with 0–30 / 31–60 / 61–90 / 90+ aging buckets |
+| `GET /dashboard/payables` | AP total with aging buckets |
+| `GET /dashboard/action-items` | Overdue invoices, bills coming due, pending bank feed items |
+
+---
+
+### Tags
+
+Multi-dimensional transaction labels (location, project, class, ...).
+
+#### `GET /tags`
+
+Query: `?group_id&is_active=true|false&search`.
+
+#### `GET /tags/groups`
+
+Tag groups (e.g. "Location", "Project"). `isSingleSelect: true` means a
+transaction can only have one tag from that group.
+
+#### `POST /tags`
+
+```json
+{ "name": "Seattle", "groupId": "uuid", "color": "#3b82f6" }
+```
+
+#### `POST /transactions/:id/tags`
+
+```json
+{ "tagIds": ["uuid", "uuid"] }
+```
+
+Replaces the full tag set on the transaction.
+
+---
+
+### Banking (connections, feed, reconciliation)
+
+#### `GET /banking/connections`
+
+Plaid and manual (CSV/OFX) connections. Use `/api/v1/banking/connections/link-token`
+and the Plaid SDK to add new Plaid connections — link-token minting is not
+in v2.
+
+#### `GET /banking/feed`
+
+Query: `?status=pending|categorized|matched|excluded&accountId&startDate&endDate&search&limit&offset`.
+
+Feed items are cleansed-and-suggested rows imported from Plaid / CSV / OFX
+that have not yet been posted to the ledger.
+
+#### `GET /banking/feed/:id/match-candidates`
+
+Existing ledger transactions that may match this feed item (used for
+match-or-categorize UX).
+
+#### `PUT /banking/feed/:id/categorize`
+
+```json
+{ "accountId": "uuid (expense/revenue GL)", "contactId": "uuid?", "memo": "optional" }
+```
+
+Creates the transaction and marks the feed item `status: "categorized"`.
+
+#### `PUT /banking/feed/:id/match`
+
+```json
+{ "transactionId": "uuid" }
+```
+
+Links the feed item to an existing transaction without creating a new one.
+
+#### `PUT /banking/feed/:id/exclude`
+
+Marks the feed item as `excluded` (ignored in reports and reconciliation).
+
+#### `POST /banking/feed/bulk-approve`
+
+```json
+{ "feedItemIds": ["uuid", ...] }
+```
+
+Applies the AI-suggested category to each feed item.
+
+#### `GET /banking/reconciliations?account_id=...`
+
+Reconciliation history for an account.
+
+#### `POST /banking/reconciliations`
+
+```json
+{
+  "accountId": "uuid",
+  "statementDate": "2026-03-31",
+  "statementEndingBalance": "12543.21"
+}
+```
+
+Starts a new reconciliation session. Completing/updating lines still
+requires `/api/v1/banking/reconciliations/:id/...`.
+
+#### `GET /banking/reconciliations/:id`
+
+Full reconciliation with cleared/uncleared lines.
+
+---
+
+### Attachments
+
+File attachments (receipts, bills, etc.) linked to transactions, bills, or
+other entities. Uploads themselves must use `POST /api/v1/attachments`
+(multipart/form-data); v2 exposes read-only metadata here.
+
+#### `GET /attachments?attachableType=bill&attachableId=<uuid>`
+
+Metadata list for a given entity. Supported `attachableType` values include
+`transaction`, `bill`, `invoice`, `expense`, `deposit`, `draft`.
+
+#### `GET /attachments/:id`
+
+Single attachment metadata (filename, size, MIME, OCR status).
 
 ---
 
@@ -1071,6 +1485,50 @@ Query: `?start_date=2026-01-01&end_date=2026-04-09`
 
 Every journal line for every account in the period. Can be large —
 consider pagination or date-range batching for multi-year exports.
+
+#### `GET /reports/ar-aging`
+
+Query: `?as_of_date=2026-04-14`
+
+Per-customer open invoice totals bucketed `current / 1-30 / 31-60 / 61-90 / 90+`.
+
+#### `GET /reports/expense-by-vendor`
+
+Query: `?start_date&end_date`
+
+Total posted spend per vendor (contact) for the period.
+
+#### `GET /reports/expense-by-category`
+
+Query: `?start_date&end_date`
+
+Total posted spend per expense account for the period.
+
+#### `GET /reports/vendor-balance`
+
+Outstanding AP balance per vendor, point-in-time.
+
+#### `GET /reports/customer-balance`
+
+Outstanding AR balance per customer, point-in-time.
+
+#### `GET /reports/1099-vendor-summary`
+
+Query: `?year=2025`
+
+Year-to-date payments per 1099-reportable vendor, for 1099-NEC filing.
+
+#### `GET /reports/sales-tax-liability`
+
+Query: `?start_date&end_date`
+
+Sales tax collected per jurisdiction, with taxable/non-taxable split.
+
+#### `GET /reports/check-register`
+
+Query: `?account_id&start_date&end_date`
+
+Chronological list of checks drawn on a bank account (cleared + outstanding).
 
 ---
 
@@ -1528,19 +1986,33 @@ for (const account of accounts) {
 These areas are only available on `/api/v1` for now. Shapes may change
 without notice — use with care and be ready to update:
 
-- **Bills (AP)** — `POST /api/v1/bills`, `PUT /api/v1/bills/:id`, etc.
-- **Bill payments** — `POST /api/v1/bill-payments`
-- **Vendor credits** — `/api/v1/vendor-credits`
-- **Customer payments** — `POST /api/v1/payments`
-- **Bank reconciliation** — `/api/v1/banking/reconcile*`
-- **Bank feed categorization** — `/api/v1/banking/feed*`
-- **Checks (print queue)** — `/api/v1/checks/*`
-- **Recurring transactions** — `/api/v1/recurring`
-- **Tags** — `/api/v1/tags`
-- **Attachments / file uploads** — `/api/v1/attachments` (multipart/form-data, not JSON)
-- **Voiding transactions** — `POST /api/v1/transactions/:id/void`
-- **Admin endpoints** — `/api/v1/admin/*` (super admin only)
-- **AI features (chat, OCR, categorization)** — `/api/v1/ai/*` and `/api/v1/chat/*`
+- **File uploads** — `POST /api/v1/attachments` (multipart/form-data).
+  v2 exposes only metadata reads under `/api/v2/attachments`.
+- **Plaid link-token + item management** — `/api/v1/plaid/*` and
+  `/api/v1/banking/connections/link-token`.
+- **Reconciliation line updates / complete / undo** —
+  `/api/v1/banking/reconciliations/:id/lines`,
+  `/api/v1/banking/reconciliations/:id/complete`,
+  `/api/v1/banking/reconciliations/:id/undo`. v2 can start and read
+  reconciliations but not mutate line-level clear state.
+- **Check printing workflow** — `/api/v1/checks/print`,
+  `/api/v1/checks/render`, `/api/v1/checks/reprint/:batchId`. v2 can write
+  checks and view the print queue but not drive the physical print batch.
+- **Bank rules** — `/api/v1/bank-rules/*`.
+- **Batch entry** — `/api/v1/batch/*`.
+- **Import / export** — `/api/v1/export/*`, `/api/v1/tenant-export/*`,
+  `/api/v1/payroll-import/*`.
+- **Backup / restore** — `/api/v1/backup/*`, `/api/v1/remote-backup/*`.
+- **Admin endpoints** — `/api/v1/admin/*` (super admin only).
+- **AI features (chat, OCR, categorization)** — `/api/v1/ai/*` and
+  `/api/v1/chat/*`.
+- **Estimates** — `/api/v1/estimates/*` (feature still stubbed).
+- **Auth flows** — passkey/WebAuthn, magic links, TFA enrollment,
+  OAuth consent (use `/api/v1/auth/*` and `/oauth/*`).
+
+Everything else — accounts, contacts, transactions, invoices, bills,
+bill payments, vendor credits, customer payments, checks, recurring,
+budgets, tags, dashboard, bank feed, reports — is in v2.
 
 For any of these, inspect the route file under `packages/api/src/routes/`
 or hit the live Swagger UI at `<base>/api/docs`.
@@ -1619,6 +2091,14 @@ or hit the live Swagger UI at `<base>/api/docs`.
 
 ## Changelog
 
+- **2026-04-14** — Major v2 expansion. Added bills (AP), bill payments,
+  vendor credits, customer payments, checks, recurring transactions,
+  budgets, dashboard summaries, tags, bank connections + feed + reconciliation
+  (read + start), attachment metadata, transaction void + tag. New reports:
+  AR aging, expense by vendor, expense by category, vendor balance,
+  customer balance, 1099 vendor summary, sales tax liability, check
+  register. "What's NOT in v2 yet" pared down to file uploads, Plaid
+  onboarding, reconciliation mutation, check print batch, admin/AI flows.
 - **2026-04-09** — Initial version. Covers `/api/v2` and the auth endpoints
   in `/api/v1/auth` + `/api/v1/api-keys`. Documents API key / JWT / OAuth
   auth, error envelope, pagination, rate limits, tenant scoping, and a

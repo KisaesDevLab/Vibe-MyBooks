@@ -4,6 +4,20 @@ Base URL: `/api/v1`
 
 All endpoints require `Authorization: Bearer <token>` unless noted.
 
+> **Integrations should prefer `/api/v2`.** The v2 surface is auth-hardened
+> (API key + JWT), Zod-validated, rate-limited (100 req/min per key),
+> and stable across releases. v2 now covers accounts, contacts,
+> transactions (with void + tag), invoices, bills + bill payments +
+> vendor credits, customer payments, checks, recurring schedules,
+> budgets, dashboard summaries, tags, bank connections + feed + reconciliation,
+> attachment metadata, and 14 financial reports. See
+> [VIBE_MYBOOKS_API.md](../VIBE_MYBOOKS_API.md) for the full v2 reference.
+> The `/api/v1` endpoints documented below remain available for features
+> that have not yet been promoted to v2 (file uploads, Plaid link-token
+> minting, reconciliation line mutation, check print batch, bank rules,
+> batch entry, import/export, backup, admin, AI chat, estimates) and for
+> backward compatibility with the web UI.
+
 ## Authentication
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
