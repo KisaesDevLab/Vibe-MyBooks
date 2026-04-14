@@ -1,106 +1,147 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { AdminRoute } from './components/layout/AdminRoute';
+import { LoadingSpinner } from './components/ui/LoadingSpinner';
+
+// Eager-load only what the login path actually needs. Everything else is
+// route-lazy — the main bundle no longer ships chart/pdf/admin code on
+// first load, and route changes pull chunks on demand. Named exports are
+// mapped onto `default` in the lazy wrapper because React.lazy only
+// accepts default-exporting modules.
+
 import { LoginPage } from './features/auth/LoginPage';
 import { RegisterPage } from './features/auth/RegisterPage';
 import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
 import { MagicLinkVerifyPage } from './features/auth/MagicLinkVerifyPage';
 import { ResetPasswordPage } from './features/auth/ResetPasswordPage';
-import { DashboardPage } from './features/dashboard/DashboardPage';
-import { CompanyProfilePage } from './features/company/CompanyProfilePage';
-import { SettingsPage } from './features/settings/SettingsPage';
-import { AccountsListPage } from './features/accounts/AccountsListPage';
-import { ContactsListPage } from './features/contacts/ContactsListPage';
-import { ContactFormPage } from './features/contacts/ContactFormPage';
-import { ContactDetailPage } from './features/contacts/ContactDetailPage';
-import { TransactionListPage } from './features/transactions/TransactionListPage';
-import { TransactionDetail } from './features/transactions/TransactionDetail';
-import { JournalEntryForm } from './features/transactions/JournalEntryForm';
-import { ExpenseForm } from './features/transactions/ExpenseForm';
-import { TransferForm } from './features/transactions/TransferForm';
-import { DepositForm } from './features/transactions/DepositForm';
-import { CashSaleForm } from './features/transactions/CashSaleForm';
-import { BatchEntryPage } from './features/transactions/BatchEntryPage';
-import { TagManagerPage } from './features/tags/TagManagerPage';
-import { ItemsListPage } from './features/items/ItemsListPage';
-import { ReceivePaymentPage } from './features/invoicing/ReceivePaymentPage';
-import { BankDepositPage } from './features/banking/BankDepositPage';
-import { WriteCheckPage } from './features/checks/WriteCheckPage';
-import { PrintChecksPage } from './features/checks/PrintChecksPage';
-import { CheckPrintSettingsPage } from './features/settings/CheckPrintSettingsPage';
-import { BankConnectionsPage } from './features/banking/BankConnectionsPage';
-import { BankFeedPage } from './features/banking/BankFeedPage';
-import { ReconciliationPage } from './features/banking/ReconciliationPage';
-import { ReconciliationHistoryPage } from './features/banking/ReconciliationHistoryPage';
-import { BankRulesPage } from './features/banking/BankRulesPage';
-import { DuplicateReviewPage } from './features/transactions/DuplicateReviewPage';
-import { AttachmentLibraryPage } from './features/attachments/AttachmentLibraryPage';
-import { RecurringListPage } from './features/transactions/RecurringListPage';
-import { RegisterPage as AccountRegisterPage } from './features/accounts/RegisterPage';
-import { RegistersPage } from './features/accounts/RegistersPage';
-import { InvoiceListPage } from './features/invoicing/InvoiceListPage';
-import { InvoiceForm } from './features/invoicing/InvoiceForm';
-import { InvoiceDetailPage } from './features/invoicing/InvoiceDetailPage';
-import { InvoiceTemplateEditor } from './features/invoicing/InvoiceTemplateEditor';
-import { BillListPage } from './features/ap/BillListPage';
-import { EnterBillPage } from './features/ap/EnterBillPage';
-import { BillDetailPage } from './features/ap/BillDetailPage';
-import { EnterVendorCreditPage } from './features/ap/EnterVendorCreditPage';
-import { VendorCreditListPage } from './features/ap/VendorCreditListPage';
-import { PayBillsPage } from './features/ap/PayBillsPage';
-import { ReportsPage } from './features/reports/ReportsPage';
-import { ProfitAndLossReport } from './features/reports/ProfitAndLossReport';
-import { BalanceSheetReport } from './features/reports/BalanceSheetReport';
-import { GeneralLedgerReport } from './features/reports/GeneralLedgerReport';
-import { GenericReport } from './features/reports/GenericReport';
-import { SetupWizard } from './features/company/SetupWizard';
-import { BudgetEditorPage } from './features/budgets/BudgetEditorPage';
-import { BudgetVsActualReport } from './features/reports/BudgetVsActualReport';
-import { BudgetOverviewReport } from './features/reports/BudgetOverviewReport';
-import { BackupRestorePage } from './features/settings/BackupRestorePage';
-import { AuditLogPage } from './features/settings/AuditLogPage';
-import { DataExportPage } from './features/settings/DataExportPage';
-import { TenantExportPage } from './features/settings/TenantExportPage';
-import { TenantImportPage } from './features/settings/TenantImportPage';
-import { RemoteBackupSettingsPage } from './features/settings/RemoteBackupSettingsPage';
-import { OpeningBalancesPage } from './features/settings/OpeningBalancesPage';
-import { CompanyProvider } from './providers/CompanyProvider';
-import { FirstRunSetupWizard } from './features/setup/FirstRunSetupWizard';
-import { DiagnosticRouter } from './features/diagnostics/DiagnosticRouter';
-import { SystemSettingsPage } from './features/settings/SystemSettingsPage';
-import { PreferencesPage } from './features/settings/PreferencesPage';
-import { EmailSettingsPage } from './features/settings/EmailSettingsPage';
-import { ReportLabelsPage } from './features/settings/ReportLabelsPage';
-import { TeamPage } from './features/settings/TeamPage';
-import { ApiKeysPage } from './features/settings/ApiKeysPage';
-import { AdminDashboard } from './features/admin/AdminDashboard';
-import { TenantListPage } from './features/admin/TenantListPage';
-import { TenantDetailPage } from './features/admin/TenantDetailPage';
-import { UserListPage } from './features/admin/UserListPage';
-import { GlobalBankRulesPage } from './features/admin/GlobalBankRulesPage';
-import { TfaConfigPage } from './features/admin/TfaConfigPage';
-import { InstallationSecurityPage } from './features/admin/InstallationSecurityPage';
-import { PlaidConfigPage } from './features/admin/PlaidConfigPage';
-import { PlaidConnectionsMonitorPage } from './features/admin/PlaidConnectionsMonitorPage';
-import { AiConfigPage } from './features/admin/AiConfigPage';
-import { McpConfigPage } from './features/admin/McpConfigPage';
-import { CoaTemplatesPage } from './features/admin/CoaTemplatesPage';
-import { TailscaleAdminPage } from './features/admin/TailscaleAdminPage';
 import { OAuthConsentPage } from './features/auth/OAuthConsentPage';
-import { ConnectedAppsPage } from './features/settings/ConnectedAppsPage';
-import { StorageSettingsPage } from './features/settings/StorageSettingsPage';
-import { StatementUploadPage } from './features/banking/StatementUploadPage';
-import { PayrollImportPage } from './features/payroll/PayrollImportPage';
-import { PayrollHistoryPage } from './features/payroll/PayrollHistoryPage';
-import { PayrollAccountMappingPage } from './features/payroll/PayrollAccountMappingPage';
-import { TfaSettingsPage } from './features/settings/TfaSettingsPage';
-import { KnowledgeBasePage } from './features/help/KnowledgeBasePage';
-import { PublicInvoicePage } from './features/public/PublicInvoicePage';
-import { StripeSettingsPage } from './features/settings/StripeSettingsPage';
-import { ArticlePage } from './features/help/ArticlePage';
+import { DashboardPage } from './features/dashboard/DashboardPage';
+import { CompanyProvider } from './providers/CompanyProvider';
+import { DiagnosticRouter } from './features/diagnostics/DiagnosticRouter';
+import { FirstRunSetupWizard } from './features/setup/FirstRunSetupWizard';
 import { NotFoundPage } from './features/NotFoundPage';
+import { PublicInvoicePage } from './features/public/PublicInvoicePage';
+
+// Helper to lazy-load a named export. React.lazy expects `default`, so we
+// shim the named export onto it. Each call produces a separately chunked
+// bundle unless the file is already bundled into a manualChunk.
+const lazyNamed = <T extends string>(
+  loader: () => Promise<Record<T, React.ComponentType<any>>>,
+  name: T,
+) => lazy(async () => ({ default: (await loader())[name] }));
+
+// ─── Settings / company ────────────────────────────────────────
+const CompanyProfilePage = lazyNamed(() => import('./features/company/CompanyProfilePage'), 'CompanyProfilePage');
+const SettingsPage = lazyNamed(() => import('./features/settings/SettingsPage'), 'SettingsPage');
+const SetupWizard = lazyNamed(() => import('./features/company/SetupWizard'), 'SetupWizard');
+const BackupRestorePage = lazyNamed(() => import('./features/settings/BackupRestorePage'), 'BackupRestorePage');
+const AuditLogPage = lazyNamed(() => import('./features/settings/AuditLogPage'), 'AuditLogPage');
+const DataExportPage = lazyNamed(() => import('./features/settings/DataExportPage'), 'DataExportPage');
+const TenantExportPage = lazyNamed(() => import('./features/settings/TenantExportPage'), 'TenantExportPage');
+const TenantImportPage = lazyNamed(() => import('./features/settings/TenantImportPage'), 'TenantImportPage');
+const RemoteBackupSettingsPage = lazyNamed(() => import('./features/settings/RemoteBackupSettingsPage'), 'RemoteBackupSettingsPage');
+const OpeningBalancesPage = lazyNamed(() => import('./features/settings/OpeningBalancesPage'), 'OpeningBalancesPage');
+const PreferencesPage = lazyNamed(() => import('./features/settings/PreferencesPage'), 'PreferencesPage');
+const EmailSettingsPage = lazyNamed(() => import('./features/settings/EmailSettingsPage'), 'EmailSettingsPage');
+const ReportLabelsPage = lazyNamed(() => import('./features/settings/ReportLabelsPage'), 'ReportLabelsPage');
+const TeamPage = lazyNamed(() => import('./features/settings/TeamPage'), 'TeamPage');
+const ApiKeysPage = lazyNamed(() => import('./features/settings/ApiKeysPage'), 'ApiKeysPage');
+const TfaSettingsPage = lazyNamed(() => import('./features/settings/TfaSettingsPage'), 'TfaSettingsPage');
+const ConnectedAppsPage = lazyNamed(() => import('./features/settings/ConnectedAppsPage'), 'ConnectedAppsPage');
+const StorageSettingsPage = lazyNamed(() => import('./features/settings/StorageSettingsPage'), 'StorageSettingsPage');
+const StripeSettingsPage = lazyNamed(() => import('./features/settings/StripeSettingsPage'), 'StripeSettingsPage');
+const CheckPrintSettingsPage = lazyNamed(() => import('./features/settings/CheckPrintSettingsPage'), 'CheckPrintSettingsPage');
+const SystemSettingsPage = lazyNamed(() => import('./features/settings/SystemSettingsPage'), 'SystemSettingsPage');
+const PayrollAccountMappingPage = lazyNamed(() => import('./features/payroll/PayrollAccountMappingPage'), 'PayrollAccountMappingPage');
+
+// ─── Accounts ────────────────────────────────────────────────
+const AccountsListPage = lazyNamed(() => import('./features/accounts/AccountsListPage'), 'AccountsListPage');
+const AccountRegisterPage = lazyNamed(() => import('./features/accounts/RegisterPage'), 'RegisterPage');
+const RegistersPage = lazyNamed(() => import('./features/accounts/RegistersPage'), 'RegistersPage');
+
+// ─── Contacts ────────────────────────────────────────────────
+const ContactsListPage = lazyNamed(() => import('./features/contacts/ContactsListPage'), 'ContactsListPage');
+const ContactFormPage = lazyNamed(() => import('./features/contacts/ContactFormPage'), 'ContactFormPage');
+const ContactDetailPage = lazyNamed(() => import('./features/contacts/ContactDetailPage'), 'ContactDetailPage');
+
+// ─── Transactions ────────────────────────────────────────────
+const TransactionListPage = lazyNamed(() => import('./features/transactions/TransactionListPage'), 'TransactionListPage');
+const TransactionDetail = lazyNamed(() => import('./features/transactions/TransactionDetail'), 'TransactionDetail');
+const JournalEntryForm = lazyNamed(() => import('./features/transactions/JournalEntryForm'), 'JournalEntryForm');
+const ExpenseForm = lazyNamed(() => import('./features/transactions/ExpenseForm'), 'ExpenseForm');
+const TransferForm = lazyNamed(() => import('./features/transactions/TransferForm'), 'TransferForm');
+const DepositForm = lazyNamed(() => import('./features/transactions/DepositForm'), 'DepositForm');
+const CashSaleForm = lazyNamed(() => import('./features/transactions/CashSaleForm'), 'CashSaleForm');
+const BatchEntryPage = lazyNamed(() => import('./features/transactions/BatchEntryPage'), 'BatchEntryPage');
+const DuplicateReviewPage = lazyNamed(() => import('./features/transactions/DuplicateReviewPage'), 'DuplicateReviewPage');
+const RecurringListPage = lazyNamed(() => import('./features/transactions/RecurringListPage'), 'RecurringListPage');
+
+// ─── Tags / items ────────────────────────────────────────────
+const TagManagerPage = lazyNamed(() => import('./features/tags/TagManagerPage'), 'TagManagerPage');
+const ItemsListPage = lazyNamed(() => import('./features/items/ItemsListPage'), 'ItemsListPage');
+
+// ─── Banking / checks ────────────────────────────────────────
+const WriteCheckPage = lazyNamed(() => import('./features/checks/WriteCheckPage'), 'WriteCheckPage');
+const PrintChecksPage = lazyNamed(() => import('./features/checks/PrintChecksPage'), 'PrintChecksPage');
+const BankConnectionsPage = lazyNamed(() => import('./features/banking/BankConnectionsPage'), 'BankConnectionsPage');
+const BankFeedPage = lazyNamed(() => import('./features/banking/BankFeedPage'), 'BankFeedPage');
+const ReconciliationPage = lazyNamed(() => import('./features/banking/ReconciliationPage'), 'ReconciliationPage');
+const ReconciliationHistoryPage = lazyNamed(() => import('./features/banking/ReconciliationHistoryPage'), 'ReconciliationHistoryPage');
+const BankRulesPage = lazyNamed(() => import('./features/banking/BankRulesPage'), 'BankRulesPage');
+const BankDepositPage = lazyNamed(() => import('./features/banking/BankDepositPage'), 'BankDepositPage');
+const StatementUploadPage = lazyNamed(() => import('./features/banking/StatementUploadPage'), 'StatementUploadPage');
+
+// ─── Attachments ─────────────────────────────────────────────
+const AttachmentLibraryPage = lazyNamed(() => import('./features/attachments/AttachmentLibraryPage'), 'AttachmentLibraryPage');
+
+// ─── Invoicing / AP / payments ───────────────────────────────
+const ReceivePaymentPage = lazyNamed(() => import('./features/invoicing/ReceivePaymentPage'), 'ReceivePaymentPage');
+const InvoiceListPage = lazyNamed(() => import('./features/invoicing/InvoiceListPage'), 'InvoiceListPage');
+const InvoiceForm = lazyNamed(() => import('./features/invoicing/InvoiceForm'), 'InvoiceForm');
+const InvoiceDetailPage = lazyNamed(() => import('./features/invoicing/InvoiceDetailPage'), 'InvoiceDetailPage');
+const InvoiceTemplateEditor = lazyNamed(() => import('./features/invoicing/InvoiceTemplateEditor'), 'InvoiceTemplateEditor');
+const BillListPage = lazyNamed(() => import('./features/ap/BillListPage'), 'BillListPage');
+const EnterBillPage = lazyNamed(() => import('./features/ap/EnterBillPage'), 'EnterBillPage');
+const BillDetailPage = lazyNamed(() => import('./features/ap/BillDetailPage'), 'BillDetailPage');
+const EnterVendorCreditPage = lazyNamed(() => import('./features/ap/EnterVendorCreditPage'), 'EnterVendorCreditPage');
+const VendorCreditListPage = lazyNamed(() => import('./features/ap/VendorCreditListPage'), 'VendorCreditListPage');
+const PayBillsPage = lazyNamed(() => import('./features/ap/PayBillsPage'), 'PayBillsPage');
+
+// ─── Budgets ─────────────────────────────────────────────────
+const BudgetEditorPage = lazyNamed(() => import('./features/budgets/BudgetEditorPage'), 'BudgetEditorPage');
+
+// ─── Reports (heavy: ships charts + pdf libs) ────────────────
+const ReportsPage = lazyNamed(() => import('./features/reports/ReportsPage'), 'ReportsPage');
+const ProfitAndLossReport = lazyNamed(() => import('./features/reports/ProfitAndLossReport'), 'ProfitAndLossReport');
+const BalanceSheetReport = lazyNamed(() => import('./features/reports/BalanceSheetReport'), 'BalanceSheetReport');
+const GeneralLedgerReport = lazyNamed(() => import('./features/reports/GeneralLedgerReport'), 'GeneralLedgerReport');
+const GenericReport = lazyNamed(() => import('./features/reports/GenericReport'), 'GenericReport');
+const BudgetVsActualReport = lazyNamed(() => import('./features/reports/BudgetVsActualReport'), 'BudgetVsActualReport');
+const BudgetOverviewReport = lazyNamed(() => import('./features/reports/BudgetOverviewReport'), 'BudgetOverviewReport');
+
+// ─── Admin (super-admin only; rarely loaded) ─────────────────
+const AdminDashboard = lazyNamed(() => import('./features/admin/AdminDashboard'), 'AdminDashboard');
+const TenantListPage = lazyNamed(() => import('./features/admin/TenantListPage'), 'TenantListPage');
+const TenantDetailPage = lazyNamed(() => import('./features/admin/TenantDetailPage'), 'TenantDetailPage');
+const UserListPage = lazyNamed(() => import('./features/admin/UserListPage'), 'UserListPage');
+const GlobalBankRulesPage = lazyNamed(() => import('./features/admin/GlobalBankRulesPage'), 'GlobalBankRulesPage');
+const TfaConfigPage = lazyNamed(() => import('./features/admin/TfaConfigPage'), 'TfaConfigPage');
+const InstallationSecurityPage = lazyNamed(() => import('./features/admin/InstallationSecurityPage'), 'InstallationSecurityPage');
+const PlaidConfigPage = lazyNamed(() => import('./features/admin/PlaidConfigPage'), 'PlaidConfigPage');
+const PlaidConnectionsMonitorPage = lazyNamed(() => import('./features/admin/PlaidConnectionsMonitorPage'), 'PlaidConnectionsMonitorPage');
+const AiConfigPage = lazyNamed(() => import('./features/admin/AiConfigPage'), 'AiConfigPage');
+const McpConfigPage = lazyNamed(() => import('./features/admin/McpConfigPage'), 'McpConfigPage');
+const CoaTemplatesPage = lazyNamed(() => import('./features/admin/CoaTemplatesPage'), 'CoaTemplatesPage');
+const TailscaleAdminPage = lazyNamed(() => import('./features/admin/TailscaleAdminPage'), 'TailscaleAdminPage');
+
+// ─── Payroll / help ──────────────────────────────────────────
+const PayrollImportPage = lazyNamed(() => import('./features/payroll/PayrollImportPage'), 'PayrollImportPage');
+const PayrollHistoryPage = lazyNamed(() => import('./features/payroll/PayrollHistoryPage'), 'PayrollHistoryPage');
+const KnowledgeBasePage = lazyNamed(() => import('./features/help/KnowledgeBasePage'), 'KnowledgeBasePage');
+const ArticlePage = lazyNamed(() => import('./features/help/ArticlePage'), 'ArticlePage');
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,12 +152,21 @@ const queryClient = new QueryClient({
   },
 });
 
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <LoadingSpinner size="lg" />
+    </div>
+  );
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <DiagnosticRouter>
       <CompanyProvider>
       <BrowserRouter>
+        <Suspense fallback={<LoadingFallback />}>
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
@@ -267,6 +317,7 @@ export function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
+        </Suspense>
       </BrowserRouter>
       </CompanyProvider>
       </DiagnosticRouter>
