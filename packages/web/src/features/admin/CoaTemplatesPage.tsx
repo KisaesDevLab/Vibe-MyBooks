@@ -19,24 +19,27 @@ import type {
   CoaTemplateAccountInput,
   CoaTemplateSummary,
 } from '@kis-books/shared';
+import { formatAccountTypeLabel } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
-const ACCOUNT_TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'] as const;
+const ACCOUNT_TYPES = [
+  'asset', 'liability', 'equity',
+  'revenue', 'cogs', 'expense', 'other_revenue', 'other_expense',
+] as const;
 type AccountType = (typeof ACCOUNT_TYPES)[number];
 
 const DETAIL_TYPES_BY_ACCOUNT_TYPE: Record<AccountType, string[]> = {
   asset: ['bank', 'accounts_receivable', 'other_current_asset', 'fixed_asset', 'other_asset'],
   liability: ['accounts_payable', 'credit_card', 'other_current_liability', 'long_term_liability'],
   equity: ['owners_equity', 'retained_earnings', 'opening_balance'],
-  revenue: ['service', 'sales_of_product', 'other_income', 'interest_earned'],
+  revenue: ['service', 'sales_of_product'],
+  cogs: ['cost_of_goods_sold', 'other_cost_of_service'],
   expense: [
     'advertising',
     'bank_charges',
-    'cost_of_goods_sold',
-    'other_cost_of_service',
     'insurance',
     'meals_entertainment',
     'office_supplies',
@@ -46,8 +49,9 @@ const DETAIL_TYPES_BY_ACCOUNT_TYPE: Record<AccountType, string[]> = {
     'utilities',
     'travel',
     'payroll_expenses',
-    'other_expense',
   ],
+  other_revenue: ['other_income', 'interest_earned'],
+  other_expense: ['other_expense', 'interest_expense', 'depreciation', 'amortization'],
 };
 
 interface TenantOption {
@@ -404,7 +408,7 @@ export function CoaTemplatesPage() {
                           >
                             {ACCOUNT_TYPES.map((t) => (
                               <option key={t} value={t}>
-                                {t}
+                                {formatAccountTypeLabel(t)}
                               </option>
                             ))}
                           </select>

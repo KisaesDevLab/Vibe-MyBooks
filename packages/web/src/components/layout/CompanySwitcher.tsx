@@ -149,7 +149,7 @@ export function CompanySwitcher() {
     setSwitchError('');
     setSwitchingTenantId(tenantId);
     try {
-      const result = await apiClient<{ tokens: { accessToken: string; refreshToken: string } }>('/auth/switch-tenant', {
+      const result = await apiClient<{ tokens: { accessToken: string } }>('/auth/switch-tenant', {
         method: 'POST',
         body: JSON.stringify({ tenantId }),
       });

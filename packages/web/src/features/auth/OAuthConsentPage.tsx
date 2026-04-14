@@ -25,15 +25,25 @@ export function OAuthConsentPage() {
   const state = params.get('state') || '';
   const scopes = scope.split(',').filter(Boolean);
 
-  // Validate redirect URI to prevent open redirect attacks
+  // Client-side sanity check on the redirect URI so the Authorize button
+  // can't be primed to point at an obviously hostile origin. The server's
+  // allowlist is the authoritative gate — this is defense in depth.
+  //
+  // The previous implementation allowed `localhost` / `127.0.0.1` for any
+  // build, which in production effectively permitted an attacker to craft a
+  // consent URL that redirects to a loopback service of their choosing. Now
+  // loopback is only honored in dev builds; in prod the redirect must be
+  // same-origin or the server will refuse it regardless.
   const isRedirectSafe = (uri: string): boolean => {
     try {
       const parsed = new URL(uri);
       const allowed = new URL(window.location.origin);
-      // Allow same-origin redirects and localhost for development
-      return parsed.origin === allowed.origin
-        || parsed.hostname === 'localhost'
-        || parsed.hostname === '127.0.0.1';
+      if (parsed.origin === allowed.origin) return true;
+      const isDev = (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV === true;
+      if (isDev && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')) {
+        return true;
+      }
+      return false;
     } catch {
       return false;
     }

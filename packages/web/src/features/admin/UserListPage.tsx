@@ -107,11 +107,11 @@ export function UserListPage() {
 
   const impersonateMutation = useMutation({
     mutationFn: (userId: string) =>
-      apiClient<{ accessToken: string; refreshToken: string }>(`/admin/impersonate/${userId}`, {
+      apiClient<{ accessToken: string }>(`/admin/impersonate/${userId}`, {
         method: 'POST',
       }),
     onSuccess: (data) => {
-      setTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
+      setTokens({ accessToken: data.accessToken });
       window.open('/', '_blank');
     },
   });

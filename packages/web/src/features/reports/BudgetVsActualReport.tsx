@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
@@ -25,12 +26,22 @@ interface BvsARow {
 }
 
 interface BvsAData {
+  labels?: PLSectionLabels;
   revenue: BvsARow[];
+  cogs: BvsARow[];
   expenses: BvsARow[];
+  otherRevenue: BvsARow[];
+  otherExpenses: BvsARow[];
   totalRevenueBudget: number;
   totalRevenueActual: number;
+  totalCogsBudget: number;
+  totalCogsActual: number;
   totalExpenseBudget: number;
   totalExpenseActual: number;
+  totalOtherRevenueBudget: number;
+  totalOtherRevenueActual: number;
+  totalOtherExpenseBudget: number;
+  totalOtherExpenseActual: number;
   netIncomeBudget: number;
   netIncomeActual: number;
 }
@@ -46,9 +57,8 @@ function pctFmt(n: number | null): string {
 
 function varianceColor(accountType: string, variance: number): string {
   if (variance === 0) return '';
-  // Revenue: positive variance (actual > budget) is favorable (green)
-  // Expense: negative variance (actual < budget) is favorable (green)
-  const favorable = accountType === 'revenue' ? variance > 0 : variance < 0;
+  const isIncome = accountType === 'revenue' || accountType === 'other_revenue';
+  const favorable = isIncome ? variance > 0 : variance < 0;
   return favorable ? 'text-green-600' : 'text-red-600';
 }
 
@@ -173,31 +183,55 @@ export function BudgetVsActualReport() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {/* Revenue Section */}
-              <tr className="bg-blue-50">
-                <td colSpan={5} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">
-                  Revenue
-                </td>
-              </tr>
-              {data.revenue.map(renderRow)}
-              {renderRollupRow('Total Revenue', data.totalRevenueBudget, data.totalRevenueActual, 'revenue')}
+              {(() => {
+                const hasCogs = (data.cogs?.length ?? 0) > 0;
+                const hasOtherRev = (data.otherRevenue?.length ?? 0) > 0;
+                const hasOtherExp = (data.otherExpenses?.length ?? 0) > 0;
+                const L = data.labels ?? DEFAULT_PL_LABELS;
+                const sectionHeader = (label: string, tone: string) => (
+                  <tr className={tone}>
+                    <td colSpan={5} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">{label}</td>
+                  </tr>
+                );
+                return (
+                  <>
+                    {sectionHeader(L.revenue, 'bg-blue-50')}
+                    {data.revenue.map(renderRow)}
+                    {renderRollupRow(`Total ${L.revenue}`, data.totalRevenueBudget, data.totalRevenueActual, 'revenue')}
 
-              {/* Expenses Section */}
-              <tr className="bg-red-50">
-                <td colSpan={5} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">
-                  Expenses
-                </td>
-              </tr>
-              {data.expenses.map(renderRow)}
-              {renderRollupRow('Total Expenses', data.totalExpenseBudget, data.totalExpenseActual, 'expense')}
+                    {hasCogs && (
+                      <>
+                        {sectionHeader(L.cogs, 'bg-amber-50')}
+                        {data.cogs.map(renderRow)}
+                        {renderRollupRow(`Total ${L.cogs}`, data.totalCogsBudget, data.totalCogsActual, 'expense')}
+                        {renderRollupRow(L.grossProfit, data.totalRevenueBudget - data.totalCogsBudget, data.totalRevenueActual - data.totalCogsActual, 'revenue')}
+                      </>
+                    )}
 
-              {/* Net Income */}
-              {renderRollupRow(
-                'Net Income',
-                data.netIncomeBudget,
-                data.netIncomeActual,
-                'revenue', // net income acts like revenue: higher = better
-              )}
+                    {sectionHeader(L.expenses, 'bg-red-50')}
+                    {data.expenses.map(renderRow)}
+                    {renderRollupRow(`Total ${L.expenses}`, data.totalExpenseBudget, data.totalExpenseActual, 'expense')}
+
+                    {hasOtherRev && (
+                      <>
+                        {sectionHeader(L.otherRevenue, 'bg-blue-50')}
+                        {data.otherRevenue.map(renderRow)}
+                        {renderRollupRow(`Total ${L.otherRevenue}`, data.totalOtherRevenueBudget, data.totalOtherRevenueActual, 'revenue')}
+                      </>
+                    )}
+
+                    {hasOtherExp && (
+                      <>
+                        {sectionHeader(L.otherExpenses, 'bg-red-50')}
+                        {data.otherExpenses.map(renderRow)}
+                        {renderRollupRow(`Total ${L.otherExpenses}`, data.totalOtherExpenseBudget, data.totalOtherExpenseActual, 'expense')}
+                      </>
+                    )}
+
+                    {renderRollupRow(L.netIncome, data.netIncomeBudget, data.netIncomeActual, 'revenue')}
+                  </>
+                );
+              })()}
             </tbody>
           </table>
         </div>

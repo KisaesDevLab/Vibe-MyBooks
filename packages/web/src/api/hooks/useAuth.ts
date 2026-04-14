@@ -4,7 +4,7 @@ import { apiClient, setTokens, clearTokens } from '../client';
 
 interface AuthResponse {
   user: User;
-  tokens: { accessToken: string; refreshToken: string };
+  tokens: { accessToken: string };
 }
 
 export function useLogin() {
@@ -45,10 +45,11 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const refreshToken = localStorage.getItem('refreshToken');
+      // The refresh token lives in an HttpOnly cookie; the server reads it
+      // off the request automatically and clears the cookie on response.
       await apiClient('/auth/logout', {
         method: 'POST',
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({}),
       }).catch(() => {});
       clearTokens();
     },

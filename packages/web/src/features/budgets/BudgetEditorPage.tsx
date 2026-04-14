@@ -66,8 +66,8 @@ export function BudgetEditorPage() {
 
   const budgetAccounts = useMemo(() => {
     if (!accountsData?.data) return [];
-    return accountsData.data.filter(
-      (a) => a.accountType === 'revenue' || a.accountType === 'expense',
+    return accountsData.data.filter((a) =>
+      ['revenue', 'cogs', 'expense', 'other_revenue', 'other_expense'].includes(a.accountType),
     );
   }, [accountsData]);
 
@@ -245,7 +245,8 @@ export function BudgetEditorPage() {
   };
 
   // Section totals
-  const sectionTotal = useCallback((type: 'revenue' | 'expense') => {
+  type PLType = 'revenue' | 'cogs' | 'expense' | 'other_revenue' | 'other_expense';
+  const sectionTotal = useCallback((type: PLType) => {
     return budgetAccounts
       .filter((a) => a.accountType === type)
       .reduce((sum, a) => sum + getAnnualTotal(a.id), 0);
@@ -471,12 +472,24 @@ function AnnualView({ budgetAccounts, lines, hideZero, getAnnualTotal, setAnnual
   getAnnualTotal: (id: string) => number;
   setAnnualAmount: (id: string, val: number) => void;
   hasNonZero: (id: string) => boolean;
-  sectionTotal: (type: 'revenue' | 'expense') => number;
+  sectionTotal: (type: 'revenue' | 'cogs' | 'expense' | 'other_revenue' | 'other_expense') => number;
 }) {
-  const revenueAccounts = budgetAccounts.filter((a) => a.accountType === 'revenue').filter((a) => !hideZero || hasNonZero(a.id));
-  const expenseAccounts = budgetAccounts.filter((a) => a.accountType === 'expense').filter((a) => !hideZero || hasNonZero(a.id));
+  const filterByType = (t: string) =>
+    budgetAccounts.filter((a) => a.accountType === t).filter((a) => !hideZero || hasNonZero(a.id));
+  const revenueAccounts = filterByType('revenue');
+  const cogsAccounts = filterByType('cogs');
+  const expenseAccounts = filterByType('expense');
+  const otherRevAccounts = filterByType('other_revenue');
+  const otherExpAccounts = filterByType('other_expense');
   const totalRevenue = sectionTotal('revenue');
+  const totalCogs = sectionTotal('cogs');
   const totalExpenses = sectionTotal('expense');
+  const totalOtherRev = sectionTotal('other_revenue');
+  const totalOtherExp = sectionTotal('other_expense');
+  const hasCogs = cogsAccounts.length > 0;
+  const hasOtherRev = otherRevAccounts.length > 0;
+  const hasOtherExp = otherExpAccounts.length > 0;
+  const netIncome = totalRevenue + totalOtherRev - totalCogs - totalExpenses - totalOtherExp;
 
   function AccountRow({ acct }: { acct: { id: string; name: string; accountNumber: string | null } }) {
     const annual = getAnnualTotal(acct.id);
@@ -518,19 +531,58 @@ function AnnualView({ budgetAccounts, lines, hideZero, getAnnualTotal, setAnnual
             <td className="px-4 py-2 text-right font-mono text-sm">${fmt(totalRevenue)}</td>
           </tr>
 
+          {hasCogs && (
+            <>
+              <tr className="bg-amber-50">
+                <td colSpan={2} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Cost of Goods Sold</td>
+              </tr>
+              {cogsAccounts.map((acct) => <AccountRow key={acct.id} acct={acct} />)}
+              <tr className="bg-gray-50 font-semibold">
+                <td className="px-4 py-2 text-sm">Total Cost of Goods Sold</td>
+                <td className="px-4 py-2 text-right font-mono text-sm">${fmt(totalCogs)}</td>
+              </tr>
+            </>
+          )}
+
           <tr className="bg-red-50">
-            <td colSpan={2} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Expenses</td>
+            <td colSpan={2} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">{hasCogs ? 'Operating Expenses' : 'Expenses'}</td>
           </tr>
           {expenseAccounts.map((acct) => <AccountRow key={acct.id} acct={acct} />)}
           <tr className="bg-gray-50 font-semibold">
-            <td className="px-4 py-2 text-sm">Total Expenses</td>
+            <td className="px-4 py-2 text-sm">Total {hasCogs ? 'Operating Expenses' : 'Expenses'}</td>
             <td className="px-4 py-2 text-right font-mono text-sm">${fmt(totalExpenses)}</td>
           </tr>
 
+          {hasOtherRev && (
+            <>
+              <tr className="bg-blue-50">
+                <td colSpan={2} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Other Revenue</td>
+              </tr>
+              {otherRevAccounts.map((acct) => <AccountRow key={acct.id} acct={acct} />)}
+              <tr className="bg-gray-50 font-semibold">
+                <td className="px-4 py-2 text-sm">Total Other Revenue</td>
+                <td className="px-4 py-2 text-right font-mono text-sm">${fmt(totalOtherRev)}</td>
+              </tr>
+            </>
+          )}
+
+          {hasOtherExp && (
+            <>
+              <tr className="bg-red-50">
+                <td colSpan={2} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Other Expenses</td>
+              </tr>
+              {otherExpAccounts.map((acct) => <AccountRow key={acct.id} acct={acct} />)}
+              <tr className="bg-gray-50 font-semibold">
+                <td className="px-4 py-2 text-sm">Total Other Expenses</td>
+                <td className="px-4 py-2 text-right font-mono text-sm">${fmt(totalOtherExp)}</td>
+              </tr>
+            </>
+          )}
+
           <tr className="border-t-2 border-gray-300 font-bold">
             <td className="px-4 py-3 text-sm">Net Income</td>
-            <td className={`px-4 py-3 text-right font-mono text-sm ${totalRevenue - totalExpenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${fmt(totalRevenue - totalExpenses)}
+            <td className={`px-4 py-3 text-right font-mono text-sm ${netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ${fmt(netIncome)}
             </td>
           </tr>
         </tbody>
@@ -603,10 +655,31 @@ function MonthlyView({ budgetAccounts, lines, hideZero, getAnnualTotal, setAnnua
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          <tr className="bg-blue-50"><td colSpan={14} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Revenue</td></tr>
-          {budgetAccounts.filter((a) => a.accountType === 'revenue').filter((a) => !hideZero || hasNonZero(a.id)).map((acct) => <AccountRow key={acct.id} acct={acct} />)}
-          <tr className="bg-red-50"><td colSpan={14} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Expenses</td></tr>
-          {budgetAccounts.filter((a) => a.accountType === 'expense').filter((a) => !hideZero || hasNonZero(a.id)).map((acct) => <AccountRow key={acct.id} acct={acct} />)}
+          {(() => {
+            const byType = (t: string) => budgetAccounts.filter((a) => a.accountType === t).filter((a) => !hideZero || hasNonZero(a.id));
+            const rev = byType('revenue');
+            const cogsA = byType('cogs');
+            const exp = byType('expense');
+            const oRev = byType('other_revenue');
+            const oExp = byType('other_expense');
+            const sectionHeader = (label: string, tone: string) => (
+              <tr className={tone}><td colSpan={14} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">{label}</td></tr>
+            );
+            return (
+              <>
+                {sectionHeader('Revenue', 'bg-blue-50')}
+                {rev.map((acct) => <AccountRow key={acct.id} acct={acct} />)}
+                {cogsA.length > 0 && sectionHeader('Cost of Goods Sold', 'bg-amber-50')}
+                {cogsA.map((acct) => <AccountRow key={acct.id} acct={acct} />)}
+                {sectionHeader(cogsA.length > 0 ? 'Operating Expenses' : 'Expenses', 'bg-red-50')}
+                {exp.map((acct) => <AccountRow key={acct.id} acct={acct} />)}
+                {oRev.length > 0 && sectionHeader('Other Revenue', 'bg-blue-50')}
+                {oRev.map((acct) => <AccountRow key={acct.id} acct={acct} />)}
+                {oExp.length > 0 && sectionHeader('Other Expenses', 'bg-red-50')}
+                {oExp.map((acct) => <AccountRow key={acct.id} acct={acct} />)}
+              </>
+            );
+          })()}
         </tbody>
       </table>
     </div>

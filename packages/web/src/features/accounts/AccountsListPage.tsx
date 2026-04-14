@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AccountType } from '@kis-books/shared';
-import { ACCOUNT_TYPES } from '@kis-books/shared';
+import { ACCOUNT_TYPES, formatAccountTypeLabel } from '@kis-books/shared';
 import { useAccounts, useDeactivateAccount, useExportAccounts } from '../../api/hooks/useAccounts';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -78,7 +78,7 @@ export function AccountsListPage() {
         >
           <option value="">All Types</option>
           {ACCOUNT_TYPES.map((t) => (
-            <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+            <option key={t} value={t}>{formatAccountTypeLabel(t)}</option>
           ))}
         </select>
         <select
@@ -123,7 +123,7 @@ export function AccountsListPage() {
                     {account.name}
                     {account.isSystem && <Shield className="h-3.5 w-3.5 text-amber-500" />}
                   </td>
-                  <td className="px-6 py-3 text-sm text-gray-500 capitalize">{account.accountType}</td>
+                  <td className="px-6 py-3 text-sm text-gray-500">{formatAccountTypeLabel(account.accountType)}</td>
                   <td className="px-6 py-3 text-sm text-gray-500">{account.detailType?.replace(/_/g, ' ') || '—'}</td>
                   <td className="px-6 py-3 text-sm text-gray-900 text-right font-mono">
                     {parseFloat(account.balance).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
@@ -142,7 +142,7 @@ export function AccountsListPage() {
                         Register
                       </button>
                     )}
-                    {['revenue', 'expense'].includes(account.accountType) && (
+                    {['revenue', 'cogs', 'expense', 'other_revenue', 'other_expense'].includes(account.accountType) && (
                       <button
                         onClick={(e) => { e.stopPropagation(); navigate(`/reports/account-report?account_id=${account.id}`); }}
                         className="text-xs text-primary-600 hover:text-primary-800"
