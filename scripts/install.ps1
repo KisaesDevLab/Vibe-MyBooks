@@ -16,9 +16,41 @@ $InstallDir = if ($env:VIBE_MYBOOKS_DIR) { $env:VIBE_MYBOOKS_DIR } else { "$env:
 $ComposeFile = "docker-compose.prod.yml"
 $AppPort = if ($env:APP_PORT) { $env:APP_PORT } else { "3001" }
 
+# ─── Logging + no-disappear-on-error ──────────────────────────
+# When this script is run via `irm ... | iex`, the usual failure pattern
+# is that `exit 1` closes the host window before the user can read the
+# error. Two defenses:
+#   1. Start-Transcript tees all output to a log file, so even if the
+#      window vanishes the full run is on disk.
+#   2. Every exit path goes through Stop-InstallAndPause, which prints
+#      the log path and waits for a keypress before returning control.
+$LogFile = Join-Path $env:TEMP "vibe-mybooks-install.log"
+try { Start-Transcript -Path $LogFile -Append -Force | Out-Null } catch { }
+
 function Write-Info($msg) { Write-Host "[Vibe MyBooks] $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "[Vibe MyBooks] $msg" -ForegroundColor Green }
 function Write-Err($msg)  { Write-Host "[Vibe MyBooks ERROR] $msg" -ForegroundColor Red }
+
+function Pause-Then-Exit([int]$code) {
+    try { Stop-Transcript | Out-Null } catch { }
+    Write-Host ""
+    Write-Host "  Log file: $LogFile" -ForegroundColor DarkGray
+    # Only pause when stdin is an actual console. When the script is
+    # piped non-interactively (CI, one-shot run), Read-Host would hang
+    # forever waiting for input that never comes.
+    if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+        try { Read-Host "Press Enter to close this window" | Out-Null } catch { }
+    }
+    exit $code
+}
+
+# Trap any unhandled error / terminating exception so the user sees
+# *something* even when we didn't anticipate the failure.
+trap {
+    Write-Err ("Unhandled error: " + $_.Exception.Message)
+    Write-Host $_.ScriptStackTrace -ForegroundColor DarkGray
+    Pause-Then-Exit 1
+}
 
 # ─── Check prerequisites ──────────────────────────────────────
 Write-Info "Checking prerequisites..."
@@ -39,7 +71,7 @@ if (-not $dockerInstalled) {
     Write-Host "  (Docker Desktop bundles both Docker Engine and Compose v2.)"
     Write-Host "  Then re-run this script."
     Write-Host ""
-    exit 1
+    Pause-Then-Exit 1
 }
 
 # Docker daemon running?
@@ -69,7 +101,7 @@ if (-not $dockerRunning) {
     }
     if (-not $dockerRunning) {
         Write-Err "Docker Desktop did not start. Please start it manually and try again."
-        exit 1
+        Pause-Then-Exit 1
     }
 }
 
@@ -79,7 +111,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "compose v2 unavailable" }
 } catch {
     Write-Err "Docker Compose v2 is required. Please update Docker Desktop to a recent version."
-    exit 1
+    Pause-Then-Exit 1
 }
 
 # git present?
@@ -92,7 +124,7 @@ try {
 if (-not $gitInstalled) {
     Write-Err "Git is not installed."
     Write-Host "  Install from: https://git-scm.com/downloads"
-    exit 1
+    Pause-Then-Exit 1
 }
 
 Write-Info "Docker and git are ready."
@@ -102,7 +134,7 @@ if ($update) {
     if (-not (Test-Path $InstallDir)) {
         Write-Err "Vibe MyBooks is not installed at $InstallDir"
         Write-Err "Run without -update to install."
-        exit 1
+        Pause-Then-Exit 1
     }
 
     Write-Info "Updating Vibe MyBooks..."
@@ -112,7 +144,7 @@ if ($update) {
     & git pull origin main --ff-only
     if ($LASTEXITCODE -ne 0) {
         Write-Err "Failed to pull updates."
-        exit 1
+        Pause-Then-Exit 1
     }
 
     Write-Info "Rebuilding containers..."
@@ -120,7 +152,7 @@ if ($update) {
 
     Write-Ok "Update complete!"
     Write-Ok "Vibe MyBooks is running at http://localhost:$AppPort"
-    exit 0
+    Pause-Then-Exit 0
 }
 
 # ─── Fresh install ────────────────────────────────────────────
@@ -129,7 +161,7 @@ if (Test-Path $InstallDir) {
     $confirm = Read-Host "Reinstall? Containers will rebuild, data is preserved. [y/N]"
     if ($confirm -ne "y" -and $confirm -ne "Y") {
         Write-Host "Aborted."
-        exit 0
+        Pause-Then-Exit 0
     }
 } else {
     Write-Info "Cloning Vibe MyBooks to $InstallDir..."
@@ -220,7 +252,7 @@ Write-Info "Building and starting Vibe MyBooks (first run may take 5-10 minutes)
 
 if ($LASTEXITCODE -ne 0) {
     Write-Err "Failed to start containers. Check Docker Desktop logs."
-    exit 1
+    Pause-Then-Exit 1
 }
 
 # ─── Wait for ready ──────────────────────────────────────────
@@ -252,8 +284,10 @@ if ($ready) {
     Write-Host "  To update:  & ([scriptblock]::Create((irm .../install.ps1))) -update" -ForegroundColor Gray
     Write-Host ""
     Start-Process "http://localhost:$AppPort"
+    Pause-Then-Exit 0
 } else {
     Write-Err "Services did not become ready within 3 minutes."
     Write-Err "Check: cd $InstallDir; docker compose -f $ComposeFile logs"
     Write-Err "Try opening http://localhost:$AppPort manually."
+    Pause-Then-Exit 1
 }
