@@ -65,7 +65,16 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
       {isLoading ? <LoadingSpinner className="py-12" /> :
        isError ? <ErrorMessage onRetry={refetch} /> :
        data?.[dataKey] && data[dataKey].length > 0 ? (
-        <ReportTable columns={columns} data={data[dataKey]} />
+        <ReportTable
+          columns={columns}
+          data={data[dataKey]}
+          drillContext={{
+            startDate: useDateRange ? startDate : undefined,
+            endDate: useDateRange ? endDate : undefined,
+            asOfDate: useAsOfDate ? asOfDate : undefined,
+          }}
+          returnLabel={title}
+        />
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-500">
           No data for the selected period.
