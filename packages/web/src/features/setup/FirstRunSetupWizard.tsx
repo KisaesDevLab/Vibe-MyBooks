@@ -250,17 +250,11 @@ export function FirstRunSetupWizard() {
     // service names in docker-compose.yml, and the default POSTGRES_USER
     // / POSTGRES_DB values). These get overwritten on mount by the
     // /api/setup/db-defaults call below so they reflect whatever
-    // DATABASE_URL the API container actually received from compose.
-    //
-    // dbPassword is INTENTIONALLY left blank — the previous default
-    // ('kisbooks') virtually never matched the operator's real
-    // POSTGRES_PASSWORD, which caused first-run setup to fail at
-    // "Seeding chart of accounts" with the misleading error
-    // "password authentication failed for user 'kisbooks'". The operator
-    // must type the same POSTGRES_PASSWORD they set in their host .env
-    // file. We don't return the password from db-defaults because it's
-    // secret and we'd rather not leak it over HTTP, even on a setup-only
-    // endpoint.
+    // DATABASE_URL the API container actually received from compose —
+    // including the auto-generated POSTGRES_PASSWORD that install.sh /
+    // install.ps1 minted and wrote to the host .env. End users never see
+    // that password and can't be expected to type it back; auto-fill
+    // here lets them click straight through the Database step.
     dbHost: 'db',
     dbPort: '5432',
     dbName: 'kisbooks',
@@ -292,13 +286,16 @@ export function FirstRunSetupWizard() {
     createDemoCompany: false,
   });
 
-  // On mount, pull the real DATABASE_URL components (minus password) from
-  // the API so the wizard's Database step reflects the compose-injected
-  // values (service name, port, db, user) rather than compose defaults
-  // that may have been overridden in the operator's .env. Best-effort:
-  // if the endpoint isn't available (older server build) we fall back to
-  // the state defaults above.
+  // On mount, pull the real DATABASE_URL components (including the
+  // auto-generated POSTGRES_PASSWORD) from the API so the Database step
+  // is fully pre-filled. This is the entire point of the setup UX for
+  // non-technical users: they run install.sh, it mints a random DB
+  // password, and the wizard fills it in for them so they never have to
+  // open .env. Best-effort — if the endpoint isn't available (older
+  // server build) we fall back to the state defaults above and let the
+  // user type values themselves.
   const [dbDefaultsSource, setDbDefaultsSource] = useState<'env' | 'fallback' | 'unknown'>('unknown');
+  const [dbPasswordAutoDetected, setDbPasswordAutoDetected] = useState(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -310,6 +307,8 @@ export function FirstRunSetupWizard() {
           port?: number;
           database?: string;
           username?: string;
+          password?: string;
+          passwordAutoDetected?: boolean;
           source?: 'env' | 'fallback';
         };
         if (cancelled) return;
@@ -319,8 +318,13 @@ export function FirstRunSetupWizard() {
           dbPort: data.port ? String(data.port) : f.dbPort,
           dbName: data.database || f.dbName,
           dbUser: data.username || f.dbUser,
+          // Only overwrite the password when the server actually has one
+          // to hand us — otherwise leave the (blank) user-typed value
+          // alone so we don't accidentally clobber input.
+          dbPassword: data.password && data.password.length > 0 ? data.password : f.dbPassword,
         }));
         setDbDefaultsSource(data.source || 'unknown');
+        setDbPasswordAutoDetected(!!data.passwordAutoDetected);
       } catch {
         // Ignore — defaults already populated from useState initializer.
       }
@@ -1060,9 +1064,11 @@ export function FirstRunSetupWizard() {
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold text-gray-800">Database Connection</h2>
                 <p className="text-sm text-gray-500">
-                  {dbDefaultsSource === 'env'
-                    ? 'Host, port, database, and user were pre-filled from the API container\u2019s DATABASE_URL. Enter the POSTGRES_PASSWORD you set in your .env file to complete the connection.'
-                    : 'Configure the PostgreSQL database connection. The defaults work with the included Docker Compose setup — enter the POSTGRES_PASSWORD you set in your .env file.'}
+                  {dbPasswordAutoDetected
+                    ? 'Your database connection was detected automatically from the Docker install. Just click Test Connection to verify, then Next. (If you need to point at a different Postgres server, you can edit these fields.)'
+                    : dbDefaultsSource === 'env'
+                      ? 'Host, port, database, and user were pre-filled from the running service. Enter the Postgres password to complete the connection.'
+                      : 'Configure the PostgreSQL database connection. The defaults work with the included Docker Compose setup.'}
                 </p>
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="Host" value={form.dbHost} onChange={set('dbHost')} />
@@ -1087,11 +1093,20 @@ export function FirstRunSetupWizard() {
                       {showDbPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    This must match the <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">POSTGRES_PASSWORD</code>{' '}
-                    value in the <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">.env</code> file next to{' '}
-                    <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">docker-compose.yml</code>.
-                  </p>
+                  {dbPasswordAutoDetected ? (
+                    <p className="text-xs text-green-700 flex items-center gap-1">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      Auto-detected from Docker — you don&apos;t need to change this.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Password for the Postgres database. If you installed with{' '}
+                      <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">scripts/install.sh</code> or{' '}
+                      <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">install.ps1</code>, this was generated for
+                      you and stored in the <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">.env</code> file
+                      next to <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">docker-compose.yml</code>.
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <Button variant="secondary" onClick={handleTestDatabase} loading={dbTestStatus === 'testing'}>
