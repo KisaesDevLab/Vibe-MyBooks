@@ -1,6 +1,10 @@
 # Stage 1: Build shared + API
 FROM node:20-alpine AS api-build
 WORKDIR /app
+# Skip Puppeteer's bundled Chromium download during npm install — this
+# image never runs Puppeteer in the build stage, and the bundled binary
+# is built for glibc and won't run on alpine anyway (see runtime stage).
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
@@ -13,6 +17,7 @@ RUN npm run build --workspace=@kis-books/api
 # Stage 2: Build web
 FROM node:20-alpine AS web-build
 WORKDIR /app
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
@@ -26,7 +31,29 @@ RUN npm run build --workspace=@kis-books/web
 FROM node:20-alpine AS runtime
 WORKDIR /app
 
-# Install production dependencies only
+# Chromium for Puppeteer (PDF generation: invoices, checks, reports).
+# Puppeteer's bundled Chromium is built for glibc and won't run on alpine
+# (musl libc), so we install Chromium from apk and point Puppeteer at it
+# via PUPPETEER_EXECUTABLE_PATH. The font packages are required for
+# Chromium to render text — without them PDFs render as empty boxes.
+# This must match packages/api/Dockerfile's install block; the two
+# Dockerfiles are used by different compose setups (production vs dev)
+# but both need a working Chromium at runtime.
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    font-noto-emoji
+ENV PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+# Install production dependencies only. PUPPETEER_SKIP_DOWNLOAD (set
+# above) prevents npm from pulling the broken-on-alpine bundled Chromium
+# when puppeteer is installed as a production dependency.
 COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
