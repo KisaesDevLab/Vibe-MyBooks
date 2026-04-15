@@ -165,7 +165,20 @@ export function CompanySwitcher() {
       clearActiveCompany();
       queryClient.clear();
       setIsOpen(false);
-      window.location.href = '/';
+      // Force a full-page reload so every cached component, provider, and
+      // closed-over access token gets rebuilt with the new tenant's
+      // context. We used to do `window.location.href = '/'` here, but
+      // that's a no-op in every modern browser when the user is ALREADY
+      // at `/` — which is the default landing route, so it hit most
+      // users. The symptom: "switching…" spinner spun forever and the
+      // tenant only actually switched after a manual refresh.
+      //
+      // history.replaceState updates the URL bar without navigating, so
+      // the subsequent reload() is guaranteed to re-fetch `/` even when
+      // we were sitting on some tenant-scoped deep link whose resource
+      // isn't accessible under the new tenant.
+      window.history.replaceState(null, '', '/');
+      window.location.reload();
     } catch (err) {
       // Surface the real reason instead of a generic message. The user
       // could be hitting "no access to this tenant", a network failure, or
