@@ -88,7 +88,7 @@ function StandardView({ data }: { data: any }) {
       <button
         type="button"
         onClick={() => navigate(href, { state: { returnTo: '/reports/profit-loss', returnLabel: 'Profit & Loss' } })}
-        className="font-mono text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus:underline"
+        className="font-mono cursor-pointer focus:outline-none focus:underline"
         title="View transactions for this account and period"
       >
         {fmt(amount)}
@@ -227,7 +227,7 @@ function ComparativeView({ data }: { data: any }) {
                     <button
                       type="button"
                       onClick={() => navigate(href, { state: { returnTo: '/reports/profit-loss', returnLabel: 'Profit & Loss' } })}
-                      className="hover:underline focus:outline-none focus:underline text-blue-600 hover:text-blue-800"
+                      className="cursor-pointer focus:outline-none focus:underline"
                       title="View transactions for this account and period"
                     >
                       <CellValue value={v} col={col} />

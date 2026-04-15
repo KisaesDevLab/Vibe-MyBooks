@@ -62,7 +62,7 @@ export function ReportTable({ columns, data, totals, drillContext, returnLabel }
                     {drillPath ? (
                       <button
                         onClick={() => navigate(drillPath, { state: { returnTo, returnLabel: returnLabel ?? 'Report' } })}
-                        className="text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus:underline"
+                        className="cursor-pointer focus:outline-none focus:underline"
                       >
                         {isMoney ? `$${fmt(val)}` : String(val ?? '—')}
                       </button>
