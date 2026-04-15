@@ -247,22 +247,25 @@ export function FirstRunSetupWizard() {
 
   const [form, setForm] = useState<FormState>({
     // Defaults match the Docker Compose install (the `db` and `redis`
-    // service names in docker-compose.yml, and the default password set
-    // by the postgres service). From inside the api container `localhost`
-    // resolves to the api container itself, NOT to Postgres, so the old
-    // `localhost` default made the wizard's test-connection step fail
-    // every time. Likewise the old `generateRandomPassword()` default
-    // generated a fresh random string on each page load that had zero
-    // chance of matching the running Postgres instance.
+    // service names in docker-compose.yml, and the default POSTGRES_USER
+    // / POSTGRES_DB values). These get overwritten on mount by the
+    // /api/setup/db-defaults call below so they reflect whatever
+    // DATABASE_URL the API container actually received from compose.
     //
-    // If you're running against an external Postgres / Redis, change
-    // these in the wizard UI; the defaults are just the docker-compose
-    // install's working values.
+    // dbPassword is INTENTIONALLY left blank — the previous default
+    // ('kisbooks') virtually never matched the operator's real
+    // POSTGRES_PASSWORD, which caused first-run setup to fail at
+    // "Seeding chart of accounts" with the misleading error
+    // "password authentication failed for user 'kisbooks'". The operator
+    // must type the same POSTGRES_PASSWORD they set in their host .env
+    // file. We don't return the password from db-defaults because it's
+    // secret and we'd rather not leak it over HTTP, even on a setup-only
+    // endpoint.
     dbHost: 'db',
     dbPort: '5432',
     dbName: 'kisbooks',
     dbUser: 'kisbooks',
-    dbPassword: 'kisbooks',
+    dbPassword: '',
     apiPort: '3001',
     frontendPort: '5173',
     redisHost: 'redis',
@@ -288,6 +291,44 @@ export function FirstRunSetupWizard() {
     businessType: 'general_business',
     createDemoCompany: false,
   });
+
+  // On mount, pull the real DATABASE_URL components (minus password) from
+  // the API so the wizard's Database step reflects the compose-injected
+  // values (service name, port, db, user) rather than compose defaults
+  // that may have been overridden in the operator's .env. Best-effort:
+  // if the endpoint isn't available (older server build) we fall back to
+  // the state defaults above.
+  const [dbDefaultsSource, setDbDefaultsSource] = useState<'env' | 'fallback' | 'unknown'>('unknown');
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/setup/db-defaults');
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          host?: string;
+          port?: number;
+          database?: string;
+          username?: string;
+          source?: 'env' | 'fallback';
+        };
+        if (cancelled) return;
+        setForm((f) => ({
+          ...f,
+          dbHost: data.host || f.dbHost,
+          dbPort: data.port ? String(data.port) : f.dbPort,
+          dbName: data.database || f.dbName,
+          dbUser: data.username || f.dbUser,
+        }));
+        setDbDefaultsSource(data.source || 'unknown');
+      } catch {
+        // Ignore — defaults already populated from useState initializer.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Visibility toggles
   const [showDbPassword, setShowDbPassword] = useState(false);
@@ -549,11 +590,42 @@ export function FirstRunSetupWizard() {
         setPendingInstallationId((initResult as { installationId?: string }).installationId!);
       }
     } catch (err: any) {
-      setFinalizeError(err.message || 'Setup failed');
+      const message: string = err?.message || 'Setup failed';
+      setFinalizeError(message);
       setFinalizeStatus('error');
-      // Mark current active step as error
+
+      // Attribute the error to the step that actually failed. The API
+      // prefixes its error messages with [step:<name>] so we don't have
+      // to guess. Fall back to a heuristic on the message body for older
+      // server builds that don't include the prefix — in particular, the
+      // "password authentication failed" error originates from the
+      // database-test step, NOT the seed-COA step we would otherwise
+      // have marked as active.
+      let failingIndex = -1;
+      const tagMatch = /\[step:([a-z]+)\]/i.exec(message);
+      const tag = tagMatch?.[1]?.toLowerCase();
+      if (tag === 'database' || /password authentication failed|database connection failed|econnrefused/i.test(message)) {
+        failingIndex = 1; // Connecting to database
+      } else if (tag === 'admin' || /admin|tenant/i.test(message)) {
+        failingIndex = 2; // Creating admin account
+      } else if (tag === 'seed' || /chart of accounts|seedfromtemplate/i.test(message)) {
+        failingIndex = 3; // Seeding chart of accounts
+      }
+
       setFinalizeSteps((prev) =>
-        prev.map((s) => (s.status === 'active' ? { ...s, status: 'error' } : s)),
+        prev.map((s, i) => {
+          if (failingIndex >= 0) {
+            if (i === failingIndex) return { ...s, status: 'error' };
+            // Steps after the failing one have not actually run — reset
+            // any prematurely-marked "done" status so the UI doesn't
+            // imply they succeeded.
+            if (i > failingIndex) return { ...s, status: 'pending' };
+            return s;
+          }
+          // Unknown failure location — fall back to marking whichever
+          // step the UI had flagged active.
+          return s.status === 'active' ? { ...s, status: 'error' } : s;
+        }),
       );
     }
   };
@@ -988,8 +1060,9 @@ export function FirstRunSetupWizard() {
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold text-gray-800">Database Connection</h2>
                 <p className="text-sm text-gray-500">
-                  Configure the PostgreSQL database connection. The defaults work with the included
-                  Docker Compose setup.
+                  {dbDefaultsSource === 'env'
+                    ? 'Host, port, database, and user were pre-filled from the API container\u2019s DATABASE_URL. Enter the POSTGRES_PASSWORD you set in your .env file to complete the connection.'
+                    : 'Configure the PostgreSQL database connection. The defaults work with the included Docker Compose setup — enter the POSTGRES_PASSWORD you set in your .env file.'}
                 </p>
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="Host" value={form.dbHost} onChange={set('dbHost')} />
@@ -1014,6 +1087,11 @@ export function FirstRunSetupWizard() {
                       {showDbPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  <p className="text-xs text-gray-500">
+                    This must match the <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">POSTGRES_PASSWORD</code>{' '}
+                    value in the <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">.env</code> file next to{' '}
+                    <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">docker-compose.yml</code>.
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <Button variant="secondary" onClick={handleTestDatabase} loading={dbTestStatus === 'testing'}>
