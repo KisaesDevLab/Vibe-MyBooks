@@ -4,10 +4,11 @@
 #   Install:  curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.sh | bash
 #   Update:   curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.sh | bash -s -- --update
 #
-# This script uses the production compose file (docker-compose.prod.yml):
-# a single `app` container built from the multi-stage root Dockerfile that
-# serves the API plus the pre-built web bundle. For a dev setup with hot
-# reload, clone the repo and run
+# This script uses the production compose file (docker-compose.prod.yml) and
+# pulls a pre-built image from ghcr.io/kisaesdevlab/vibe-mybooks rather than
+# compiling TypeScript locally. Pin a version by setting VIBE_MYBOOKS_TAG in
+# the generated .env (defaults to `latest`). For a dev setup with hot reload,
+# clone the repo and run
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 set -euo pipefail
@@ -87,8 +88,9 @@ if [ "$UPDATE_MODE" = true ]; then
     exit 1
   }
 
-  info "Rebuilding containers..."
-  docker compose -f "$COMPOSE_FILE" up --build -d
+  info "Pulling latest image..."
+  docker compose -f "$COMPOSE_FILE" pull
+  docker compose -f "$COMPOSE_FILE" up -d
 
   success "Update complete!"
   success "Vibe MyBooks is running at http://localhost:$APP_PORT"
@@ -98,7 +100,7 @@ fi
 # ─── Fresh install ────────────────────────────────────────────
 if [ -d "$INSTALL_DIR" ]; then
   info "Directory $INSTALL_DIR already exists."
-  read -rp "Reinstall? This will rebuild containers (data is preserved). [y/N] " confirm
+  read -rp "Reinstall? Containers will be recreated, data is preserved. [y/N] " confirm
   if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     echo "Aborted."
     exit 0
@@ -174,9 +176,11 @@ else
   info "Existing .env found — keeping it."
 fi
 
-# ─── Build and start ──────────────────────────────────────────
-info "Building and starting Vibe MyBooks (first run may take 5-10 minutes)..."
-docker compose -f "$COMPOSE_FILE" up --build -d
+# ─── Pull image and start ─────────────────────────────────────
+info "Pulling Vibe MyBooks image (first run downloads ~300 MB)..."
+docker compose -f "$COMPOSE_FILE" pull
+info "Starting Vibe MyBooks..."
+docker compose -f "$COMPOSE_FILE" up -d
 
 # ─── Wait for ready ──────────────────────────────────────────
 info "Waiting for services to start..."

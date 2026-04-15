@@ -3,10 +3,12 @@
 #   Install:  irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.ps1 | iex
 #   Update:   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.ps1))) -update
 #
-# This script uses docker-compose.prod.yml — single `app` container built
-# from the multi-stage root Dockerfile that serves the API plus the
-# pre-built web bundle. For a dev setup with hot reload, clone the repo
-# and run `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`.
+# This script uses docker-compose.prod.yml and pulls a pre-built image from
+# ghcr.io/kisaesdevlab/vibe-mybooks rather than compiling TypeScript on the
+# user's machine — this avoids the long, platform-sensitive local build.
+# Pin a version by setting VIBE_MYBOOKS_TAG in the generated .env (defaults
+# to `latest`). For a dev setup with hot reload, clone the repo and run
+# `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`.
 
 param([switch]$update)
 
@@ -178,8 +180,9 @@ if ($update) {
         Pause-Then-Exit 1
     }
 
-    Write-Info "Rebuilding containers..."
-    & docker compose -f $ComposeFile up --build -d
+    Write-Info "Pulling latest image..."
+    & docker compose -f $ComposeFile pull
+    & docker compose -f $ComposeFile up -d
 
     Write-Ok "Update complete!"
     Write-Ok "Vibe MyBooks is running at http://localhost:$AppPort"
@@ -189,7 +192,7 @@ if ($update) {
 # ─── Fresh install ────────────────────────────────────────────
 if (Test-Path $InstallDir) {
     Write-Info "Directory $InstallDir already exists."
-    $confirm = Read-Host "Reinstall? Containers will rebuild, data is preserved. [y/N]"
+    $confirm = Read-Host "Reinstall? Containers will be recreated, data is preserved. [y/N]"
     if ($confirm -ne "y" -and $confirm -ne "Y") {
         Write-Host "Aborted."
         Pause-Then-Exit 0
@@ -277,9 +280,16 @@ BACKUP_ENCRYPTION_KEY=
     Write-Info "Existing .env found - keeping it."
 }
 
-# ─── Build and start ──────────────────────────────────────────
-Write-Info "Building and starting Vibe MyBooks (first run may take 5-10 minutes)..."
-& docker compose -f $ComposeFile up --build -d
+# ─── Pull image and start ─────────────────────────────────────
+Write-Info "Pulling Vibe MyBooks image (first run downloads ~300 MB)..."
+& docker compose -f $ComposeFile pull
+if ($LASTEXITCODE -ne 0) {
+    Write-Err "Failed to pull the Vibe MyBooks image. Check your network connection."
+    Pause-Then-Exit 1
+}
+
+Write-Info "Starting Vibe MyBooks..."
+& docker compose -f $ComposeFile up -d
 
 if ($LASTEXITCODE -ne 0) {
     Write-Err "Failed to start containers. Check Docker Desktop logs."
