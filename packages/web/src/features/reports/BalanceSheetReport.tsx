@@ -88,7 +88,7 @@ function StandardView({ data }: { data: any }) {
       <button
         type="button"
         onClick={() => navigate(href, { state: BS_RETURN_STATE })}
-        className="font-mono text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus:underline"
+        className="font-mono cursor-pointer focus:outline-none focus:underline"
         title="View this year's transactions for this account through the as-of date"
       >
         {fmt(amount)}
@@ -155,7 +155,7 @@ function ComparativeView({ data }: { data: any }) {
                     <button
                       type="button"
                       onClick={() => navigate(href, { state: BS_RETURN_STATE })}
-                      className="hover:underline focus:outline-none focus:underline text-blue-600 hover:text-blue-800"
+                      className="cursor-pointer focus:outline-none focus:underline"
                       title="View this year's transactions for this account through the as-of date"
                     >
                       <CellValue value={v} col={col} />
