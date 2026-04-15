@@ -54,7 +54,11 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD wget -q -O - http://localhost:3001/health || exit 1
 
-# Entry point
+# Entry point. Strip any CR characters in case the build context was
+# checked out on Windows with core.autocrlf=true — a "#!/bin/sh\r"
+# shebang causes the kernel's execve() to fail looking for an
+# interpreter named "/bin/sh\r", surfacing as the misleading error
+# "exec /docker-entrypoint.sh: no such file or directory".
 COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 ENTRYPOINT ["/docker-entrypoint.sh"]
