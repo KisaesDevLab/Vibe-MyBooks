@@ -57,6 +57,7 @@ interface FormState {
   jwtSecret: string;
   backupKey: string;
   encryptionKey: string;
+  plaidEncryptionKey: string;
   // Email
   skipEmail: boolean;
   smtpPreset: string;
@@ -269,6 +270,7 @@ export function FirstRunSetupWizard() {
     jwtSecret: '',
     backupKey: '',
     encryptionKey: '',
+    plaidEncryptionKey: '',
     skipEmail: true,
     smtpPreset: 'custom',
     smtpHost: '',
@@ -347,7 +349,7 @@ export function FirstRunSetupWizard() {
 
   const handleGenerateSecrets = async () => {
     try {
-      const data = await setupFetch<{ jwtSecret: string; backupKey: string; encryptionKey: string }>(
+      const data = await setupFetch<{ jwtSecret: string; backupKey: string; encryptionKey: string; plaidEncryptionKey: string }>(
         '/generate-secrets',
         { method: 'POST' },
       );
@@ -356,6 +358,7 @@ export function FirstRunSetupWizard() {
         jwtSecret: data.jwtSecret,
         backupKey: data.backupKey,
         encryptionKey: data.encryptionKey,
+        plaidEncryptionKey: data.plaidEncryptionKey,
       }));
     } catch {
       // Fallback to client-side generation
@@ -364,6 +367,7 @@ export function FirstRunSetupWizard() {
         jwtSecret: generateRandomPassword() + generateRandomPassword(),
         backupKey: generateRandomPassword() + generateRandomPassword(),
         encryptionKey: generateRandomPassword() + generateRandomPassword(),
+        plaidEncryptionKey: generateRandomPassword() + generateRandomPassword(),
       }));
     }
   };
@@ -499,6 +503,7 @@ export function FirstRunSetupWizard() {
           jwtSecret: form.jwtSecret,
           backupKey: form.backupKey,
           encryptionKey: form.encryptionKey,
+          plaidEncryptionKey: form.plaidEncryptionKey,
           ports: {
             api: Number(form.apiPort),
             frontend: Number(form.frontendPort),
