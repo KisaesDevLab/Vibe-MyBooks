@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
@@ -11,22 +12,21 @@ function fmtPct(n: number | null) { return n === null ? '—' : `${n >= 0 ? '+' 
 
 type CompareMode = '' | 'previous_period' | 'previous_year';
 
-function Section({ title, items, total }: { title: string; items: any[]; total: number }) {
-  return (
-    <div>
-      <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
-      {items.map((r: any, i: number) => (
-        <div key={i} className="flex justify-between py-1 text-sm">
-          <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
-          <span className="font-mono">{fmt(Math.abs(r.balance))}</span>
-        </div>
-      ))}
-      <div className="flex justify-between py-1 font-semibold border-t mt-1">
-        <span>Total {title}</span><span className="font-mono">{fmt(total)}</span>
-      </div>
-    </div>
-  );
+// Balance-sheet drill: show current-year activity against this account,
+// Jan 1 of the as-of date's year through the as-of date itself. Each
+// column in the comparative view has its own as-of, so Jan 1 is derived
+// per column rather than hard-coded from the report's primary filter.
+// The computed rows (Retained Earnings, Net Income) have no source
+// account so their cells render as plain text.
+function bsDrillUrl(accountId: string | null | undefined, asOfDate: string | undefined): string | null {
+  if (!accountId || !asOfDate) return null;
+  const year = asOfDate.slice(0, 4);
+  const from = `${year}-01-01`;
+  const qs = new URLSearchParams({ account: accountId, from, to: asOfDate });
+  return `/transactions?${qs.toString()}`;
 }
+
+const BS_RETURN_STATE = { returnTo: '/reports/balance-sheet', returnLabel: 'Balance Sheet' };
 
 export function BalanceSheetReport() {
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().split('T')[0]!);
@@ -79,6 +79,38 @@ export function BalanceSheetReport() {
 }
 
 function StandardView({ data }: { data: any }) {
+  const navigate = useNavigate();
+
+  const DrillAmount = ({ accountId, amount }: { accountId: string | null | undefined; amount: number }) => {
+    const href = bsDrillUrl(accountId, data.asOfDate);
+    if (!href) return <span className="font-mono">{fmt(amount)}</span>;
+    return (
+      <button
+        type="button"
+        onClick={() => navigate(href, { state: BS_RETURN_STATE })}
+        className="font-mono text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus:underline"
+        title="View this year's transactions for this account through the as-of date"
+      >
+        {fmt(amount)}
+      </button>
+    );
+  };
+
+  const Section = ({ title, items, total }: { title: string; items: any[]; total: number }) => (
+    <div>
+      <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
+      {items.map((r: any, i: number) => (
+        <div key={i} className="flex justify-between py-1 text-sm">
+          <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
+          <DrillAmount accountId={r.accountId} amount={Math.abs(r.balance)} />
+        </div>
+      ))}
+      <div className="flex justify-between py-1 font-semibold border-t mt-1">
+        <span>Total {title}</span><span className="font-mono">{fmt(total)}</span>
+      </div>
+    </div>
+  );
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
       <Section title="Assets" items={data.assets} total={data.totalAssets} />
@@ -93,7 +125,8 @@ function StandardView({ data }: { data: any }) {
 }
 
 function ComparativeView({ data }: { data: any }) {
-  const columns: Array<{ label: string; type?: string }> = data.columns;
+  const navigate = useNavigate();
+  const columns: Array<{ label: string; type?: string; asOfDate?: string }> = data.columns;
   const isVarianceCol = (col: any) => col.type === 'variance' || col.type === 'percent_variance';
 
   function CellValue({ value, col }: { value: number | null; col: any }) {
@@ -113,11 +146,26 @@ function ComparativeView({ data }: { data: any }) {
         {items.map((row: any, i: number) => (
           <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
             <td className="px-3 py-1.5 text-sm">{row.name}</td>
-            {(row.values as any[]).map((v: any, j: number) => (
-              <td key={j} className={`px-3 py-1.5 text-right text-sm ${isVarianceCol(columns[j]) ? 'bg-gray-50' : ''}`}>
-                <CellValue value={v} col={columns[j]} />
-              </td>
-            ))}
+            {(row.values as any[]).map((v: any, j: number) => {
+              const col = columns[j]!;
+              const href = bsDrillUrl(row.accountId, col.asOfDate);
+              return (
+                <td key={j} className={`px-3 py-1.5 text-right text-sm ${isVarianceCol(col) ? 'bg-gray-50' : ''}`}>
+                  {href ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(href, { state: BS_RETURN_STATE })}
+                      className="hover:underline focus:outline-none focus:underline text-blue-600 hover:text-blue-800"
+                      title="View this year's transactions for this account through the as-of date"
+                    >
+                      <CellValue value={v} col={col} />
+                    </button>
+                  ) : (
+                    <CellValue value={v} col={col} />
+                  )}
+                </td>
+              );
+            })}
           </tr>
         ))}
         <tr className="border-t border-gray-200 bg-gray-50">

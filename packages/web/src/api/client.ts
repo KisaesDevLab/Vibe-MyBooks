@@ -17,18 +17,32 @@ let accessToken: string | null = localStorage.getItem('accessToken');
 let isRefreshing = false;
 let refreshPromise: Promise<AuthTokens | null> | null = null;
 
+// Providers that depend on a logged-in session (CompanyProvider most
+// critically) need to know when a token appears or disappears so they can
+// refetch. useEffect-on-mount isn't enough: a provider that mounted on the
+// login page sees no token on first run and would otherwise never retry.
+// We emit a window CustomEvent on every transition so any listener can
+// react without CompanyProvider having to know about them.
+export const TOKEN_CHANGE_EVENT = 'kisbooks:auth-token-changed';
+
+function emitTokenChange() {
+  window.dispatchEvent(new CustomEvent(TOKEN_CHANGE_EVENT));
+}
+
 export function setTokens(tokens: AuthTokens) {
   accessToken = tokens.accessToken;
   localStorage.setItem('accessToken', tokens.accessToken);
   // Proactively scrub any refresh token left over from a previous version of
   // the client so it can't linger in localStorage after an upgrade.
   localStorage.removeItem('refreshToken');
+  emitTokenChange();
 }
 
 export function clearTokens() {
   accessToken = null;
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
+  emitTokenChange();
 }
 
 export function getAccessToken(): string | null {

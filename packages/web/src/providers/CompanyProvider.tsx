@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getAccessToken } from '../api/client';
+import { getAccessToken, TOKEN_CHANGE_EVENT } from '../api/client';
 
 interface CompanySummary {
   id: string;
@@ -40,23 +40,43 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       const list: CompanySummary[] = data.companies || [];
       setCompanies(list);
 
-      // Validate stored companyId
+      // Reconcile the locally-cached active company with what the server
+      // actually has. A stale id from a previous session (e.g. left behind
+      // when the DB was rebuilt or the user now belongs to a different
+      // tenant) would otherwise be sent as X-Company-Id on every request
+      // and trip a 403 cascade from the company-context middleware.
       const stored = localStorage.getItem(STORAGE_KEY);
       if (list.length > 0) {
         if (!stored || !list.find((c) => c.id === stored)) {
-          // Default to first company
           const firstId = list[0]!.id;
           localStorage.setItem(STORAGE_KEY, firstId);
           setActiveCompanyIdState(firstId);
+          // Bust per-company caches so any in-flight query retries with
+          // the new id rather than the rejected stale one.
+          queryClient.removeQueries();
+        }
+      } else {
+        // Server says this user has no companies. Clear any stale id so we
+        // don't keep sending it.
+        if (stored) {
+          localStorage.removeItem(STORAGE_KEY);
+          setActiveCompanyIdState(null);
         }
       }
     } catch {
       // Ignore errors during initial load
     }
-  }, []);
+  }, [queryClient]);
 
+  // Run on mount AND whenever the access token changes (login, logout,
+  // refresh). Without the token-change hook, a provider that first mounted
+  // on /login would see no token, return early, and never retry — leaving
+  // the stale activeCompanyId in localStorage to trigger 403s forever.
   useEffect(() => {
     fetchCompanies();
+    const onTokenChange = () => fetchCompanies();
+    window.addEventListener(TOKEN_CHANGE_EVENT, onTokenChange);
+    return () => window.removeEventListener(TOKEN_CHANGE_EVENT, onTokenChange);
   }, [fetchCompanies]);
 
   const setActiveCompany = useCallback((companyId: string) => {

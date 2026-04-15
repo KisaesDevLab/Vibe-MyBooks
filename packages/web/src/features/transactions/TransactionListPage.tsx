@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import type { TxnType, TxnStatus } from '@kis-books/shared';
 import { useTransactions } from '../../api/hooks/useTransactions';
 import { useAccounts } from '../../api/hooks/useAccounts';
+import { useContacts } from '../../api/hooks/useContacts';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
-import { Plus, Search, X } from 'lucide-react';
+import { ArrowLeft, Plus, Search, X } from 'lucide-react';
 
 const txnTypeLabels: Record<string, string> = {
   invoice: 'Invoice',
@@ -37,20 +38,55 @@ function useDebounce(value: string, delay: number) {
 
 export function TransactionListPage() {
   const navigate = useNavigate();
-  const [typeFilter, setTypeFilter] = useState<TxnType | ''>('');
-  const [statusFilter, setStatusFilter] = useState<TxnStatus | ''>('');
-  const [accountFilter, setAccountFilter] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [search, setSearch] = useState('');
-  const [showNewMenu, setShowNewMenu] = useState(false);
+  const location = useLocation();
+  // Filters are URL-synced so (a) they survive refresh, (b) the URL is
+  // shareable, and (c) navigating back from TransactionDetail restores the
+  // exact filtered view the operator was looking at.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const typeFilter = (searchParams.get('type') || '') as TxnType | '';
+  const statusFilter = (searchParams.get('status') || '') as TxnStatus | '';
+  const accountFilter = searchParams.get('account') || '';
+  const contactFilter = searchParams.get('contact') || '';
+  const startDate = searchParams.get('from') || '';
+  const endDate = searchParams.get('to') || '';
+  const urlSearch = searchParams.get('q') || '';
 
+  // The search input is kept in local state for snappy typing; the debounced
+  // value is what drives both the query and the URL update.
+  const [search, setSearch] = useState(urlSearch);
+  const [showNewMenu, setShowNewMenu] = useState(false);
   const debouncedSearch = useDebounce(search, 400);
+
+  const updateParam = (key: string, value: string) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  const setTypeFilter = (v: TxnType | '') => updateParam('type', v);
+  const setStatusFilter = (v: TxnStatus | '') => updateParam('status', v);
+  const setAccountFilter = (v: string) => updateParam('account', v);
+  const setContactFilter = (v: string) => updateParam('contact', v);
+  const setStartDate = (v: string) => updateParam('from', v);
+  const setEndDate = (v: string) => updateParam('to', v);
+
+  // Push the debounced search text into the URL.
+  useEffect(() => {
+    if (debouncedSearch !== urlSearch) updateParam('q', debouncedSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const { data, isLoading, isFetching, isError, refetch } = useTransactions({
     txnType: typeFilter || undefined,
     status: statusFilter || undefined,
     accountId: accountFilter || undefined,
+    contactId: contactFilter || undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     search: debouncedSearch || undefined,
@@ -60,6 +96,11 @@ export function TransactionListPage() {
 
   const { data: accountsData } = useAccounts({ limit: 500, isActive: true });
   const accountsList = accountsData?.data || [];
+  // Contact list for the filter dropdown. Cheaply covers customers + vendors
+  // in one fetch; the backend caps at 500 which is plenty for a solo /
+  // small-firm workload.
+  const { data: contactsData } = useContacts({ limit: 500, isActive: true });
+  const contactsList = contactsData?.data || [];
 
   const firstLoad = isLoading && !data;
 
@@ -76,19 +117,32 @@ export function TransactionListPage() {
     { label: 'Cash Sale', path: '/transactions/new/cash-sale' },
   ];
 
-  const hasFilters = typeFilter || statusFilter || accountFilter || startDate || endDate || search;
+  const hasFilters = typeFilter || statusFilter || accountFilter || contactFilter || startDate || endDate || search;
 
   const clearFilters = () => {
-    setTypeFilter('');
-    setStatusFilter('');
-    setAccountFilter('');
-    setStartDate('');
-    setEndDate('');
     setSearch('');
+    setSearchParams(new URLSearchParams(), { replace: true });
   };
+
+  // The full current URL (path + query) so TransactionDetail can offer a
+  // Back button that returns to the exact filtered view.
+  const returnTo = `${location.pathname}${location.search}`;
+
+  // When the operator arrived here via a QuickZoom drill-down from a
+  // report, location.state carries the report URL + a human label so we
+  // can render a "← Back to <report>" link above the filter bar.
+  const backToReport = location.state as { returnTo?: string; returnLabel?: string } | null;
 
   return (
     <div>
+      {backToReport?.returnTo && (
+        <button
+          onClick={() => navigate(backToReport.returnTo!)}
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-3"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to {backToReport.returnLabel || 'Report'}
+        </button>
+      )}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
         <div className="relative">
@@ -148,6 +202,16 @@ export function TransactionListPage() {
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Contact</label>
+            <select value={contactFilter} onChange={(e) => setContactFilter(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[220px]">
+              <option value="">All Contacts</option>
+              {contactsList.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.displayName}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="flex gap-3 items-end">
           <div>
@@ -190,7 +254,7 @@ export function TransactionListPage() {
             <tbody className="divide-y divide-gray-200">
               {txns.map((txn) => (
                 <tr key={txn.id} className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => navigate(`/transactions/${txn.id}`)}>
+                  onClick={() => navigate(`/transactions/${txn.id}`, { state: { returnTo } })}>
                   <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{txn.txnDate}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{txnTypeLabels[txn.txnType] || txn.txnType}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{txn.txnNumber || '—'}</td>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
@@ -7,6 +8,15 @@ import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+
+// QuickZoom: build the /transactions URL that filters to a given account
+// and date range. Returns null when the date range is unknown (variance /
+// %-change columns), in which case the cell renders as non-clickable.
+function drillUrl(accountId: string | undefined, startDate: string | undefined, endDate: string | undefined): string | null {
+  if (!accountId || !startDate || !endDate) return null;
+  const qs = new URLSearchParams({ account: accountId, from: startDate, to: endDate });
+  return `/transactions?${qs.toString()}`;
+}
 
 function fmt(n: number) { return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' }); }
 function fmtPct(n: number | null) { return n === null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`; }
@@ -63,6 +73,7 @@ export function ProfitAndLossReport() {
 }
 
 function StandardView({ data }: { data: any }) {
+  const navigate = useNavigate();
   const hasCogs = (data.cogs?.length ?? 0) > 0;
   const hasOtherRev = (data.otherRevenue?.length ?? 0) > 0;
   const hasOtherExp = (data.otherExpenses?.length ?? 0) > 0;
@@ -70,13 +81,28 @@ function StandardView({ data }: { data: any }) {
 
   const L = (data.labels as PLSectionLabels | undefined) ?? DEFAULT_PL_LABELS;
 
+  const DrillAmount = ({ accountId, amount }: { accountId: string | undefined; amount: number }) => {
+    const href = drillUrl(accountId, data.startDate, data.endDate);
+    if (!href) return <span className="font-mono">{fmt(amount)}</span>;
+    return (
+      <button
+        type="button"
+        onClick={() => navigate(href, { state: { returnTo: '/reports/profit-loss', returnLabel: 'Profit & Loss' } })}
+        className="font-mono text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus:underline"
+        title="View transactions for this account and period"
+      >
+        {fmt(amount)}
+      </button>
+    );
+  };
+
   const Section = ({ title, items, total }: { title: string; items: any[]; total: number }) => (
     <div>
       <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
       {items.map((r: any, i: number) => (
         <div key={i} className="flex justify-between py-1 text-sm">
           <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
-          <span className="font-mono">{fmt(r.amount)}</span>
+          <DrillAmount accountId={r.accountId} amount={r.amount} />
         </div>
       ))}
       <div className="flex justify-between py-1 font-semibold border-t mt-1">
@@ -114,7 +140,8 @@ function StandardView({ data }: { data: any }) {
 }
 
 function ComparativeView({ data }: { data: any }) {
-  const columns: Array<{ label: string; type?: string }> = data.columns;
+  const navigate = useNavigate();
+  const columns: Array<{ label: string; type?: string; startDate?: string; endDate?: string }> = data.columns;
   const isVarianceCol = (col: any) => col.type === 'variance' || col.type === 'percent_variance';
 
   const allRows = (data.rows as any[]);
@@ -191,11 +218,26 @@ function ComparativeView({ data }: { data: any }) {
         {rows.map((row: any, i: number) => (
           <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
             <td className="px-3 py-1.5">{row.accountNumber ? `${row.accountNumber} — ` : ''}{row.account}</td>
-            {(row.values as any[]).map((v: any, j: number) => (
-              <td key={j} className={`px-3 py-1.5 text-right ${isVarianceCol(columns[j]) ? 'bg-gray-50' : ''}`}>
-                <CellValue value={v} col={columns[j]} />
-              </td>
-            ))}
+            {(row.values as any[]).map((v: any, j: number) => {
+              const col = columns[j]!;
+              const href = drillUrl(row.accountId, col.startDate, col.endDate);
+              return (
+                <td key={j} className={`px-3 py-1.5 text-right ${isVarianceCol(col) ? 'bg-gray-50' : ''}`}>
+                  {href ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(href, { state: { returnTo: '/reports/profit-loss', returnLabel: 'Profit & Loss' } })}
+                      className="hover:underline focus:outline-none focus:underline text-blue-600 hover:text-blue-800"
+                      title="View transactions for this account and period"
+                    >
+                      <CellValue value={v} col={col} />
+                    </button>
+                  ) : (
+                    <CellValue value={v} col={col} />
+                  )}
+                </td>
+              );
+            })}
           </tr>
         ))}
       </>

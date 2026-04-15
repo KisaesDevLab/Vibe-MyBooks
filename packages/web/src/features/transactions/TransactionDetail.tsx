@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTransaction, useVoidTransaction, useDuplicateTransaction } from '../../api/hooks/useTransactions';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
-import { Copy, Ban, Download, Pencil } from 'lucide-react';
+import { ArrowLeft, Copy, Ban, Download, Pencil } from 'lucide-react';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 
 const txnTypeLabels: Record<string, string> = {
@@ -16,6 +16,15 @@ const txnTypeLabels: Record<string, string> = {
 export function TransactionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  // TransactionListPage stashes the filtered URL (path + query) in
+  // location.state.returnTo when you click a row. ReportTable does the
+  // same when drilling from a record-list report (Invoice List, Journal
+  // Entries, etc.) with the report's title as returnLabel. Deep links /
+  // refreshes lose state, so we fall back to the bare list.
+  const navState = location.state as { returnTo?: string; returnLabel?: string } | null;
+  const returnTo = navState?.returnTo || '/transactions';
+  const returnLabel = navState?.returnLabel || 'Transactions';
   const { data, isLoading, isError, refetch } = useTransaction(id!);
   const voidTxn = useVoidTransaction();
   const duplicateTxn = useDuplicateTransaction();
@@ -74,6 +83,12 @@ export function TransactionDetail() {
 
   return (
     <div>
+      <button
+        onClick={() => navigate(returnTo)}
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-3"
+      >
+        <ArrowLeft className="h-4 w-4" /> Back to {returnLabel}
+      </button>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
