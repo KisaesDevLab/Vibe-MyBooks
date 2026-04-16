@@ -6,6 +6,8 @@ import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { FileUp, Brain, Check, X, Loader2, Download, AlertTriangle } from 'lucide-react';
+import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
+import { OcrQualityNotice } from '../../components/ui/OcrQualityNotice';
 
 interface ParsedTransaction {
   date: string;
@@ -66,6 +68,7 @@ export function StatementUploadPage() {
           openingBalance: result.openingBalance,
           closingBalance: result.closingBalance,
           confidence: result.confidence,
+          qualityWarnings: Array.isArray(result.qualityWarnings) ? result.qualityWarnings : [],
         });
       } catch (err: any) {
         setParseError(err.message || 'Failed to parse statement. Try a different file format.');
@@ -112,7 +115,10 @@ export function StatementUploadPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Import Bank Statement</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Import Bank Statement</h1>
+        <AiBannerForTask task="statement_parsing" />
+      </div>
 
       {/* AI not enabled alert */}
       {!aiConfigLoading && !aiEnabled && (
@@ -171,6 +177,12 @@ export function StatementUploadPage() {
                 </span>
               )}
               <span className="text-gray-500">{transactions.length} transactions found</span>
+            </div>
+          )}
+
+          {metadata?.qualityWarnings?.length > 0 && (
+            <div className="mb-4">
+              <OcrQualityNotice warnings={metadata.qualityWarnings} />
             </div>
           )}
 

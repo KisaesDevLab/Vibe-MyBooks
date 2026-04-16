@@ -256,7 +256,12 @@ export function TransactionListPage() {
                 <tr key={txn.id} className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => navigate(`/transactions/${txn.id}`, { state: { returnTo } })}>
                   <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{txn.txnDate}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{txnTypeLabels[txn.txnType] || txn.txnType}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                    {txnTypeLabels[txn.txnType] || txn.txnType}
+                    {(txn as any).aiCategorized === 'ai' && (
+                      <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium" title="Categorized by AI">AI</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{txn.txnNumber || '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-900">{(txn as any).contactName || '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 truncate max-w-[200px]">{txn.memo || '—'}</td>

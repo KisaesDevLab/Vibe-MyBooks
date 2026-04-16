@@ -15,6 +15,7 @@ import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { FieldHelpIcon } from '../chat/FieldHelpIcon';
 import { ErrorHelpLink } from '../chat/ErrorHelpLink';
 import { Plus, Trash2, Sparkles, AlertTriangle } from 'lucide-react';
+import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 
 interface BillLine {
   accountId: string;
@@ -390,7 +391,10 @@ export function EnterBillPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Bill' : 'Enter Bill'}</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">{isEdit ? 'Edit Bill' : 'Enter Bill'}</h1>
+        {!isEdit && <AiBannerForTask task="receipt_ocr" />}
+      </div>
 
       {/* Locked-edit banner. Shown when editing a bill that already
           has payments or credits applied. Explains what can and
