@@ -89,6 +89,7 @@ const RemoteBackupSettingsPage = lazyNamed(() => import('./features/settings/Rem
 const OpeningBalancesPage = lazyNamed(() => import('./features/settings/OpeningBalancesPage'), 'OpeningBalancesPage');
 const PreferencesPage = lazyNamed(() => import('./features/settings/PreferencesPage'), 'PreferencesPage');
 const EmailSettingsPage = lazyNamed(() => import('./features/settings/EmailSettingsPage'), 'EmailSettingsPage');
+const CompanyAiSettingsPage = lazyNamed(() => import('./features/settings/CompanyAiSettingsPage'), 'CompanyAiSettingsPage');
 const ReportLabelsPage = lazyNamed(() => import('./features/settings/ReportLabelsPage'), 'ReportLabelsPage');
 const TeamPage = lazyNamed(() => import('./features/settings/TeamPage'), 'TeamPage');
 const ApiKeysPage = lazyNamed(() => import('./features/settings/ApiKeysPage'), 'ApiKeysPage');
@@ -337,6 +338,7 @@ export function App() {
             <Route path="/settings/opening-balances" element={<OpeningBalancesPage />} />
             <Route path="/settings/preferences" element={<PreferencesPage />} />
             <Route path="/settings/email" element={<EmailSettingsPage />} />
+            <Route path="/settings/ai" element={<CompanyAiSettingsPage />} />
             <Route path="/settings/report-labels" element={<ReportLabelsPage />} />
             <Route path="/settings/online-payments" element={<StripeSettingsPage />} />
             <Route path="/settings/team" element={<TeamPage />} />

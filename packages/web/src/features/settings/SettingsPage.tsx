@@ -17,6 +17,7 @@ import {
   Upload,
   Cloud,
   CreditCard,
+  Brain,
 } from 'lucide-react';
 
 const settingsCards = [
@@ -43,6 +44,12 @@ const settingsCards = [
     icon: Mail,
     title: 'Email (SMTP)',
     description: 'Configure outbound email for invoices and notifications',
+  },
+  {
+    to: '/settings/ai',
+    icon: Brain,
+    title: 'AI Processing',
+    description: 'Review and consent to AI-assisted categorization, receipt OCR, and statement parsing',
   },
   {
     to: '/settings/report-labels',

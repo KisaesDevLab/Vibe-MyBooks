@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
 import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
 import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/hooks/useAi';
+import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { Button } from '../../components/ui/Button';
@@ -199,7 +200,10 @@ export function BankFeedPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Bank Feed</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Bank Feed</h1>
+          <AiBannerForTask task="categorization" />
+        </div>
         <div className="flex gap-2">
           {aiEnabled && pendingWithoutSuggestion > 0 && selected.size === 0 && (
             <Button size="sm" variant="secondary" onClick={handleAiBatchCategorize} loading={aiBatch.isPending}>
@@ -371,6 +375,9 @@ export function BankFeedPage() {
                               <Sparkles className="h-3 w-3" />
                               {(item as any).suggestedAccountName || 'Suggested'}
                               {item.confidenceScore && <ConfidenceBadge score={parseFloat(item.confidenceScore)} />}
+                              {(item as any).matchType === 'ai' && (
+                                <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium" title="Categorized by AI">AI</span>
+                              )}
                             </p>
                           )}
                         </div>

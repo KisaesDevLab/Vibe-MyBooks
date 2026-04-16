@@ -7,6 +7,8 @@ import { MoneyInput } from '../../components/forms/MoneyInput';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { X, Camera, Brain, Sparkles, Loader2 } from 'lucide-react';
+import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
+import { OcrQualityNotice } from '../../components/ui/OcrQualityNotice';
 
 interface ReceiptCaptureModalProps { onClose: () => void }
 
@@ -15,6 +17,7 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
   const [preview, setPreview] = useState('');
   const [attachmentId, setAttachmentId] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<{ vendor: string; date: string; total: string; tax: string } | null>(null);
+  const [qualityWarnings, setQualityWarnings] = useState<string[]>([]);
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [expenseAccountId, setExpenseAccountId] = useState('');
@@ -52,6 +55,7 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
             tax: result.tax || '0',
           });
           setOcrConfidence(result.confidence || null);
+          setQualityWarnings(Array.isArray(result.qualityWarnings) ? result.qualityWarnings : []);
         } catch {
           // OCR failed — show empty form for manual entry
           setOcrResult({ vendor: '', date: new Date().toISOString().split('T')[0]!, total: '', tax: '0' });
@@ -101,7 +105,10 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold">Capture Receipt</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">Capture Receipt</h2>
+            <AiBannerForTask task="receipt_ocr" />
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
         </div>
 
@@ -136,11 +143,12 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
                       Receipt Details {ocrConfidence && ocrConfidence > 0 ? '(AI extracted)' : '(manual entry)'}
                     </p>
                     {ocrConfidence && ocrConfidence > 0 && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${ocrConfidence >= 0.8 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${ocrConfidence >= 0.8 && !qualityWarnings.includes('tesseract_local_ocr') ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                         {Math.round(ocrConfidence * 100)}% confidence
                       </span>
                     )}
                   </div>
+                  <OcrQualityNotice warnings={qualityWarnings} />
                   <Input label="Vendor" value={ocrResult.vendor} onChange={(e) => setOcrResult({ ...ocrResult, vendor: e.target.value })} />
                   <DatePicker label="Date" value={ocrResult.date} onChange={(e) => setOcrResult({ ...ocrResult, date: e.target.value })} />
                   <MoneyInput label="Total" value={ocrResult.total} onChange={(v) => setOcrResult({ ...ocrResult, total: v })} />

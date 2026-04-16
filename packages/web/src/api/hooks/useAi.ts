@@ -96,3 +96,117 @@ export function useAiPrompts() {
     queryFn: () => apiClient<any>('/ai/admin/prompts'),
   });
 }
+
+// ─── AI Disclosure / Consent (AI_PII_PROTECTION_ADDENDUM) ────────
+
+export interface SystemDisclosureDto {
+  version: number;
+  textVersion: number;
+  text: string;
+  acceptedAt: string | null;
+  acceptedBy: string | null;
+}
+
+export function useSystemAiDisclosure() {
+  return useQuery({
+    queryKey: ['ai', 'admin', 'disclosure'],
+    queryFn: () => apiClient<SystemDisclosureDto>('/ai/admin/disclosure'),
+    staleTime: 60_000,
+  });
+}
+
+export function useAcceptSystemAiDisclosure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient<SystemDisclosureDto>('/ai/admin/disclosure/accept', { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai'] }),
+  });
+}
+
+export type AiTaskKey = 'categorization' | 'receipt_ocr' | 'statement_parsing' | 'document_classification';
+
+export interface TenantConsentCompanyRow {
+  id: string;
+  name: string;
+  aiEnabled: boolean;
+  acceptedVersion: number | null;
+  acceptedAt: string | null;
+  tasks: Record<AiTaskKey, boolean> | null;
+  isStale: boolean;
+}
+
+export interface TenantConsentStatusDto {
+  systemEnabled: boolean;
+  systemDisclosureAccepted: boolean;
+  systemVersion: number;
+  piiProtectionLevel: string;
+  categorizationProvider: string | null;
+  ocrProvider: string | null;
+  documentClassificationProvider: string | null;
+  companies: TenantConsentCompanyRow[];
+}
+
+export function useAiConsentStatus() {
+  return useQuery({
+    queryKey: ['ai', 'consent'],
+    queryFn: () => apiClient<TenantConsentStatusDto>('/ai/consent'),
+    staleTime: 60_000,
+  });
+}
+
+export interface CompanyDisclosureDto {
+  companyId: string;
+  companyName: string;
+  systemVersion: number;
+  acceptedVersion: number | null;
+  acceptedAt: string | null;
+  acceptedBy: string | null;
+  aiEnabled: boolean;
+  enabledTasks: Record<AiTaskKey, boolean>;
+  currentConfig: {
+    piiProtectionLevel: string;
+    categorizationProvider: string | null;
+    ocrProvider: string | null;
+    documentClassificationProvider: string | null;
+  };
+  text: string;
+  isStale: boolean;
+}
+
+export function useCompanyAiDisclosure(companyId: string | null) {
+  return useQuery({
+    queryKey: ['ai', 'consent', companyId, 'disclosure'],
+    queryFn: () => apiClient<CompanyDisclosureDto>(`/ai/consent/${companyId}/disclosure`),
+    enabled: !!companyId,
+  });
+}
+
+export function useAcceptCompanyAiDisclosure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (companyId: string) =>
+      apiClient<CompanyDisclosureDto>(`/ai/consent/${companyId}/accept`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai'] }),
+  });
+}
+
+export function useRevokeCompanyAiConsent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (companyId: string) =>
+      apiClient(`/ai/consent/${companyId}/revoke`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai'] }),
+  });
+}
+
+export function useSetCompanyAiTasks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ companyId, tasks }: { companyId: string; tasks: Partial<Record<AiTaskKey, boolean>> }) =>
+      apiClient<{ tasks: Record<AiTaskKey, boolean> }>(`/ai/consent/${companyId}/tasks`, {
+        method: 'PATCH',
+        body: JSON.stringify(tasks),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ai'] }),
+  });
+}

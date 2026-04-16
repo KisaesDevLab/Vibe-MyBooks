@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Landmark, FileText, ArrowRight, Wallet, Receipt, Banknote } from 'lucide-react';
+import { DashboardAiFooter } from '../../components/ui/DashboardAiFooter';
 
 function fmt(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -351,6 +352,7 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+      <DashboardAiFooter />
     </div>
   );
 }

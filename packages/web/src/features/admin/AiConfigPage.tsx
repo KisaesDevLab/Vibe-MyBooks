@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
-import { useAiConfig, useUpdateAiConfig, useTestAiProvider } from '../../api/hooks/useAi';
+import {
+  useAiConfig, useUpdateAiConfig, useTestAiProvider,
+  useSystemAiDisclosure, useAcceptSystemAiDisclosure,
+} from '../../api/hooks/useAi';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Brain, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Brain, CheckCircle, AlertTriangle, XCircle, ShieldCheck, Lock } from 'lucide-react';
 
 const PROVIDERS = [
   { key: 'anthropic', label: 'Anthropic (Claude)', models: ['claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001'] },
@@ -40,10 +43,17 @@ export function AiConfigPage() {
     categorizationConfidenceThreshold: 0.7,
     maxConcurrentJobs: 5,
     monthlyBudgetLimit: null as number | null,
+    piiProtectionLevel: 'strict' as 'strict' | 'standard' | 'permissive',
+    cloudVisionEnabled: false,
   });
   const [saved, setSaved] = useState(false);
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; msg: string }>>({});
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [showDisclosure, setShowDisclosure] = useState(false);
+  const [permissiveAckOpen, setPermissiveAckOpen] = useState(false);
+
+  const { data: disclosure } = useSystemAiDisclosure();
+  const acceptDisclosure = useAcceptSystemAiDisclosure();
 
   useEffect(() => {
     if (data) {
@@ -61,6 +71,8 @@ export function AiConfigPage() {
         categorizationConfidenceThreshold: data.categorizationConfidenceThreshold,
         maxConcurrentJobs: data.maxConcurrentJobs,
         monthlyBudgetLimit: data.monthlyBudgetLimit,
+        piiProtectionLevel: data.piiProtectionLevel || 'strict',
+        cloudVisionEnabled: !!data.cloudVisionEnabled,
       }));
     }
   }, [data]);
@@ -90,17 +102,137 @@ export function AiConfigPage() {
       )}
 
       <div className="max-w-2xl space-y-6">
+        {/* System disclosure — tier 1 of two-tier consent. AI cannot
+            be enabled until an admin accepts this. */}
+        <div className={`rounded-lg border shadow-sm p-6 ${disclosure?.acceptedAt ? 'bg-green-50/50 border-green-200' : 'bg-amber-50 border-amber-300'}`}>
+          <div className="flex items-start gap-3">
+            <ShieldCheck className={`h-5 w-5 mt-0.5 ${disclosure?.acceptedAt ? 'text-green-700' : 'text-amber-700'}`} />
+            <div className="flex-1">
+              <h2 className="text-sm font-semibold text-gray-900">AI Processing Disclosure</h2>
+              {disclosure?.acceptedAt ? (
+                <p className="text-xs text-gray-600 mt-1">
+                  Accepted {new Date(disclosure.acceptedAt).toLocaleString()}{disclosure.acceptedBy ? ` by admin ${disclosure.acceptedBy.slice(0, 8)}` : ''}. Disclosure version {disclosure.version}.
+                </p>
+              ) : (
+                <p className="text-xs text-amber-800 mt-1">
+                  Accept the system AI disclosure before AI can be enabled. This captures that the administrator has acknowledged what data may be sent to configured cloud providers.
+                </p>
+              )}
+              <div className="mt-3 flex gap-2">
+                <Button size="sm" variant="secondary" onClick={() => setShowDisclosure(true)}>
+                  {disclosure?.acceptedAt ? 'Review disclosure' : 'Review and accept'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Master Switch */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" checked={form.isEnabled}
+          <label className={`flex items-center gap-3 ${disclosure?.acceptedAt ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+            <input type="checkbox" checked={form.isEnabled} disabled={!disclosure?.acceptedAt}
               onChange={(e) => setForm((f: any) => ({ ...f, isEnabled: e.target.checked }))}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-5 w-5" />
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-5 w-5 disabled:cursor-not-allowed" />
             <div>
               <span className="text-sm font-medium text-gray-700">Enable AI Processing</span>
               <p className="text-xs text-gray-500">Enables AI-powered categorization, OCR, and document classification</p>
+              {!disclosure?.acceptedAt && (
+                <p className="text-xs text-amber-700 mt-1 flex items-center gap-1"><Lock className="h-3 w-3" /> Accept the disclosure above to enable.</p>
+              )}
             </div>
           </label>
+        </div>
+
+        {/* PII Protection */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">Privacy & Data Handling</h2>
+            <p className="text-xs text-gray-500 mt-1">Controls what data is sent to cloud AI providers. Changes that loosen data handling will pause per-company AI consent until companies re-accept.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">PII Protection Level</label>
+            <div className="space-y-2">
+              {[
+                { key: 'strict', label: 'Strict (recommended)', desc: 'Images never leave your server. All cloud AI calls receive sanitized text only. Requires GLM-OCR or Tesseract for local document processing.' },
+                { key: 'standard', label: 'Standard', desc: 'Sanitized text only, with softer redaction on low-risk documents (receipts).' },
+                { key: 'permissive', label: 'Permissive (use with caution)', desc: 'Cloud vision may be enabled as a fallback when local OCR is insufficient. Requires a separate acknowledgment below.' },
+              ].map((opt) => (
+                <label key={opt.key} className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <input type="radio" name="pii-level" value={opt.key} checked={form.piiProtectionLevel === opt.key}
+                    onChange={() => setForm((f: any) => ({ ...f, piiProtectionLevel: opt.key, cloudVisionEnabled: opt.key === 'permissive' ? f.cloudVisionEnabled : false }))}
+                    className="mt-0.5 text-primary-600 focus:ring-primary-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{opt.label}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className={`border rounded-lg p-3 ${form.piiProtectionLevel === 'permissive' ? 'border-gray-200' : 'border-gray-100 bg-gray-50/50'}`}>
+            <label className={`flex items-start gap-3 ${form.piiProtectionLevel === 'permissive' ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <input type="checkbox" checked={form.cloudVisionEnabled}
+                disabled={form.piiProtectionLevel !== 'permissive'}
+                onChange={(e) => {
+                  if (e.target.checked) { setPermissiveAckOpen(true); }
+                  else setForm((f: any) => ({ ...f, cloudVisionEnabled: false }));
+                }}
+                className="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4" />
+              <div>
+                <p className="text-sm font-medium text-gray-800 flex items-center gap-1">
+                  <AlertTriangle className={`h-4 w-4 ${form.cloudVisionEnabled ? 'text-amber-600' : 'text-gray-400'}`} />
+                  Enable cloud vision (raw images sent to cloud provider)
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">Only relevant under Permissive. When off, images never leave your server regardless of provider.</p>
+              </div>
+            </label>
+          </div>
+
+          {!form.ollamaBaseUrl && !data?.hasGlmOcrKey && !form.glmOcrBaseUrl && (
+            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <AlertTriangle className="h-4 w-4 text-blue-700 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-blue-900">
+                <p className="font-medium">GLM-OCR (self-hosted) is not configured.</p>
+                <p className="mt-0.5">For best accuracy and privacy on scanned documents, configure GLM-OCR locally. Without it, scanned bank statements fall back to Tesseract (lower accuracy) or block entirely under Strict mode.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Per-provider data policy links — required by the addendum
+              so the admin can open each provider's policy before
+              accepting on behalf of the installation. Self-hosted
+              entries document the "data stays local" guarantee. */}
+          <div className="pt-2 border-t border-gray-100">
+            <p className="text-xs font-medium text-gray-600 mb-2">Provider data handling policies</p>
+            <ul className="text-xs text-gray-600 space-y-1">
+              <li className="flex items-center justify-between gap-3">
+                <span>Anthropic Claude</span>
+                <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">Privacy policy &rarr;</a>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>OpenAI</span>
+                <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">Privacy policy &rarr;</a>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Google Gemini</span>
+                <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">API terms &rarr;</a>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Ollama (self-hosted)</span>
+                <span className="text-green-700">Data stays on your server</span>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>GLM-OCR (local)</span>
+                <span className="text-green-700">Data stays on your server</span>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>GLM-OCR Cloud (Z.AI)</span>
+                <a href="https://z.ai/about" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">Provider site &rarr;</a>
+              </li>
+            </ul>
+          </div>
         </div>
 
         {/* Provider Credentials */}
@@ -113,9 +245,11 @@ export function AiConfigPage() {
           ].map((p) => (
             <div key={p.key} className="space-y-2">
               <div className="flex items-center gap-2">
-                <Input label={p.label} type="password" value={form[p.field]}
-                  onChange={(e) => setForm((f: any) => ({ ...f, [p.field]: e.target.value }))}
-                  placeholder={p.hasKey ? '••••••••••• (configured)' : `Enter ${p.label}`} />
+                <div className="flex-1 min-w-0">
+                  <Input label={p.label} type="password" value={form[p.field]}
+                    onChange={(e) => setForm((f: any) => ({ ...f, [p.field]: e.target.value }))}
+                    placeholder={p.hasKey ? '••••••••••• (configured)' : `Enter ${p.label}`} />
+                </div>
                 <div className="pt-5">
                   <Button variant="secondary" size="sm" onClick={() => handleTest(p.key)}>Test</Button>
                 </div>
@@ -128,15 +262,63 @@ export function AiConfigPage() {
               )}
             </div>
           ))}
-          <Input label="Ollama Base URL" value={form.ollamaBaseUrl}
-            onChange={(e) => setForm((f: any) => ({ ...f, ollamaBaseUrl: e.target.value }))}
-            placeholder="http://localhost:11434" />
-          <Input label="GLM-OCR API Key" type="password" value={form.glmOcrApiKey}
-            onChange={(e) => setForm((f: any) => ({ ...f, glmOcrApiKey: e.target.value }))}
-            placeholder={data?.hasGlmOcrKey ? '••••••••••• (configured)' : 'Enter GLM-OCR API Key'} />
-          <Input label="GLM-OCR Base URL (local)" value={form.glmOcrBaseUrl}
-            onChange={(e) => setForm((f: any) => ({ ...f, glmOcrBaseUrl: e.target.value }))}
-            placeholder="http://localhost:11434" />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Input label="Ollama Base URL" value={form.ollamaBaseUrl}
+                  onChange={(e) => setForm((f: any) => ({ ...f, ollamaBaseUrl: e.target.value }))}
+                  placeholder="http://localhost:11434" />
+              </div>
+              <div className="pt-5">
+                <Button variant="secondary" size="sm" onClick={() => handleTest('ollama')}
+                  disabled={!form.ollamaBaseUrl && !data?.ollamaBaseUrl}>Test</Button>
+              </div>
+            </div>
+            {testResults['ollama'] && (
+              <p className={`text-xs ${testResults['ollama']!.ok ? 'text-green-600' : 'text-red-600'}`}>
+                {testResults['ollama']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
+                {testResults['ollama']!.msg}
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Input label="GLM-OCR API Key" type="password" value={form.glmOcrApiKey}
+                  onChange={(e) => setForm((f: any) => ({ ...f, glmOcrApiKey: e.target.value }))}
+                  placeholder={data?.hasGlmOcrKey ? '••••••••••• (configured)' : 'Enter GLM-OCR API Key'} />
+              </div>
+              <div className="pt-5">
+                <Button variant="secondary" size="sm" onClick={() => handleTest('glm_ocr_cloud')}
+                  disabled={!form.glmOcrApiKey && !data?.hasGlmOcrKey}>Test</Button>
+              </div>
+            </div>
+            {testResults['glm_ocr_cloud'] && (
+              <p className={`text-xs ${testResults['glm_ocr_cloud']!.ok ? 'text-green-600' : 'text-red-600'}`}>
+                {testResults['glm_ocr_cloud']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
+                {testResults['glm_ocr_cloud']!.msg}
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Input label="GLM-OCR Base URL (local)" value={form.glmOcrBaseUrl}
+                  onChange={(e) => setForm((f: any) => ({ ...f, glmOcrBaseUrl: e.target.value }))}
+                  placeholder="http://localhost:11434" />
+              </div>
+              <div className="pt-5">
+                <Button variant="secondary" size="sm" onClick={() => handleTest('glm_ocr_local')}
+                  disabled={!form.glmOcrBaseUrl && !data?.glmOcrBaseUrl}>Test</Button>
+              </div>
+            </div>
+            {testResults['glm_ocr_local'] && (
+              <p className={`text-xs ${testResults['glm_ocr_local']!.ok ? 'text-green-600' : 'text-red-600'}`}>
+                {testResults['glm_ocr_local']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
+                {testResults['glm_ocr_local']!.msg}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Task Assignment */}
@@ -236,6 +418,81 @@ export function AiConfigPage() {
         <Button onClick={() => { updateConfig.mutate(form); setSaved(true); setTimeout(() => setSaved(false), 3000); }} loading={updateConfig.isPending}>
           Save Configuration
         </Button>
+      </div>
+
+      {showDisclosure && disclosure && (
+        <DisclosureModal
+          text={disclosure.text}
+          accepted={!!disclosure.acceptedAt}
+          onClose={() => setShowDisclosure(false)}
+          onAccept={async () => { await acceptDisclosure.mutateAsync(); setShowDisclosure(false); }}
+          saving={acceptDisclosure.isPending}
+        />
+      )}
+
+      {permissiveAckOpen && (
+        <PermissiveAckModal
+          onCancel={() => setPermissiveAckOpen(false)}
+          onConfirm={() => { setForm((f: any) => ({ ...f, cloudVisionEnabled: true })); setPermissiveAckOpen(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function DisclosureModal({ text, accepted, onClose, onAccept, saving }: {
+  text: string; accepted: boolean; onClose: () => void; onAccept: () => void; saving: boolean;
+}) {
+  const [ack, setAck] = useState(accepted);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+        <div className="p-5 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">AI Processing Disclosure</h2>
+        </div>
+        <div className="p-5 overflow-y-auto prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap font-sans">
+          {text}
+        </div>
+        {!accepted && (
+          <div className="px-5 py-3 border-t border-gray-200">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+              I have read and accept this disclosure on behalf of this Vibe MyBooks installation.
+            </label>
+          </div>
+        )}
+        <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Close</Button>
+          {!accepted && (
+            <Button onClick={onAccept} disabled={!ack} loading={saving}>Accept disclosure</Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PermissiveAckModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+  const [ack, setAck] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+        <div className="p-5 border-b border-gray-200 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <h2 className="text-lg font-semibold text-gray-900">Enable cloud vision?</h2>
+        </div>
+        <div className="p-5 text-sm text-gray-700 space-y-3">
+          <p>When enabled, Vibe MyBooks may send document images (receipts, bank statements, invoices) to your configured cloud AI provider when local OCR (GLM-OCR, Tesseract) cannot adequately process them.</p>
+          <p className="text-gray-600">Cloud providers (Anthropic, OpenAI, Google) may process and temporarily store these images per their data policies. Bank statements and tax documents may contain account numbers, names, addresses, and other sensitive information.</p>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+            <span>I understand the PII implications and accept the risk of sending document images to the configured cloud AI provider.</span>
+          </label>
+        </div>
+        <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button onClick={onConfirm} disabled={!ack}>Enable cloud vision</Button>
+        </div>
       </div>
     </div>
   );
