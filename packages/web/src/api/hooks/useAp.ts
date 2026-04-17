@@ -108,7 +108,7 @@ export function useVendorCredits(filters?: { contactId?: string; limit?: number;
   const qs = params.toString();
   return useQuery({
     queryKey: ['vendor-credits', filters],
-    queryFn: () => apiClient<{ data: any[]; total: number }>(`/vendor-credits${qs ? `?${qs}` : ''}`),
+    queryFn: () => apiClient<{ data: Transaction[]; total: number }>(`/vendor-credits${qs ? `?${qs}` : ''}`),
   });
 }
 
@@ -168,10 +168,34 @@ export function usePayBills() {
   });
 }
 
+// Server returns the bill_payment transaction plus its applications — shape
+// from getBillPayment() in packages/api/src/services/bill-payment.service.ts.
+export interface BillPaymentApplicationRow {
+  id: string;
+  tenantId: string;
+  paymentId: string;
+  billId: string;
+  amount: string;
+  createdAt: string;
+}
+export interface VendorCreditApplicationRow {
+  id: string;
+  tenantId: string;
+  paymentId: string;
+  creditId: string;
+  billId: string;
+  amount: string;
+  createdAt: string;
+}
+export type BillPaymentWithApplications = Transaction & {
+  billApplications: BillPaymentApplicationRow[];
+  creditApplications: VendorCreditApplicationRow[];
+};
+
 export function useBillPayment(id: string) {
   return useQuery({
     queryKey: ['bill-payments', id],
-    queryFn: () => apiClient<{ payment: any }>(`/bill-payments/${id}`),
+    queryFn: () => apiClient<{ payment: BillPaymentWithApplications }>(`/bill-payments/${id}`),
     enabled: !!id,
   });
 }

@@ -11,15 +11,11 @@
       // call site sees a working function. getRandomValues IS available in
       // insecure contexts, so we build an RFC 4122 v4 UUID from it.
       (function() {
-        console.log('[cryptoPolyfill:html] before:', typeof (window.crypto && window.crypto.randomUUID));
         if (!window.crypto || typeof window.crypto.getRandomValues !== 'function') {
           console.warn('[cryptoPolyfill:html] no crypto.getRandomValues available; cannot polyfill');
           return;
         }
-        if (typeof window.crypto.randomUUID === 'function') {
-          console.log('[cryptoPolyfill:html] native randomUUID already present, no shim needed');
-          return;
-        }
+        if (typeof window.crypto.randomUUID === 'function') return;
         var hex = [];
         for (var i = 0; i < 256; i++) hex.push((i + 0x100).toString(16).slice(1));
         function shim() {
@@ -37,7 +33,6 @@
           Object.defineProperty(window.crypto, 'randomUUID', {
             value: shim, writable: true, configurable: true,
           });
-          console.log('[cryptoPolyfill:html] installed; test =', window.crypto.randomUUID());
         } catch (e) {
           console.error('[cryptoPolyfill:html] defineProperty failed', e);
         }

@@ -3,19 +3,20 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { PlaidItem, PlaidAccount, PlaidItemActivity } from '@kis-books/shared';
 import { apiClient } from '../client';
 
 export function usePlaidItems() {
   return useQuery({
     queryKey: ['plaid', 'items'],
-    queryFn: () => apiClient<{ items: any[] }>('/plaid/items'),
+    queryFn: () => apiClient<{ items: PlaidItem[] }>('/plaid/items'),
   });
 }
 
 export function usePlaidItemDetail(itemId: string) {
   return useQuery({
     queryKey: ['plaid', 'items', itemId],
-    queryFn: () => apiClient<any>(`/plaid/items/${itemId}`),
+    queryFn: () => apiClient<{ item: PlaidItem; accounts: PlaidAccount[] }>(`/plaid/items/${itemId}`),
     enabled: !!itemId,
   });
 }
@@ -134,7 +135,7 @@ export function useCreateUpdateLinkToken() {
 export function usePlaidActivity(itemId: string) {
   return useQuery({
     queryKey: ['plaid', 'activity', itemId],
-    queryFn: () => apiClient<{ activity: any[] }>(`/plaid/items/${itemId}/activity`),
+    queryFn: () => apiClient<{ activity: PlaidItemActivity[] }>(`/plaid/items/${itemId}/activity`),
     enabled: !!itemId,
   });
 }

@@ -72,7 +72,7 @@ export function ReconciliationPage() {
         </div>
         <div className="bg-white rounded-lg border p-4 text-center">
           <p className="text-xs text-gray-500 uppercase">Cleared</p>
-          <p className="text-lg font-mono">${recon.clearedBalance?.toFixed(2) ?? '0.00'}</p>
+          <p className="text-lg font-mono">${recon.clearedBalance.toFixed(2)}</p>
         </div>
         <div className={`rounded-lg border p-4 text-center ${isBalanced ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
           <p className="text-xs text-gray-500 uppercase">Difference</p>

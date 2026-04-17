@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useMe } from '../../api/hooks/useAuth';
@@ -32,6 +32,17 @@ export function TeamPage() {
   const [inviteRole, setInviteRole] = useState('accountant');
   const [tempPassword, setTempPassword] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // Escape closes the invite dialog — but only before the temp password
+  // has been generated. Once we're on the "User Invited" confirmation
+  // screen the caller should dismiss explicitly via the Done button so
+  // the temp password doesn't flicker away before they can copy it.
+  useEffect(() => {
+    if (!showInvite || tempPassword) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowInvite(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showInvite, tempPassword]);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['company', 'users'],
@@ -102,7 +113,13 @@ export function TeamPage() {
 
       {/* Invite Modal */}
       {showInvite && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={(e) => { if (e.target === e.currentTarget && !tempPassword) setShowInvite(false); }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Invite user"
+        >
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
             {tempPassword ? (
               <>

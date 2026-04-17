@@ -52,8 +52,13 @@ export function ContactsListPage() {
           <Button variant="secondary" size="sm" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4 mr-1" /> Import
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => exportContacts.mutate(typeTab || undefined)}>
-            <Download className="h-4 w-4 mr-1" /> Export
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => exportContacts.mutate(typeTab || undefined)}
+            disabled={exportContacts.isPending}
+          >
+            <Download className="h-4 w-4 mr-1" /> {exportContacts.isPending ? 'Exporting…' : 'Export'}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setShowMerge(true)}>
             <Merge className="h-4 w-4 mr-1" /> Merge
@@ -141,7 +146,8 @@ export function ContactsListPage() {
                     {contact.isActive && (
                       <button
                         onClick={(e) => { e.stopPropagation(); deactivateContact.mutate(contact.id); }}
-                        className="text-xs text-red-600 hover:text-red-800"
+                        disabled={deactivateContact.isPending && deactivateContact.variables === contact.id}
+                        className="text-xs text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
                       >
                         Deactivate
                       </button>

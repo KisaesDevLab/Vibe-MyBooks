@@ -4,11 +4,12 @@
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./src/index.ts",
   "scripts": {
-    "build": "tsc",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js"
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'no worker tests yet' && exit 0"
   },
   "dependencies": {
     "@kis-books/shared": "*",

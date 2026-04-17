@@ -5,10 +5,86 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../client';
 
+// ─── Admin config ────────────────────────────────────────────────
+//
+// /ai/admin/config returns the full per-installation AI configuration.
+// The shape mirrors `getConfig()` in packages/api/src/services/ai-config.service.ts
+// — if that function adds/renames fields, the server is the source of
+// truth; update this interface to match.
+export type AiProviderName = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'glm';
+export type PiiProtectionLevel = 'strict' | 'redact_sensitive' | 'allow_raw';
+export type ChatDataAccessLevel = 'none' | 'contextual' | 'full';
+
+export interface AiConfigDto {
+  isEnabled: boolean;
+  categorizationProvider: AiProviderName | null;
+  categorizationModel: string | null;
+  ocrProvider: AiProviderName | null;
+  ocrModel: string | null;
+  documentClassificationProvider: AiProviderName | null;
+  documentClassificationModel: string | null;
+  fallbackChain: string[];
+  hasAnthropicKey: boolean;
+  hasOpenaiKey: boolean;
+  hasGeminiKey: boolean;
+  ollamaBaseUrl: string | null;
+  hasGlmOcrKey: boolean;
+  glmOcrBaseUrl: string | null;
+  autoCategorizeOnImport: boolean;
+  autoOcrOnUpload: boolean;
+  categorizationConfidenceThreshold: number;
+  maxConcurrentJobs: number;
+  trackUsage: boolean;
+  monthlyBudgetLimit: number | null;
+  chatSupportEnabled: boolean;
+  chatProvider: AiProviderName | null;
+  chatModel: string | null;
+  chatMaxHistory: number;
+  chatDataAccessLevel: ChatDataAccessLevel;
+  piiProtectionLevel: PiiProtectionLevel;
+  cloudVisionEnabled: boolean;
+  adminDisclosureAcceptedAt: string | null;
+  adminDisclosureAcceptedBy: string | null;
+  disclosureVersion: number;
+}
+
+// Mutation input mirrors `updateConfig()` — every field is optional;
+// unset keys mean "don't touch" on the server. Plaintext API keys are
+// write-only (the server encrypts; reads return `hasXKey` booleans).
+export interface UpdateAiConfigInput {
+  isEnabled?: boolean;
+  categorizationProvider?: AiProviderName | null;
+  categorizationModel?: string | null;
+  ocrProvider?: AiProviderName | null;
+  ocrModel?: string | null;
+  documentClassificationProvider?: AiProviderName | null;
+  documentClassificationModel?: string | null;
+  fallbackChain?: string[];
+  anthropicApiKey?: string | null;
+  openaiApiKey?: string | null;
+  geminiApiKey?: string | null;
+  ollamaBaseUrl?: string | null;
+  glmOcrApiKey?: string | null;
+  glmOcrBaseUrl?: string | null;
+  autoCategorizeOnImport?: boolean;
+  autoOcrOnUpload?: boolean;
+  categorizationConfidenceThreshold?: number;
+  maxConcurrentJobs?: number;
+  trackUsage?: boolean;
+  monthlyBudgetLimit?: number | null;
+  chatSupportEnabled?: boolean;
+  chatProvider?: AiProviderName | null;
+  chatModel?: string | null;
+  chatMaxHistory?: number;
+  chatDataAccessLevel?: ChatDataAccessLevel;
+  piiProtectionLevel?: PiiProtectionLevel;
+  cloudVisionEnabled?: boolean;
+}
+
 export function useAiConfig() {
   return useQuery({
     queryKey: ['ai', 'config'],
-    queryFn: () => apiClient<any>('/ai/admin/config'),
+    queryFn: () => apiClient<AiConfigDto>('/ai/admin/config'),
   });
 }
 
@@ -42,14 +118,23 @@ export function useAiStatus() {
 export function useUpdateAiConfig() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: any) => apiClient('/ai/admin/config', { method: 'PUT', body: JSON.stringify(input) }),
+    mutationFn: (input: UpdateAiConfigInput) =>
+      apiClient<AiConfigDto>('/ai/admin/config', { method: 'PUT', body: JSON.stringify(input) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ai'] }),
   });
 }
 
+// Shape from ai-providers/ai-provider.interface.ts → testConnection()
+export interface TestProviderResult {
+  success: boolean;
+  error?: string;
+  modelInfo?: string;
+}
+
 export function useTestAiProvider() {
   return useMutation({
-    mutationFn: (provider: string) => apiClient<any>(`/ai/admin/test/${provider}`, { method: 'POST' }),
+    mutationFn: (provider: AiProviderName | string) =>
+      apiClient<TestProviderResult>(`/ai/admin/test/${provider}`, { method: 'POST' }),
   });
 }
 
@@ -87,17 +172,49 @@ export function useAiClassify() {
   });
 }
 
+// Shape from ai-orchestrator.service.getUsageSummary().
+export interface AiUsageCounter { calls: number; cost: number }
+export interface AiUsageDto {
+  totalCalls: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCost: number;
+  byProvider: Record<string, AiUsageCounter>;
+  byJobType: Record<string, AiUsageCounter>;
+}
+
 export function useAiUsage(months?: number) {
   return useQuery({
     queryKey: ['ai', 'usage', months],
-    queryFn: () => apiClient<any>(`/ai/usage?months=${months || 1}`),
+    queryFn: () => apiClient<AiUsageDto>(`/ai/usage?months=${months || 1}`),
   });
+}
+
+// Shape from ai-prompt.service.listPrompts() → ai_prompt_templates row.
+// Kept loose on the less-critical fields — tsc won't complain if the
+// admin UI only reads the ones it cares about.
+export interface AiPromptTemplateRow {
+  id: string;
+  taskType: string;
+  provider: string | null;
+  version: number;
+  systemPrompt: string;
+  userPromptTemplate: string;
+  outputSchema: unknown;
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiPromptsDto {
+  prompts: AiPromptTemplateRow[];
 }
 
 export function useAiPrompts() {
   return useQuery({
     queryKey: ['ai', 'prompts'],
-    queryFn: () => apiClient<any>('/ai/admin/prompts'),
+    queryFn: () => apiClient<AiPromptsDto>('/ai/admin/prompts'),
   });
 }
 

@@ -58,8 +58,13 @@ export function ItemsListPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Products & Services</h1>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => exportItems.mutate()}>
-            <Download className="h-4 w-4 mr-1" /> Export
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => exportItems.mutate()}
+            disabled={exportItems.isPending}
+          >
+            <Download className="h-4 w-4 mr-1" /> {exportItems.isPending ? 'Exporting…' : 'Export'}
           </Button>
           <Button size="sm" onClick={() => { setEditItem(null); setShowForm(true); }}>
             <Plus className="h-4 w-4 mr-1" /> New Item
@@ -131,7 +136,8 @@ export function ItemsListPage() {
                     {item.isActive && (
                       <button
                         onClick={(e) => { e.stopPropagation(); deactivateItem.mutate(item.id); }}
-                        className="text-xs text-red-600 hover:text-red-800"
+                        disabled={deactivateItem.isPending && deactivateItem.variables === item.id}
+                        className="text-xs text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
                       >
                         Deactivate
                       </button>

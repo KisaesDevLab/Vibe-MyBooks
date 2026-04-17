@@ -7,6 +7,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useBills } from '../../api/hooks/useAp';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { EmptyStateChat } from '../chat/EmptyStateChat';
 import type { BillStatus } from '@kis-books/shared';
 
@@ -22,7 +23,7 @@ export function BillListPage() {
   const [statusFilter, setStatusFilter] = useState<BillStatus | ''>('');
   const [search, setSearch] = useState('');
 
-  const { data, isLoading } = useBills({
+  const { data, isLoading, isError, refetch } = useBills({
     billStatus: statusFilter || undefined,
     search: search || undefined,
     limit: 100,
@@ -63,6 +64,8 @@ export function BillListPage() {
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         {isLoading ? (
           <LoadingSpinner className="py-12" />
+        ) : isError ? (
+          <ErrorMessage message="Couldn't load bills." onRetry={() => refetch()} />
         ) : bills.length === 0 ? (
           <div className="p-6 space-y-4">
             <p className="text-sm text-gray-500 text-center">
