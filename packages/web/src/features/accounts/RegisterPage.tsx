@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useRegister, useRegisterSummary } from '../../api/hooks/useRegister';
 import { useVoidTransaction } from '../../api/hooks/useTransactions';
@@ -49,6 +49,15 @@ export function RegisterPage() {
   const [includeVoid, setIncludeVoid] = useState(false);
   const [voidingId, setVoidingId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState('');
+
+  // Close the void dialog on Escape so the user isn't trapped when they
+  // mis-click. Paired with a backdrop click handler below.
+  useEffect(() => {
+    if (!voidingId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setVoidingId(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [voidingId]);
 
   const { data, isLoading, isError, refetch } = useRegister(id!, {
     startDate, endDate, search: search || undefined, txnType: txnTypeFilter || undefined,
@@ -337,7 +346,13 @@ export function RegisterPage() {
 
       {/* Void dialog */}
       {voidingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={(e) => { if (e.target === e.currentTarget) setVoidingId(null); }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Void transaction"
+        >
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
             <h2 className="text-lg font-semibold">Void Transaction</h2>
             <textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)}

@@ -47,8 +47,13 @@ test.describe.serial('Vibe MyBooks E2E Flow', () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     const accounts = (await acctRes.json()).data;
-    const checking = accounts.find((a: any) => a.name.includes('Business Checking'));
-    const supplies = accounts.find((a: any) => a.name.includes('Office Supplies'));
+    // Default 'general_business' COA seeds the bank account as "Cash"
+    // (systemTag=cash_on_hand). Don't match "Business Checking" — that's
+    // a different template and will break on the default seed.
+    const checking = accounts.find((a: any) => a.systemTag === 'cash_on_hand');
+    const supplies = accounts.find((a: any) => a.name === 'Office Supplies');
+    expect(checking, 'expected cash_on_hand system account to be seeded').toBeTruthy();
+    expect(supplies, 'expected Office Supplies account to be seeded').toBeTruthy();
 
     const res = await request.post(`${API}/transactions`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -73,8 +78,10 @@ test.describe.serial('Vibe MyBooks E2E Flow', () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     const accounts = (await acctRes.json()).data;
-    const revenue = accounts.find((a: any) => a.name.includes('Service Revenue'));
-    const checking = accounts.find((a: any) => a.name.includes('Business Checking'));
+    const revenue = accounts.find((a: any) => a.name === 'Service Revenue');
+    const checking = accounts.find((a: any) => a.systemTag === 'cash_on_hand');
+    expect(revenue, 'expected Service Revenue account').toBeTruthy();
+    expect(checking, 'expected cash_on_hand system account').toBeTruthy();
 
     // Get customer
     const contactsRes = await request.get(`${API}/contacts?contactType=customer`, {

@@ -58,27 +58,31 @@ function StatCard({ title, value, subtitle, icon: Icon, color }: {
 export function DashboardPage() {
   const navigate = useNavigate();
 
-  const { data: snapshot, isLoading: snapLoading } = useQuery({
+  const snapshotQ = useQuery({
     queryKey: ['dashboard', 'snapshot'],
     queryFn: () => apiClient<{ mtd: { revenue: number; expenses: number; netIncome: number }; ytd: { revenue: number; expenses: number; netIncome: number } }>('/dashboard/snapshot'),
   });
+  const snapshot = snapshotQ.data;
 
-  const { data: trend } = useQuery({
+  const trendQ = useQuery({
     queryKey: ['dashboard', 'trend'],
     queryFn: () => apiClient<{ data: Array<{ month: string; revenue: number; expenses: number }> }>('/dashboard/trend?months=6'),
   });
+  const trend = trendQ.data;
 
-  const { data: cash } = useQuery({
+  const cashQ = useQuery({
     queryKey: ['dashboard', 'cash-position'],
     queryFn: () => apiClient<{ bankAccounts: Array<{ name: string; balance: number }>; creditCards: Array<{ name: string; balance: number }>; totalBank: number; totalCC: number }>('/dashboard/cash-position'),
   });
+  const cash = cashQ.data;
 
-  const { data: receivables } = useQuery({
+  const receivablesQ = useQuery({
     queryKey: ['dashboard', 'receivables'],
     queryFn: () => apiClient<{ totalOutstanding: number; overdueCount: number; overdueAmount: number; invoiceCount: number }>('/dashboard/receivables'),
   });
+  const receivables = receivablesQ.data;
 
-  const { data: payables } = useQuery({
+  const payablesQ = useQuery({
     queryKey: ['dashboard', 'payables'],
     queryFn: () => apiClient<{
       totalOwed: number; billCount: number;
@@ -88,23 +92,44 @@ export function DashboardPage() {
       apBalance: number;
     }>('/dashboard/payables'),
   });
+  const payables = payablesQ.data;
 
-  const { data: budgetPerf } = useQuery({
+  interface BudgetPeriodPerf { revenueActual: number; revenueBudget: number; expenseActual: number; expenseBudget: number; netActual: number; netBudget: number }
+  interface BudgetPerf { budgetName: string; mtd: BudgetPeriodPerf; ytd: BudgetPeriodPerf }
+  const budgetPerfQ = useQuery({
     queryKey: ['dashboard', 'budget-performance'],
-    queryFn: () => apiClient<any>('/dashboard/budget-performance'),
+    queryFn: () => apiClient<BudgetPerf | null>('/dashboard/budget-performance'),
   });
+  const budgetPerf = budgetPerfQ.data;
 
-  const { data: actions } = useQuery({
+  const actionsQ = useQuery({
     queryKey: ['dashboard', 'action-items'],
     queryFn: () => apiClient<{ pendingFeedCount: number; overdueInvoiceCount: number; staleReconciliations: Array<{ accountName: string; lastReconciled: string | null }>; pendingDepositCount: number; pendingDepositAmount: number; printQueueCount: number; printQueueAmount: number }>('/dashboard/action-items'),
   });
+  const actions = actionsQ.data;
 
-  const { data: bankingHealth } = useQuery({
+  const bankingHealthQ = useQuery({
     queryKey: ['dashboard', 'banking-health'],
     queryFn: () => apiClient<{ totalConnections: number; needsAttention: number; needsAttentionItems: Array<{ id: string; institutionName: string; itemStatus: string; errorMessage: string | null }>; pendingFeedItems: number }>('/dashboard/banking-health'),
   });
+  const bankingHealth = bankingHealthQ.data;
 
-  if (snapLoading) return <LoadingSpinner className="py-12" />;
+  if (snapshotQ.isLoading) return <LoadingSpinner className="py-12" />;
+
+  // Collect any secondary-query errors and surface them as a single
+  // banner at the top of the dashboard. Without this the tiles silently
+  // render zeros when a panel's endpoint returns 500 and the user has
+  // no idea the data is stale.
+  const dashboardErrors = [
+    { q: snapshotQ, label: 'Financial snapshot' },
+    { q: trendQ, label: 'Revenue/expense trend' },
+    { q: cashQ, label: 'Cash position' },
+    { q: receivablesQ, label: 'Receivables' },
+    { q: payablesQ, label: 'Payables' },
+    { q: budgetPerfQ, label: 'Budget performance' },
+    { q: actionsQ, label: 'Action items' },
+    { q: bankingHealthQ, label: 'Banking health' },
+  ].filter((x) => x.q.isError);
 
   const ytd = snapshot?.ytd || { revenue: 0, expenses: 0, netIncome: 0 };
   const mtd = snapshot?.mtd || { revenue: 0, expenses: 0, netIncome: 0 };
@@ -112,6 +137,28 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+
+      {/* Query-error banner. Without it, a 500 from any of the 8 dashboard
+          endpoints rendered zeros in place of real data — the user had no
+          way to know the numbers were stale. */}
+      {dashboardErrors.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-red-800">
+              Couldn't load part of the dashboard
+            </p>
+            <p className="text-xs text-red-700 mt-1">
+              {dashboardErrors.map((e) => e.label).join(', ')}
+            </p>
+          </div>
+          <button
+            onClick={() => { for (const e of dashboardErrors) e.q.refetch(); }}
+            className="text-xs font-medium text-red-900 underline whitespace-nowrap"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Banking Health Banner */}
       {bankingHealth && bankingHealth.needsAttention > 0 && (

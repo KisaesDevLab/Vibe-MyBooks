@@ -71,6 +71,11 @@ services:
       - ./packages/shared/src:/app/packages/shared/src
       - ./packages/shared/dist:/app/packages/shared/dist
       - ./packages/worker/src:/app/packages/worker/src
+      # The worker imports scheduler bootstrap functions from the API
+      # package (see packages/worker/src/index.ts). Mount the API source
+      # read-only so tsx watch picks up API-side scheduler changes and
+      # the worker doesn't diverge from the baked image.
+      - ./packages/api/src:/app/packages/api/src:ro
     command: ["npx", "tsx", "watch", "packages/worker/src/index.ts"]
     environment:
       NODE_ENV: development

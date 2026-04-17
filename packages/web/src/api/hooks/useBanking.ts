@@ -165,10 +165,38 @@ export function useReconciliations(accountId?: string) {
   });
 }
 
+// Server returns the base Reconciliation plus the joined journal_line /
+// transaction rows and the derived cleared-balance totals.
+// Shape mirrors getReconciliation() in
+// packages/api/src/services/reconciliation.service.ts.
+export interface ReconciliationLineRow {
+  id: string;
+  journal_line_id: string;
+  is_cleared: boolean;
+  cleared_at: string | null;
+  debit: string;
+  credit: string;
+  description: string | null;
+  txn_date: string;
+  txn_type: string;
+  txn_number: string | null;
+  memo: string | null;
+}
+
+// Override clearedBalance/difference — the shared `Reconciliation` type
+// stores them as string|null (from the DB decimal column), but
+// getReconciliation() parses them into numbers before returning. Using
+// Omit+intersection avoids `string & number = never` intersection bugs.
+export type ReconciliationWithLines = Omit<Reconciliation, 'clearedBalance' | 'difference'> & {
+  lines: ReconciliationLineRow[];
+  clearedBalance: number;
+  difference: number;
+};
+
 export function useReconciliation(id: string) {
   return useQuery({
     queryKey: ['reconciliation', id],
-    queryFn: () => apiClient<{ reconciliation: any }>(`/banking/reconciliations/${id}`),
+    queryFn: () => apiClient<{ reconciliation: ReconciliationWithLines }>(`/banking/reconciliations/${id}`),
     enabled: !!id,
   });
 }

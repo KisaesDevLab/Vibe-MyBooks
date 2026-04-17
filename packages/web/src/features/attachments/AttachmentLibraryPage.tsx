@@ -6,6 +6,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, getAccessToken } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Paperclip, Download, Trash2, Eye, X, ChevronRight, User, FileText, FolderOpen } from 'lucide-react';
 
 interface LibraryAttachment {
@@ -60,7 +61,7 @@ export function AttachmentLibraryPage() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attachments', 'library'],
     queryFn: () => apiClient<{ data: LibraryAttachment[] }>('/attachments/library'),
   });
@@ -107,6 +108,7 @@ export function AttachmentLibraryPage() {
   };
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
+  if (isError) return <ErrorMessage message="Couldn't load the attachment library." onRetry={() => refetch()} />;
 
   const previewAttachment = previewId ? all.find((a) => a.id === previewId) : null;
 

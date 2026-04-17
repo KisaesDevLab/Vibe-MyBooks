@@ -11,6 +11,7 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2 } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
@@ -84,7 +85,7 @@ export function BankFeedPage() {
 
   const debouncedSearch = useDebounce(search, 400);
 
-  const { data, isLoading, isFetching, refetch } = useBankFeed({
+  const { data, isLoading, isError, isFetching, refetch } = useBankFeed({
     status: statusFilter || undefined,
     bankConnectionId: connectionFilter || undefined,
     startDate: startDate || undefined,
@@ -132,6 +133,7 @@ export function BankFeedPage() {
   }, [data?.data, sortKey, sortDir]);
 
   if (firstLoad) return <LoadingSpinner className="py-12" />;
+  if (isError) return <ErrorMessage message="Couldn't load the bank feed." onRetry={() => refetch()} />;
   const items = sortedItems;
 
   const toggleSelect = (id: string) => {

@@ -7,10 +7,11 @@ import { useReconciliations, useUndoReconciliation } from '../../api/hooks/useBa
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
 export function ReconciliationHistoryPage() {
   const [accountId, setAccountId] = useState('');
-  const { data, isLoading } = useReconciliations(accountId);
+  const { data, isLoading, isError, refetch } = useReconciliations(accountId);
   const undoRecon = useUndoReconciliation();
 
   return (
@@ -24,6 +25,8 @@ export function ReconciliationHistoryPage() {
         <p className="text-sm text-gray-500">Select a bank account to view history.</p>
       ) : isLoading ? (
         <LoadingSpinner className="py-12" />
+      ) : isError ? (
+        <ErrorMessage message="Couldn't load reconciliation history." onRetry={() => refetch()} />
       ) : !data?.reconciliations.length ? (
         <p className="text-sm text-gray-500">No reconciliations for this account.</p>
       ) : (

@@ -1,8 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src"
+    // The worker runs via `tsx` in both dev (docker-compose.dev.yml) and
+    // prod (docker-compose.yml command override), so there is no need to
+    // emit dist/ — this config is for type-checking only. `noEmit` also
+    // lets us widen `include` to peer packages (for deep imports of the
+    // API scheduler bootstrap) without producing tangled dist trees.
+    "noEmit": true
   },
-  "include": ["src"]
+  "include": ["src", "../api/src", "../shared/src"]
 }
