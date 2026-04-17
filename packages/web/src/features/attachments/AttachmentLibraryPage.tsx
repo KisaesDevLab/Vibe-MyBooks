@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, getAccessToken } from '../../api/client';

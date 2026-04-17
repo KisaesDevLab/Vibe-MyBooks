@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { useState } from 'react';
 import type { HealthCheck, TailscaleHealth } from '@kis-books/shared';
 import { Activity, CheckCircle2, AlertTriangle, XCircle, ChevronDown } from 'lucide-react';

@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { useState, useRef, useEffect } from 'react';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useMe } from '../../api/hooks/useAuth';

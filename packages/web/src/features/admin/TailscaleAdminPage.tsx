@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { Network } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useTailscaleStatus, useTailscaleHealth } from '../../api/hooks/useTailscale';

@@ -275,6 +275,34 @@ Key settings:
 | `scripts/backup.sh` | Create encrypted database backup |
 | `scripts/factory-reset.sh` | Wipe all data and start fresh |
 | `scripts/seed-demo-data.ts` | Seed sample transactions for testing |
+| `scripts/license-audit.sh` | Full license compliance audit (`npm run license:audit`) |
+| `scripts/check-license-headers.sh` | Verify PolyForm headers on source files |
+| `scripts/add-license-header.sh` | Backfill PolyForm headers where missing |
+| `scripts/generate-sbom.sh` | Emit CycloneDX SBOM + flat license inventory |
+
+---
+
+## License Compliance
+
+Vibe MyBooks ships under the PolyForm Internal Use License 1.0.0. Every dependency is scanned to ensure no incompatible licenses (GPL-2.0, AGPL, SSPL, proprietary) enter the tree. The policy is enforced on every pull request and on a weekly schedule.
+
+**Run the audit locally:**
+
+```bash
+npm run license:audit          # full report to stdout
+npm run license:audit:json     # also emit scripts/license-audit-result.json
+npm run license:headers        # verify PolyForm headers on source files
+npm run license:headers:fix    # add headers to any files missing them
+npm run license:sbom           # generate CycloneDX SBOM + license inventory
+```
+
+**Before adding a new dependency:** check its SPDX identifier against [`scripts/license-policy.json`](scripts/license-policy.json).
+
+- `allowed` list → safe to add.
+- `reviewRequired` list → add only with a documented `knownIssues` entry (rationale + resolution).
+- `denied` list → find an alternative.
+
+If a transitive dependency pulls in something problematic, pin a different version using the root `overrides` field in `package.json` (see the `unzipper` entry for an example). The pre-commit hook runs a fast header check on staged source files and a full audit whenever any `package.json` is touched.
 
 ---
 

@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { useState, useEffect } from 'react';
 import { PAYROLL_LINE_TYPE_LABELS, PayrollLineType } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';

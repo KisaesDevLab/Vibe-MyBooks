@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { Navigate, useLocation } from 'react-router-dom';
 import { useMe } from '../../api/hooks/useAuth';
 import { useCompany } from '../../api/hooks/useCompany';

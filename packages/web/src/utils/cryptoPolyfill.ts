@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 // `crypto.randomUUID()` is only available in secure contexts (HTTPS or
 // localhost). When the web app is served over plain HTTP to a remote machine,
 // the browser leaves `randomUUID` undefined, which crashes any form that
