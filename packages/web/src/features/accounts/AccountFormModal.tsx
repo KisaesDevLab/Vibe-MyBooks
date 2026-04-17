@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { useState, useEffect, type FormEvent } from 'react';
 import type { Account, AccountType, CreateAccountInput, UpdateAccountInput } from '@kis-books/shared';
 import { ACCOUNT_TYPES, DETAIL_TYPES, formatAccountTypeLabel } from '@kis-books/shared';

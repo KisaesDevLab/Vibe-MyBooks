@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { useState, useCallback, type ChangeEvent, type ClipboardEvent } from 'react';
 import { useValidateBatch, useSaveBatch, useParseCsv } from '../../api/hooks/useBatch';
 import { AccountSelector } from '../../components/forms/AccountSelector';

@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { Sparkles } from 'lucide-react';
 import { useChatStatus } from '../../api/hooks/useChat';
 import { ChatPanel } from './ChatPanel';

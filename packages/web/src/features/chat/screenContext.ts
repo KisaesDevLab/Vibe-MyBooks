@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 /**
  * Convert the React Router location into a stable screen identifier
  * we send to the chat backend. The IDs match the keys in

@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { useEffect, useState, type FormEvent } from 'react';
 import { CheckCircle, Loader2, RotateCcw } from 'lucide-react';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';

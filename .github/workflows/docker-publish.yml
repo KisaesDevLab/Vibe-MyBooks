@@ -24,7 +24,14 @@ env:
 # parallel.
 
 jobs:
+  license-check:
+    uses: ./.github/workflows/license-check.yml
+    permissions:
+      contents: read
+      issues: write
+
   build:
+    needs: license-check
     strategy:
       fail-fast: false
       matrix:

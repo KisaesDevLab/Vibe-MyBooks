@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { useState } from 'react';
 import { useTags, useTagGroups, useCreateTag, useUpdateTag, useDeleteTag, useMergeTags, useCreateTagGroup, useDeleteTagGroup } from '../../api/hooks/useTags';
 import { TAG_COLOR_PALETTE } from '@kis-books/shared';

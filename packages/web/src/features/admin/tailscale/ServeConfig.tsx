@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { useState } from 'react';
 import type { TailscaleBackendState } from '@kis-books/shared';
 import { Globe, Copy, ExternalLink } from 'lucide-react';

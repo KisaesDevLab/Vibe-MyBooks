@@ -1,3 +1,7 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
+
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { ThemeMode, FontScaleLevel, DisplayPreferences } from '@kis-books/shared';
 import { FONT_SCALE_VALUES } from '@kis-books/shared';
