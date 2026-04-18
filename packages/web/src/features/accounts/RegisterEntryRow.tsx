@@ -2,7 +2,10 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
+import type { AccountType } from '@kis-books/shared';
 import { useCreateTransaction } from '../../api/hooks/useTransactions';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
@@ -22,19 +25,19 @@ const typeConfig: Record<string, {
   showPayee: boolean;
   showReceived: boolean;
   payeeType: 'vendor' | 'customer';
-  accountFilter: string | string[] | undefined;
+  accountFilter: AccountType | AccountType[] | undefined;
   isDeposit: boolean;
 }> = {
-  expense: { label: 'Check / Expense', showPayee: true, showReceived: false, payeeType: 'vendor', accountFilter: ['expense', 'cogs', 'other_expense'], isDeposit: false },
-  deposit: { label: 'Deposit', showPayee: false, showReceived: true, payeeType: 'customer', accountFilter: ['revenue', 'other_revenue'], isDeposit: true },
-  transfer: { label: 'Transfer', showPayee: false, showReceived: false, payeeType: 'vendor', accountFilter: ['asset', 'liability'], isDeposit: false },
+  expense: { label: 'Check / Expense', showPayee: true, showReceived: false, payeeType: 'vendor', accountFilter: ['expense', 'cogs', 'other_expense'] as AccountType[], isDeposit: false },
+  deposit: { label: 'Deposit', showPayee: false, showReceived: true, payeeType: 'customer', accountFilter: ['revenue', 'other_revenue'] as AccountType[], isDeposit: true },
+  transfer: { label: 'Transfer', showPayee: false, showReceived: false, payeeType: 'vendor', accountFilter: ['asset', 'liability'] as AccountType[], isDeposit: false },
   journal_entry: { label: 'Journal Entry', showPayee: false, showReceived: false, payeeType: 'vendor', accountFilter: undefined, isDeposit: false },
 };
 
 export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, isBankOrCC }: RegisterEntryRowProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [txnType, setTxnType] = useState(allowedEntryTypes[0] || '');
-  const [txnDate, setTxnDate] = useState(new Date().toISOString().split('T')[0]!);
+  const [txnDate, setTxnDate] = useState(todayLocalISO());
   const [refNo, setRefNo] = useState('');
   const [contactId, setContactId] = useState('');
   const [otherAccountId, setOtherAccountId] = useState('');
@@ -56,7 +59,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
   const showBothAmounts = txnType === 'journal_entry';
 
   const reset = () => {
-    setTxnDate(new Date().toISOString().split('T')[0]!);
+    setTxnDate(todayLocalISO());
     setRefNo('');
     setContactId('');
     setOtherAccountId('');
@@ -191,7 +194,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
             <AccountSelector
               value={otherAccountId}
               onChange={setOtherAccountId}
-              accountTypeFilter={config.accountFilter as any}
+              accountTypeFilter={config.accountFilter}
               required
             />
           </div>

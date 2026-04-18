@@ -61,7 +61,7 @@ export function PayrollAccountMappingPage() {
   // Group accounts by type for organized dropdown
   const accountsByType: Record<string, typeof allAccounts> = {};
   for (const acct of allAccounts) {
-    const type = (acct as any).accountType || 'other';
+    const type = acct.accountType || 'other';
     if (!accountsByType[type]) accountsByType[type] = [];
     accountsByType[type]!.push(acct);
   }
@@ -143,7 +143,7 @@ export function PayrollAccountMappingPage() {
                       onChange={e => setMapping(lt, e.target.value)}
                     >
                       <option value="">— Unmapped —</option>
-                      {allAccounts.map((a: any) => (
+                      {allAccounts.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.accountNumber ? `${a.accountNumber} — ` : ''}{a.name} ({a.accountType})
                         </option>

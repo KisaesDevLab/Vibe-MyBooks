@@ -35,6 +35,7 @@ export function TransactionDetail() {
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [voidReason, setVoidReason] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState('');
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
   if (isError || !data) return <ErrorMessage onRetry={() => refetch()} />;
@@ -55,6 +56,7 @@ export function TransactionDetail() {
 
   const handleDownloadPdf = async () => {
     setPdfLoading(true);
+    setPdfError('');
     try {
       const token = localStorage.getItem('accessToken');
       const res = await fetch(`/api/v1/transactions/${txn.id}/pdf`, {
@@ -67,8 +69,8 @@ export function TransactionDetail() {
       a.download = `receipt-${txn.txnNumber || txn.id.slice(0, 8)}.pdf`;
       a.click();
       URL.revokeObjectURL(a.href);
-    } catch (err: any) {
-      alert(err.message || 'PDF download failed');
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'PDF download failed');
     }
     setPdfLoading(false);
   };
@@ -93,6 +95,12 @@ export function TransactionDetail() {
       >
         <ArrowLeft className="h-4 w-4" /> Back to {returnLabel}
       </button>
+      {pdfError && (
+        <div role="alert" className="mb-3 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <span>{pdfError}</span>
+          <button onClick={() => setPdfError('')} className="text-xs underline text-red-600 hover:text-red-800">Dismiss</button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -162,7 +170,7 @@ export function TransactionDetail() {
               </tr>
             </thead>
             <tbody>
-              {lines.map((line: any) => (
+              {lines.map((line) => (
                 <tr key={line.id} className="border-b border-gray-100">
                   <td className="py-2">
                     <span className="text-sm text-gray-900">{line.accountName || 'Unknown'}</span>
@@ -177,8 +185,8 @@ export function TransactionDetail() {
             <tfoot>
               <tr className="font-medium">
                 <td colSpan={2} className="py-2">Totals</td>
-                <td className="py-2 text-right font-mono">${lines.reduce((s: number, l: any) => s + parseFloat(l.debit), 0).toFixed(2)}</td>
-                <td className="py-2 text-right font-mono">${lines.reduce((s: number, l: any) => s + parseFloat(l.credit), 0).toFixed(2)}</td>
+                <td className="py-2 text-right font-mono">${lines.reduce((s, l) => s + parseFloat(l.debit), 0).toFixed(2)}</td>
+                <td className="py-2 text-right font-mono">${lines.reduce((s, l) => s + parseFloat(l.credit), 0).toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>

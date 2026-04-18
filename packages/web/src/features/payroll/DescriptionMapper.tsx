@@ -147,7 +147,7 @@ export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl'
                   onChange={e => setAccountForDesc(m.sourceDescription, e.target.value)}
                 >
                   <option value="">— Select Account —</option>
-                  {allAccounts.map((a: any) => (
+                  {allAccounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.accountNumber ? `${a.accountNumber} — ` : ''}{a.name}
                     </option>

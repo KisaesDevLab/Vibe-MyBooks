@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState } from 'react';
 import { useStartReconciliation, useReconciliation, useUpdateReconciliationLines, useCompleteReconciliation } from '../../api/hooks/useBanking';
 import { AccountSelector } from '../../components/forms/AccountSelector';
@@ -13,7 +15,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 export function ReconciliationPage() {
   const [reconId, setReconId] = useState('');
   const [accountId, setAccountId] = useState('');
-  const [statementDate, setStatementDate] = useState(new Date().toISOString().split('T')[0]!);
+  const [statementDate, setStatementDate] = useState(todayLocalISO());
   const [endingBalance, setEndingBalance] = useState('');
 
   const startRecon = useStartReconciliation();
@@ -95,7 +97,7 @@ export function ReconciliationPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {lines.map((line: any) => (
+            {lines.map((line) => (
               <tr key={line.id} className={line.is_cleared ? 'bg-green-50' : ''}>
                 <td className="px-4 py-2">
                   <input type="checkbox" checked={line.is_cleared}

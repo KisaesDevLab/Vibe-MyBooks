@@ -59,9 +59,13 @@ export function BudgetEditorPage() {
   const activeBudgetId = selectedBudgetId ?? budgetForYear?.id ?? null;
 
   // Fetch budget lines
+  // Budget line rows arrive with both camelCase (e.g. `monthJan`) and
+  // snake_case (`month_jan`) month keys depending on which service
+  // version serialised them. We read both forms during hydration.
+  type BudgetLineRow = Record<string, string | null> & { accountId?: string; account_id?: string };
   const { data: linesData, isLoading: linesLoading, isError: linesError, refetch: refetchLines } = useQuery({
     queryKey: ['budgets', activeBudgetId, 'lines'],
-    queryFn: () => apiClient<{ lines: any[] }>(`/budgets/${activeBudgetId}/lines`),
+    queryFn: () => apiClient<{ lines: BudgetLineRow[] }>(`/budgets/${activeBudgetId}/lines`),
     enabled: !!activeBudgetId,
   });
 
@@ -84,9 +88,10 @@ export function BudgetEditorPage() {
       const row: Record<MonthKey, string> = {} as Record<MonthKey, string>;
       for (const mk of MONTH_KEYS) {
         const snakeKey = mk.replace(/(\d+)/, '_$1');
-        row[mk] = (line as any)[snakeKey] ?? (line as any)[mk] ?? '0';
+        row[mk] = line[snakeKey] ?? line[mk] ?? '0';
       }
-      map[line.account_id ?? line.accountId] = row;
+      const key = line.account_id ?? line.accountId;
+      if (key) map[key] = row;
     }
     setLines(map);
   }, [linesLoaded]);

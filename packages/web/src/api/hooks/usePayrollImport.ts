@@ -39,13 +39,19 @@ export function usePayrollSession(id: string) {
   });
 }
 
+// Preview rows expose the raw CSV/spreadsheet cell values and (after
+// mapping is applied) a normalised projection keyed by payroll line type.
+// Both shapes are dynamic — column names come from the source file — so
+// we index by string and leave values permissive.
+export type PayrollPreviewCellMap = Record<string, string | number | null>;
+
 export function usePayrollPreview(id: string) {
   return useQuery({
     queryKey: ['payroll-preview', id],
     queryFn: () => apiClient<{
       session: PayrollImportSession;
       headers: string[];
-      rows: Array<{ rowNumber: number; rawData: any; mappedData: any }>;
+      rows: Array<{ rowNumber: number; rawData: PayrollPreviewCellMap; mappedData: PayrollPreviewCellMap }>;
     }>(`/payroll-import/sessions/${id}/preview`),
     enabled: !!id,
   });
@@ -96,10 +102,30 @@ export function usePayrollUpload() {
 
 // ── Column Mapping (Mode A) ──
 
+// The apply-mapping config is a union of two shapes that both flow
+// through this endpoint: a lightweight `columnMap` used by some callers,
+// and the richer header/data-row/skip-rule config produced by the
+// ColumnMapper UI. The server accepts either.
+export type PayrollApplyMappingConfig =
+  | {
+      columnMap: Record<string, string>;
+      rowOverrides?: Record<string, Record<string, string>>;
+    }
+  | {
+      header_row: number;
+      data_start_row: number;
+      date_format: string;
+      mappings: Record<string, { source: string }>;
+      skip_rules: Array<
+        | { type: 'blank_field'; field: string }
+        | { type: 'value_match'; field: string; values: string[] }
+      >;
+    };
+
 export function useApplyMapping() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ sessionId, config }: { sessionId: string; config: any }) =>
+    mutationFn: ({ sessionId, config }: { sessionId: string; config: PayrollApplyMappingConfig }) =>
       apiClient<{ mappedCount: number; skippedCount: number }>(
         `/payroll-import/sessions/${sessionId}/apply-mapping`,
         { method: 'POST', body: JSON.stringify(config) },
@@ -157,9 +183,15 @@ export function useValidateSession() {
 
 // ── Generate JE ──
 
+export interface GenerateJEOptions {
+  aggregationMode?: 'summary' | 'per_employee';
+  includeEmployerTaxes?: boolean;
+  includePtoAccrual?: boolean;
+}
+
 export function useGenerateJE() {
   return useMutation({
-    mutationFn: ({ sessionId, options }: { sessionId: string; options?: any }) =>
+    mutationFn: ({ sessionId, options }: { sessionId: string; options?: GenerateJEOptions }) =>
       apiClient<{ previews: PayrollJEPreview[] }>(
         `/payroll-import/sessions/${sessionId}/generate-je`,
         { method: 'POST', body: JSON.stringify(options || { aggregationMode: 'summary' }) },

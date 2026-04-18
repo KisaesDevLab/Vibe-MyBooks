@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useReceivePayment, useOpenInvoices, type OpenInvoice } from '../../api/hooks/usePayments';
@@ -22,7 +24,7 @@ interface InvoicePaymentRow {
 
 export function ReceivePaymentPage() {
   const navigate = useNavigate();
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
 
   const [customerId, setCustomerId] = useState('');
   const [txnDate, setTxnDate] = useState(today);

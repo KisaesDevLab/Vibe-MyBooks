@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWriteCheck, useCheckSettings } from '../../api/hooks/useChecks';
@@ -25,7 +27,7 @@ export function WriteCheckPage() {
   const navigate = useNavigate();
   const writeCheck = useWriteCheck();
   const { data: settingsData } = useCheckSettings();
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
 
   const [bankAccountId, setBankAccountId] = useState(
     settingsData?.settings?.defaultBankAccountId || '',

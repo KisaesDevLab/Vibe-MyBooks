@@ -8,7 +8,10 @@ import { useInvoices } from '../../api/hooks/useInvoices';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { Plus, Search } from 'lucide-react';
+
+const PAGE_SIZE = 50;
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -21,14 +24,20 @@ const statusColors: Record<string, string> = {
 
 export function InvoiceListPage() {
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState('');
-  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilterRaw] = useState('');
+  const [search, setSearchRaw] = useState('');
+  const [offset, setOffset] = useState(0);
+
+  // Reset pagination when filters change — otherwise changing status would
+  // leave the user on "page 3" of a now-much-smaller result set.
+  const setStatusFilter = (v: string) => { setStatusFilterRaw(v); setOffset(0); };
+  const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
 
   const { data, isLoading, isError, refetch } = useInvoices({
     status: statusFilter ? statusFilter as 'posted' | 'draft' | 'void' : undefined,
     search: search || undefined,
-    limit: 50,
-    offset: 0,
+    limit: PAGE_SIZE,
+    offset,
   });
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
@@ -106,7 +115,13 @@ export function InvoiceListPage() {
           </table>
         </div>
       )}
-      <p className="text-sm text-gray-500 mt-2">{data?.total ?? 0} invoices</p>
+      <Pagination
+        total={data?.total ?? 0}
+        limit={PAGE_SIZE}
+        offset={offset}
+        onChange={setOffset}
+        unit="invoices"
+      />
     </div>
   );
 }

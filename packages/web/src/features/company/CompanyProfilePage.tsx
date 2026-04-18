@@ -29,7 +29,6 @@ export function CompanyProfilePage() {
     phone: '',
     email: '',
     website: '',
-    industry: '',
     entityType: 'sole_prop' as string,
   });
 
@@ -49,7 +48,6 @@ export function CompanyProfilePage() {
         phone: c.phone || '',
         email: c.email || '',
         website: c.website || '',
-        industry: c.industry || '',
         entityType: c.entityType || 'sole_prop',
       });
     }
@@ -73,7 +71,6 @@ export function CompanyProfilePage() {
       phone: form.phone || null,
       email: form.email || null,
       website: form.website || null,
-      industry: form.industry || null,
     });
   };
 
@@ -102,7 +99,6 @@ export function CompanyProfilePage() {
               ))}
             </select>
           </div>
-          <Input label="Industry" value={form.industry} onChange={set('industry')} />
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
@@ -135,9 +131,9 @@ export function CompanyProfilePage() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">API & MCP Access</h2>
           <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" checked={(data?.company as any)?.mcpEnabled ?? false}
+            <input type="checkbox" checked={data?.company?.mcpEnabled ?? false}
               onChange={async (e) => {
-                updateCompany.mutate({ mcpEnabled: e.target.checked } as any);
+                updateCompany.mutate({ mcpEnabled: e.target.checked });
               }}
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-5 w-5" />
             <div>

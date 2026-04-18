@@ -11,28 +11,37 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { AccountFormModal } from './AccountFormModal';
 import { AccountImportModal } from './AccountImportModal';
 import { MergeAccountsModal } from './MergeAccountsModal';
 import { Plus, Upload, Download, Merge, Search, Shield, List } from 'lucide-react';
 import type { Account } from '@kis-books/shared';
 
+const PAGE_SIZE = 200;
+
 export function AccountsListPage() {
   const navigate = useNavigate();
-  const [typeFilter, setTypeFilter] = useState<AccountType | ''>('');
-  const [activeFilter, setActiveFilter] = useState<boolean | undefined>(true);
-  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilterRaw] = useState<AccountType | ''>('');
+  const [activeFilter, setActiveFilterRaw] = useState<boolean | undefined>(true);
+  const [search, setSearchRaw] = useState('');
+  const [offset, setOffset] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [editAccount, setEditAccount] = useState<Account | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
 
+  // Reset offset on any filter change so the user isn't stranded past the end.
+  const setTypeFilter = (v: AccountType | '') => { setTypeFilterRaw(v); setOffset(0); };
+  const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); };
+  const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
+
   const filters = {
     accountType: typeFilter || undefined,
     isActive: activeFilter,
     search: search || undefined,
-    limit: 200,
-    offset: 0,
+    limit: PAGE_SIZE,
+    offset,
   };
 
   const { data, isLoading, isError, refetch } = useAccounts(filters);
@@ -170,7 +179,13 @@ export function AccountsListPage() {
         </div>
       )}
 
-      <p className="text-sm text-gray-500 mt-2">{data?.total ?? 0} total accounts</p>
+      <Pagination
+        total={data?.total ?? 0}
+        limit={PAGE_SIZE}
+        offset={offset}
+        onChange={setOffset}
+        unit="accounts"
+      />
 
       {/* Modals */}
       {showForm && <AccountFormModal account={editAccount} onClose={() => { setShowForm(false); setEditAccount(null); }} />}

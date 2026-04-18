@@ -240,7 +240,7 @@ function ArticleEditorModal({ article, categories, onClose, onSaved }: {
       }
     },
     onSuccess: () => onSaved(),
-    onError: (err: any) => setError(err.message || 'Failed to save'),
+    onError: (err: Error) => setError(err.message || 'Failed to save'),
   });
 
   // Auto-generate slug from title

@@ -60,7 +60,7 @@ export function TfaConfigPage() {
   }, [data]);
 
   const updateConfig = useMutation({
-    mutationFn: (input: any) => apiClient('/admin/tfa/config', { method: 'PUT', body: JSON.stringify(input) }),
+    mutationFn: (input: typeof form) => apiClient('/admin/tfa/config', { method: 'PUT', body: JSON.stringify(input) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin', 'tfa-config'] }); setSaved(true); setTimeout(() => setSaved(false), 3000); },
   });
 

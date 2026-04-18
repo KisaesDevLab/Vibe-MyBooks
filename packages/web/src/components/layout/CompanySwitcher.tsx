@@ -19,7 +19,6 @@ interface AddCompanyModalProps {
 function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
   const [name, setName] = useState('');
   const [entityType, setEntityType] = useState('sole_prop');
-  const [industry, setIndustry] = useState('');
   const [businessType, setBusinessType] = useState('general_business');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,7 +35,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
         const res = await fetch('/api/v1/auth/create-client', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ companyName: name, entityType, industry: industry || undefined, businessType }),
+          body: JSON.stringify({ companyName: name, entityType, businessType }),
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || 'Failed'); }
         onCreated();
@@ -45,7 +44,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
         const res = await fetch('/api/v1/company/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ businessName: name, entityType, industry: industry || undefined, businessType }),
+          body: JSON.stringify({ businessName: name, entityType, businessType }),
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || 'Failed'); }
         const data = await res.json();
@@ -121,8 +120,8 @@ export function CompanySwitcher() {
   const [switchingTenantId, setSwitchingTenantId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const accessibleTenants = (meData as any)?.accessibleTenants || [];
-  const activeTenantId = (meData as any)?.activeTenantId;
+  const accessibleTenants = meData?.accessibleTenants || [];
+  const activeTenantId = meData?.activeTenantId;
   const hasMultipleTenants = accessibleTenants.length > 1;
   const userRole = meData?.user?.role;
   const canCreateClient = userRole === 'accountant' || userRole === 'bookkeeper' || meData?.user?.isSuperAdmin;
@@ -199,7 +198,7 @@ export function CompanySwitcher() {
     }
   };
 
-  const activeTenantName = accessibleTenants.find((t: any) => t.tenantId === activeTenantId)?.tenantName || '';
+  const activeTenantName = accessibleTenants.find((t) => t.tenantId === activeTenantId)?.tenantName || '';
 
   return (
     <>
@@ -234,7 +233,7 @@ export function CompanySwitcher() {
                     <span>{switchError}</span>
                   </div>
                 )}
-                {accessibleTenants.map((t: any) => {
+                {accessibleTenants.map((t) => {
                   const isActive = t.tenantId === activeTenantId;
                   const isSwitching = switchingTenantId === t.tenantId;
                   const disabled = isActive || switchingTenantId !== null;

@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Link2, MessageSquare, Check } from 'lucide-react';
 import { apiClient } from '../../api/client';
@@ -18,19 +18,26 @@ export function ShareLinkButton({ invoiceId, invoiceNumber, total, contactPhone 
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
 
   const isMobile = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
+
   async function getOrCreateLink(): Promise<string> {
     if (shareLink) return shareLink;
-    const res = await apiClient(`/invoices/${invoiceId}/share-link`, { method: 'POST' });
-    const link = (res as any).link as string;
-    setShareLink(link);
-    return link;
+    const res = await apiClient<{ link: string }>(`/invoices/${invoiceId}/share-link`, { method: 'POST' });
+    setShareLink(res.link);
+    return res.link;
   }
 
   const handleCopyLink = async () => {
     setLoading(true);
+    setError('');
     try {
       const link = await getOrCreateLink();
       // navigator.clipboard requires HTTPS — fall back to execCommand for HTTP
@@ -48,22 +55,23 @@ export function ShareLinkButton({ invoiceId, invoiceNumber, total, contactPhone 
       }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err: any) {
-      alert(err.message || 'Failed to generate link');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate link');
     }
     setLoading(false);
   };
 
   const handleTextLink = async () => {
     setLoading(true);
+    setError('');
     try {
       const link = await getOrCreateLink();
       const formattedTotal = parseFloat(total || '0').toFixed(2);
       const msg = `Invoice ${invoiceNumber || ''} for $${formattedTotal}: ${link}`;
       const phone = contactPhone || '';
       window.location.href = `sms:${phone}?body=${encodeURIComponent(msg)}`;
-    } catch (err: any) {
-      alert(err.message || 'Failed to generate link');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate link');
     }
     setLoading(false);
   };
@@ -80,6 +88,9 @@ export function ShareLinkButton({ invoiceId, invoiceNumber, total, contactPhone 
         <Button variant="secondary" size="sm" onClick={handleTextLink} loading={loading}>
           <MessageSquare className="h-4 w-4 mr-1" /> Text Link
         </Button>
+      )}
+      {error && (
+        <span role="alert" className="text-xs text-red-600 self-center">{error}</span>
       )}
     </>
   );

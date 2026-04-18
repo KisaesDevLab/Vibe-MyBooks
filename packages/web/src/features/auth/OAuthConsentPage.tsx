@@ -72,8 +72,8 @@ export function OAuthConsentPage() {
       url.searchParams.set('code', data.code);
       if (state) url.searchParams.set('state', state);
       window.location.href = url.toString();
-    } catch (err: any) {
-      setError(err.message || 'Authorization failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authorization failed');
     } finally {
       setLoading(false);
     }

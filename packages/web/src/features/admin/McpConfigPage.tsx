@@ -49,7 +49,15 @@ export function McpConfigPage() {
   }, [configData]);
 
   // Request log
-  const { data: logData } = useQuery({
+  interface McpLogEntry {
+    id: string;
+    createdAt: string;
+    toolName?: string | null;
+    resourceUri?: string | null;
+    status: string;
+    durationMs?: number | null;
+  }
+  const { data: logData } = useQuery<{ logs: McpLogEntry[] }>({
     queryKey: ['admin', 'mcp-log'],
     queryFn: async () => {
       try {
@@ -155,7 +163,7 @@ export function McpConfigPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {(logData?.logs || []).map((log: any) => (
+                {(logData?.logs || []).map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50">
                     <td className="px-4 py-2 text-xs text-gray-600">{new Date(log.createdAt).toLocaleString()}</td>
                     <td className="px-4 py-2 font-mono text-xs">{log.toolName || log.resourceUri || '—'}</td>

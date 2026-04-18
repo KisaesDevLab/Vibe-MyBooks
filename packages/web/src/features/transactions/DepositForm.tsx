@@ -2,9 +2,22 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import type { JournalLine } from '@kis-books/shared';
 import { useCreateTransaction, useUpdateTransaction, useTransaction } from '../../api/hooks/useTransactions';
+
+interface DepositPayload extends Record<string, unknown> {
+  txnType: 'deposit';
+  txnDate: string;
+  depositToAccountId: string;
+  memo: string;
+  lines: Array<{ accountId: string; amount: string; description: string }>;
+  tags: string[];
+  draftAttachmentId?: string;
+}
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
@@ -24,7 +37,7 @@ export function DepositForm() {
   const createTxn = useCreateTransaction();
   const updateTxn = useUpdateTransaction();
   const { data: existingData, isLoading: loadingExisting } = useTransaction(editId || '');
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
 
   const [txnDate, setTxnDate] = useState(today);
   const [depositToAccountId, setDepositToAccountId] = useState('');
@@ -41,12 +54,12 @@ export function DepositForm() {
       setMemo(txn.memo || '');
 
       const txnLines = txn.lines || [];
-      const debitLine = txnLines.find((l: any) => parseFloat(l.debit) > 0);
-      const creditLines = txnLines.filter((l: any) => parseFloat(l.credit) > 0);
+      const debitLine = txnLines.find((l: JournalLine) => parseFloat(l.debit) > 0);
+      const creditLines = txnLines.filter((l: JournalLine) => parseFloat(l.credit) > 0);
 
       if (debitLine) setDepositToAccountId(debitLine.accountId);
       if (creditLines.length > 0) {
-        setLines(creditLines.map((l: any) => ({
+        setLines(creditLines.map((l: JournalLine) => ({
           accountId: l.accountId,
           amount: parseFloat(l.credit).toString(),
           description: l.description || '',
@@ -64,7 +77,7 @@ export function DepositForm() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const payload: any = {
+    const payload: DepositPayload = {
       txnType: 'deposit',
       txnDate,
       depositToAccountId,

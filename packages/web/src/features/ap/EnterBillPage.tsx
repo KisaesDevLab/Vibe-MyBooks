@@ -2,9 +2,12 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, useMemo, useRef, type FormEvent, type DragEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { JournalLine, Transaction, AccountType } from '@kis-books/shared';
 import { useCreateBill, useUpdateBill } from '../../api/hooks/useAp';
 import { useAiStatus } from '../../api/hooks/useAi';
 import { apiClient } from '../../api/client';
@@ -77,7 +80,7 @@ export function EnterBillPage() {
   const navigate = useNavigate();
   const { id: editId } = useParams<{ id: string }>();
   const isEdit = !!editId;
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
 
   const createBill = useCreateBill();
   const updateBill = useUpdateBill();
@@ -129,7 +132,7 @@ export function EnterBillPage() {
   // Edit-mode load
   const { data: existingData } = useQuery({
     queryKey: ['bills', editId],
-    queryFn: () => apiClient<{ bill: any }>(`/bills/${editId}`),
+    queryFn: () => apiClient<{ bill: Transaction }>(`/bills/${editId}`),
     enabled: isEdit,
   });
 
@@ -157,8 +160,8 @@ export function EnterBillPage() {
     }
 
     const billLines: BillLine[] = (b.lines || [])
-      .filter((l: any) => parseFloat(l.debit) > 0 && l.accountId)
-      .map((l: any) => ({
+      .filter((l: JournalLine) => parseFloat(l.debit) > 0 && l.accountId)
+      .map((l: JournalLine) => ({
         accountId: l.accountId,
         description: l.description || '',
         amount: parseFloat(l.debit).toFixed(2),
@@ -225,8 +228,8 @@ export function EnterBillPage() {
       // touched, so re-running OCR or uploading a second file doesn't wipe
       // manual edits.
       applyExtraction(ext);
-    } catch (err: any) {
-      setOcrError(err?.message || 'Failed to extract bill data');
+    } catch (err) {
+      setOcrError(err instanceof Error ? err.message : 'Failed to extract bill data');
     } finally {
       setOcrPending(false);
     }
@@ -603,7 +606,7 @@ export function EnterBillPage() {
                     <AccountSelector
                       value={line.accountId}
                       onChange={(v) => updateLine(i, 'accountId', v)}
-                      accountTypeFilter={['expense', 'asset'] as any}
+                      accountTypeFilter={['expense', 'asset'] as AccountType[]}
                     />
                   </td>
                   <td className="px-2 py-1">

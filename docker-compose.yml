@@ -1,3 +1,13 @@
+# Every service uses the same logging config (json-file with rotation) and a
+# sensible mem_limit so one container can't OOM-kill neighbors on a small VPS.
+# Compose v2 honours top-level `x-*` anchors; the per-service merges are
+# explicit below so operators can see exactly what each service gets.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
     image: postgres:16-alpine
@@ -19,6 +29,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    # Postgres at rest with a few tenants sits under 256MB; 1GB gives room for
+    # query workspace + backup dumps without risking OOM on a 2GB VPS.
+    mem_limit: ${DB_MEM_LIMIT:-1g}
+    mem_reservation: 256m
+    logging: *default-logging
 
   redis:
     image: redis:7-alpine
@@ -32,6 +47,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    mem_limit: ${REDIS_MEM_LIMIT:-256m}
+    logging: *default-logging
 
   api:
     build:
@@ -58,6 +75,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Puppeteer/Chromium for PDF gen uses 200-400MB per render; 1GB ceiling
+    # covers concurrent requests without leaving room for a runaway.
+    mem_limit: ${API_MEM_LIMIT:-1g}
+    mem_reservation: 256m
+    logging: *default-logging
 
   web:
     build:
@@ -66,10 +88,10 @@ services:
     restart: unless-stopped
     ports:
       - "${VITE_PORT:-5173}:5173"
-    environment:
-      VITE_API_URL: http://api:3001
     depends_on:
       - api
+    mem_limit: ${WEB_MEM_LIMIT:-128m}
+    logging: *default-logging
 
   worker:
     build:
@@ -88,6 +110,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    mem_limit: ${WORKER_MEM_LIMIT:-512m}
+    mem_reservation: 128m
+    logging: *default-logging
 
   # Tailscale sidecar — joins the appliance to a tailnet so super-admins can
   # reach MyBooks remotely without opening inbound ports. Userspace networking
@@ -111,6 +136,8 @@ services:
     volumes:
       - ts-state:/var/lib/tailscale
       - ts-socket:/var/run/tailscale
+    mem_limit: ${TS_MEM_LIMIT:-128m}
+    logging: *default-logging
 
 volumes:
   pgdata:

@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { useTags, useTagGroups, useCreateTag, useUpdateTag, useDeleteTag, useMergeTags, useCreateTagGroup, useDeleteTagGroup } from '../../api/hooks/useTags';
-import { TAG_COLOR_PALETTE } from '@kis-books/shared';
+import { TAG_COLOR_PALETTE, type Tag } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -177,7 +177,7 @@ export function TagManagerPage() {
   );
 }
 
-function TagRow({ tag, onDelete, onEdit }: { tag: any; onDelete: () => void; onEdit: (input: { name?: string; isActive?: boolean }) => void }) {
+function TagRow({ tag, onDelete, onEdit }: { tag: Tag; onDelete: () => void; onEdit: (input: { name?: string; isActive?: boolean }) => void }) {
   return (
     <div className="flex items-center justify-between px-5 py-2.5 hover:bg-gray-50">
       <div className="flex items-center gap-3">

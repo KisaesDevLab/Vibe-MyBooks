@@ -5,11 +5,13 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getAccessToken, TOKEN_CHANGE_EVENT } from '../api/client';
+import { setActiveCurrency } from '../utils/money';
 
 interface CompanySummary {
   id: string;
   businessName: string;
   setupComplete: boolean;
+  currency?: string | null;
 }
 
 interface CompanyContextValue {
@@ -101,7 +103,17 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     queryClient.removeQueries();
   }, [queryClient]);
 
-  const activeCompanyName = companies.find((c) => c.id === activeCompanyId)?.businessName || '';
+  const activeCompany = companies.find((c) => c.id === activeCompanyId);
+  const activeCompanyName = activeCompany?.businessName || '';
+
+  // Push the active company's currency into the money formatter's runtime
+  // registry whenever the selected company changes. Individual formatMoney
+  // calls across the app don't know about CompanyContext — this one-line
+  // effect gets them the right currency without threading a prop through
+  // every component.
+  useEffect(() => {
+    setActiveCurrency(activeCompany?.currency || 'USD');
+  }, [activeCompany?.currency]);
 
   return (
     <CompanyContext.Provider value={{

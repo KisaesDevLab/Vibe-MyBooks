@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle } from 'lucide-react';
 
 interface TenantUser {
@@ -49,6 +50,9 @@ export function TenantDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pendingAccessChange, setPendingAccessChange] = useState<
+    { userId: string; email: string; isActive: boolean } | null
+  >(null);
 
   const toggleAccessMutation = useMutation({
     mutationFn: (userId: string) =>
@@ -84,7 +88,12 @@ export function TenantDetailPage() {
   const { data: tenant, isLoading, error } = useQuery({
     queryKey: ['admin', 'tenants', id],
     queryFn: async () => {
-      const res = await apiClient<any>(`/admin/tenants/${id}`);
+      const res = await apiClient<{
+        tenant: { id: string; name: string; slug: string; createdAt?: string; created_at?: string };
+        users: TenantUser[];
+        companies: Array<{ id: string; businessName?: string; business_name?: string; name?: string; setupComplete?: boolean; setup_complete?: boolean }>;
+        stats?: { accounts?: string; transactions?: string; contacts?: string };
+      }>(`/admin/tenants/${id}`);
       return {
         id: res.tenant.id,
         name: res.tenant.name,
@@ -92,7 +101,7 @@ export function TenantDetailPage() {
         isActive: true,
         createdAt: res.tenant.createdAt || res.tenant.created_at,
         users: res.users,
-        companies: (res.companies || []).map((c: any) => ({
+        companies: (res.companies || []).map((c) => ({
           id: c.id,
           name: c.businessName || c.business_name || c.name,
           isSetupComplete: c.setupComplete ?? c.setup_complete ?? false,
@@ -137,6 +146,18 @@ export function TenantDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
+      <ConfirmDialog
+        open={!!pendingAccessChange}
+        title={`${pendingAccessChange?.isActive ? 'Revoke' : 'Grant'} access?`}
+        message={`${pendingAccessChange?.isActive ? 'Revoke' : 'Grant'} access for "${pendingAccessChange?.email}" to this tenant.`}
+        confirmLabel={pendingAccessChange?.isActive ? 'Revoke' : 'Grant'}
+        variant={pendingAccessChange?.isActive ? 'danger' : 'primary'}
+        onCancel={() => setPendingAccessChange(null)}
+        onConfirm={() => {
+          if (pendingAccessChange) toggleAccessMutation.mutate(pendingAccessChange.userId);
+          setPendingAccessChange(null);
+        }}
+      />
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate('/admin/tenants')}
@@ -266,11 +287,13 @@ export function TenantDetailPage() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
-                        onClick={() => {
-                          if (confirm(`${u.isActive ? 'Revoke' : 'Grant'} access for "${u.email}" to this tenant?`)) {
-                            toggleAccessMutation.mutate(u.id);
-                          }
-                        }}
+                        onClick={() =>
+                          setPendingAccessChange({
+                            userId: u.id,
+                            email: u.email,
+                            isActive: u.isActive,
+                          })
+                        }
                         className={`text-xs font-medium px-3 py-1 rounded-full ${
                           u.isActive
                             ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'

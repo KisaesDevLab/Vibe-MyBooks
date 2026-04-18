@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import type { Account, PlaidAccount } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
 import { useAssignPlaidAccount } from '../../api/hooks/usePlaid';
 import { Button } from '../../components/ui/Button';
@@ -11,7 +12,7 @@ import { Input } from '../../components/ui/Input';
 import { CheckCircle } from 'lucide-react';
 
 interface Props {
-  accounts: any[];
+  accounts: PlaidAccount[];
   hiddenAccountCount?: number;
   onClose: () => void;
   onComplete: () => void;
@@ -33,25 +34,25 @@ export function PlaidMappingWizard({ accounts, hiddenAccountCount = 0, onClose, 
   // User's accessible companies
   const { data: authData } = useQuery({
     queryKey: ['auth', 'me'],
-    queryFn: () => apiClient<any>('/auth/me'),
+    queryFn: () => apiClient<{ accessibleTenants?: Array<{ tenantId: string; tenantName: string }> }>('/auth/me'),
   });
-  const accessibleTenants: Array<{ tenantId: string; tenantName: string }> = authData?.accessibleTenants || [];
+  const accessibleTenants = authData?.accessibleTenants || [];
   const hasMultipleCompanies = accessibleTenants.length > 1;
 
   // COA accounts for the current tenant
   const { data: coaData } = useQuery({
     queryKey: ['accounts'],
-    queryFn: () => apiClient<{ data: any[] }>('/accounts?limit=500'),
+    queryFn: () => apiClient<{ data: Account[] }>('/accounts?limit=500'),
   });
-  const coaAccounts = (coaData?.data || []).filter((a: any) =>
-    ['bank', 'credit_card', 'other_current_asset', 'other_current_liability'].includes(a.detailType),
+  const coaAccounts = (coaData?.data || []).filter((a) =>
+    ['bank', 'credit_card', 'other_current_asset', 'other_current_liability'].includes(a.detailType ?? ''),
   );
 
-  const unassigned = accounts.filter((a: any) => !a.mapping);
-  const assigned = accounts.filter((a: any) => a.mapping);
+  const unassigned = accounts.filter((a) => !a.mapping);
+  const assigned = accounts.filter((a) => a.mapping);
 
   const getMapping = (id: string) => mappings[id] || { tenantId: '', coaAccountId: '', syncStartDate: QUICK_DATES[1]!.value(), skip: false };
-  const setField = (id: string, field: string, value: any) => {
+  const setField = (id: string, field: keyof ReturnType<typeof getMapping>, value: string | boolean) => {
     setMappings((m) => ({ ...m, [id]: { ...getMapping(id), [field]: value } }));
   };
 
@@ -100,7 +101,7 @@ export function PlaidMappingWizard({ accounts, hiddenAccountCount = 0, onClose, 
             {assigned.length > 0 && (
               <div className="mb-4">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Already Mapped</p>
-                {assigned.map((a: any) => (
+                {assigned.map((a) => (
                   <div key={a.id} className="flex items-center justify-between py-1.5 text-sm text-gray-600">
                     <span>{a.name} {a.mask && `(****${a.mask})`}</span>
                     <span className="text-green-600 text-xs">Mapped</span>
@@ -113,7 +114,7 @@ export function PlaidMappingWizard({ accounts, hiddenAccountCount = 0, onClose, 
             {unassigned.length > 0 && (
               <div className="space-y-4">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Available Accounts</p>
-                {unassigned.map((acct: any) => {
+                {unassigned.map((acct) => {
                   const m = getMapping(acct.id);
                   return (
                     <div key={acct.id} className="border border-gray-200 rounded-lg p-4">
@@ -149,7 +150,7 @@ export function PlaidMappingWizard({ accounts, hiddenAccountCount = 0, onClose, 
                             <select className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                               value={m.coaAccountId} onChange={(e) => setField(acct.id, 'coaAccountId', e.target.value)}>
                               <option value="">Select account...</option>
-                              {coaAccounts.map((a: any) => (
+                              {coaAccounts.map((a) => (
                                 <option key={a.id} value={a.id}>{a.accountNumber ? `${a.accountNumber} - ` : ''}{a.name}</option>
                               ))}
                             </select>

@@ -9,7 +9,17 @@ import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Fingerprint, Mail, KeyRound, Trash2, Pencil, Plus } from 'lucide-react';
+
+interface PasskeyRow {
+  id: string;
+  deviceName?: string | null;
+  backedUp?: boolean;
+  createdAt?: string;
+  lastUsedAt?: string | null;
+  [key: string]: unknown;
+}
 
 export function LoginMethodSettings() {
   const queryClient = useQueryClient();
@@ -18,6 +28,7 @@ export function LoginMethodSettings() {
   const [registerError, setRegisterError] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [removeId, setRemoveId] = useState<string | null>(null);
 
   // Fetch system methods
   const { data: methods } = useQuery({
@@ -28,7 +39,7 @@ export function LoginMethodSettings() {
   // Fetch user passkeys
   const { data: passkeyData, isLoading: passkeysLoading } = useQuery({
     queryKey: ['passkeys'],
-    queryFn: () => apiClient<{ passkeys: any[] }>('/auth/passkeys/me'),
+    queryFn: () => apiClient<{ passkeys: PasskeyRow[] }>('/auth/passkeys/me'),
     enabled: methods?.loginMethods?.passkey,
   });
 
@@ -41,7 +52,14 @@ export function LoginMethodSettings() {
   // Mutations
   const registerPasskey = useMutation({
     mutationFn: async (name: string) => {
-      const options = await apiClient<any>('/auth/passkeys/register/options', { method: 'POST' });
+      // The options payload comes straight from @simplewebauthn/server —
+      // startRegistration validates the fields it needs, so we don't
+      // duplicate the whole PublicKeyCredentialCreationOptionsJSON shape
+      // here.
+      const options = await apiClient<Parameters<typeof startRegistration>[0]['optionsJSON']>(
+        '/auth/passkeys/register/options',
+        { method: 'POST' },
+      );
       const attResp = await startRegistration({ optionsJSON: options });
       return apiClient('/auth/passkeys/register/verify', {
         method: 'POST',
@@ -49,7 +67,7 @@ export function LoginMethodSettings() {
       });
     },
     onSuccess: () => { setShowRegister(false); setPasskeyName(''); setRegisterError(''); queryClient.invalidateQueries({ queryKey: ['passkeys'] }); },
-    onError: (e: any) => setRegisterError(e.name === 'NotAllowedError' ? 'Registration was cancelled.' : (e.message || 'Registration failed.')),
+    onError: (e: Error) => setRegisterError(e.name === 'NotAllowedError' ? 'Registration was cancelled.' : (e.message || 'Registration failed.')),
   });
 
   const removePasskey = useMutation({
@@ -120,7 +138,7 @@ export function LoginMethodSettings() {
             <p className="text-sm text-gray-400">No passkeys registered.</p>
           ) : (
             <div className="space-y-2">
-              {passkeys.map((pk: any) => (
+              {passkeys.map((pk: PasskeyRow) => (
                 <div key={pk.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     {renamingId === pk.id ? (
@@ -133,7 +151,7 @@ export function LoginMethodSettings() {
                       <>
                         <p className="text-sm font-medium text-gray-900">{pk.deviceName || 'Passkey'}</p>
                         <p className="text-xs text-gray-500">
-                          Added {new Date(pk.createdAt).toLocaleDateString()}
+                          {pk.createdAt && `Added ${new Date(pk.createdAt).toLocaleDateString()}`}
                           {pk.lastUsedAt && ` · Last used ${new Date(pk.lastUsedAt).toLocaleDateString()}`}
                           {pk.backedUp && ' · Synced'}
                         </p>
@@ -145,7 +163,7 @@ export function LoginMethodSettings() {
                       <button onClick={() => { setRenamingId(pk.id); setRenameValue(pk.deviceName || ''); }} className="p-1 text-gray-400 hover:text-gray-600">
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button onClick={() => { if (confirm('Remove this passkey?')) removePasskey.mutate(pk.id); }} className="p-1 text-red-400 hover:text-red-600">
+                      <button onClick={() => setRemoveId(pk.id)} className="p-1 text-red-400 hover:text-red-600">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -197,6 +215,19 @@ export function LoginMethodSettings() {
           <p className="text-xs text-gray-500">This method will be shown first on the login page.</p>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!removeId}
+        title="Remove passkey?"
+        message="You will no longer be able to sign in with this device until you re-register it."
+        confirmLabel="Remove"
+        variant="danger"
+        onCancel={() => setRemoveId(null)}
+        onConfirm={() => {
+          if (removeId) removePasskey.mutate(removeId);
+          setRemoveId(null);
+        }}
+      />
     </div>
   );
 }

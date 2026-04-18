@@ -5,6 +5,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import {
   usePayrollSessions,
   useDeletePayrollSession,
@@ -38,19 +40,71 @@ export function PayrollHistoryPage() {
   const sessions = data?.data || [];
   const total = data?.total || 0;
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this import session?')) return;
-    await deleteMutation.mutateAsync(id);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [reverseId, setReverseId] = useState<string | null>(null);
+  const [reverseReason, setReverseReason] = useState('');
+
+  const handleDelete = (id: string) => setDeleteId(id);
+
+  const handleReverse = (id: string) => {
+    setReverseId(id);
+    setReverseReason('');
   };
 
-  const handleReverse = async (id: string) => {
-    const reason = prompt('Reason for reversal:');
-    if (!reason) return;
-    await reverseMutation.mutateAsync({ sessionId: id, reason });
+  const performReverse = async () => {
+    if (!reverseId || !reverseReason.trim()) return;
+    await reverseMutation.mutateAsync({ sessionId: reverseId, reason: reverseReason.trim() });
+    setReverseId(null);
+    setReverseReason('');
   };
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!deleteId}
+        title="Delete import session?"
+        message="This permanently removes the session record. If it has been posted, reverse it first."
+        confirmLabel="Delete"
+        variant="danger"
+        onCancel={() => setDeleteId(null)}
+        onConfirm={async () => {
+          if (deleteId) await deleteMutation.mutateAsync(deleteId);
+          setDeleteId(null);
+        }}
+      />
+      {reverseId && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reverse-payroll-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setReverseId(null)}
+        >
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 id="reverse-payroll-title" className="text-lg font-semibold text-gray-900">Reverse payroll?</h3>
+            </div>
+            <div className="px-6 py-4 space-y-3">
+              <p className="text-sm text-gray-600">
+                Reversing creates offsetting journal entries. Provide a reason that will be stored in the audit log.
+              </p>
+              <Input
+                label="Reason"
+                value={reverseReason}
+                onChange={(e) => setReverseReason(e.target.value)}
+                placeholder="e.g. Mistaken upload"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <Button variant="secondary" onClick={() => setReverseId(null)}>Cancel</Button>
+              <Button variant="danger" onClick={performReverse} disabled={!reverseReason.trim()} loading={reverseMutation.isPending}>
+                Reverse
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Payroll Import History</h1>
         <Button onClick={() => navigate('/payroll/import')}>New Import</Button>
@@ -64,7 +118,7 @@ export function PayrollHistoryPage() {
             <select
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
               value={statusFilter}
-              onChange={e => { setStatusFilter(e.target.value as any); setPage(0); }}
+              onChange={e => { setStatusFilter(e.target.value as PayrollSessionStatus | ''); setPage(0); }}
             >
               <option value="">All</option>
               <option value="uploaded">Uploaded</option>

@@ -9,7 +9,7 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { setTokens } from '../../api/client';
-import { TfaVerifyStep } from './TfaVerifyStep';
+import { TfaVerifyStep, type TfaVerifiedPayload } from './TfaVerifyStep';
 import { AlertCircle, Fingerprint, Mail, KeyRound } from 'lucide-react';
 
 // ─── Error helpers ────────────────────────────────────────────
@@ -328,7 +328,7 @@ export function LoginPage() {
 
   // ─── TFA Success ─────────────────────────────────────────────
 
-  const handleTfaSuccess = (data: any) => {
+  const handleTfaSuccess = (data: TfaVerifiedPayload) => {
     setTokens(data.tokens);
     setTimeout(() => navigate('/'), 50);
   };

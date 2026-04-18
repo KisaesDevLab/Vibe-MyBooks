@@ -47,9 +47,9 @@ export function PreferencesPage() {
         currency: data.settings.currency ?? 'USD',
         dateFormat: data.settings.dateFormat ?? 'MM/DD/YYYY',
         categoryFilterMode: data.settings.categoryFilterMode ?? 'by_type',
-        defaultLineEntryMode: (data.settings as any).defaultLineEntryMode ?? 'category',
-        lockDate: (data.settings as any).lockDate ?? '',
-        chatSupportEnabled: (data.settings as any).chatSupportEnabled ?? false,
+        defaultLineEntryMode: data.settings.defaultLineEntryMode ?? 'category',
+        lockDate: data.settings.lockDate ?? '',
+        chatSupportEnabled: data.settings.chatSupportEnabled ?? false,
       });
     }
   }, [data]);
@@ -64,9 +64,11 @@ export function PreferencesPage() {
       accountingMethod: form.accountingMethod as AccountingMethod,
       defaultPaymentTerms: form.defaultPaymentTerms as PaymentTermsType,
       categoryFilterMode: form.categoryFilterMode as CategoryFilterMode,
+      defaultLineEntryMode: form.defaultLineEntryMode as 'category' | 'item',
       fiscalYearStartMonth: Number(form.fiscalYearStartMonth),
       invoiceNextNumber: Number(form.invoiceNextNumber),
-    } as any);
+      lockDate: form.lockDate || null,
+    });
   };
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>

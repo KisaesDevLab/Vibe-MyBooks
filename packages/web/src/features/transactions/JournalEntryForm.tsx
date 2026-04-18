@@ -2,9 +2,21 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import type { JournalLine, JournalLineInput } from '@kis-books/shared';
 import { useCreateTransaction, useUpdateTransaction, useTransaction } from '../../api/hooks/useTransactions';
+
+interface JournalEntryPayload extends Record<string, unknown> {
+  txnType: 'journal_entry';
+  txnDate: string;
+  memo: string;
+  lines: JournalLineInput[];
+  tags: string[];
+  draftAttachmentId?: string;
+}
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
@@ -24,7 +36,7 @@ export function JournalEntryForm() {
   const createTxn = useCreateTransaction();
   const updateTxn = useUpdateTransaction();
   const { data: existingData, isLoading: loadingExisting } = useTransaction(editId || '');
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
 
   const [txnDate, setTxnDate] = useState(today);
   const [memo, setMemo] = useState('');
@@ -44,7 +56,7 @@ export function JournalEntryForm() {
 
       const txnLines = txn.lines || [];
       if (txnLines.length > 0) {
-        setLines(txnLines.map((l: any) => ({
+        setLines(txnLines.map((l: JournalLine) => ({
           accountId: l.accountId,
           description: l.description || '',
           debit: parseFloat(l.debit) > 0 ? parseFloat(l.debit).toString() : '',
@@ -72,7 +84,7 @@ export function JournalEntryForm() {
     e.preventDefault();
     if (!isBalanced) return;
 
-    const payload: any = {
+    const payload: JournalEntryPayload = {
       txnType: 'journal_entry',
       txnDate,
       memo,

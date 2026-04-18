@@ -30,7 +30,29 @@ export function AiConfigPage() {
   const updateConfig = useUpdateAiConfig();
   const testProvider = useTestAiProvider();
 
-  const [form, setForm] = useState<any>({
+  type PiiLevel = 'strict' | 'standard' | 'permissive';
+  interface AiConfigFormState {
+    isEnabled: boolean;
+    categorizationProvider: string;
+    categorizationModel: string;
+    ocrProvider: string;
+    ocrModel: string;
+    anthropicApiKey: string;
+    openaiApiKey: string;
+    geminiApiKey: string;
+    ollamaBaseUrl: string;
+    glmOcrApiKey: string;
+    glmOcrBaseUrl: string;
+    autoCategorizeOnImport: boolean;
+    autoOcrOnUpload: boolean;
+    categorizationConfidenceThreshold: number;
+    maxConcurrentJobs: number;
+    monthlyBudgetLimit: number | null;
+    piiProtectionLevel: PiiLevel;
+    cloudVisionEnabled: boolean;
+  }
+
+  const [form, setForm] = useState<AiConfigFormState>({
     isEnabled: false,
     categorizationProvider: '',
     categorizationModel: '',
@@ -46,8 +68,8 @@ export function AiConfigPage() {
     autoOcrOnUpload: true,
     categorizationConfidenceThreshold: 0.7,
     maxConcurrentJobs: 5,
-    monthlyBudgetLimit: null as number | null,
-    piiProtectionLevel: 'strict' as 'strict' | 'standard' | 'permissive',
+    monthlyBudgetLimit: null,
+    piiProtectionLevel: 'strict',
     cloudVisionEnabled: false,
   });
   const [saved, setSaved] = useState(false);
@@ -61,7 +83,7 @@ export function AiConfigPage() {
 
   useEffect(() => {
     if (data) {
-      setForm((f: any) => ({
+      setForm((f) => ({
         ...f,
         isEnabled: data.isEnabled,
         categorizationProvider: data.categorizationProvider || '',
@@ -75,7 +97,7 @@ export function AiConfigPage() {
         categorizationConfidenceThreshold: data.categorizationConfidenceThreshold,
         maxConcurrentJobs: data.maxConcurrentJobs,
         monthlyBudgetLimit: data.monthlyBudgetLimit,
-        piiProtectionLevel: data.piiProtectionLevel || 'strict',
+        piiProtectionLevel: (data.piiProtectionLevel || 'strict') as PiiLevel,
         cloudVisionEnabled: !!data.cloudVisionEnabled,
       }));
     }
@@ -85,8 +107,8 @@ export function AiConfigPage() {
     try {
       const result = await testProvider.mutateAsync(provider);
       setTestResults((r) => ({ ...r, [provider]: { ok: result.success, msg: result.modelInfo || result.error || '' } }));
-    } catch (e: any) {
-      setTestResults((r) => ({ ...r, [provider]: { ok: false, msg: e.message } }));
+    } catch (e) {
+      setTestResults((r) => ({ ...r, [provider]: { ok: false, msg: e instanceof Error ? e.message : 'Test failed' } }));
     }
   };
 
@@ -135,7 +157,7 @@ export function AiConfigPage() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <label className={`flex items-center gap-3 ${disclosure?.acceptedAt ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
             <input type="checkbox" checked={form.isEnabled} disabled={!disclosure?.acceptedAt}
-              onChange={(e) => setForm((f: any) => ({ ...f, isEnabled: e.target.checked }))}
+              onChange={(e) => setForm((f) => ({ ...f, isEnabled: e.target.checked }))}
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-5 w-5 disabled:cursor-not-allowed" />
             <div>
               <span className="text-sm font-medium text-gray-700">Enable AI Processing</span>
@@ -164,7 +186,7 @@ export function AiConfigPage() {
               ].map((opt) => (
                 <label key={opt.key} className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <input type="radio" name="pii-level" value={opt.key} checked={form.piiProtectionLevel === opt.key}
-                    onChange={() => setForm((f: any) => ({ ...f, piiProtectionLevel: opt.key, cloudVisionEnabled: opt.key === 'permissive' ? f.cloudVisionEnabled : false }))}
+                    onChange={() => setForm((f) => ({ ...f, piiProtectionLevel: opt.key as PiiLevel, cloudVisionEnabled: opt.key === 'permissive' ? f.cloudVisionEnabled : false }))}
                     className="mt-0.5 text-primary-600 focus:ring-primary-500" />
                   <div>
                     <p className="text-sm font-medium text-gray-800">{opt.label}</p>
@@ -181,7 +203,7 @@ export function AiConfigPage() {
                 disabled={form.piiProtectionLevel !== 'permissive'}
                 onChange={(e) => {
                   if (e.target.checked) { setPermissiveAckOpen(true); }
-                  else setForm((f: any) => ({ ...f, cloudVisionEnabled: false }));
+                  else setForm((f) => ({ ...f, cloudVisionEnabled: false }));
                 }}
                 className="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4" />
               <div>
@@ -250,8 +272,8 @@ export function AiConfigPage() {
             <div key={p.key} className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="flex-1 min-w-0">
-                  <Input label={p.label} type="password" value={form[p.field]}
-                    onChange={(e) => setForm((f: any) => ({ ...f, [p.field]: e.target.value }))}
+                  <Input label={p.label} type="password" value={form[p.field as keyof AiConfigFormState] as string}
+                    onChange={(e) => setForm((f) => ({ ...f, [p.field]: e.target.value }))}
                     placeholder={p.hasKey ? '••••••••••• (configured)' : `Enter ${p.label}`} />
                 </div>
                 <div className="pt-5">
@@ -270,7 +292,7 @@ export function AiConfigPage() {
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
                 <Input label="Ollama Base URL" value={form.ollamaBaseUrl}
-                  onChange={(e) => setForm((f: any) => ({ ...f, ollamaBaseUrl: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, ollamaBaseUrl: e.target.value }))}
                   placeholder="http://localhost:11434" />
               </div>
               <div className="pt-5">
@@ -289,7 +311,7 @@ export function AiConfigPage() {
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
                 <Input label="GLM-OCR API Key" type="password" value={form.glmOcrApiKey}
-                  onChange={(e) => setForm((f: any) => ({ ...f, glmOcrApiKey: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, glmOcrApiKey: e.target.value }))}
                   placeholder={data?.hasGlmOcrKey ? '••••••••••• (configured)' : 'Enter GLM-OCR API Key'} />
               </div>
               <div className="pt-5">
@@ -308,7 +330,7 @@ export function AiConfigPage() {
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
                 <Input label="GLM-OCR Base URL (local)" value={form.glmOcrBaseUrl}
-                  onChange={(e) => setForm((f: any) => ({ ...f, glmOcrBaseUrl: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, glmOcrBaseUrl: e.target.value }))}
                   placeholder="http://localhost:11434" />
               </div>
               <div className="pt-5">
@@ -335,7 +357,7 @@ export function AiConfigPage() {
             <div key={task.providerField} className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{task.label} Provider</label>
-                <select value={form[task.providerField]} onChange={(e) => setForm((f: any) => ({ ...f, [task.providerField]: e.target.value }))}
+                <select value={form[task.providerField as keyof AiConfigFormState] as string} onChange={(e) => setForm((f) => ({ ...f, [task.providerField]: e.target.value }))}
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
                   <option value="">Not configured</option>
                   {PROVIDERS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
@@ -344,7 +366,7 @@ export function AiConfigPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
                 <input className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  value={form[task.modelField]} onChange={(e) => setForm((f: any) => ({ ...f, [task.modelField]: e.target.value }))}
+                  value={form[task.modelField as keyof AiConfigFormState] as string} onChange={(e) => setForm((f) => ({ ...f, [task.modelField]: e.target.value }))}
                   placeholder="e.g., claude-sonnet-4-20250514" />
               </div>
             </div>
@@ -356,22 +378,22 @@ export function AiConfigPage() {
           <h2 className="text-lg font-semibold text-gray-800">Settings</h2>
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" checked={form.autoCategorizeOnImport}
-              onChange={(e) => setForm((f: any) => ({ ...f, autoCategorizeOnImport: e.target.checked }))}
+              onChange={(e) => setForm((f) => ({ ...f, autoCategorizeOnImport: e.target.checked }))}
               className="rounded border-gray-300 text-primary-600 h-4 w-4" />
             <span className="text-sm text-gray-700">Auto-categorize bank feed items on import</span>
           </label>
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" checked={form.autoOcrOnUpload}
-              onChange={(e) => setForm((f: any) => ({ ...f, autoOcrOnUpload: e.target.checked }))}
+              onChange={(e) => setForm((f) => ({ ...f, autoOcrOnUpload: e.target.checked }))}
               className="rounded border-gray-300 text-primary-600 h-4 w-4" />
             <span className="text-sm text-gray-700">Auto-OCR receipts on upload</span>
           </label>
           <Input label="Confidence Threshold" type="number" step="0.05" min="0" max="1"
             value={String(form.categorizationConfidenceThreshold)}
-            onChange={(e) => setForm((f: any) => ({ ...f, categorizationConfidenceThreshold: parseFloat(e.target.value) }))} />
+            onChange={(e) => setForm((f) => ({ ...f, categorizationConfidenceThreshold: parseFloat(e.target.value) }))} />
           <Input label="Monthly Budget Limit ($)" type="number" step="1" min="0"
             value={form.monthlyBudgetLimit != null ? String(form.monthlyBudgetLimit) : ''}
-            onChange={(e) => setForm((f: any) => ({ ...f, monthlyBudgetLimit: e.target.value ? parseFloat(e.target.value) : null }))}
+            onChange={(e) => setForm((f) => ({ ...f, monthlyBudgetLimit: e.target.value ? parseFloat(e.target.value) : null }))}
             placeholder="Unlimited" />
         </div>
 
@@ -383,8 +405,8 @@ export function AiConfigPage() {
               <Button variant="secondary" size="sm" onClick={async () => {
                 try {
                   const res = await fetch(`${form.ollamaBaseUrl}/api/tags`);
-                  const d = await res.json() as any;
-                  setOllamaModels((d.models || []).map((m: any) => m.name));
+                  const d = await res.json() as { models?: Array<{ name: string }> };
+                  setOllamaModels((d.models || []).map((m) => m.name));
                 } catch { setOllamaModels([]); }
               }}>Refresh</Button>
             </div>
@@ -418,8 +440,16 @@ export function AiConfigPage() {
           <ChatSettingsSection />
         </div>
 
-        {updateConfig.error && <p className="text-sm text-red-600">{(updateConfig.error as any).message}</p>}
-        <Button onClick={() => { updateConfig.mutate(form); setSaved(true); setTimeout(() => setSaved(false), 3000); }} loading={updateConfig.isPending}>
+        {updateConfig.error && <p className="text-sm text-red-600">{updateConfig.error.message}</p>}
+        <Button onClick={() => {
+          // The form state uses plain strings for provider names because the
+          // <select> widens to string. The API type narrows these to the
+          // AiProviderName union, so cast at the mutation boundary — the
+          // server still validates the value against the allowed set.
+          updateConfig.mutate(form as unknown as Parameters<typeof updateConfig.mutate>[0]);
+          setSaved(true);
+          setTimeout(() => setSaved(false), 3000);
+        }} loading={updateConfig.isPending}>
           Save Configuration
         </Button>
       </div>
@@ -437,7 +467,7 @@ export function AiConfigPage() {
       {permissiveAckOpen && (
         <PermissiveAckModal
           onCancel={() => setPermissiveAckOpen(false)}
-          onConfirm={() => { setForm((f: any) => ({ ...f, cloudVisionEnabled: true })); setPermissiveAckOpen(false); }}
+          onConfirm={() => { setForm((f) => ({ ...f, cloudVisionEnabled: true })); setPermissiveAckOpen(false); }}
         />
       )}
     </div>
@@ -502,9 +532,18 @@ function PermissiveAckModal({ onCancel, onConfirm }: { onCancel: () => void; onC
   );
 }
 
+interface AiUsageRow {
+  provider: string;
+  calls: string;
+  cost?: string;
+}
+
 function UsageSummarySection() {
-  const { data } = useQuery({ queryKey: ['ai', 'admin-usage'], queryFn: () => apiClient<any>('/ai/admin/usage?months=1') });
-  const rows = (data?.rows || []) as any[];
+  const { data } = useQuery({
+    queryKey: ['ai', 'admin-usage'],
+    queryFn: () => apiClient<{ rows: AiUsageRow[] }>('/ai/admin/usage?months=1'),
+  });
+  const rows = data?.rows || [];
   if (rows.length === 0) return <p className="text-sm text-gray-400">No AI usage recorded yet.</p>;
 
   const byProvider: Record<string, { calls: number; cost: number }> = {};
@@ -528,15 +567,36 @@ function UsageSummarySection() {
   );
 }
 
+interface AiPromptTemplate {
+  id: string;
+  taskType: string;
+  provider?: string | null;
+  version: number;
+  isActive: boolean;
+  systemPrompt: string;
+  userPromptTemplate: string;
+  notes?: string | null;
+}
+
+interface AiPromptInput {
+  taskType: string;
+  systemPrompt: string;
+  userPromptTemplate: string;
+  notes?: string;
+}
+
 function PromptEditorSection() {
-  const { data } = useQuery({ queryKey: ['ai', 'prompts'], queryFn: () => apiClient<any>('/ai/admin/prompts') });
+  const { data } = useQuery({
+    queryKey: ['ai', 'prompts'],
+    queryFn: () => apiClient<{ prompts: AiPromptTemplate[] }>('/ai/admin/prompts'),
+  });
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState<any>(null);
+  const [editing, setEditing] = useState<AiPromptTemplate | null>(null);
   const [newPrompt, setNewPrompt] = useState(false);
   const [form, setForm] = useState({ taskType: 'categorize', systemPrompt: '', userPromptTemplate: '', notes: '' });
 
   const saveMutation = useMutation({
-    mutationFn: (input: any) => editing
+    mutationFn: (input: AiPromptInput) => editing
       ? apiClient(`/ai/admin/prompts/${editing.id}`, { method: 'PUT', body: JSON.stringify(input) })
       : apiClient('/ai/admin/prompts', { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => { setEditing(null); setNewPrompt(false); queryClient.invalidateQueries({ queryKey: ['ai', 'prompts'] }); },
@@ -546,7 +606,7 @@ function PromptEditorSection() {
 
   return (
     <div className="space-y-3">
-      {prompts.filter((p: any) => p.isActive).map((p: any) => (
+      {prompts.filter((p) => p.isActive).map((p) => (
         <div key={p.id} className="border border-gray-200 rounded-lg p-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-medium text-gray-800">{p.taskType} {p.provider && `(${p.provider})`} v{p.version}</span>

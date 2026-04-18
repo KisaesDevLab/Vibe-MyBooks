@@ -37,7 +37,7 @@ export function VendorCreditListPage() {
               </tr>
             </thead>
             <tbody>
-              {credits.map((c: any) => (
+              {credits.map((c) => (
                 <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="py-2 px-3 text-sm font-mono">{c.txnNumber}</td>
                   <td className="py-2 px-3 text-sm">{c.contactName}</td>

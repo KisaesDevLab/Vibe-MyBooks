@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, type FormEvent } from 'react';
 import type { Transaction } from '@kis-books/shared';
 import { useRecordPayment } from '../../api/hooks/useInvoices';
@@ -18,7 +20,7 @@ interface RecordPaymentModalProps {
 }
 
 export function RecordPaymentModal({ invoice, onClose }: RecordPaymentModalProps) {
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
   const balanceDue = parseFloat(invoice.balanceDue || invoice.total || '0');
 
   const [amount, setAmount] = useState(balanceDue.toFixed(2));

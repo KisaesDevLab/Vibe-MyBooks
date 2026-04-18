@@ -20,6 +20,23 @@
 
 export type MoneyInput = string | number | null | undefined;
 
+// Active currency for the current session. CompanyProvider updates this on
+// login and on company switch via setActiveCurrency(). Default is USD because
+// the appliance ships US-first, but any non-US operator now sees their
+// company.currency rendered without having to thread a currency prop through
+// every call site.
+let ACTIVE_CURRENCY = 'USD';
+let ACTIVE_LOCALE = 'en-US';
+
+export function setActiveCurrency(currency: string | null | undefined, locale?: string): void {
+  if (currency) ACTIVE_CURRENCY = currency.toUpperCase();
+  if (locale) ACTIVE_LOCALE = locale;
+}
+
+export function getActiveCurrency(): string {
+  return ACTIVE_CURRENCY;
+}
+
 function toNum(v: MoneyInput): number {
   if (v === null || v === undefined) return 0;
   if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
@@ -28,13 +45,14 @@ function toNum(v: MoneyInput): number {
 }
 
 /**
- * Format as USD with 2 decimal places and thousands separators,
- * e.g. `formatMoney("1234.5678") === "$1,234.57"`.
+ * Format using the session's active currency with 2 decimal places and
+ * thousands separators, e.g. `formatMoney("1234.5678") === "$1,234.57"`.
+ * Falls back to USD when the company hasn't set a currency yet.
  */
 export function formatMoney(v: MoneyInput): string {
-  return toNum(v).toLocaleString('en-US', {
+  return toNum(v).toLocaleString(ACTIVE_LOCALE, {
     style: 'currency',
-    currency: 'USD',
+    currency: ACTIVE_CURRENCY,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -47,8 +65,8 @@ export function formatMoneyWith(
   v: MoneyInput,
   options: { currency?: string; decimals?: number } = {},
 ): string {
-  const { currency = 'USD', decimals = 2 } = options;
-  return toNum(v).toLocaleString('en-US', {
+  const { currency = ACTIVE_CURRENCY, decimals = 2 } = options;
+  return toNum(v).toLocaleString(ACTIVE_LOCALE, {
     style: 'currency',
     currency,
     minimumFractionDigits: decimals,

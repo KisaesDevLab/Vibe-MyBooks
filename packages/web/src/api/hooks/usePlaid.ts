@@ -27,17 +27,41 @@ export function useCreateLinkToken() {
   });
 }
 
+export interface ExchangeTokenInput {
+  publicToken: string;
+  institutionId?: string;
+  institutionName?: string;
+  accounts?: Array<{ id: string; name?: string; type?: string; subtype?: string; mask?: string }>;
+  linkSessionId?: string;
+  forceNew?: boolean;
+}
+
+export interface ExchangeTokenResult {
+  item: PlaidItem;
+  isExisting?: boolean;
+  accounts?: PlaidAccount[];
+}
+
 export function useExchangeToken() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: any) => apiClient('/plaid/exchange', { method: 'POST', body: JSON.stringify(body) }),
+    mutationFn: (body: ExchangeTokenInput) =>
+      apiClient<ExchangeTokenResult>('/plaid/exchange', { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['plaid'] }),
   });
 }
 
+export interface PlaidInstitutionCheckResult {
+  exists: boolean;
+  existingItemId?: string;
+  accountCount?: number;
+  hiddenCount?: number;
+}
+
 export function useCheckInstitution() {
   return useMutation({
-    mutationFn: (institutionId: string) => apiClient<any>(`/plaid/check-institution?institutionId=${institutionId}`),
+    mutationFn: (institutionId: string) =>
+      apiClient<PlaidInstitutionCheckResult>(`/plaid/check-institution?institutionId=${institutionId}`),
   });
 }
 
@@ -110,10 +134,17 @@ export function useTogglePlaidSync() {
   });
 }
 
+export interface PlaidAccountSuggestion {
+  coaAccountId: string;
+  coaAccountNumber?: string | null;
+  coaAccountName: string;
+  confidence: string;
+}
+
 export function usePlaidAccountSuggestions(accountId: string) {
   return useQuery({
     queryKey: ['plaid', 'suggestions', accountId],
-    queryFn: () => apiClient<{ suggestions: any[] }>(`/plaid/accounts/${accountId}/suggestions`),
+    queryFn: () => apiClient<{ suggestions: PlaidAccountSuggestion[] }>(`/plaid/accounts/${accountId}/suggestions`),
     enabled: !!accountId,
   });
 }

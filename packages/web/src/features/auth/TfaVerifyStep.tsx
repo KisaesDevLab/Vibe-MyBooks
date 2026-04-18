@@ -3,8 +3,15 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useState, useRef, useEffect } from 'react';
+import type { User } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { Shield, Mail, Smartphone, Key } from 'lucide-react';
+
+export interface TfaVerifiedPayload {
+  user: User;
+  tokens: { accessToken: string };
+  accessibleTenants: Array<{ tenantId: string; tenantName: string; role?: string }>;
+}
 
 interface TfaVerifyStepProps {
   tfaToken: string;
@@ -12,7 +19,7 @@ interface TfaVerifyStepProps {
   preferredMethod: string;
   phoneMasked?: string;
   emailMasked?: string;
-  onSuccess: (data: { user: any; tokens: any; accessibleTenants: any[] }) => void;
+  onSuccess: (data: TfaVerifiedPayload) => void;
   /** Override the verify endpoint (e.g. for magic link flow) */
   verifyEndpoint?: string;
   /** Override the send-code endpoint */
@@ -103,8 +110,8 @@ export function TfaVerifyStep({ tfaToken, availableMethods, preferredMethod, pho
       } else {
         onSuccess(data);
       }
-    } catch (err: any) {
-      setError(err.message || 'Verification failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verification failed');
     } finally {
       setLoading(false);
     }
@@ -126,8 +133,8 @@ export function TfaVerifyStep({ tfaToken, availableMethods, preferredMethod, pho
       } else {
         onSuccess(data);
       }
-    } catch (err: any) {
-      setError(err.message || 'Recovery failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Recovery failed');
     } finally {
       setLoading(false);
     }

@@ -7,9 +7,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { HardDrive, Cloud, CheckCircle, AlertTriangle, RefreshCw, Trash2, Settings } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
-const PROVIDER_INFO: Record<string, { label: string; icon: any; color: string }> = {
+const PROVIDER_INFO: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   local: { label: 'Local Disk', icon: HardDrive, color: 'text-gray-600' },
   dropbox: { label: 'Dropbox', icon: Cloud, color: 'text-blue-600' },
   google_drive: { label: 'Google Drive', icon: Cloud, color: 'text-green-600' },
@@ -27,6 +29,10 @@ export function StorageSettingsPage() {
   const qc = useQueryClient();
   const [showS3, setShowS3] = useState(false);
   const [showConfig, setShowConfig] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<
+    | { title: string; message: string; confirmLabel: string; variant: 'primary' | 'danger'; onConfirm: () => void }
+    | null
+  >(null);
   const [s3Form, setS3Form] = useState({ bucket: '', region: 'us-east-1', endpoint: '', accessKeyId: '', secretAccessKey: '', prefix: '' });
   const [dropboxForm, setDropboxForm] = useState({ appKey: '', appSecret: '' });
   const [googleForm, setGoogleForm] = useState({ clientId: '', clientSecret: '' });
@@ -94,6 +100,18 @@ export function StorageSettingsPage() {
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!pendingAction}
+        title={pendingAction?.title ?? ''}
+        message={pendingAction?.message}
+        confirmLabel={pendingAction?.confirmLabel ?? 'Confirm'}
+        variant={pendingAction?.variant ?? 'primary'}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          pendingAction?.onConfirm();
+          setPendingAction(null);
+        }}
+      />
       <h1 className="text-2xl font-bold text-gray-900 mb-2">File Storage</h1>
       <p className="text-sm text-gray-500 mb-6">Choose where your uploaded files are stored.</p>
 
@@ -132,7 +150,7 @@ export function StorageSettingsPage() {
 
         {available.map((prov: string) => {
           const info = PROVIDER_INFO[prov] || { label: prov, icon: Cloud, color: 'text-gray-400' };
-          const connected = providers.find((p: any) => p.provider === prov);
+          const connected = providers.find((p: { provider: string }) => p.provider === prov);
           const isActive = active.provider === prov;
           const isOAuth = prov !== 'local' && prov !== 's3';
           const status = providerStatus[prov];
@@ -154,10 +172,24 @@ export function StorageSettingsPage() {
                 {isActive && <CheckCircle className="h-5 w-5 text-primary-600" />}
                 {!isActive && isConnected && (
                   <>
-                    <Button size="sm" variant="secondary" onClick={() => {
-                      if (confirm(`Switch to ${info.label}? This may require migrating existing files.`)) activate.mutate(prov);
-                    }}>Set Active</Button>
-                    <Button variant="ghost" size="sm" onClick={() => { if (confirm(`Disconnect ${info.label}?`)) disconnect.mutate(prov); }}>
+                    <Button size="sm" variant="secondary" onClick={() =>
+                      setPendingAction({
+                        title: `Switch to ${info.label}?`,
+                        message: 'This may require migrating existing files.',
+                        confirmLabel: 'Set Active',
+                        variant: 'primary',
+                        onConfirm: () => activate.mutate(prov),
+                      })
+                    }>Set Active</Button>
+                    <Button variant="ghost" size="sm" onClick={() =>
+                      setPendingAction({
+                        title: `Disconnect ${info.label}?`,
+                        message: 'Saved credentials for this provider will be removed.',
+                        confirmLabel: 'Disconnect',
+                        variant: 'danger',
+                        onConfirm: () => disconnect.mutate(prov),
+                      })
+                    }>
                       <Trash2 className="h-4 w-4 text-red-400" />
                     </Button>
                   </>
@@ -179,7 +211,15 @@ export function StorageSettingsPage() {
                   <Button size="sm" onClick={() => setShowS3(true)}>Configure</Button>
                 )}
                 {isActive && prov !== 'local' && (
-                  <Button variant="ghost" size="sm" onClick={() => { if (confirm(`Disconnect ${info.label}? You will need to switch to another provider first.`)) disconnect.mutate(prov); }}>
+                  <Button variant="ghost" size="sm" onClick={() =>
+                    setPendingAction({
+                      title: `Disconnect ${info.label}?`,
+                      message: 'You will need to switch to another provider first.',
+                      confirmLabel: 'Disconnect',
+                      variant: 'danger',
+                      onConfirm: () => disconnect.mutate(prov),
+                    })
+                  }>
                     <Trash2 className="h-4 w-4 text-red-400" />
                   </Button>
                 )}
@@ -200,7 +240,7 @@ export function StorageSettingsPage() {
             <Input label="Access Key ID" value={s3Form.accessKeyId} onChange={(e) => setS3Form((f) => ({ ...f, accessKeyId: e.target.value }))} />
             <Input label="Secret Access Key" type="password" value={s3Form.secretAccessKey} onChange={(e) => setS3Form((f) => ({ ...f, secretAccessKey: e.target.value }))} />
             <Input label="Path Prefix (optional)" value={s3Form.prefix} onChange={(e) => setS3Form((f) => ({ ...f, prefix: e.target.value }))} placeholder="kisbooks/" />
-            {saveS3.error && <p className="text-sm text-red-600">{(saveS3.error as any).message}</p>}
+            {saveS3.error && <p className="text-sm text-red-600">{saveS3.error.message}</p>}
             <div className="flex justify-end gap-3">
               <Button variant="secondary" onClick={() => setShowS3(false)}>Cancel</Button>
               <Button onClick={() => saveS3.mutate()} loading={saveS3.isPending}>Save & Connect</Button>
@@ -220,7 +260,7 @@ export function StorageSettingsPage() {
             </p>
             <Input label="App Key" value={dropboxForm.appKey} onChange={(e) => setDropboxForm((f) => ({ ...f, appKey: e.target.value }))} placeholder="Enter your Dropbox App Key" />
             <Input label="App Secret" type="password" value={dropboxForm.appSecret} onChange={(e) => setDropboxForm((f) => ({ ...f, appSecret: e.target.value }))} placeholder="Enter your Dropbox App Secret" />
-            {configureProvider.error && showConfig === 'dropbox' && <p className="text-sm text-red-600">{(configureProvider.error as any).message}</p>}
+            {configureProvider.error && showConfig === 'dropbox' && <p className="text-sm text-red-600">{configureProvider.error.message}</p>}
             <div className="flex justify-end gap-3">
               <Button variant="secondary" onClick={() => setShowConfig(null)}>Cancel</Button>
               <Button onClick={() => configureProvider.mutate({ provider: 'dropbox', body: dropboxForm })}
@@ -243,7 +283,7 @@ export function StorageSettingsPage() {
             </p>
             <Input label="Client ID" value={googleForm.clientId} onChange={(e) => setGoogleForm((f) => ({ ...f, clientId: e.target.value }))} placeholder="Enter your Google Client ID" />
             <Input label="Client Secret" type="password" value={googleForm.clientSecret} onChange={(e) => setGoogleForm((f) => ({ ...f, clientSecret: e.target.value }))} placeholder="Enter your Google Client Secret" />
-            {configureProvider.error && showConfig === 'google_drive' && <p className="text-sm text-red-600">{(configureProvider.error as any).message}</p>}
+            {configureProvider.error && showConfig === 'google_drive' && <p className="text-sm text-red-600">{configureProvider.error.message}</p>}
             <div className="flex justify-end gap-3">
               <Button variant="secondary" onClick={() => setShowConfig(null)}>Cancel</Button>
               <Button onClick={() => configureProvider.mutate({ provider: 'google_drive', body: googleForm })}
@@ -268,7 +308,7 @@ export function StorageSettingsPage() {
             <Input label="Client Secret" type="password" value={onedriveForm.clientSecret} onChange={(e) => setOnedriveForm((f) => ({ ...f, clientSecret: e.target.value }))} placeholder="Enter your Microsoft Client Secret" />
             <Input label="Tenant ID" value={onedriveForm.tenantId} onChange={(e) => setOnedriveForm((f) => ({ ...f, tenantId: e.target.value }))} placeholder="common" />
             <p className="text-xs text-gray-500">Use "common" for multi-tenant or a specific tenant ID for one organization.</p>
-            {configureProvider.error && showConfig === 'onedrive' && <p className="text-sm text-red-600">{(configureProvider.error as any).message}</p>}
+            {configureProvider.error && showConfig === 'onedrive' && <p className="text-sm text-red-600">{configureProvider.error.message}</p>}
             <div className="flex justify-end gap-3">
               <Button variant="secondary" onClick={() => setShowConfig(null)}>Cancel</Button>
               <Button onClick={() => configureProvider.mutate({ provider: 'onedrive', body: onedriveForm })}

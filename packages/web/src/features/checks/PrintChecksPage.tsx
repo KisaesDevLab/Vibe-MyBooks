@@ -25,6 +25,7 @@ export function PrintChecksPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [flowStep, setFlowStep] = useState<FlowStep>('select');
   const [printedCheckIds, setPrintedCheckIds] = useState<string[]>([]);
+  const [printError, setPrintError] = useState('');
 
   const { data: settingsData } = useCheckSettings();
   const { data, isLoading, isError, refetch } = usePrintQueue(bankAccountId || undefined);
@@ -44,11 +45,11 @@ export function PrintChecksPage() {
   };
 
   const toggleAll = () => {
-    setSelected(items.length > 0 && selected.size === items.length ? new Set() : new Set(items.map((i: any) => i.id)));
+    setSelected(items.length > 0 && selected.size === items.length ? new Set() : new Set(items.map((i) => i.id)));
   };
 
-  const selectedItems = items.filter((i: any) => selected.has(i.id));
-  const selectedTotal = selectedItems.reduce((sum: number, i: any) => sum + (parseFloat(i.amount) || 0), 0);
+  const selectedItems = items.filter((i) => selected.has(i.id));
+  const selectedTotal = selectedItems.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0);
 
   const handlePrint = async (e: FormEvent) => {
     e.preventDefault();
@@ -57,6 +58,7 @@ export function PrintChecksPage() {
     const checkIds = Array.from(selected);
     setPrintedCheckIds(checkIds);
     setFlowStep('rendering');
+    setPrintError('');
 
     try {
       // Step 1: Generate and download check PDF
@@ -103,8 +105,8 @@ export function PrintChecksPage() {
 
       // Step 3: Show confirmation
       setFlowStep('confirm');
-    } catch (err: any) {
-      alert(err.message || 'Print failed');
+    } catch (err) {
+      setPrintError(err instanceof Error ? err.message : 'Print failed');
       setFlowStep('select');
     }
   };
@@ -133,6 +135,22 @@ export function PrintChecksPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Print Checks</h1>
+
+      {printError && (
+        <div
+          role="alert"
+          className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          <span>{printError}</span>
+          <button
+            type="button"
+            onClick={() => setPrintError('')}
+            className="text-red-500 hover:text-red-700 text-xs underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handlePrint} className="space-y-6">
         {/* Controls */}
@@ -190,7 +208,7 @@ export function PrintChecksPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {items.map((item: any) => (
+                  {items.map((item) => (
                     <tr key={item.id} className={`hover:bg-gray-50 cursor-pointer ${selected.has(item.id) ? 'bg-primary-50' : ''}`}
                       onClick={() => toggleSelect(item.id)}>
                       <td className="px-6 py-3 text-center">

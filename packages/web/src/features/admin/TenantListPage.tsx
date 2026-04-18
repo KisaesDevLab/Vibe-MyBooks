@@ -9,6 +9,7 @@ import { apiClient, setTokens } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Building2, Eye, Power, LogIn, Search, Plus, X } from 'lucide-react';
 
 interface TenantRow {
@@ -27,19 +28,24 @@ export function TenantListPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [newCompany, setNewCompany] = useState({ companyName: '', industry: '', entityType: '' });
+  const [newCompany, setNewCompany] = useState({ companyName: '', entityType: '' });
   const [createError, setCreateError] = useState('');
+  const [switchError, setSwitchError] = useState('');
+  const [pendingAction, setPendingAction] = useState<
+    | { title: string; message: string; confirmLabel: string; variant?: 'primary' | 'danger'; onConfirm: () => void }
+    | null
+  >(null);
 
   const createMutation = useMutation({
-    mutationFn: (input: { companyName: string; industry?: string; entityType?: string }) =>
+    mutationFn: (input: { companyName: string; entityType?: string }) =>
       apiClient('/admin/create-client', { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenants'] });
       setShowCreate(false);
-      setNewCompany({ companyName: '', industry: '', entityType: '' });
+      setNewCompany({ companyName: '', entityType: '' });
       setCreateError('');
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       setCreateError(err.message || 'Failed to create company');
     },
   });
@@ -74,7 +80,7 @@ export function TenantListPage() {
       queryClient.clear();
       window.location.href = '/';
     } catch {
-      alert('Failed to switch tenant. You may not have access.');
+      setSwitchError('Failed to switch tenant. You may not have access.');
     }
   };
 
@@ -106,6 +112,14 @@ export function TenantListPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {switchError && (
+        <div role="alert" className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>{switchError}</span>
+          <button onClick={() => setSwitchError('')} className="text-red-500 hover:text-red-700">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Building2 className="h-6 w-6 text-gray-700" />
@@ -167,9 +181,13 @@ export function TenantListPage() {
                       <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => {
-                            if (confirm(`Switch to "${t.name}"? This will reload the app.`)) {
-                              handleSwitchToTenant(t.id);
-                            }
+                            setPendingAction({
+                              title: `Switch to "${t.name}"?`,
+                              message: 'This will reload the app in the context of the selected tenant.',
+                              confirmLabel: 'Switch',
+                              variant: 'primary',
+                              onConfirm: () => handleSwitchToTenant(t.id),
+                            });
                           }}
                           className="p-1.5 rounded hover:bg-gray-200 text-blue-600"
                           title="Switch to this tenant"
@@ -186,9 +204,13 @@ export function TenantListPage() {
                         <button
                           onClick={() => {
                             if (t.isActive) {
-                              if (confirm(`Disable tenant "${t.name}"?`)) {
-                                disableMutation.mutate(t.id);
-                              }
+                              setPendingAction({
+                                title: `Disable tenant "${t.name}"?`,
+                                message: 'Users in this tenant will not be able to sign in until it is re-enabled.',
+                                confirmLabel: 'Disable',
+                                variant: 'danger',
+                                onConfirm: () => disableMutation.mutate(t.id),
+                              });
                             } else {
                               enableMutation.mutate(t.id);
                             }
@@ -210,6 +232,19 @@ export function TenantListPage() {
         </div>
       )}
 
+      <ConfirmDialog
+        open={!!pendingAction}
+        title={pendingAction?.title ?? ''}
+        message={pendingAction?.message}
+        confirmLabel={pendingAction?.confirmLabel ?? 'Confirm'}
+        variant={pendingAction?.variant ?? 'primary'}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          pendingAction?.onConfirm();
+          setPendingAction(null);
+        }}
+      />
+
       {/* Create Company Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCreate(false)}>
@@ -226,7 +261,6 @@ export function TenantListPage() {
                 if (!newCompany.companyName.trim()) return;
                 createMutation.mutate({
                   companyName: newCompany.companyName.trim(),
-                  industry: newCompany.industry.trim() || undefined,
                   entityType: newCompany.entityType.trim() || undefined,
                 });
               }}
@@ -238,12 +272,6 @@ export function TenantListPage() {
                 onChange={e => setNewCompany(f => ({ ...f, companyName: e.target.value }))}
                 placeholder="Acme Corp"
                 autoFocus
-              />
-              <Input
-                label="Industry"
-                value={newCompany.industry}
-                onChange={e => setNewCompany(f => ({ ...f, industry: e.target.value }))}
-                placeholder="e.g. Consulting, Restaurant, Retail"
               />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Entity Type</label>

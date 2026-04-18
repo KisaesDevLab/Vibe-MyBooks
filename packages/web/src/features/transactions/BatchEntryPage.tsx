@@ -11,25 +11,29 @@ import { useAccounts } from '../../api/hooks/useAccounts';
 import { useContacts } from '../../api/hooks/useContacts';
 import { Check, X as XIcon, AlertTriangle, Upload, Trash2, CheckCircle } from 'lucide-react';
 
-interface GridRow {
+// The string-valued fields are the ones the grid cells edit directly via
+// CSV paste / keyed updates. `status` / `errors` hold the server-supplied
+// validation result and are never written by a cell callback.
+type GridStringField =
+  | 'date'
+  | 'refNo'
+  | 'contactName'
+  | 'contactId'
+  | 'accountName'
+  | 'accountId'
+  | 'memo'
+  | 'amount'
+  | 'debit'
+  | 'credit'
+  | 'description'
+  | 'dueDate'
+  | 'invoiceNo';
+
+type GridRow = {
   rowNumber: number;
-  date: string;
-  refNo: string;
-  contactName: string;
-  contactId: string;
-  accountName: string;
-  accountId: string;
-  memo: string;
-  amount: string;
-  debit: string;
-  credit: string;
-  description: string;
-  dueDate: string;
-  invoiceNo: string;
-  // Validation state
   status?: 'valid' | 'invalid' | 'warning';
   errors?: Array<{ field: string; message: string }>;
-}
+} & Record<GridStringField, string>;
 
 const txnTypes = [
   { value: 'expense', label: 'Expenses / Checks', needsAccount: true },
@@ -43,7 +47,7 @@ const txnTypes = [
   { value: 'customer_payment', label: 'Customer Payments', needsAccount: true },
 ];
 
-const columnsByType: Record<string, Array<{ key: keyof GridRow; label: string; required?: boolean; width: string }>> = {
+const columnsByType: Record<string, Array<{ key: GridStringField; label: string; required?: boolean; width: string }>> = {
   expense: [
     { key: 'date', label: 'Date', required: true, width: 'w-28' },
     { key: 'refNo', label: 'Ref No.', width: 'w-20' },
@@ -186,7 +190,7 @@ export function BatchEntryPage() {
 
         columns.forEach((col, ci) => {
           if (cols[ci] !== undefined) {
-            (row as any)[col.key] = cols[ci]!.trim();
+            row[col.key] = cols[ci]!.trim();
           }
         });
       }
@@ -245,12 +249,12 @@ export function BatchEntryPage() {
     if (!file) return;
     parseCsv.mutate({ file, txnType }, {
       onSuccess: (result) => {
-        const imported = result.rows.map((r: any, i: number) => ({
+        const imported = result.rows.map((r, i) => ({
           ...emptyRow(i + 1),
           date: r.date || '',
-          refNo: r.refNo || r.ref_no || '',
-          contactName: r.contactName || r.contact_name || '',
-          accountName: r.accountName || r.account_name || '',
+          refNo: r.refNo || '',
+          contactName: r.contactName || '',
+          accountName: r.accountName || '',
           memo: r.memo || '',
           amount: String(r.amount || ''),
           debit: String(r.debit || ''),
@@ -394,7 +398,7 @@ export function BatchEntryPage() {
                     return (
                       <td key={col.key} className="px-px" title={cellError?.message}>
                         <input
-                          value={(row as any)[col.key] || ''}
+                          value={row[col.key] || ''}
                           onChange={(e) => updateCell(rowIdx, col.key, e.target.value)}
                           type={col.key === 'date' || col.key === 'dueDate' ? 'date' : 'text'}
                           className={`w-full px-1.5 py-1 rounded border text-xs ${cellBorder}

@@ -7,7 +7,11 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "noEmit": true
+    "noEmit": true,
+    // Pull in vitest's global test APIs (describe/it/expect) and the
+    // jest-dom matcher extensions so *.test.tsx files compile without
+    // per-file /// <reference> pragmas.
+    "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
   "include": ["src"]
 }

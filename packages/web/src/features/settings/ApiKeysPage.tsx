@@ -9,7 +9,30 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Key, Plus, Trash2, Copy, CheckCircle, Shield } from 'lucide-react';
+
+interface ApiKeyRow {
+  id: string;
+  name: string;
+  scope?: string;
+  scopes?: string;
+  role?: string;
+  isActive?: boolean;
+  revokedAt?: string | null;
+  keyPrefix?: string;
+  lastUsedAt?: string | null;
+  expiresAt?: string | null;
+  createdAt?: string;
+}
+
+interface CreateApiKeyInput {
+  name: string;
+  role?: string;
+  scopes?: string;
+  expiresAt?: string | null;
+  expiresInDays?: number | null;
+}
 
 const SCOPES = [
   { key: 'all', label: 'Full Access', desc: 'Everything the user can do' },
@@ -29,14 +52,16 @@ export function ApiKeysPage() {
   const [expiresIn, setExpiresIn] = useState('');
   const [generatedKey, setGeneratedKey] = useState('');
   const [copied, setCopied] = useState(false);
+  const [revokeId, setRevokeId] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['api-keys'],
-    queryFn: () => apiClient<{ keys: any[] }>('/api-keys'),
+    queryFn: () => apiClient<{ keys: ApiKeyRow[] }>('/api-keys'),
   });
 
   const createKey = useMutation({
-    mutationFn: (input: any) => apiClient<{ key: any; apiKey: string }>('/api-keys', { method: 'POST', body: JSON.stringify(input) }),
+    mutationFn: (input: CreateApiKeyInput) =>
+      apiClient<{ key: ApiKeyRow; apiKey: string }>('/api-keys', { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: (result) => { setGeneratedKey(result.apiKey); setStep(4); queryClient.invalidateQueries({ queryKey: ['api-keys'] }); },
   });
 
@@ -181,11 +206,11 @@ export function ApiKeysPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {keys.map((key: any) => (
+              {keys.map((key) => (
                 <tr key={key.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{key.name}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{key.keyPrefix}...</td>
-                  <td className="px-4 py-3 text-xs text-gray-600">{key.scopes || 'all'}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{key.keyPrefix ?? ''}...</td>
+                  <td className="px-4 py-3 text-xs text-gray-600">{key.scopes ?? 'all'}</td>
                   <td className="px-4 py-3 text-xs text-gray-500">{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString() : 'Never'}</td>
                   <td className="px-4 py-3 text-xs text-gray-500">{key.expiresAt ? new Date(key.expiresAt).toLocaleDateString() : 'Never'}</td>
                   <td className="px-4 py-3">
@@ -198,9 +223,13 @@ export function ApiKeysPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {key.isActive && !key.revokedAt && (
-                      <button onClick={() => { if (confirm('Revoke this API key? This cannot be undone.')) revokeKey.mutate(key.id); }}
-                        className="text-red-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                    {Boolean(key.isActive) && !key.revokedAt && (
+                      <button
+                        onClick={() => setRevokeId(key.id)}
+                        className="text-red-400 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -209,6 +238,19 @@ export function ApiKeysPage() {
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!revokeId}
+        title="Revoke API key?"
+        message="Any integration using this key will stop working immediately. This cannot be undone."
+        confirmLabel="Revoke"
+        variant="danger"
+        onCancel={() => setRevokeId(null)}
+        onConfirm={() => {
+          if (revokeId) revokeKey.mutate(revokeId);
+          setRevokeId(null);
+        }}
+      />
     </div>
   );
 }

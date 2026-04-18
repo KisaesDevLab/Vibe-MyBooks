@@ -4,11 +4,21 @@
 
 import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BUSINESS_TEMPLATES } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { CheckCircle, Eye, EyeOff, RefreshCw, Download, ChevronRight, Upload, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { CheckCircle, Eye, EyeOff, RefreshCw, Download, ChevronRight, Upload, AlertTriangle, ShieldCheck, Sparkles } from 'lucide-react';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
+import {
+  scorePassword,
+  saveSetupProgress,
+  loadSetupProgress,
+  clearSetupProgress,
+  friendlyErrorMessage as friendlyError,
+  coaPreviewForBusinessType,
+  type PersistedSetupProgress,
+} from './setupHelpers';
 
 const SETUP_API = '/api/setup';
 
@@ -26,17 +36,20 @@ async function setupFetch<T>(path: string, options: RequestInit = {}): Promise<T
   return res.json();
 }
 
+// Four-step happy path. Database, Network, and Security are no longer
+// dedicated steps — they auto-populate from the install script (DB creds
+// minted by install.sh and fetched via /api/setup/db-defaults, secrets
+// generated server-side on mount) and sit behind a collapsible "Advanced"
+// section on the Review step for technical operators who need to tune them.
+// The hidden "Finalizing" phase runs after the user clicks "Complete Setup"
+// on Review and is never exposed as a step label in the progress bar.
 const stepLabels = [
   'Welcome',
-  'Database',
-  'Network',
-  'Security',
+  'Admin & Company',
   'Email',
-  'Admin Account',
-  'Company',
   'Review',
-  'Finalizing',
 ];
+const FINALIZING_STEP = 4; // rendered after Review but not shown in the progress bar
 
 const smtpPresets: Record<string, { host: string; port: string }> = {
   gmail: { host: 'smtp.gmail.com', port: '587' },
@@ -61,7 +74,11 @@ interface FormState {
   jwtSecret: string;
   backupKey: string;
   encryptionKey: string;
-  plaidEncryptionKey: string;
+  // plaidEncryptionKey is intentionally absent from FormState. The server
+  // still requires it (env.ts validates it on boot), but the wizard lets
+  // the setup-service generate it automatically during /initialize — the
+  // user never sees it and never needs to save it. The recovery-key flow
+  // protects it via /data/.env.recovery.
   // Email
   skipEmail: boolean;
   smtpPreset: string;
@@ -78,7 +95,6 @@ interface FormState {
   // Company
   businessName: string;
   entityType: string;
-  industry: string;
   businessType: string;
   // Optional demo data
   createDemoCompany: boolean;
@@ -168,9 +184,9 @@ export function FirstRunSetupWizard() {
           return;
         }
         setBootstrapState('ready');
-      } catch (err: any) {
+      } catch (err) {
         if (cancelled) return;
-        setBootstrapError(err?.message || 'Unable to contact the server');
+        setBootstrapError(err instanceof Error ? err.message : 'Unable to contact the server');
         setBootstrapState('error');
       }
     };
@@ -217,8 +233,8 @@ export function FirstRunSetupWizard() {
       }
       const data = await res.json();
       setRestoreValidation(data);
-    } catch (err: any) {
-      setRestoreError(err.message || 'Validation failed');
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : 'Validation failed');
     } finally {
       setRestoreValidating(false);
     }
@@ -242,8 +258,8 @@ export function FirstRunSetupWizard() {
       }
       const data = await res.json();
       setRestoreResult(data);
-    } catch (err: any) {
-      setRestoreError(err.message || 'Restore failed');
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : 'Restore failed');
     } finally {
       setRestoreExecuting(false);
     }
@@ -271,7 +287,6 @@ export function FirstRunSetupWizard() {
     jwtSecret: '',
     backupKey: '',
     encryptionKey: '',
-    plaidEncryptionKey: '',
     skipEmail: true,
     smtpPreset: 'custom',
     smtpHost: '',
@@ -285,21 +300,103 @@ export function FirstRunSetupWizard() {
     adminPasswordConfirm: '',
     businessName: '',
     entityType: 'sole_prop',
-    industry: '',
     businessType: 'general_business',
     createDemoCompany: false,
   });
 
   // On mount, pull the real DATABASE_URL components (including the
-  // auto-generated POSTGRES_PASSWORD) from the API so the Database step
-  // is fully pre-filled. This is the entire point of the setup UX for
-  // non-technical users: they run install.sh, it mints a random DB
-  // password, and the wizard fills it in for them so they never have to
-  // open .env. Best-effort — if the endpoint isn't available (older
-  // server build) we fall back to the state defaults above and let the
-  // user type values themselves.
+  // auto-generated POSTGRES_PASSWORD) from the API so the Advanced /
+  // Database panel is fully pre-filled and most users never even need to
+  // open it. This is the entire point of the setup UX for non-technical
+  // users: they run install.sh, it mints a random DB password, and the
+  // wizard fills it in for them so they never have to open .env. Also
+  // immediately fetches fresh security keys so the Review step can show
+  // "✓ Security keys generated" without the user ever seeing raw secrets.
+  //
+  // Best-effort — if an endpoint isn't available we fall back to useState
+  // defaults + client-side secret generation.
   const [dbDefaultsSource, setDbDefaultsSource] = useState<'env' | 'fallback' | 'unknown'>('unknown');
   const [dbPasswordAutoDetected, setDbPasswordAutoDetected] = useState(false);
+
+  // Restore previously-saved wizard progress on mount. Only non-secret
+  // fields survive the round-trip (saveSetupProgress whitelists them), so
+  // the user sees their email / business name / SMTP host etc. already
+  // filled in but has to re-enter their password — which is what we want:
+  // passwords in localStorage would be a real credential-leak risk.
+  const [resumedFromStorage, setResumedFromStorage] = useState(false);
+  useEffect(() => {
+    const saved = loadSetupProgress();
+    if (saved && typeof saved === 'object') {
+      setForm((f) => ({
+        ...f,
+        ...(saved.adminEmail ? { adminEmail: saved.adminEmail } : {}),
+        ...(saved.adminDisplayName ? { adminDisplayName: saved.adminDisplayName } : {}),
+        ...(saved.businessName ? { businessName: saved.businessName } : {}),
+        ...(saved.entityType ? { entityType: saved.entityType } : {}),
+        ...(saved.businessType ? { businessType: saved.businessType } : {}),
+        ...(saved.smtpPreset ? { smtpPreset: saved.smtpPreset } : {}),
+        ...(saved.smtpHost ? { smtpHost: saved.smtpHost } : {}),
+        ...(saved.smtpPort ? { smtpPort: saved.smtpPort } : {}),
+        ...(saved.smtpUser ? { smtpUser: saved.smtpUser } : {}),
+        ...(saved.smtpFrom ? { smtpFrom: saved.smtpFrom } : {}),
+        ...(typeof saved.skipEmail === 'boolean' ? { skipEmail: saved.skipEmail } : {}),
+        ...(typeof saved.createDemoCompany === 'boolean' ? { createDemoCompany: saved.createDemoCompany } : {}),
+        ...(saved.apiPort ? { apiPort: saved.apiPort } : {}),
+        ...(saved.frontendPort ? { frontendPort: saved.frontendPort } : {}),
+        ...(saved.redisHost ? { redisHost: saved.redisHost } : {}),
+        ...(saved.redisPort ? { redisPort: saved.redisPort } : {}),
+        ...(saved.dbHost ? { dbHost: saved.dbHost } : {}),
+        ...(saved.dbPort ? { dbPort: saved.dbPort } : {}),
+        ...(saved.dbName ? { dbName: saved.dbName } : {}),
+        ...(saved.dbUser ? { dbUser: saved.dbUser } : {}),
+      }));
+      if (typeof saved.step === 'number' && saved.step >= 0 && saved.step < FINALIZING_STEP) {
+        // Keep the user on the step they were on so they don't have to
+        // click through again — but don't jump them into the Finalizing
+        // phase, which expects live state we never persist.
+        setStep(saved.step);
+      }
+      setResumedFromStorage(true);
+    }
+  }, []);
+
+  // Auto-save progress on every form / step change. The helper itself is
+  // a best-effort localStorage write; failures (quota, private browsing)
+  // are silent. We skip saving once the user has reached the Finalizing
+  // phase — at that point the wizard is done and any future session
+  // should start clean.
+  useEffect(() => {
+    if (step >= FINALIZING_STEP) return;
+    const payload: PersistedSetupProgress = {
+      step,
+      adminEmail: form.adminEmail,
+      adminDisplayName: form.adminDisplayName,
+      businessName: form.businessName,
+      entityType: form.entityType,
+      businessType: form.businessType,
+      smtpPreset: form.smtpPreset,
+      smtpHost: form.smtpHost,
+      smtpPort: form.smtpPort,
+      smtpUser: form.smtpUser,
+      smtpFrom: form.smtpFrom,
+      skipEmail: form.skipEmail,
+      createDemoCompany: form.createDemoCompany,
+      apiPort: form.apiPort,
+      frontendPort: form.frontendPort,
+      redisHost: form.redisHost,
+      redisPort: form.redisPort,
+      dbHost: form.dbHost,
+      dbPort: form.dbPort,
+      dbName: form.dbName,
+      dbUser: form.dbUser,
+    };
+    saveSetupProgress(payload);
+  }, [step, form.adminEmail, form.adminDisplayName, form.businessName, form.entityType,
+      form.businessType, form.smtpPreset, form.smtpHost, form.smtpPort,
+      form.smtpUser, form.smtpFrom, form.skipEmail, form.createDemoCompany,
+      form.apiPort, form.frontendPort, form.redisHost, form.redisPort,
+      form.dbHost, form.dbPort, form.dbName, form.dbUser]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -332,6 +429,39 @@ export function FirstRunSetupWizard() {
       } catch {
         // Ignore — defaults already populated from useState initializer.
       }
+
+      // Generate security keys up front so the Review step just shows
+      // "✓ Security keys generated" and the user never has to stare at raw
+      // secrets unless they expand Advanced. Runs in parallel with the
+      // db-defaults fetch above because it's independent.
+      // The plaidEncryptionKey is deliberately NOT requested or stored
+      // client-side. setup.service generates it on the server during
+      // /initialize and writes it straight to .env, so the user never sees
+      // the field and doesn't have to save it anywhere — the recovery-key
+      // flow covers it via /data/.env.recovery.
+      try {
+        const secrets = await setupFetch<{
+          jwtSecret: string; backupKey: string; encryptionKey: string;
+        }>('/generate-secrets', { method: 'POST' });
+        if (cancelled) return;
+        setForm((f) => ({
+          ...f,
+          // Only write if the user hasn't manually typed something.
+          jwtSecret: f.jwtSecret || secrets.jwtSecret,
+          backupKey: f.backupKey || secrets.backupKey,
+          encryptionKey: f.encryptionKey || secrets.encryptionKey,
+        }));
+      } catch {
+        // Fallback — client-side crypto.getRandomValues via
+        // generateRandomPassword (double-length for ≥32 chars).
+        if (cancelled) return;
+        setForm((f) => ({
+          ...f,
+          jwtSecret: f.jwtSecret || (generateRandomPassword() + generateRandomPassword()),
+          backupKey: f.backupKey || (generateRandomPassword() + generateRandomPassword()),
+          encryptionKey: f.encryptionKey || (generateRandomPassword() + generateRandomPassword()),
+        }));
+      }
     })();
     return () => {
       cancelled = true;
@@ -351,8 +481,17 @@ export function FirstRunSetupWizard() {
   const [smtpTestStatus, setSmtpTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [smtpTestError, setSmtpTestError] = useState('');
 
-  // Review step
+  // Review step: advanced section collapsed by default (non-technical users
+  // never expand it); "I've saved credentials" checkbox; track that the
+  // user actually fired at least one credential-save action (print or copy)
+  // before allowing them to tick it.
   const [savedCredentials, setSavedCredentials] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [credentialsActionFired, setCredentialsActionFired] = useState(false);
+  // Recovery-key screen: require an actual copy or print click, not just a
+  // checkbox tick. This closes the "user rushed the checkbox and lost the
+  // key" footgun we had before.
+  const [recoveryKeyActionFired, setRecoveryKeyActionFired] = useState(false);
 
   // Finalizing step
   const [finalizeStatus, setFinalizeStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
@@ -390,15 +529,17 @@ export function FirstRunSetupWizard() {
         }),
       });
       setDbTestStatus('success');
-    } catch (err: any) {
+    } catch (err) {
       setDbTestStatus('error');
-      setDbTestError(err.message || 'Connection failed');
+      setDbTestError(err instanceof Error ? err.message : 'Connection failed');
     }
   };
 
   const handleGenerateSecrets = async () => {
+    // plaidEncryptionKey is intentionally omitted — see the comment on the
+    // initial mount effect. Server-side setup.service still mints it.
     try {
-      const data = await setupFetch<{ jwtSecret: string; backupKey: string; encryptionKey: string; plaidEncryptionKey: string }>(
+      const data = await setupFetch<{ jwtSecret: string; backupKey: string; encryptionKey: string }>(
         '/generate-secrets',
         { method: 'POST' },
       );
@@ -407,7 +548,6 @@ export function FirstRunSetupWizard() {
         jwtSecret: data.jwtSecret,
         backupKey: data.backupKey,
         encryptionKey: data.encryptionKey,
-        plaidEncryptionKey: data.plaidEncryptionKey,
       }));
     } catch {
       // Fallback to client-side generation
@@ -416,7 +556,6 @@ export function FirstRunSetupWizard() {
         jwtSecret: generateRandomPassword() + generateRandomPassword(),
         backupKey: generateRandomPassword() + generateRandomPassword(),
         encryptionKey: generateRandomPassword() + generateRandomPassword(),
-        plaidEncryptionKey: generateRandomPassword() + generateRandomPassword(),
       }));
     }
   };
@@ -436,6 +575,11 @@ export function FirstRunSetupWizard() {
     setSmtpTestStatus('testing');
     setSmtpTestError('');
     try {
+      // Pass `testEmail` so the backend actually sends a real message to
+      // the admin address, not just opens the SMTP connection. Previously
+      // the test only verified reachability, so users saw "Email sent ✓"
+      // with an auth config that would still silently fail later when real
+      // invoices tried to go out. Requires the admin email to be set.
       await setupFetch('/test-smtp', {
         method: 'POST',
         body: JSON.stringify({
@@ -444,12 +588,13 @@ export function FirstRunSetupWizard() {
           username: form.smtpUser,
           password: form.smtpPass,
           from: form.smtpFrom,
+          testEmail: form.adminEmail || undefined,
         }),
       });
       setSmtpTestStatus('success');
-    } catch (err: any) {
+    } catch (err) {
       setSmtpTestStatus('error');
-      setSmtpTestError(err.message || 'SMTP test failed');
+      setSmtpTestError(err instanceof Error ? err.message : 'SMTP test failed');
     }
   };
 
@@ -459,51 +604,87 @@ export function FirstRunSetupWizard() {
     setShowAdminPassword(true);
   };
 
-  const handleDownloadCredentials = () => {
-    const content = [
-      '=== Vibe MyBooks Credentials ===',
-      `Generated: ${new Date().toISOString()}`,
+  // Build the credential summary as an array of labeled lines. Used by the
+  // Print and Copy-to-clipboard flows; we deliberately no longer offer a
+  // .txt download — plaintext credentials sitting in ~/Downloads indefinitely
+  // was the main security footgun of the old wizard. Printing routes
+  // through window.print() so the file never hits disk unless the user
+  // explicitly saves to PDF.
+  const buildCredentialLines = (): string[] => [
+    '=== Vibe MyBooks Credentials ===',
+    `Generated: ${new Date().toLocaleString()}`,
+    '',
+    '--- Admin Account ---',
+    `Email: ${form.adminEmail}`,
+    `Password: ${form.adminPassword}`,
+    '',
+    '--- Database ---',
+    `Host: ${form.dbHost}:${form.dbPort}`,
+    `Database: ${form.dbName}`,
+    `Username: ${form.dbUser}`,
+    `Password: ${form.dbPassword}`,
+    '',
+    '--- Security ---',
+    `JWT Secret: ${form.jwtSecret}`,
+    `Backup Encryption Key: ${form.backupKey}`,
+    `Installation Encryption Key: ${form.encryptionKey}`,
+    '',
+    ...(form.skipEmail ? [] : [
+      '--- SMTP ---',
+      `Host: ${form.smtpHost}:${form.smtpPort}`,
+      `Username: ${form.smtpUser}`,
+      `Password: ${form.smtpPass}`,
+      `From: ${form.smtpFrom}`,
       '',
-      '--- Database ---',
-      `Host: ${form.dbHost}`,
-      `Port: ${form.dbPort}`,
-      `Database: ${form.dbName}`,
-      `Username: ${form.dbUser}`,
-      `Password: ${form.dbPassword}`,
-      '',
-      '--- Security ---',
-      `JWT Secret: ${form.jwtSecret}`,
-      `Backup Encryption Key: ${form.backupKey}`,
-      '',
-      '--- Admin Account ---',
-      `Email: ${form.adminEmail}`,
-      `Password: ${form.adminPassword}`,
-      '',
-      ...(form.skipEmail ? [] : [
-        '--- SMTP ---',
-        `Host: ${form.smtpHost}`,
-        `Port: ${form.smtpPort}`,
-        `Username: ${form.smtpUser}`,
-        `Password: ${form.smtpPass}`,
-        `From: ${form.smtpFrom}`,
-        '',
-      ]),
-      '--- Company ---',
-      `Business Name: ${form.businessName}`,
-      `Entity Type: ${form.entityType}`,
-      `Industry: ${form.industry || 'N/A'}`,
-      '',
-      'IMPORTANT: Store this file securely and delete it after saving credentials to a password manager.',
-    ].join('\n');
+    ]),
+    '--- Company ---',
+    `Business Name: ${form.businessName}`,
+    `Entity Type: ${form.entityType}`,
+    '',
+    'IMPORTANT: Store these credentials in a password manager. Losing them',
+    'may require restoring from backup to regain access.',
+  ];
 
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'kisbooks-credentials.txt';
-    a.click();
-    URL.revokeObjectURL(url);
+  const handlePrintCredentials = () => {
+    const content = buildCredentialLines().join('\n');
+    const win = window.open('', '_blank', 'width=700,height=800');
+    if (!win) return;
+    // Escape the content for HTML — the user's business name / email /
+    // password could all legitimately contain characters that would break
+    // rendering if injected raw.
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    win.document.write(
+      `<html><head><title>Vibe MyBooks Credentials</title>` +
+      `<style>body{font-family:ui-monospace,Menlo,monospace;padding:2em;line-height:1.5;white-space:pre-wrap}</style>` +
+      `</head><body>${esc(content)}</body></html>`,
+    );
+    win.document.close();
+    win.focus();
+    win.print();
   };
+
+  const copyCredentialsToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(buildCredentialLines().join('\n'));
+    } catch {
+      // Older browser / missing clipboard permission — fall back to a
+      // legacy textarea-select flow so the user isn't stuck. The main
+      // flow already covers modern Chrome/Safari/Firefox.
+      const ta = document.createElement('textarea');
+      ta.value = buildCredentialLines().join('\n');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* give up quietly */ }
+      document.body.removeChild(ta);
+    }
+  };
+
+  // friendlyErrorMessage lives in ./setupHelpers — aliased as `friendlyError`
+  // in the import at the top of this file so it can be used directly in
+  // JSX without this local shim.
 
   const handleFinalize = async () => {
     setFinalizeStatus('running');
@@ -552,7 +733,6 @@ export function FirstRunSetupWizard() {
           jwtSecret: form.jwtSecret,
           backupKey: form.backupKey,
           encryptionKey: form.encryptionKey,
-          plaidEncryptionKey: form.plaidEncryptionKey,
           ports: {
             api: Number(form.apiPort),
             frontend: Number(form.frontendPort),
@@ -574,7 +754,6 @@ export function FirstRunSetupWizard() {
           company: {
             name: form.businessName,
             entityType: form.entityType,
-            industry: form.industry || null,
             businessType: form.businessType,
           },
           createDemoCompany: form.createDemoCompany,
@@ -597,8 +776,13 @@ export function FirstRunSetupWizard() {
       if ((initResult as { installationId?: string })?.installationId) {
         setPendingInstallationId((initResult as { installationId?: string }).installationId!);
       }
-    } catch (err: any) {
-      const message: string = err?.message || 'Setup failed';
+
+      // Setup is committed. Wipe the localStorage progress snapshot so a
+      // second install on the same browser (rare but possible — DB
+      // reset, reinstall) doesn't auto-fill someone else's answers.
+      clearSetupProgress();
+    } catch (err) {
+      const message: string = err instanceof Error ? err.message : 'Setup failed';
       setFinalizeError(message);
       setFinalizeStatus('error');
 
@@ -655,42 +839,46 @@ export function FirstRunSetupWizard() {
     }
   };
 
-  // Auto-generate secrets when reaching step 3 (Security)
+  // New simplified step transitions:
+  //   Welcome (0) → Admin & Company (1) → Email (2) → Review (3) → Finalizing (4)
   const handleNext = () => {
-    if (step === 2) {
-      // Moving from Network to Security
-      if (!form.jwtSecret || !form.backupKey) {
-        handleGenerateSecrets();
-      }
-    }
-    if (step === 7) {
-      // Moving from Review to Finalizing
-      setStep(8);
+    if (step === 3) {
+      // Moving from Review to the hidden Finalizing phase.
+      setStep(FINALIZING_STEP);
       setTimeout(() => handleFinalize(), 200);
       return;
     }
     setStep((s) => s + 1);
   };
 
-  const handleBack = () => setStep((s) => s - 1);
+  const handleBack = () => setStep((s) => Math.max(0, s - 1));
 
   const canProceed = (): boolean => {
     switch (step) {
       case 0: return true;
-      case 1: return !!(form.dbHost && form.dbPort && form.dbName && form.dbUser && form.dbPassword);
-      case 2: return !!(form.apiPort && form.frontendPort && form.redisPort);
-      case 3: return !!(form.jwtSecret && form.backupKey);
-      case 4: return form.skipEmail || !!(form.smtpHost && form.smtpPort && form.smtpFrom);
-      case 5:
+      case 1:
+        // Combined Admin + Company: validate all user-entered fields.
         return !!(
           form.adminEmail &&
           form.adminDisplayName &&
           form.adminPassword &&
-          form.adminPassword.length >= 8 &&
-          form.adminPassword === form.adminPasswordConfirm
+          form.adminPassword.length >= 12 &&
+          form.adminPassword === form.adminPasswordConfirm &&
+          form.businessName
         );
-      case 6: return !!form.businessName;
-      case 7: return savedCredentials;
+      case 2:
+        // Email is optional — either skipped or fully configured.
+        return form.skipEmail || !!(form.smtpHost && form.smtpPort && form.smtpFrom);
+      case 3:
+        // Review: confirm the user has saved their credentials. Everything
+        // else (DB/network/security) is either auto-detected or available
+        // in the Advanced expander on this same step.
+        return (
+          savedCredentials &&
+          !!(form.dbHost && form.dbPort && form.dbName && form.dbUser && form.dbPassword) &&
+          !!(form.apiPort && form.frontendPort && form.redisPort) &&
+          !!(form.jwtSecret && form.backupKey && form.encryptionKey)
+        );
       default: return false;
     }
   };
@@ -768,7 +956,10 @@ export function FirstRunSetupWizard() {
           <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
-              onClick={() => navigator.clipboard.writeText(recoveryKey)}
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(recoveryKey); } catch { /* ignore */ }
+                setRecoveryKeyActionFired(true);
+              }}
             >
               Copy to clipboard
             </Button>
@@ -786,6 +977,7 @@ export function FirstRunSetupWizard() {
                 );
                 win.document.close();
                 win.print();
+                setRecoveryKeyActionFired(true);
               }}
             >
               Print
@@ -797,16 +989,18 @@ export function FirstRunSetupWizard() {
               type="checkbox"
               checked={recoveryKeySaved}
               onChange={(e) => setRecoveryKeySaved(e.target.checked)}
-              className="mt-1"
+              disabled={!recoveryKeyActionFired}
+              className="mt-1 disabled:opacity-50"
             />
-            <span className="text-sm text-amber-900">
+            <span className={`text-sm ${recoveryKeyActionFired ? 'text-amber-900' : 'text-amber-900/60'}`}>
               I have saved this recovery key. I understand it will not be shown again.
+              {!recoveryKeyActionFired && ' (Click Copy or Print first.)'}
             </span>
           </label>
 
           <Button
             className="w-full"
-            disabled={!recoveryKeySaved}
+            disabled={!recoveryKeySaved || !recoveryKeyActionFired}
             onClick={async () => {
               if (pendingInstallationId) {
                 try {
@@ -867,17 +1061,20 @@ export function FirstRunSetupWizard() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
+      {/* Header. During the hidden Finalizing phase we clamp the counter to
+          the last real step so the user doesn't see "Step 5 of 4". */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Vibe MyBooks Setup</h1>
           <span className="text-sm text-gray-500">
-            Step {step + 1} of {stepLabels.length}
+            Step {Math.min(step, stepLabels.length - 1) + 1} of {stepLabels.length}
           </span>
         </div>
       </div>
 
-      {/* Step indicator */}
+      {/* Step indicator — only shows the four labeled steps; the hidden
+          Finalizing phase (step === FINALIZING_STEP) renders under the last
+          label with all prior steps marked complete. */}
       <div className="bg-white border-b border-gray-200 px-6 py-3">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-1 overflow-x-auto">
@@ -912,6 +1109,31 @@ export function FirstRunSetupWizard() {
         </div>
       </div>
 
+      {/* Resume banner — shown once when the wizard picks up localStorage
+          state from an earlier session. Lets the user know their progress
+          wasn't lost but also gives them a one-click reset in case they
+          want to start over. */}
+      {resumedFromStorage && step > 0 && step < FINALIZING_STEP && (
+        <div className="bg-blue-50 border-b border-blue-200 px-6 py-2">
+          <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+            <span className="text-sm text-blue-900">
+              Picked up where you left off. Your password wasn&apos;t saved — re-enter it when you get there.
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                clearSetupProgress();
+                setResumedFromStorage(false);
+                window.location.reload();
+              }}
+              className="text-xs font-medium text-blue-900 underline whitespace-nowrap"
+            >
+              Start over
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 flex items-start justify-center px-4 py-8">
         <div className="w-full max-w-2xl">
@@ -921,25 +1143,56 @@ export function FirstRunSetupWizard() {
               <div className="text-center py-8 space-y-6">
                 <h2 className="text-3xl font-bold text-gray-900">Welcome to Vibe MyBooks</h2>
                 <p className="text-lg text-gray-600 max-w-md mx-auto">
-                  Your self-hosted bookkeeping solution. Choose how you'd like to get started.
+                  Your self-hosted bookkeeping solution. Choose how you&apos;d like to get started.
                 </p>
 
-                <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto pt-2">
                   <button
                     onClick={() => setStep(1)}
-                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-all text-left group"
+                    className="p-5 rounded-lg border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-all text-left group"
                   >
                     <ChevronRight className="h-6 w-6 text-primary-600 mb-2" />
-                    <h3 className="font-semibold text-gray-900 group-hover:text-primary-700">New Installation</h3>
-                    <p className="text-xs text-gray-500 mt-1">Set up a fresh Vibe MyBooks instance from scratch</p>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-primary-700">New installation</h3>
+                    <p className="text-xs text-gray-500 mt-1">Set up a fresh instance from scratch — this is what most people want.</p>
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Demo mode: fill in sensible placeholders and jump
+                      // straight to Review so the user can verify + commit
+                      // with one more click. The generated admin password
+                      // is surfaced on the Review step's Print/Copy button
+                      // so the user gets the same credential-save prompt
+                      // as the manual flow. createDemoCompany=true seeds
+                      // the tenant with ~200 sample transactions.
+                      const demoPassword = generateRandomPassword();
+                      setForm((f) => ({
+                        ...f,
+                        adminEmail: 'demo@example.com',
+                        adminDisplayName: 'Demo Admin',
+                        adminPassword: demoPassword,
+                        adminPasswordConfirm: demoPassword,
+                        businessName: 'Demo Bookkeeping Co',
+                        entityType: 'single_member_llc',
+                        businessType: 'general_business',
+                        skipEmail: true,
+                        createDemoCompany: true,
+                      }));
+                      setShowAdminPassword(true);
+                      setStep(3);
+                    }}
+                    className="p-5 rounded-lg border-2 border-emerald-200 bg-emerald-50/40 hover:border-emerald-400 hover:bg-emerald-50 transition-all text-left group"
+                  >
+                    <Sparkles className="h-6 w-6 text-emerald-600 mb-2" />
+                    <h3 className="font-semibold text-gray-900 group-hover:text-emerald-700">Try the demo</h3>
+                    <p className="text-xs text-gray-500 mt-1">Skip setup — we&apos;ll create a demo company with sample transactions in one click.</p>
                   </button>
                   <button
                     onClick={() => setRestoreMode(true)}
-                    className="flex-1 p-5 rounded-lg border-2 border-gray-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group"
+                    className="p-5 rounded-lg border-2 border-gray-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group"
                   >
                     <Upload className="h-6 w-6 text-amber-600 mb-2" />
-                    <h3 className="font-semibold text-gray-900 group-hover:text-amber-700">Restore from Backup</h3>
-                    <p className="text-xs text-gray-500 mt-1">Restore a previous installation from a .vmb backup file</p>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-amber-700">Restore from backup</h3>
+                    <p className="text-xs text-gray-500 mt-1">Upload a .vmb backup file from a previous installation.</p>
                   </button>
                 </div>
               </div>
@@ -1063,180 +1316,220 @@ export function FirstRunSetupWizard() {
               </div>
             )}
 
-            {/* Step 1: Database */}
+            {/* Step 1: Admin & Company (combined). Everything a non-technical
+                user needs to type lives here. Database, ports, security keys,
+                and Redis all sit behind the Advanced expander on the Review
+                step and are pre-populated from install.sh defaults. */}
             {step === 1 && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-gray-800">Database Connection</h2>
-                <p className="text-sm text-gray-500">
-                  {dbPasswordAutoDetected
-                    ? 'Your database connection was detected automatically from the Docker install. Just click Test Connection to verify, then Next. (If you need to point at a different Postgres server, you can edit these fields.)'
-                    : dbDefaultsSource === 'env'
-                      ? 'Host, port, database, and user were pre-filled from the running service. Enter the Postgres password to complete the connection.'
-                      : 'Configure the PostgreSQL database connection. The defaults work with the included Docker Compose setup.'}
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input label="Host" value={form.dbHost} onChange={set('dbHost')} />
-                  <Input label="Port" value={form.dbPort} onChange={set('dbPort')} type="number" />
-                </div>
-                <Input label="Database Name" value={form.dbName} onChange={set('dbName')} />
-                <Input label="Username" value={form.dbUser} onChange={set('dbUser')} />
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">Password</label>
-                  <div className="relative">
-                    <input
-                      type={showDbPassword ? 'text' : 'password'}
-                      value={form.dbPassword}
-                      onChange={set('dbPassword')}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowDbPassword(!showDbPassword)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showDbPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+              <div className="space-y-6">
+                {/* Admin section */}
+                <div className="space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-800">Your admin account</h2>
+                  <p className="text-sm text-gray-500">
+                    This is the account you&apos;ll use to sign in. You can add more users later
+                    from Settings → Team.
+                  </p>
+                  <Input
+                    label="Email"
+                    type="email"
+                    value={form.adminEmail}
+                    onChange={set('adminEmail')}
+                    required
+                    autoComplete="email"
+                  />
+                  <Input
+                    label="Your name"
+                    value={form.adminDisplayName}
+                    onChange={set('adminDisplayName')}
+                    required
+                    autoComplete="name"
+                  />
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-gray-700">Password (12+ characters)</label>
+                    <div className="relative">
+                      <input
+                        type={showAdminPassword ? 'text' : 'password'}
+                        value={form.adminPassword}
+                        onChange={set('adminPassword')}
+                        minLength={12}
+                        autoComplete="new-password"
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAdminPassword(!showAdminPassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {form.adminPassword && (() => {
+                      // Four-segment strength meter. `level` 0 = empty (not
+                      // shown), 1 = weak, 4 = strong. Colors match the
+                      // score helper so a Strong password paints all four
+                      // segments green. Hints list tells the user exactly
+                      // what's still missing.
+                      const score = scorePassword(form.adminPassword);
+                      if (score.level === 0) return null;
+                      const barColor = {
+                        gray: 'bg-gray-300',
+                        red: 'bg-red-500',
+                        orange: 'bg-orange-500',
+                        yellow: 'bg-yellow-500',
+                        green: 'bg-green-500',
+                      }[score.color];
+                      const textColor = {
+                        gray: 'text-gray-500',
+                        red: 'text-red-600',
+                        orange: 'text-orange-600',
+                        yellow: 'text-yellow-700',
+                        green: 'text-green-700',
+                      }[score.color];
+                      return (
+                        <div className="space-y-1 pt-1" role="status" aria-live="polite">
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4].map((i) => (
+                              <div
+                                key={i}
+                                className={`h-1.5 flex-1 rounded ${
+                                  i <= score.level ? barColor : 'bg-gray-200'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <p className={`text-xs font-medium ${textColor}`}>{score.label}</p>
+                          {score.hints.length > 0 && (
+                            <ul className="text-xs text-gray-500 list-disc ml-4 space-y-0.5">
+                              {score.hints.map((h) => (
+                                <li key={h}>{h}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
-                  {dbPasswordAutoDetected ? (
-                    <p className="text-xs text-green-700 flex items-center gap-1">
-                      <CheckCircle className="h-3.5 w-3.5" />
-                      Auto-detected from Docker — you don&apos;t need to change this.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-500">
-                      Password for the Postgres database. If you installed with{' '}
-                      <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">scripts/install.sh</code> or{' '}
-                      <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">install.ps1</code>, this was generated for
-                      you and stored in the <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">.env</code> file
-                      next to <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">docker-compose.yml</code>.
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <Button variant="secondary" onClick={handleTestDatabase} loading={dbTestStatus === 'testing'}>
-                    Test Connection
+                  <Input
+                    label="Confirm password"
+                    type="password"
+                    value={form.adminPasswordConfirm}
+                    onChange={set('adminPasswordConfirm')}
+                    autoComplete="new-password"
+                    error={
+                      form.adminPasswordConfirm && form.adminPassword !== form.adminPasswordConfirm
+                        ? 'Passwords do not match'
+                        : undefined
+                    }
+                  />
+                  <Button variant="secondary" onClick={handleGenerateAdminPassword}>
+                    <RefreshCw className="h-4 w-4 mr-1" /> Generate a strong password
                   </Button>
-                  {dbTestStatus === 'success' && (
-                    <span className="flex items-center gap-1 text-sm text-green-600">
-                      <CheckCircle className="h-4 w-4" /> Connected
-                    </span>
-                  )}
-                  {dbTestStatus === 'error' && (
-                    <span className="text-sm text-red-600">{dbTestError || 'Connection failed'}</span>
-                  )}
+                </div>
+
+                {/* Company section */}
+                <div className="pt-4 border-t border-gray-200 space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-800">Your company</h2>
+                  <p className="text-sm text-gray-500">
+                    This information appears on invoices and reports. You can update it later
+                    from Settings → Company.
+                  </p>
+                  <Input
+                    label="Business name"
+                    value={form.businessName}
+                    onChange={set('businessName')}
+                    required
+                    autoComplete="organization"
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Entity type</label>
+                    <select
+                      value={form.entityType}
+                      onChange={set('entityType')}
+                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="sole_prop">Sole Proprietorship</option>
+                      <option value="single_member_llc">Single Member LLC</option>
+                      <option value="s_corp">S Corporation</option>
+                      <option value="c_corp">C Corporation</option>
+                      <option value="partnership">Partnership</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Business type</label>
+                    <select value={form.businessType} onChange={set('businessType')}
+                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                      {businessTypeOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Determines the chart of accounts we&apos;ll create for you.</p>
+                    {/* Preview the accounts this template creates so the
+                        user can compare before committing. Account names
+                        and category counts come from the same constant the
+                        backend seeds from, so what shows here is what they
+                        actually get. */}
+                    {(() => {
+                      const preview = coaPreviewForBusinessType(form.businessType);
+                      if (!preview) return null;
+                      return (
+                        <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2">
+                          <p className="text-xs font-medium text-gray-700">
+                            We&apos;ll create {preview.total} accounts for you, including:
+                          </p>
+                          <ul className="flex flex-wrap gap-1">
+                            {preview.sample.map((name) => (
+                              <li
+                                key={name}
+                                className="text-xs px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-700"
+                              >
+                                {name}
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="text-[11px] text-gray-500">
+                            Categories:{' '}
+                            {Object.entries(preview.byCategory)
+                              .map(([cat, count]) => `${count} ${cat.toLowerCase()}`)
+                              .join(' · ')}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.createDemoCompany}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, createDemoCompany: e.target.checked }))
+                        }
+                        className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">
+                          Also create a demo company with sample data
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Spins up a second company called <strong>Demo Bookkeeping Co</strong> with
+                          ~200 realistic transactions so you can explore the app without touching
+                          your real books. You can delete it any time from Settings → Team.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Step 2: Network / Ports */}
+            {/* Step 2: Email (optional — unchanged behavior, renumbered) */}
             {step === 2 && (
               <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-gray-800">Network & Ports</h2>
+                <h2 className="text-lg font-semibold text-gray-800">Email (optional)</h2>
                 <p className="text-sm text-gray-500">
-                  Configure which ports the application services will use. Change these if another application is already using the default ports.
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">API Server Port</label>
-                    <div className="flex items-center gap-2">
-                      <input type="number" value={form.apiPort} onChange={(e) => { set('apiPort')(e); setPortStatus((p) => ({ ...p, api: 'idle' })); }}
-                        onBlur={() => checkPort(form.apiPort, 'api')}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                      {portStatus['api'] === 'checking' && <span className="text-xs text-gray-400">Checking...</span>}
-                      {portStatus['api'] === 'available' && <span className="text-xs text-green-600">Available</span>}
-                      {portStatus['api'] === 'in_use' && <span className="text-xs text-red-600">In use</span>}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Frontend Port</label>
-                    <div className="flex items-center gap-2">
-                      <input type="number" value={form.frontendPort} onChange={(e) => { set('frontendPort')(e); setPortStatus((p) => ({ ...p, frontend: 'idle' })); }}
-                        onBlur={() => checkPort(form.frontendPort, 'frontend')}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                      {portStatus['frontend'] === 'checking' && <span className="text-xs text-gray-400">Checking...</span>}
-                      {portStatus['frontend'] === 'available' && <span className="text-xs text-green-600">Available</span>}
-                      {portStatus['frontend'] === 'in_use' && <span className="text-xs text-red-600">In use</span>}
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input label="Redis Host" value={form.redisHost} onChange={set('redisHost')} />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Redis Port</label>
-                    <div className="flex items-center gap-2">
-                      <input type="number" value={form.redisPort} onChange={(e) => { set('redisPort')(e); setPortStatus((p) => ({ ...p, redis: 'idle' })); }}
-                        onBlur={() => checkPort(form.redisPort, 'redis')}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                      {portStatus['redis'] === 'checking' && <span className="text-xs text-gray-400">Checking...</span>}
-                      {portStatus['redis'] === 'available' && <span className="text-xs text-green-600">Available</span>}
-                      {portStatus['redis'] === 'in_use' && <span className="text-xs text-red-600">In use</span>}
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-800">
-                  Default ports: API 3001, Frontend 5173, Redis 6379. Change only if another application is using these ports.
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Security */}
-            {step === 3 && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-gray-800">Security Keys</h2>
-                <p className="text-sm text-gray-500">
-                  These keys are used to sign authentication tokens and encrypt backups. They have
-                  been auto-generated for you. Save them securely -- you'll need them if you ever
-                  move or restore your installation.
-                </p>
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">JWT Secret</label>
-                  <div className="relative">
-                    <input
-                      type={showJwtSecret ? 'text' : 'password'}
-                      value={form.jwtSecret}
-                      onChange={set('jwtSecret')}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowJwtSecret(!showJwtSecret)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showJwtSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">Backup Encryption Key</label>
-                  <div className="relative">
-                    <input
-                      type={showBackupKey ? 'text' : 'password'}
-                      value={form.backupKey}
-                      onChange={set('backupKey')}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowBackupKey(!showBackupKey)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showBackupKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                <Button variant="secondary" onClick={handleGenerateSecrets}>
-                  <RefreshCw className="h-4 w-4 mr-1" /> Regenerate
-                </Button>
-              </div>
-            )}
-
-            {/* Step 4: Email */}
-            {step === 4 && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-gray-800">Email Configuration (Optional)</h2>
-                <p className="text-sm text-gray-500">
-                  Configure SMTP to send invoices and notifications by email. You can skip this and
-                  set it up later.
+                  Connect an email account so Vibe MyBooks can send invoices and payment
+                  reminders. You can skip this and configure it later from Settings → Email.
                 </p>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -1245,13 +1538,13 @@ export function FirstRunSetupWizard() {
                     onChange={setChecked('skipEmail')}
                     className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
-                  <span className="text-sm text-gray-700">Skip email configuration</span>
+                  <span className="text-sm text-gray-700">Skip email for now</span>
                 </label>
 
                 {!form.skipEmail && (
                   <div className="space-y-4 pt-2">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Provider Preset</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Provider preset</label>
                       <select
                         value={form.smtpPreset}
                         onChange={handleSmtpPresetChange}
@@ -1265,7 +1558,7 @@ export function FirstRunSetupWizard() {
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                       <div className="col-span-2">
-                        <Input label="SMTP Host" value={form.smtpHost} onChange={set('smtpHost')} />
+                        <Input label="SMTP host" value={form.smtpHost} onChange={set('smtpHost')} />
                       </div>
                       <Input label="Port" value={form.smtpPort} onChange={set('smtpPort')} type="number" />
                     </div>
@@ -1288,187 +1581,64 @@ export function FirstRunSetupWizard() {
                         </button>
                       </div>
                     </div>
-                    <Input label="From Address" value={form.smtpFrom} onChange={set('smtpFrom')} type="email" />
+                    <Input label="From address" value={form.smtpFrom} onChange={set('smtpFrom')} type="email" />
                     <div className="flex items-center gap-3">
-                      <Button variant="secondary" onClick={handleTestSmtp} loading={smtpTestStatus === 'testing'}>
-                        Test Email
+                      <Button variant="secondary" onClick={handleTestSmtp} loading={smtpTestStatus === 'testing'} disabled={!form.adminEmail}>
+                        Send test email
                       </Button>
                       {smtpTestStatus === 'success' && (
                         <span className="flex items-center gap-1 text-sm text-green-600">
-                          <CheckCircle className="h-4 w-4" /> Email sent
+                          <CheckCircle className="h-4 w-4" /> Test email sent to {form.adminEmail}
                         </span>
                       )}
                       {smtpTestStatus === 'error' && (
-                        <span className="text-sm text-red-600">{smtpTestError || 'SMTP test failed'}</span>
+                        <span className="text-sm text-red-600">{smtpTestError ? friendlyError(smtpTestError) : 'SMTP test failed'}</span>
                       )}
                     </div>
+                    {!form.adminEmail && (
+                      <p className="text-xs text-gray-500">
+                        The test email is sent to your admin address — go back to step 1 and enter
+                        your email first.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Step 5: Admin Account */}
-            {step === 5 && (
+            {/* Step 3: Review + Advanced expander. The Advanced panel contains
+                the three old steps (Database, Network, Security) for operators
+                who need to change defaults. Non-technical users never open it. */}
+            {step === 3 && (
               <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-gray-800">Admin Account</h2>
+                <h2 className="text-lg font-semibold text-gray-800">Review and finish</h2>
                 <p className="text-sm text-gray-500">
-                  Create the first admin user who will have full access to the application.
-                </p>
-                <Input
-                  label="Email"
-                  type="email"
-                  value={form.adminEmail}
-                  onChange={set('adminEmail')}
-                  required
-                />
-                <Input
-                  label="Display Name"
-                  value={form.adminDisplayName}
-                  onChange={set('adminDisplayName')}
-                  required
-                />
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">Password (min 8 characters)</label>
-                  <div className="relative">
-                    <input
-                      type={showAdminPassword ? 'text' : 'password'}
-                      value={form.adminPassword}
-                      onChange={set('adminPassword')}
-                      minLength={8}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowAdminPassword(!showAdminPassword)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {form.adminPassword && form.adminPassword.length < 8 && (
-                    <p className="text-sm text-red-600">Password must be at least 8 characters</p>
-                  )}
-                </div>
-                <Input
-                  label="Confirm Password"
-                  type="password"
-                  value={form.adminPasswordConfirm}
-                  onChange={set('adminPasswordConfirm')}
-                  error={
-                    form.adminPasswordConfirm && form.adminPassword !== form.adminPasswordConfirm
-                      ? 'Passwords do not match'
-                      : undefined
-                  }
-                />
-                <Button variant="secondary" onClick={handleGenerateAdminPassword}>
-                  <RefreshCw className="h-4 w-4 mr-1" /> Generate Password
-                </Button>
-              </div>
-            )}
-
-            {/* Step 6: Company */}
-            {step === 6 && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-gray-800">Company Information</h2>
-                <p className="text-sm text-gray-500">
-                  Tell us about your business. This information will appear on invoices and reports.
-                </p>
-                <Input
-                  label="Business Name"
-                  value={form.businessName}
-                  onChange={set('businessName')}
-                  required
-                />
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Entity Type</label>
-                  <select
-                    value={form.entityType}
-                    onChange={set('entityType')}
-                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  >
-                    <option value="sole_prop">Sole Proprietorship</option>
-                    <option value="single_member_llc">Single Member LLC</option>
-                    <option value="s_corp">S Corporation</option>
-                    <option value="c_corp">C Corporation</option>
-                    <option value="partnership">Partnership</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
-                  <select value={form.businessType} onChange={set('businessType')}
-                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                    {businessTypeOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">Determines the chart of accounts template for your company.</p>
-                </div>
-                <Input
-                  label="Industry (Optional)"
-                  value={form.industry}
-                  onChange={set('industry')}
-                  placeholder="e.g., Consulting, Retail, Service"
-                />
-
-                {/* Optional demo data */}
-                <div className="pt-2 border-t border-gray-200">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.createDemoCompany}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, createDemoCompany: e.target.checked }))
-                      }
-                      className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <div>
-                      <div className="text-sm font-medium text-gray-700">
-                        Also create a Demo Bookkeeping Co tenant with sample data
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Creates a second tenant named <strong>Demo Bookkeeping Co</strong>{' '}
-                        populated with ~200 realistic transactions (invoices, customer
-                        payments, cash sales, expenses, bank deposits, transfers, and
-                        payroll) spanning the current year and the prior year. Useful for
-                        exploring the app and testing reports without touching your real
-                        books. You can switch between the two tenants from the app UI.
-                      </p>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            )}
-
-            {/* Step 7: Review */}
-            {step === 7 && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-gray-800">Review Configuration</h2>
-                <p className="text-sm text-gray-500">
-                  Please review your settings before completing setup. Download your credentials
-                  file and store it securely.
+                  Here&apos;s a summary of what we&apos;ll set up. Save your admin credentials
+                  before clicking Complete Setup.
                 </p>
 
-                {/* Database */}
+                {/* Admin */}
                 <div className="border border-gray-200 rounded-lg p-4 space-y-1">
-                  <h3 className="text-sm font-semibold text-gray-700">Database</h3>
-                  <p className="text-sm text-gray-600">
-                    {form.dbUser}@{form.dbHost}:{form.dbPort}/{form.dbName}
+                  <h3 className="text-sm font-semibold text-gray-700">Admin account</h3>
+                  <p className="text-sm text-gray-600">{form.adminEmail || '(not set)'}</p>
+                  <p className="text-sm text-gray-600">{form.adminDisplayName || '(not set)'}</p>
+                  <p className="text-sm text-gray-500">Password: {masked(form.adminPassword)}</p>
+                </div>
+
+                {/* Company */}
+                <div className="border border-gray-200 rounded-lg p-4 space-y-1">
+                  <h3 className="text-sm font-semibold text-gray-700">Company</h3>
+                  <p className="text-sm text-gray-600">{form.businessName || '(not set)'}</p>
+                  <p className="text-sm text-gray-500">
+                    {entityTypeLabels[form.entityType] || form.entityType}
                   </p>
-                  <p className="text-sm text-gray-500">Password: {masked(form.dbPassword)}</p>
-                </div>
-
-                {/* Security */}
-                <div className="border border-gray-200 rounded-lg p-4 space-y-1">
-                  <h3 className="text-sm font-semibold text-gray-700">Security</h3>
-                  <p className="text-sm text-gray-500">JWT Secret: {masked(form.jwtSecret)}</p>
-                  <p className="text-sm text-gray-500">Backup Key: {masked(form.backupKey)}</p>
                 </div>
 
                 {/* Email */}
                 <div className="border border-gray-200 rounded-lg p-4 space-y-1">
                   <h3 className="text-sm font-semibold text-gray-700">Email</h3>
                   {form.skipEmail ? (
-                    <p className="text-sm text-gray-500 italic">Skipped</p>
+                    <p className="text-sm text-gray-500 italic">Skipped — configure later in Settings → Email.</p>
                   ) : (
                     <>
                       <p className="text-sm text-gray-600">{form.smtpHost}:{form.smtpPort}</p>
@@ -1477,46 +1647,198 @@ export function FirstRunSetupWizard() {
                   )}
                 </div>
 
-                {/* Admin */}
-                <div className="border border-gray-200 rounded-lg p-4 space-y-1">
-                  <h3 className="text-sm font-semibold text-gray-700">Admin Account</h3>
-                  <p className="text-sm text-gray-600">{form.adminEmail}</p>
-                  <p className="text-sm text-gray-600">{form.adminDisplayName}</p>
-                  <p className="text-sm text-gray-500">Password: {masked(form.adminPassword)}</p>
-                </div>
-
-                {/* Company */}
-                <div className="border border-gray-200 rounded-lg p-4 space-y-1">
-                  <h3 className="text-sm font-semibold text-gray-700">Company</h3>
-                  <p className="text-sm text-gray-600">{form.businessName}</p>
-                  <p className="text-sm text-gray-500">
-                    {entityTypeLabels[form.entityType] || form.entityType}
+                {/* Security — summary tile (details live under Advanced) */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <h3 className="text-sm font-semibold text-gray-700">Security keys generated</h3>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Encryption keys for tokens, backups, and Plaid are ready. Print or save them
+                    from the button below before you finish.
                   </p>
-                  {form.industry && (
-                    <p className="text-sm text-gray-500">Industry: {form.industry}</p>
-                  )}
                 </div>
 
-                {/* Download & Confirm */}
+                {/* Print credentials (no .txt download — those linger on disk). */}
                 <div className="pt-2 space-y-3">
-                  <Button variant="secondary" onClick={handleDownloadCredentials}>
-                    <Download className="h-4 w-4 mr-1" /> Download Credentials
-                  </Button>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={() => {
+                      handlePrintCredentials();
+                      setCredentialsActionFired(true);
+                    }}>
+                      <Download className="h-4 w-4 mr-1" /> Print credentials
+                    </Button>
+                    <Button variant="secondary" onClick={async () => {
+                      await copyCredentialsToClipboard();
+                      setCredentialsActionFired(true);
+                    }}>
+                      Copy to clipboard
+                    </Button>
+                  </div>
+                  <label className="flex items-start gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={savedCredentials}
                       onChange={(e) => setSavedCredentials(e.target.checked)}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      disabled={!credentialsActionFired}
+                      className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:opacity-50"
                     />
-                    <span className="text-sm text-gray-700">I have saved my credentials</span>
+                    <span className={`text-sm ${credentialsActionFired ? 'text-gray-700' : 'text-gray-400'}`}>
+                      I have saved my admin password somewhere safe.
+                      {!credentialsActionFired && ' (Click Print or Copy first.)'}
+                    </span>
                   </label>
+                </div>
+
+                {/* Advanced expander — Database, Network, Security fields. */}
+                <div className="pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setAdvancedOpen((v) => !v)}
+                    className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+                  >
+                    <ChevronRight className={`h-4 w-4 transition-transform ${advancedOpen ? 'rotate-90' : ''}`} />
+                    Advanced settings
+                    <span className="text-xs text-gray-500 font-normal">
+                      (database, ports, encryption keys — auto-configured, most users can skip)
+                    </span>
+                  </button>
+
+                  {advancedOpen && (
+                    <div className="mt-4 space-y-6 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      {/* Database */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-semibold text-gray-700">Database</h4>
+                        {dbPasswordAutoDetected && (
+                          <p className="text-xs text-green-700 flex items-center gap-1">
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            Auto-detected from your Docker install.
+                          </p>
+                        )}
+                        <div className="grid grid-cols-2 gap-3">
+                          <Input label="Host" value={form.dbHost} onChange={set('dbHost')} />
+                          <Input label="Port" value={form.dbPort} onChange={set('dbPort')} type="number" />
+                        </div>
+                        <Input label="Database name" value={form.dbName} onChange={set('dbName')} />
+                        <Input label="Username" value={form.dbUser} onChange={set('dbUser')} />
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-700">Password</label>
+                          <div className="relative">
+                            <input
+                              type={showDbPassword ? 'text' : 'password'}
+                              value={form.dbPassword}
+                              onChange={set('dbPassword')}
+                              className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowDbPassword(!showDbPassword)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              {showDbPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Button variant="secondary" onClick={handleTestDatabase} loading={dbTestStatus === 'testing'}>
+                            Test connection
+                          </Button>
+                          {dbTestStatus === 'success' && (
+                            <span className="flex items-center gap-1 text-sm text-green-600">
+                              <CheckCircle className="h-4 w-4" /> Connected
+                            </span>
+                          )}
+                          {dbTestStatus === 'error' && (
+                            <span className="text-sm text-red-600">{friendlyError(dbTestError)}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Network / Ports */}
+                      <div className="space-y-3 pt-3 border-t border-gray-200">
+                        <h4 className="text-sm font-semibold text-gray-700">Ports</h4>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">API</label>
+                            <input type="number" value={form.apiPort}
+                              onChange={(e) => { set('apiPort')(e); setPortStatus((p) => ({ ...p, api: 'idle' })); }}
+                              onBlur={() => checkPort(form.apiPort, 'api')}
+                              className="block w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+                            {portStatus['api'] === 'in_use' && <span className="text-xs text-red-600">In use</span>}
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Frontend</label>
+                            <input type="number" value={form.frontendPort}
+                              onChange={(e) => { set('frontendPort')(e); setPortStatus((p) => ({ ...p, frontend: 'idle' })); }}
+                              onBlur={() => checkPort(form.frontendPort, 'frontend')}
+                              className="block w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+                            {portStatus['frontend'] === 'in_use' && <span className="text-xs text-red-600">In use</span>}
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Redis</label>
+                            <input type="number" value={form.redisPort}
+                              onChange={(e) => { set('redisPort')(e); setPortStatus((p) => ({ ...p, redis: 'idle' })); }}
+                              onBlur={() => checkPort(form.redisPort, 'redis')}
+                              className="block w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+                            {portStatus['redis'] === 'in_use' && <span className="text-xs text-red-600">In use</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Security keys */}
+                      <div className="space-y-3 pt-3 border-t border-gray-200">
+                        <h4 className="text-sm font-semibold text-gray-700">Security keys</h4>
+                        <p className="text-xs text-gray-500">
+                          Generated for you. Keep them safe — they&apos;re in the Print/Copy output above.
+                        </p>
+                        <div className="space-y-1">
+                          <label className="block text-xs font-medium text-gray-700">JWT secret</label>
+                          <div className="relative">
+                            <input
+                              type={showJwtSecret ? 'text' : 'password'}
+                              value={form.jwtSecret}
+                              onChange={set('jwtSecret')}
+                              className="block w-full rounded-lg border border-gray-300 px-3 py-1.5 pr-10 text-xs font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowJwtSecret(!showJwtSecret)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              {showJwtSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-xs font-medium text-gray-700">Backup encryption key</label>
+                          <div className="relative">
+                            <input
+                              type={showBackupKey ? 'text' : 'password'}
+                              value={form.backupKey}
+                              onChange={set('backupKey')}
+                              className="block w-full rounded-lg border border-gray-300 px-3 py-1.5 pr-10 text-xs font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowBackupKey(!showBackupKey)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              {showBackupKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <Button variant="secondary" size="sm" onClick={handleGenerateSecrets}>
+                          <RefreshCw className="h-4 w-4 mr-1" /> Regenerate all keys
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Step 8: Finalizing */}
-            {step === 8 && (
+            {/* Finalizing step (hidden from the progress bar) */}
+            {step === FINALIZING_STEP && (
               <div className="space-y-6 py-4">
                 <h2 className="text-lg font-semibold text-gray-800 text-center">
                   {finalizeStatus === 'done' ? 'Setup Complete!' : 'Setting up Vibe MyBooks...'}
@@ -1558,7 +1880,7 @@ export function FirstRunSetupWizard() {
 
                 {finalizeError && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                    {finalizeError}
+                    {friendlyError(finalizeError)}
                   </div>
                 )}
 
@@ -1587,7 +1909,10 @@ export function FirstRunSetupWizard() {
                         <div className="flex flex-wrap gap-2">
                           <Button
                             variant="secondary"
-                            onClick={() => navigator.clipboard.writeText(recoveryKey)}
+                            onClick={async () => {
+                              try { await navigator.clipboard.writeText(recoveryKey); } catch { /* ignore */ }
+                              setRecoveryKeyActionFired(true);
+                            }}
                           >
                             Copy to Clipboard
                           </Button>
@@ -1607,6 +1932,7 @@ export function FirstRunSetupWizard() {
                               );
                               win.document.close();
                               win.print();
+                              setRecoveryKeyActionFired(true);
                             }}
                           >
                             Print
@@ -1618,12 +1944,14 @@ export function FirstRunSetupWizard() {
                             type="checkbox"
                             checked={recoveryKeySaved}
                             onChange={(e) => setRecoveryKeySaved(e.target.checked)}
-                            className="mt-1 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                            disabled={!recoveryKeyActionFired}
+                            className="mt-1 rounded border-amber-400 text-amber-600 focus:ring-amber-500 disabled:opacity-50"
                           />
-                          <span className="text-sm text-amber-900">
+                          <span className={`text-sm ${recoveryKeyActionFired ? 'text-amber-900' : 'text-amber-900/60'}`}>
                             I have saved this recovery key in a secure location. I understand it will
                             not be shown again, and that losing it along with my <code>.env</code> file
                             means encrypted data (Plaid tokens, 2FA secrets) becomes unrecoverable.
+                            {!recoveryKeyActionFired && ' (Click Copy or Print first.)'}
                           </span>
                         </label>
                       </div>
@@ -1652,9 +1980,11 @@ export function FirstRunSetupWizard() {
                           }
                           navigate('/login');
                         }}
-                        disabled={!!recoveryKey && !recoveryKeySaved}
+                        disabled={!!recoveryKey && (!recoveryKeySaved || !recoveryKeyActionFired)}
                       >
-                        {recoveryKey && !recoveryKeySaved ? 'Confirm the checkbox first' : 'Go to Login'}
+                        {recoveryKey && (!recoveryKeySaved || !recoveryKeyActionFired)
+                          ? 'Save and confirm the key first'
+                          : 'Go to Login'}
                       </Button>
                     </div>
                   </div>
@@ -1670,22 +2000,18 @@ export function FirstRunSetupWizard() {
               </div>
             )}
 
-            {/* Navigation buttons — hidden only on the Finalizing step (8),
-                which has its own "Go to Login" / "Retry" controls. The bar
-                DOES render on step 7 (Review) with a "Complete Setup"
-                button; previously it was hidden on step 7 too, leaving
-                users stranded with no way to finish the wizard. */}
-            {step < 8 && step > 0 && !restoreMode && !restoreResult && (
+            {/* Navigation buttons — hidden on the Welcome step (it has its
+                own New Install / Restore buttons) and on the hidden
+                Finalizing phase (which has its own "Go to Login" / "Retry"
+                controls). Shown on the intermediate steps with Back + Next,
+                and on Review with Back + Complete Setup. */}
+            {step < FINALIZING_STEP && step > 0 && !restoreMode && !restoreResult && (
               <div className="flex justify-between mt-6 pt-4 border-t border-gray-100">
-                {step > 0 ? (
-                  <Button variant="secondary" onClick={handleBack}>
-                    Back
-                  </Button>
-                ) : (
-                  <div />
-                )}
+                <Button variant="secondary" onClick={handleBack}>
+                  Back
+                </Button>
                 <Button onClick={handleNext} disabled={!canProceed()}>
-                  {step === 7 ? 'Complete Setup' : 'Next'}
+                  {step === 3 ? 'Complete Setup' : 'Next'}
                 </Button>
               </div>
             )}

@@ -127,8 +127,8 @@ function VendorApSection({ contactId }: { contactId: string }) {
   const overdue = unpaid.filter((b) => b.daysOverdue > 0);
   const totalOwed = unpaid.reduce((s, b) => s + parseFloat(b.balanceDue || '0'), 0);
   const totalOverdue = overdue.reduce((s, b) => s + parseFloat(b.balanceDue || '0'), 0);
-  const availableCredits = credits.filter((c: any) => parseFloat(c.balanceDue || '0') > 0);
-  const totalAvailableCredits = availableCredits.reduce((s, c: any) => s + parseFloat(c.balanceDue || '0'), 0);
+  const availableCredits = credits.filter((c) => parseFloat(c.balanceDue || '0') > 0);
+  const totalAvailableCredits = availableCredits.reduce((s, c) => s + parseFloat(c.balanceDue || '0'), 0);
 
   return (
     <div className="mt-6 space-y-4">
@@ -238,7 +238,7 @@ function VendorApSection({ contactId }: { contactId: string }) {
               </tr>
             </thead>
             <tbody>
-              {credits.map((c: any) => (
+              {credits.map((c) => (
                 <tr key={c.id} className="border-b last:border-0">
                   <td className="py-2 px-3 text-sm font-mono">{c.txnNumber}</td>
                   <td className="py-2 px-3 text-sm">{c.txnDate}</td>

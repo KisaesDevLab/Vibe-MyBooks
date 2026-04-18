@@ -142,7 +142,7 @@ Vibe MyBooks supports multiple companies under a single user account — ideal f
 ### Adding a Company
 1. Click the **company switcher** at the top of the sidebar
 2. Click **+ Add Company**
-3. Enter the business name, entity type, and industry
+3. Enter the business name, entity type, and business type (restaurant, consulting, retail, etc.)
 4. The new company is created with its own Chart of Accounts
 
 ### Switching Companies

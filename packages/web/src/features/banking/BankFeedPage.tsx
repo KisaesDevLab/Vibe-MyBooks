@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
 import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
 import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/hooks/useAi';
@@ -12,6 +12,7 @@ import { ContactSelector } from '../../components/forms/ContactSelector';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2 } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
@@ -29,8 +30,11 @@ function ConfidenceBadge({ score }: { score: number }) {
 }
 
 function useDebounce(value: string, delay: number) {
+  // Previously written with useMemo — the returned cleanup function was
+  // discarded, so typing accumulated pending timers. useEffect's cleanup
+  // runs on every dependency change and correctly cancels the stale timer.
   const [debounced, setDebounced] = useState(value);
-  useMemo(() => {
+  useEffect(() => {
     const timer = setTimeout(() => setDebounced(value), delay);
     return () => clearTimeout(timer);
   }, [value, delay]);
@@ -82,6 +86,7 @@ export function BankFeedPage() {
   const [sortKey, setSortKey] = useState<SortKey>('feedDate');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [matchModalFor, setMatchModalFor] = useState<string | null>(null);
+  const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -149,7 +154,7 @@ export function BankFeedPage() {
     setSelected(new Set(pending));
   };
 
-  const expandItem = (item: any) => {
+  const expandItem = (item: BankFeedItem) => {
     if (expandedId === item.id) { setExpandedId(null); return; }
     setExpandedId(item.id);
     setEditState({
@@ -180,7 +185,7 @@ export function BankFeedPage() {
     }
   };
 
-  const handleAcceptSuggestion = async (item: any) => {
+  const handleAcceptSuggestion = async (item: BankFeedItem) => {
     if (!item.suggestedAccountId) return;
     categorize.mutate({ id: item.id, accountId: item.suggestedAccountId, contactId: item.suggestedContactId || undefined }, {
       onSuccess: () => {
@@ -205,6 +210,18 @@ export function BankFeedPage() {
 
   return (
     <div>
+      <ConfirmDialog
+        open={showExcludeConfirm}
+        title={`Exclude ${selected.size} item${selected.size > 1 ? 's' : ''}?`}
+        message="Excluded items are hidden from the ledger. You can restore them later from the Excluded filter."
+        confirmLabel="Exclude"
+        variant="danger"
+        onCancel={() => setShowExcludeConfirm(false)}
+        onConfirm={() => {
+          bulkExclude.mutate([...selected], { onSuccess: () => setSelected(new Set()) });
+          setShowExcludeConfirm(false);
+        }}
+      />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900">Bank Feed</h1>
@@ -228,7 +245,7 @@ export function BankFeedPage() {
               <select value={connectionFilter} onChange={(e) => setConnectionFilter(e.target.value)}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
                 <option value="">All Accounts</option>
-                {connections.map((c: any) => (
+                {connections.map((c) => (
                   <option key={c.id} value={c.id}>{c.accountName || c.institutionName || 'Bank Account'}{c.mask ? ` (****${c.mask})` : ''}</option>
                 ))}
               </select>
@@ -301,7 +318,7 @@ export function BankFeedPage() {
                 <RefreshCw className="h-4 w-4 mr-1" /> Re-cleanse
               </Button>
               <Button size="sm" variant="danger"
-                onClick={() => { if (confirm(`Exclude ${selected.size} item${selected.size > 1 ? 's' : ''}?`)) bulkExclude.mutate([...selected], { onSuccess: () => setSelected(new Set()) }); }}
+                onClick={() => setShowExcludeConfirm(true)}
                 loading={bulkExclude.isPending}>
                 <Trash2 className="h-4 w-4 mr-1" /> Exclude
               </Button>
@@ -357,7 +374,7 @@ export function BankFeedPage() {
                       ) : (
                         <div>
                           <p className="text-gray-900 whitespace-nowrap">{item.feedDate}</p>
-                          <p className="text-xs text-gray-400">{(item as any).bankAccountName || (item as any).institutionName || ''}</p>
+                          <p className="text-xs text-gray-400">{item.bankAccountName || item.institutionName || ''}</p>
                         </div>
                       )}
                     </td>
@@ -373,15 +390,15 @@ export function BankFeedPage() {
                       ) : (
                         <div>
                           <p className="text-gray-900 font-medium">{item.description || '—'}</p>
-                          {(item as any).originalDescription && (item as any).originalDescription !== item.description && (
-                            <p className="text-xs text-gray-400 truncate max-w-[300px]" title={(item as any).originalDescription}>{(item as any).originalDescription}</p>
+                          {item.originalDescription && item.originalDescription !== item.description && (
+                            <p className="text-xs text-gray-400 truncate max-w-[300px]" title={item.originalDescription}>{item.originalDescription}</p>
                           )}
                           {item.suggestedAccountId && item.status === 'pending' && (
                             <p className="text-xs text-primary-600 flex items-center gap-0.5 mt-0.5">
                               <Sparkles className="h-3 w-3" />
-                              {(item as any).suggestedAccountName || 'Suggested'}
+                              {item.suggestedAccountName || 'Suggested'}
                               {item.confidenceScore && <ConfidenceBadge score={parseFloat(item.confidenceScore)} />}
-                              {(item as any).matchType === 'ai' && (
+                              {item.matchType === 'ai' && (
                                 <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium" title="Categorized by AI">AI</span>
                               )}
                             </p>

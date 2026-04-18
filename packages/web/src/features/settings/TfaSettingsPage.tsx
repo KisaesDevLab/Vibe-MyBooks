@@ -8,9 +8,21 @@ import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Shield, Mail, Smartphone, Key, Trash2, Copy, CheckCircle, AlertTriangle, Monitor } from 'lucide-react';
 import { LoginMethodSettings } from './LoginMethodSettings';
 import QRCode from 'qrcode';
+
+interface TrustedDevice {
+  id: string;
+  deviceName?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  trustedAt?: string;
+  expiresAt?: string;
+  lastUsedAt?: string;
+  [key: string]: unknown;
+}
 
 export function TfaSettingsPage() {
   const queryClient = useQueryClient();
@@ -18,6 +30,12 @@ export function TfaSettingsPage() {
   const [showTotpSetup, setShowTotpSetup] = useState<{ secret: string; qrUri: string } | null>(null);
   const [totpCode, setTotpCode] = useState('');
   const [password, setPassword] = useState('');
+  const [pendingConfirm, setPendingConfirm] = useState<
+    | 'removeTotp'
+    | 'removeSms'
+    | 'revokeAllDevices'
+    | null
+  >(null);
   const [showDisable, setShowDisable] = useState(false);
   const [showRegenerate, setShowRegenerate] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -97,7 +115,7 @@ export function TfaSettingsPage() {
 
   const { data: devicesData } = useQuery({
     queryKey: ['tfa', 'devices'],
-    queryFn: () => apiClient<{ devices: any[] }>('/users/me/tfa/devices'),
+    queryFn: () => apiClient<{ devices: TrustedDevice[] }>('/users/me/tfa/devices'),
     enabled: !!status?.userEnabled,
   });
 
@@ -119,8 +137,28 @@ export function TfaSettingsPage() {
   const methods = status?.methods || [];
   const devices = devicesData?.devices || [];
 
+  const confirmConfig = pendingConfirm === 'removeTotp'
+    ? { title: 'Remove authenticator app?', message: 'You will no longer be able to sign in with TOTP codes until you re-enroll.', onConfirm: () => removeTotp.mutate() }
+    : pendingConfirm === 'removeSms'
+    ? { title: 'Remove SMS verification?', message: 'Your phone number will be removed from 2FA.', onConfirm: () => removeSms.mutate() }
+    : pendingConfirm === 'revokeAllDevices'
+    ? { title: 'Revoke all trusted devices?', message: 'Every device will require 2FA on the next login.', onConfirm: () => revokeAllDevices.mutate() }
+    : null;
+
   return (
     <div>
+      <ConfirmDialog
+        open={!!confirmConfig}
+        title={confirmConfig?.title ?? ''}
+        message={confirmConfig?.message}
+        confirmLabel="Remove"
+        variant="danger"
+        onCancel={() => setPendingConfirm(null)}
+        onConfirm={() => {
+          confirmConfig?.onConfirm();
+          setPendingConfirm(null);
+        }}
+      />
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Two-Factor Authentication</h1>
       <p className="text-sm text-gray-500 mb-6">Add an extra layer of security to your account.</p>
 
@@ -261,7 +299,7 @@ export function TfaSettingsPage() {
                   </div>
                 </div>
                 {methods.includes('totp') ? (
-                  <Button variant="secondary" size="sm" onClick={() => { if (confirm('Remove authenticator app?')) removeTotp.mutate(); }}>Remove</Button>
+                  <Button variant="secondary" size="sm" onClick={() => setPendingConfirm('removeTotp')}>Remove</Button>
                 ) : (
                   <Button size="sm" onClick={() => setupTotp.mutate()} loading={setupTotp.isPending}>Set Up</Button>
                 )}
@@ -279,7 +317,7 @@ export function TfaSettingsPage() {
                       </div>
                     </div>
                     {methods.includes('sms') ? (
-                      <Button variant="secondary" size="sm" onClick={() => { if (confirm('Remove SMS verification?')) removeSms.mutate(); }}>Remove</Button>
+                      <Button variant="secondary" size="sm" onClick={() => setPendingConfirm('removeSms')}>Remove</Button>
                     ) : (
                       <Button size="sm" onClick={() => { setShowSmsSetup(true); setSmsStep('phone'); setSmsPhone(''); setSmsCode(''); }}>Set Up</Button>
                     )}
@@ -289,7 +327,7 @@ export function TfaSettingsPage() {
                       {smsStep === 'phone' ? (
                         <>
                           <Input label="Phone number" value={smsPhone} onChange={(e) => setSmsPhone(e.target.value)} placeholder="+1 (555) 123-4567" />
-                          {addSms.error && <p className="text-sm text-red-600">{(addSms.error as any).message}</p>}
+                          {addSms.error && <p className="text-sm text-red-600">{addSms.error.message}</p>}
                           <div className="flex gap-2">
                             <Button size="sm" onClick={() => addSms.mutate(smsPhone)} loading={addSms.isPending} disabled={!smsPhone}>Send Code</Button>
                             <Button size="sm" variant="secondary" onClick={() => setShowSmsSetup(false)}>Cancel</Button>
@@ -299,7 +337,7 @@ export function TfaSettingsPage() {
                         <>
                           <p className="text-sm text-gray-600">Enter the 6-digit code sent to {smsPhone}</p>
                           <Input label="Verification code" value={smsCode} onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} />
-                          {verifySms.error && <p className="text-sm text-red-600">{(verifySms.error as any).message}</p>}
+                          {verifySms.error && <p className="text-sm text-red-600">{verifySms.error.message}</p>}
                           <div className="flex gap-2">
                             <Button size="sm" onClick={() => verifySms.mutate(smsCode)} loading={verifySms.isPending} disabled={smsCode.length < 6}>Verify</Button>
                             <Button size="sm" variant="secondary" onClick={() => setShowSmsSetup(false)}>Cancel</Button>
@@ -350,7 +388,7 @@ export function TfaSettingsPage() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-800">Trusted Devices</h2>
                   {devices.length > 0 && (
-                    <Button variant="secondary" size="sm" onClick={() => { if (confirm('Revoke all trusted devices?')) revokeAllDevices.mutate(); }}>
+                    <Button variant="secondary" size="sm" onClick={() => setPendingConfirm('revokeAllDevices')}>
                       Revoke All
                     </Button>
                   )}
@@ -359,13 +397,13 @@ export function TfaSettingsPage() {
                   <p className="text-sm text-gray-500">No trusted devices.</p>
                 ) : (
                   <div className="space-y-2">
-                    {devices.map((d: any) => (
+                    {devices.map((d: TrustedDevice) => (
                       <div key={d.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div className="flex items-center gap-3">
                           <Monitor className="h-4 w-4 text-gray-400" />
                           <div>
                             <p className="text-sm text-gray-900">{d.deviceName?.slice(0, 50) || 'Unknown device'}</p>
-                            <p className="text-xs text-gray-500">{d.ipAddress} — trusted {new Date(d.trustedAt).toLocaleDateString()}</p>
+                            <p className="text-xs text-gray-500">{d.ipAddress} — trusted {d.trustedAt ? new Date(d.trustedAt).toLocaleDateString() : 'recently'}</p>
                           </div>
                         </div>
                         <button onClick={() => revokeDevice.mutate(d.id)} className="text-red-500 hover:text-red-600">

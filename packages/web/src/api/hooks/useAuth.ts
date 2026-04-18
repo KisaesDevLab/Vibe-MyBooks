@@ -63,9 +63,18 @@ export function useLogout() {
   });
 }
 
-interface MeResponse {
+export interface AccessibleTenant {
+  tenantId: string;
+  tenantName: string;
+  role?: string;
+  isActive?: boolean;
+}
+
+export interface MeResponse {
   user: User;
   branding?: { appName: string; isCustomName: boolean };
+  accessibleTenants?: AccessibleTenant[];
+  activeTenantId?: string;
 }
 
 export function useMe() {

@@ -7,21 +7,29 @@ import { useItems, useDeactivateItem, useExportItems } from '../../api/hooks/use
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { ItemFormModal } from './ItemFormModal';
 import { Plus, Download, Search } from 'lucide-react';
 import type { Item } from '@kis-books/shared';
 
+const PAGE_SIZE = 100;
+
 export function ItemsListPage() {
-  const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState<boolean | undefined>(true);
+  const [search, setSearchRaw] = useState('');
+  const [activeFilter, setActiveFilterRaw] = useState<boolean | undefined>(true);
+  const [offset, setOffset] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Item | null>(null);
+
+  // Any filter change resets to page 1.
+  const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
+  const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); };
 
   const filters = {
     isActive: activeFilter,
     search: search || undefined,
-    limit: 100,
-    offset: 0,
+    limit: PAGE_SIZE,
+    offset,
   };
 
   const { data, isLoading, isError, refetch } = useItems(filters);
@@ -150,7 +158,13 @@ export function ItemsListPage() {
         </div>
       )}
 
-      <p className="text-sm text-gray-500 mt-2">{data?.total ?? 0} items</p>
+      <Pagination
+        total={data?.total ?? 0}
+        limit={PAGE_SIZE}
+        offset={offset}
+        onChange={setOffset}
+        unit="items"
+      />
 
       {showForm && <ItemFormModal item={editItem} onClose={handleCloseForm} />}
     </div>

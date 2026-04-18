@@ -28,6 +28,7 @@ import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
 const ACCOUNT_TYPES = [
   'asset', 'liability', 'equity',
@@ -85,6 +86,8 @@ export function CoaTemplatesPage() {
   const [editAccounts, setEditAccounts] = useState<CoaTemplateAccountInput[]>([]);
   const [dirty, setDirty] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingNavSlug, setPendingNavSlug] = useState<string | null>(null);
 
   // List of templates
   const { data: templates, isLoading: listLoading } = useQuery({
@@ -176,7 +179,10 @@ export function CoaTemplatesPage() {
   });
 
   const handleSelect = (slug: string) => {
-    if (dirty && !confirm('You have unsaved changes. Discard them?')) return;
+    if (dirty) {
+      setPendingNavSlug(slug);
+      return;
+    }
     setSelectedSlug(slug);
   };
 
@@ -211,12 +217,35 @@ export function CoaTemplatesPage() {
       setErrorMessage('Built-in templates cannot be deleted.');
       return;
     }
-    if (!confirm(`Delete template "${detail.label}"? This cannot be undone.`)) return;
-    deleteMutation.mutate(detail.slug);
+    setShowDeleteConfirm(true);
   };
 
   return (
     <div className="p-6 space-y-4">
+      <ConfirmDialog
+        open={!!pendingNavSlug}
+        title="Discard unsaved changes?"
+        message="Your edits to this template will be lost."
+        confirmLabel="Discard"
+        variant="danger"
+        onCancel={() => setPendingNavSlug(null)}
+        onConfirm={() => {
+          if (pendingNavSlug) setSelectedSlug(pendingNavSlug);
+          setPendingNavSlug(null);
+        }}
+      />
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete template?"
+        message={detail ? `Delete template "${detail.label}". This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        variant="danger"
+        onCancel={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          if (detail) deleteMutation.mutate(detail.slug);
+          setShowDeleteConfirm(false);
+        }}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">COA Templates</h1>

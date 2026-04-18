@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +12,49 @@ import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+
+interface BSRow {
+  accountId?: string | null;
+  accountNumber?: string | null;
+  name: string;
+  balance: number;
+}
+
+interface BSStandardData {
+  asOfDate: string;
+  assets: BSRow[];
+  liabilities: BSRow[];
+  equity: BSRow[];
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  totalLiabilitiesAndEquity: number;
+  columns?: undefined;
+}
+
+interface BSComparativeColumn {
+  label: string;
+  type?: 'variance' | 'percent_variance' | string;
+  asOfDate?: string;
+}
+
+interface BSComparativeRow {
+  accountId?: string | null;
+  name: string;
+  values: Array<number | null>;
+}
+
+interface BSComparativeData {
+  columns: BSComparativeColumn[];
+  assets: BSComparativeRow[];
+  liabilities: BSComparativeRow[];
+  equity: BSComparativeRow[];
+  totalAssets: Array<number | null>;
+  totalLiabilities: Array<number | null>;
+  totalEquity: Array<number | null>;
+}
+
+type BSData = BSStandardData | BSComparativeData;
 
 function fmt(n: number) { return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' }); }
 function fmtPct(n: number | null) { return n === null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`; }
@@ -33,7 +78,7 @@ function bsDrillUrl(accountId: string | null | undefined, asOfDate: string | und
 const BS_RETURN_STATE = { returnTo: '/reports/balance-sheet', returnLabel: 'Balance Sheet' };
 
 export function BalanceSheetReport() {
-  const [asOfDate, setAsOfDate] = useState(new Date().toISOString().split('T')[0]!);
+  const [asOfDate, setAsOfDate] = useState(todayLocalISO());
   const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
   const [compare, setCompare] = useState<CompareMode>('');
   const [scope, setScope] = useState<'company' | 'consolidated'>('company');
@@ -43,10 +88,10 @@ export function BalanceSheetReport() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'balance-sheet', asOfDate, basis, compare, activeCompanyId, scope],
-    queryFn: () => apiClient<any>(`/reports/balance-sheet?${queryParams}`),
+    queryFn: () => apiClient<BSData>(`/reports/balance-sheet?${queryParams}`),
   });
 
-  const isComparative = compare && data?.columns;
+  const isComparative = compare && data && 'columns' in data && data.columns;
 
   return (
     <ReportShell title="Balance Sheet"
@@ -59,7 +104,7 @@ export function BalanceSheetReport() {
             <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
           </div>
-          <select value={basis} onChange={(e) => setBasis(e.target.value as any)}
+          <select value={basis} onChange={(e) => setBasis(e.target.value as 'accrual' | 'cash')}
             className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
             <option value="accrual">Accrual</option>
             <option value="cash">Cash</option>
@@ -75,14 +120,14 @@ export function BalanceSheetReport() {
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (
         isComparative
-          ? <ComparativeView data={data} />
-          : <StandardView data={data} />
+          ? <ComparativeView data={data as BSComparativeData} />
+          : <StandardView data={data as BSStandardData} />
       )}
     </ReportShell>
   );
 }
 
-function StandardView({ data }: { data: any }) {
+function StandardView({ data }: { data: BSStandardData }) {
   const navigate = useNavigate();
 
   const DrillAmount = ({ accountId, amount }: { accountId: string | null | undefined; amount: number }) => {
@@ -100,10 +145,10 @@ function StandardView({ data }: { data: any }) {
     );
   };
 
-  const Section = ({ title, items, total }: { title: string; items: any[]; total: number }) => (
+  const Section = ({ title, items, total }: { title: string; items: BSRow[]; total: number }) => (
     <div>
       <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
-      {items.map((r: any, i: number) => (
+      {items.map((r, i) => (
         <div key={i} className="flex justify-between py-1 text-sm">
           <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
           <DrillAmount accountId={r.accountId} amount={Math.abs(r.balance)} />
@@ -128,12 +173,12 @@ function StandardView({ data }: { data: any }) {
   );
 }
 
-function ComparativeView({ data }: { data: any }) {
+function ComparativeView({ data }: { data: BSComparativeData }) {
   const navigate = useNavigate();
-  const columns: Array<{ label: string; type?: string; asOfDate?: string }> = data.columns;
-  const isVarianceCol = (col: any) => col.type === 'variance' || col.type === 'percent_variance';
+  const columns: BSComparativeColumn[] = data.columns;
+  const isVarianceCol = (col: BSComparativeColumn) => col.type === 'variance' || col.type === 'percent_variance';
 
-  function CellValue({ value, col }: { value: number | null; col: any }) {
+  function CellValue({ value, col }: { value: number | null; col: BSComparativeColumn }) {
     if (col.type === 'percent_variance') {
       return <span className={`font-mono ${(value ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmtPct(value)}</span>;
     }
@@ -143,14 +188,14 @@ function ComparativeView({ data }: { data: any }) {
     return <span className="font-mono">{fmt(value ?? 0)}</span>;
   }
 
-  function SectionTable({ title, items, totals }: { title: string; items: any[]; totals: any[] }) {
+  function SectionTable({ title, items, totals }: { title: string; items: BSComparativeRow[]; totals: Array<number | null> }) {
     return (
       <>
         <tr><td colSpan={columns.length + 1} className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-gray-500">{title}</td></tr>
-        {items.map((row: any, i: number) => (
+        {items.map((row, i) => (
           <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
             <td className="px-3 py-1.5 text-sm">{row.name}</td>
-            {(row.values as any[]).map((v: any, j: number) => {
+            {row.values.map((v, j) => {
               const col = columns[j]!;
               const href = bsDrillUrl(row.accountId, col.asOfDate);
               return (
@@ -174,9 +219,9 @@ function ComparativeView({ data }: { data: any }) {
         ))}
         <tr className="border-t border-gray-200 bg-gray-50">
           <td className="px-3 py-2 text-sm font-semibold">Total {title}</td>
-          {totals.map((v: any, i: number) => (
+          {totals.map((v, i) => (
             <td key={i} className="px-3 py-2 text-right text-sm font-semibold">
-              <CellValue value={v} col={columns[i]} />
+              <CellValue value={v} col={columns[i]!} />
             </td>
           ))}
         </tr>

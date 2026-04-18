@@ -171,8 +171,8 @@ export function SystemSettingsPage() {
       } else {
         setSmsTestResult({ ok: false, message: data.error?.message || 'SMS test failed' });
       }
-    } catch (err: any) {
-      setSmsTestResult({ ok: false, message: err.message || 'SMS test failed' });
+    } catch (err) {
+      setSmsTestResult({ ok: false, message: err instanceof Error ? err.message : 'SMS test failed' });
     }
   };
 
@@ -199,9 +199,9 @@ export function SystemSettingsPage() {
         setTestStatus('error');
         setTestError(data.error || 'SMTP test failed');
       }
-    } catch (err: any) {
+    } catch (err) {
       setTestStatus('error');
-      setTestError(err.message || 'SMTP test failed');
+      setTestError(err instanceof Error ? err.message : 'SMTP test failed');
     }
   };
 
@@ -249,9 +249,9 @@ export function SystemSettingsPage() {
       if (!res.ok) throw new Error('Failed to save');
       setBackupSaveStatus('saved');
       setTimeout(() => setBackupSaveStatus('idle'), 3000);
-    } catch (err: any) {
+    } catch (err) {
       setBackupSaveStatus('error');
-      setBackupSaveError(err.message);
+      setBackupSaveError(err instanceof Error ? err.message : 'Failed to save');
     }
   };
 
@@ -269,9 +269,9 @@ export function SystemSettingsPage() {
         setBackupTestStatus('error');
         setBackupTestError(data.error?.message || data.error || 'Connection failed');
       }
-    } catch (err: any) {
+    } catch (err) {
       setBackupTestStatus('error');
-      setBackupTestError(err.message);
+      setBackupTestError(err instanceof Error ? err.message : 'Connection failed');
     }
   };
 
@@ -312,9 +312,9 @@ export function SystemSettingsPage() {
 
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch (err: any) {
+    } catch (err) {
       setSaveStatus('error');
-      setSaveError(err.message || 'Failed to save');
+      setSaveError(err instanceof Error ? err.message : 'Failed to save');
     }
   };
 

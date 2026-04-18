@@ -66,6 +66,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/bank-rules', label: 'Global Bank Rules', icon: Shield },
   { to: '/admin/coa-templates', label: 'COA Templates', icon: BookOpen },
   { to: '/admin/tfa', label: 'Two-Factor Auth', icon: Shield },
+  { to: '/admin/security', label: 'Installation Security', icon: Shield },
   { to: '/admin/plaid', label: 'Plaid Config', icon: Landmark },
   { to: '/admin/plaid/connections', label: 'Plaid Monitor', icon: Landmark },
   { to: '/admin/ai', label: 'AI Processing', icon: Shield },

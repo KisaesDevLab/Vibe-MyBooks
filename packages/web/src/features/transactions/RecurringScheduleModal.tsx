@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
@@ -39,7 +41,7 @@ function previewOccurrences(startDate: string, frequency: string, interval: numb
 }
 
 export function RecurringScheduleModal({ transactionId, onClose }: RecurringScheduleModalProps) {
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
   const [frequency, setFrequency] = useState('monthly');
   const [intervalValue, setIntervalValue] = useState(1);
   const [mode, setMode] = useState('auto');

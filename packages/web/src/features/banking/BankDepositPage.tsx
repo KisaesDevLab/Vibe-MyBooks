@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePendingDeposits } from '../../api/hooks/usePayments';
@@ -16,7 +18,7 @@ import type { PendingDepositItem } from '@kis-books/shared';
 
 export function BankDepositPage() {
   const navigate = useNavigate();
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
 
   const [depositToAccountId, setDepositToAccountId] = useState('');
   const [txnDate, setTxnDate] = useState(today);
@@ -60,7 +62,7 @@ export function BankDepositPage() {
       // The deposit API (txnType=deposit) expects lines with accountId (the "from" accounts)
       // For pending deposits, we send each payment amount as a line from Payments Clearing
       const pcResponse = await apiClient<{ data: Array<{ id: string; systemTag: string | null }> }>('/accounts?limit=200');
-      const pcAccount = pcResponse.data.find((a: any) => a.systemTag === 'payments_clearing');
+      const pcAccount = pcResponse.data.find((a) => a.systemTag === 'payments_clearing');
       const pcAccountId = pcAccount?.id || depositToAccountId;
 
       await apiClient('/transactions', {

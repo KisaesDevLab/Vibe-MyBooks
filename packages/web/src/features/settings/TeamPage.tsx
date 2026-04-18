@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { UserPlus, Power, Copy, CheckCircle } from 'lucide-react';
 
 interface TeamUser {
@@ -32,6 +33,7 @@ export function TeamPage() {
   const [inviteRole, setInviteRole] = useState('accountant');
   const [tempPassword, setTempPassword] = useState('');
   const [copied, setCopied] = useState(false);
+  const [deactivateTarget, setDeactivateTarget] = useState<TeamUser | null>(null);
 
   // Escape closes the invite dialog — but only before the temp password
   // has been generated. Once we're on the "User Invited" confirmation
@@ -99,6 +101,18 @@ export function TeamPage() {
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!deactivateTarget}
+        title="Deactivate team member?"
+        message={deactivateTarget ? `${deactivateTarget.email} will lose access until reactivated.` : ''}
+        confirmLabel="Deactivate"
+        variant="danger"
+        onCancel={() => setDeactivateTarget(null)}
+        onConfirm={() => {
+          if (deactivateTarget) deactivateUser.mutate(deactivateTarget.id);
+          setDeactivateTarget(null);
+        }}
+      />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Team</h1>
@@ -203,7 +217,7 @@ export function TeamPage() {
                   {u.role !== 'owner' && (
                     u.isActive ? (
                       <button
-                        onClick={() => { if (confirm(`Deactivate ${u.email}?`)) deactivateUser.mutate(u.id); }}
+                        onClick={() => setDeactivateTarget(u)}
                         className="text-xs text-red-600 hover:text-red-700"
                       >
                         Deactivate

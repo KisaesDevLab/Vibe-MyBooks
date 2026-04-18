@@ -9,9 +9,12 @@ import { useContacts, useDeactivateContact, useExportContacts } from '../../api/
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { ContactImportModal } from './ContactImportModal';
 import { MergeContactsModal } from './MergeContactsModal';
 import { Plus, Upload, Download, Merge, Search } from 'lucide-react';
+
+const PAGE_SIZE = 100;
 
 const tabs: { label: string; value: ContactType | '' }[] = [
   { label: 'All', value: '' },
@@ -21,18 +24,25 @@ const tabs: { label: string; value: ContactType | '' }[] = [
 
 export function ContactsListPage() {
   const navigate = useNavigate();
-  const [typeTab, setTypeTab] = useState<ContactType | ''>('');
-  const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState<boolean | undefined>(true);
+  const [typeTab, setTypeTabRaw] = useState<ContactType | ''>('');
+  const [search, setSearchRaw] = useState('');
+  const [activeFilter, setActiveFilterRaw] = useState<boolean | undefined>(true);
+  const [offset, setOffset] = useState(0);
   const [showImport, setShowImport] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
+
+  // Reset offset on any filter change so the user isn't stranded on a page
+  // that no longer exists in the filtered set.
+  const setTypeTab = (v: ContactType | '') => { setTypeTabRaw(v); setOffset(0); };
+  const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
+  const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); };
 
   const filters = {
     contactType: typeTab || undefined,
     isActive: activeFilter,
     search: search || undefined,
-    limit: 100,
-    offset: 0,
+    limit: PAGE_SIZE,
+    offset,
   };
 
   const { data, isLoading, isError, refetch } = useContacts(filters);
@@ -160,7 +170,13 @@ export function ContactsListPage() {
         </div>
       )}
 
-      <p className="text-sm text-gray-500 mt-2">{data?.total ?? 0} contacts</p>
+      <Pagination
+        total={data?.total ?? 0}
+        limit={PAGE_SIZE}
+        offset={offset}
+        onChange={setOffset}
+        unit="contacts"
+      />
 
       {showImport && <ContactImportModal defaultType={typeTab === 'vendor' ? 'vendor' : 'customer'} onClose={() => setShowImport(false)} />}
       {showMerge && <MergeContactsModal contacts={contacts} onClose={() => setShowMerge(false)} />}

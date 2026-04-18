@@ -8,7 +8,7 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { setTokens } from '../../api/client';
-import { TfaVerifyStep } from './TfaVerifyStep';
+import { TfaVerifyStep, type TfaVerifiedPayload } from './TfaVerifyStep';
 
 export function MagicLinkVerifyPage() {
   const [searchParams] = useSearchParams();
@@ -54,7 +54,7 @@ export function MagicLinkVerifyPage() {
       });
   }, [token]);
 
-  const handleTfaSuccess = (data: any) => {
+  const handleTfaSuccess = (data: TfaVerifiedPayload) => {
     setTokens(data.tokens);
     setTimeout(() => navigate('/'), 50);
   };

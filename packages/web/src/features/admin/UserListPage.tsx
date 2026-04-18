@@ -2,12 +2,13 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, setTokens } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import {
   UsersRound,
   KeyRound,
@@ -40,6 +41,12 @@ export function UserListPage() {
   const queryClient = useQueryClient();
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [resetPasswordError, setResetPasswordError] = useState('');
+  const [resetPasswordSuccess, setResetPasswordSuccess] = useState('');
+  const [pendingAction, setPendingAction] = useState<
+    | { title: string; message: string; confirmLabel: string; variant?: 'primary' | 'danger'; onConfirm: () => void }
+    | null
+  >(null);
   const [companyAccessUserId, setCompanyAccessUserId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -64,7 +71,7 @@ export function UserListPage() {
       setCreateForm({ email: '', password: '', displayName: '', tenantId: '', role: 'owner' });
       setCreateError('');
     },
-    onError: (err: any) => setCreateError(err.message || 'Failed to create user'),
+    onError: (err: Error) => setCreateError(err.message || 'Failed to create user'),
   });
 
   const { data: users, isLoading, error } = useQuery({
@@ -84,9 +91,17 @@ export function UserListPage() {
     onSuccess: () => {
       setResetPasswordUserId(null);
       setNewPassword('');
-      alert('Password reset successfully.');
+      setResetPasswordError('');
+      setResetPasswordSuccess('Password reset successfully.');
     },
+    onError: (err: Error) => setResetPasswordError(err.message || 'Failed to reset password.'),
   });
+
+  useEffect(() => {
+    if (!resetPasswordSuccess) return;
+    const t = setTimeout(() => setResetPasswordSuccess(''), 3000);
+    return () => clearTimeout(t);
+  }, [resetPasswordSuccess]);
 
   const toggleActiveMutation = useMutation({
     mutationFn: (userId: string) =>
@@ -140,6 +155,26 @@ export function UserListPage() {
 
   return (
     <div className="p-6 space-y-6">
+      <ConfirmDialog
+        open={!!pendingAction}
+        title={pendingAction?.title ?? ''}
+        message={pendingAction?.message}
+        confirmLabel={pendingAction?.confirmLabel ?? 'Confirm'}
+        variant={pendingAction?.variant ?? 'primary'}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          pendingAction?.onConfirm();
+          setPendingAction(null);
+        }}
+      />
+      {resetPasswordSuccess && (
+        <div
+          role="status"
+          className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
+        >
+          {resetPasswordSuccess}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <UsersRound className="h-6 w-6 text-gray-700" />
@@ -175,16 +210,23 @@ export function UserListPage() {
             <input
               type="password"
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="New password"
+              onChange={(e) => {
+                setNewPassword(e.target.value);
+                if (resetPasswordError) setResetPasswordError('');
+              }}
+              placeholder="New password (min 8 characters)"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
+            {resetPasswordError && (
+              <p role="alert" className="mt-2 text-xs text-red-600">{resetPasswordError}</p>
+            )}
             <div className="flex justify-end gap-3 mt-4">
               <button
                 onClick={() => {
                   setResetPasswordUserId(null);
                   setNewPassword('');
+                  setResetPasswordError('');
                 }}
                 className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
@@ -192,10 +234,11 @@ export function UserListPage() {
               </button>
               <button
                 onClick={() => {
-                  if (newPassword.length < 6) {
-                    alert('Password must be at least 6 characters.');
+                  if (newPassword.length < 8) {
+                    setResetPasswordError('Password must be at least 8 characters.');
                     return;
                   }
+                  setResetPasswordError('');
                   resetPasswordMutation.mutate({
                     userId: resetPasswordUserId,
                     password: newPassword,
@@ -289,15 +332,15 @@ export function UserListPage() {
                           <KeyRound className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (
-                              confirm(
-                                `${u.isActive ? 'Deactivate' : 'Activate'} user "${u.email}"?`,
-                              )
-                            ) {
-                              toggleActiveMutation.mutate(u.id);
-                            }
-                          }}
+                          onClick={() =>
+                            setPendingAction({
+                              title: `${u.isActive ? 'Deactivate' : 'Activate'} user?`,
+                              message: `${u.isActive ? 'Deactivate' : 'Activate'} user "${u.email}".`,
+                              confirmLabel: u.isActive ? 'Deactivate' : 'Activate',
+                              variant: u.isActive ? 'danger' : 'primary',
+                              onConfirm: () => toggleActiveMutation.mutate(u.id),
+                            })
+                          }
                           className={`p-1.5 rounded hover:bg-gray-200 ${
                             u.isActive ? 'text-green-600' : 'text-red-500'
                           }`}
@@ -306,15 +349,15 @@ export function UserListPage() {
                           <Power className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (
-                              confirm(
-                                `${u.isSuperAdmin ? 'Remove' : 'Grant'} super admin for "${u.email}"?`,
-                              )
-                            ) {
-                              toggleSuperAdminMutation.mutate(u.id);
-                            }
-                          }}
+                          onClick={() =>
+                            setPendingAction({
+                              title: `${u.isSuperAdmin ? 'Remove' : 'Grant'} super admin?`,
+                              message: `${u.isSuperAdmin ? 'Remove' : 'Grant'} super admin privileges for "${u.email}".`,
+                              confirmLabel: u.isSuperAdmin ? 'Remove' : 'Grant',
+                              variant: u.isSuperAdmin ? 'danger' : 'primary',
+                              onConfirm: () => toggleSuperAdminMutation.mutate(u.id),
+                            })
+                          }
                           className={`p-1.5 rounded hover:bg-gray-200 ${
                             u.isSuperAdmin ? 'text-purple-600' : 'text-gray-400'
                           }`}
@@ -332,11 +375,15 @@ export function UserListPage() {
                           </button>
                         )}
                         <button
-                          onClick={() => {
-                            if (confirm(`Impersonate "${u.email}"? This will open a new tab.`)) {
-                              impersonateMutation.mutate(u.id);
-                            }
-                          }}
+                          onClick={() =>
+                            setPendingAction({
+                              title: 'Impersonate user?',
+                              message: `Open a new tab impersonating "${u.email}".`,
+                              confirmLabel: 'Impersonate',
+                              variant: 'primary',
+                              onConfirm: () => impersonateMutation.mutate(u.id),
+                            })
+                          }
                           className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
                           title="Impersonate"
                         >

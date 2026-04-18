@@ -2,8 +2,11 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import type { JournalLine } from '@kis-books/shared';
 import { useCreateTransaction, useUpdateTransaction, useTransaction } from '../../api/hooks/useTransactions';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -33,7 +36,7 @@ export function ExpenseForm() {
   const createTxn = useCreateTransaction();
   const updateTxn = useUpdateTransaction();
   const { data: existingData, isLoading: loadingExisting } = useTransaction(editId || '');
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
 
   const [txnDate, setTxnDate] = useState(today);
   const [contactId, setContactId] = useState('');
@@ -54,12 +57,12 @@ export function ExpenseForm() {
 
       const txnLines = txn.lines || [];
       // For expenses: debit lines are expense accounts, credit line is pay-from
-      const debitLines = txnLines.filter((l: any) => parseFloat(l.debit) > 0);
-      const creditLine = txnLines.find((l: any) => parseFloat(l.credit) > 0);
+      const debitLines = txnLines.filter((l: JournalLine) => parseFloat(l.debit) > 0);
+      const creditLine = txnLines.find((l: JournalLine) => parseFloat(l.credit) > 0);
 
       if (creditLine) setPayFromAccountId(creditLine.accountId);
       if (debitLines.length > 0) {
-        setLines(debitLines.map((l: any) => ({
+        setLines(debitLines.map((l: JournalLine) => ({
           expenseAccountId: l.accountId,
           amount: parseFloat(l.debit).toString(),
           description: l.description || '',
@@ -95,7 +98,17 @@ export function ExpenseForm() {
     const validLines = lines.filter((l) => l.expenseAccountId && l.amount);
     if (validLines.length === 0) return;
 
-    const payload: any = {
+    interface ExpensePayload extends Record<string, unknown> {
+      txnType: 'expense';
+      txnDate: string;
+      contactId?: string;
+      payFromAccountId: string;
+      lines: ExpenseLine[];
+      memo: string;
+      tags: string[];
+      draftAttachmentId?: string;
+    }
+    const payload: ExpensePayload = {
       txnType: 'expense',
       txnDate,
       contactId: contactId || undefined,

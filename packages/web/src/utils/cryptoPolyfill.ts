@@ -11,8 +11,10 @@
 // The globalThis assignment (in addition to crypto.randomUUID =) is a safety
 // net in case some browser defines crypto.randomUUID as a non-writable
 // accessor in insecure contexts.
-// eslint-disable-next-line no-console
-console.log('[cryptoPolyfill] loaded. crypto.randomUUID is', typeof (globalThis as { crypto?: Crypto }).crypto?.randomUUID);
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  console.log('[cryptoPolyfill] loaded. crypto.randomUUID is', typeof (globalThis as { crypto?: Crypto }).crypto?.randomUUID);
+}
 
 if (typeof crypto !== 'undefined' && typeof crypto.randomUUID !== 'function') {
   const shim = function randomUUID(): `${string}-${string}-${string}-${string}-${string}` {
@@ -41,8 +43,10 @@ if (typeof crypto !== 'undefined' && typeof crypto.randomUUID !== 'function') {
       writable: true,
       configurable: true,
     });
-    // eslint-disable-next-line no-console
-    console.log('[cryptoPolyfill] installed on crypto.randomUUID');
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('[cryptoPolyfill] installed on crypto.randomUUID');
+    }
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('[cryptoPolyfill] could not install on crypto, falling back to globalThis.crypto', err);

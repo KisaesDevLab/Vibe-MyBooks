@@ -2,9 +2,12 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { JournalLine, Transaction } from '@kis-books/shared';
 import { useCreateInvoice } from '../../api/hooks/useInvoices';
 import { useItems } from '../../api/hooks/useItems';
 import { useCompanySettings } from '../../api/hooks/useCompany';
@@ -43,7 +46,7 @@ export function InvoiceForm() {
   const isEdit = !!editId;
   const queryClient = useQueryClient();
   const createInvoice = useCreateInvoice();
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
 
   const [contactId, setContactId] = useState('');
   const [txnDate, setTxnDate] = useState(today);
@@ -95,7 +98,7 @@ export function InvoiceForm() {
   // Fetch existing invoice for edit mode
   const { data: existingData } = useQuery({
     queryKey: ['invoices', editId],
-    queryFn: () => apiClient<{ invoice: any }>(`/invoices/${editId}`),
+    queryFn: () => apiClient<{ invoice: Transaction }>(`/invoices/${editId}`),
     enabled: isEdit,
   });
 
@@ -111,9 +114,9 @@ export function InvoiceForm() {
     setDueDateManual(true);
 
     const invLines = (inv.lines || [])
-      .filter((l: any) => parseFloat(l.credit) > 0 && l.accountId)
-      .filter((l: any) => l.description !== 'Sales Tax') // exclude the tax liability line
-      .map((l: any) => ({
+      .filter((l: JournalLine) => parseFloat(l.credit) > 0 && l.accountId)
+      .filter((l: JournalLine) => l.description !== 'Sales Tax') // exclude the tax liability line
+      .map((l: JournalLine) => ({
         entryMode: 'category' as EntryMode,
         accountId: l.accountId,
         itemId: '',
@@ -128,8 +131,8 @@ export function InvoiceForm() {
   }, [existingData]);
 
   const updateInvoice = useMutation({
-    mutationFn: (input: any) =>
-      apiClient<{ invoice: any }>(`/invoices/${editId}`, {
+    mutationFn: (input: Record<string, unknown>) =>
+      apiClient<{ invoice: Transaction }>(`/invoices/${editId}`, {
         method: 'PUT',
         body: JSON.stringify(input),
       }),

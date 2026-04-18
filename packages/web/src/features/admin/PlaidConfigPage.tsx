@@ -42,14 +42,14 @@ export function PlaidConfigPage() {
   }, [data]);
 
   const updateConfig = useMutation({
-    mutationFn: (input: any) => apiClient('/admin/plaid/config', { method: 'PUT', body: JSON.stringify(input) }),
+    mutationFn: (input: typeof form) => apiClient('/admin/plaid/config', { method: 'PUT', body: JSON.stringify(input) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin', 'plaid-config'] }); setSaved(true); setTimeout(() => setSaved(false), 3000); },
   });
 
   const testConn = useMutation({
-    mutationFn: () => apiClient<any>('/admin/plaid/test', { method: 'POST' }),
+    mutationFn: () => apiClient<{ success: boolean; message: string }>('/admin/plaid/test', { method: 'POST' }),
     onSuccess: (d) => setTestResult({ ok: d.success, msg: d.message }),
-    onError: (e: any) => setTestResult({ ok: false, msg: e.message }),
+    onError: (e: Error) => setTestResult({ ok: false, msg: e.message }),
   });
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
@@ -151,7 +151,7 @@ export function PlaidConfigPage() {
           </div>
         </div>
 
-        {updateConfig.error && <p className="text-sm text-red-600">{(updateConfig.error as any).message}</p>}
+        {updateConfig.error && <p className="text-sm text-red-600">{updateConfig.error.message}</p>}
         <Button onClick={() => updateConfig.mutate(form)} loading={updateConfig.isPending}>Save Configuration</Button>
       </div>
     </div>

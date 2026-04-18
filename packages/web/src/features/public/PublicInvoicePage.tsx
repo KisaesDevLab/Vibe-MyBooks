@@ -36,6 +36,7 @@ interface PublicInvoice {
   customerEmail: string | null;
   stripePublishableKey: string | null;
   onlinePaymentsEnabled: boolean;
+  currency?: string | null;
   lines: InvoiceLine[];
 }
 
@@ -263,7 +264,7 @@ export function PublicInvoicePage() {
               token={token!}
               publishableKey={invoice.stripePublishableKey!}
               balanceDue={balanceDue}
-              currency={(invoice as any).currency || 'usd'}
+              currency={invoice.currency || 'usd'}
               invoiceNumber={invoice.txnNumber || ''}
               onSuccess={handlePaymentSuccess}
             />

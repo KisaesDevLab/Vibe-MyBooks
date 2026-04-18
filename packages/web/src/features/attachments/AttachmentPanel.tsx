@@ -19,9 +19,13 @@ interface AttachmentPanelProps {
 export function AttachmentPanel({ attachableType, attachableId, compact }: AttachmentPanelProps) {
   const [showPicker, setShowPicker] = useState(false);
 
+  // We only consume `total` from this response — the list items are
+  // re-fetched by AttachmentList with its own typed hook. Keep the row
+  // shape permissive so future fields on the attachments endpoint don't
+  // force a cascade of edits here.
   const { data } = useQuery({
     queryKey: ['attachments', attachableType, attachableId],
-    queryFn: () => apiClient<{ data: any[]; total: number }>(`/attachments?attachable_type=${attachableType}&attachable_id=${attachableId}`),
+    queryFn: () => apiClient<{ data: Array<{ id: string }>; total: number }>(`/attachments?attachable_type=${attachableType}&attachable_id=${attachableId}`),
   });
 
   const count = data?.total ?? 0;

@@ -11,7 +11,10 @@ import { useContacts } from '../../api/hooks/useContacts';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { ArrowLeft, Plus, Search, X } from 'lucide-react';
+
+const PAGE_SIZE = 50;
 
 const txnTypeLabels: Record<string, string> = {
   invoice: 'Invoice',
@@ -32,8 +35,12 @@ const statusColors: Record<string, string> = {
 };
 
 function useDebounce(value: string, delay: number) {
+  // Previously written with useMemo, which does not run the returned
+  // cleanup. Fast typing therefore accumulated pending timers and called
+  // setDebounced multiple times. useEffect correctly cancels the pending
+  // timer when `value` changes before the delay elapses.
   const [debounced, setDebounced] = useState(value);
-  useMemo(() => {
+  useEffect(() => {
     const timer = setTimeout(() => setDebounced(value), delay);
     return () => clearTimeout(timer);
   }, [value, delay]);
@@ -54,6 +61,11 @@ export function TransactionListPage() {
   const startDate = searchParams.get('from') || '';
   const endDate = searchParams.get('to') || '';
   const urlSearch = searchParams.get('q') || '';
+  // Pagination is URL-synced so the Back button from a detail page drops
+  // the operator back on the exact page + filter combo. offset clamped to
+  // a non-negative multiple of PAGE_SIZE.
+  const parsedOffset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
+  const offset = Math.floor(parsedOffset / PAGE_SIZE) * PAGE_SIZE;
 
   // The search input is kept in local state for snappy typing; the debounced
   // value is what drives both the query and the URL update.
@@ -61,12 +73,17 @@ export function TransactionListPage() {
   const [showNewMenu, setShowNewMenu] = useState(false);
   const debouncedSearch = useDebounce(search, 400);
 
-  const updateParam = (key: string, value: string) => {
+  const updateParam = (key: string, value: string, opts: { resetOffset?: boolean } = {}) => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         if (value) next.set(key, value);
         else next.delete(key);
+        // Any filter change invalidates the current offset — otherwise the
+        // user is on "page 3" of a much smaller filtered set and sees no
+        // results. Explicit resetOffset=false lets the pagination control
+        // itself change offset without clobbering.
+        if (opts.resetOffset !== false && key !== 'offset') next.delete('offset');
         return next;
       },
       { replace: true },
@@ -79,6 +96,7 @@ export function TransactionListPage() {
   const setContactFilter = (v: string) => updateParam('contact', v);
   const setStartDate = (v: string) => updateParam('from', v);
   const setEndDate = (v: string) => updateParam('to', v);
+  const setOffset = (v: number) => updateParam('offset', v > 0 ? String(v) : '', { resetOffset: false });
 
   // Push the debounced search text into the URL.
   useEffect(() => {
@@ -94,8 +112,8 @@ export function TransactionListPage() {
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     search: debouncedSearch || undefined,
-    limit: 50,
-    offset: 0,
+    limit: PAGE_SIZE,
+    offset,
   });
 
   const { data: accountsData } = useAccounts({ limit: 500, isActive: true });
@@ -201,7 +219,7 @@ export function TransactionListPage() {
             <select value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[200px]">
               <option value="">All Accounts</option>
-              {accountsList.map((a: any) => (
+              {accountsList.map((a) => (
                 <option key={a.id} value={a.id}>{a.accountNumber ? `${a.accountNumber} - ` : ''}{a.name}</option>
               ))}
             </select>
@@ -211,7 +229,7 @@ export function TransactionListPage() {
             <select value={contactFilter} onChange={(e) => setContactFilter(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[220px]">
               <option value="">All Contacts</option>
-              {contactsList.map((c: any) => (
+              {contactsList.map((c) => (
                 <option key={c.id} value={c.id}>{c.displayName}</option>
               ))}
             </select>
@@ -262,12 +280,12 @@ export function TransactionListPage() {
                   <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{txn.txnDate}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                     {txnTypeLabels[txn.txnType] || txn.txnType}
-                    {(txn as any).aiCategorized === 'ai' && (
+                    {txn.aiCategorized === 'ai' && (
                       <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium" title="Categorized by AI">AI</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{txn.txnNumber || '—'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{(txn as any).contactName || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{txn.contactName || '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 truncate max-w-[200px]">{txn.memo || '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">
                     {txn.total ? parseFloat(txn.total).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '—'}
@@ -283,7 +301,13 @@ export function TransactionListPage() {
           </table>
         </div>
       )}
-      <p className="text-sm text-gray-500 mt-2">{data?.total ?? 0} transactions</p>
+      <Pagination
+        total={data?.total ?? 0}
+        limit={PAGE_SIZE}
+        offset={offset}
+        onChange={setOffset}
+        unit="transactions"
+      />
     </div>
   );
 }

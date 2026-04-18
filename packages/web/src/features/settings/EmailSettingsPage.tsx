@@ -75,9 +75,9 @@ export function EmailSettingsPage() {
         setTestStatus('error');
         setTestError(result.error || 'SMTP test failed');
       }
-    } catch (err: any) {
+    } catch (err) {
       setTestStatus('error');
-      setTestError(err.message || 'SMTP test failed');
+      setTestError(err instanceof Error ? err.message : 'SMTP test failed');
     }
   };
 
@@ -98,9 +98,9 @@ export function EmailSettingsPage() {
       });
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch (err: any) {
+    } catch (err) {
       setSaveStatus('error');
-      setSaveError(err.message || 'Failed to save');
+      setSaveError(err instanceof Error ? err.message : 'Failed to save');
     }
   };
 

@@ -4,11 +4,13 @@
 
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usePlaidLink } from 'react-plaid-link';
+import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from 'react-plaid-link';
+import type { PlaidAccount, PlaidItem } from '@kis-books/shared';
 import { useBankConnections, useDisconnectBank } from '../../api/hooks/useBanking';
 import { usePlaidItems, useCreateLinkToken, useExchangeToken, useSyncPlaidItem, useUnmapCompany, useTogglePlaidSync, usePlaidActivity } from '../../api/hooks/usePlaid';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { BankImportModal } from './BankImportModal';
 import { PlaidMappingWizard } from './PlaidMappingWizard';
 import { RemapAccountModal } from './RemapAccountModal';
@@ -18,7 +20,17 @@ import { FullDisconnectDialog } from './FullDisconnectDialog';
 import { apiClient } from '../../api/client';
 import { Landmark, Upload, Unplug, RefreshCw, AlertTriangle, CheckCircle, Link2, Wrench, Pencil, Share2, Clock, Trash2 } from 'lucide-react';
 
-function PlaidLinkButton({ onSuccess }: { onSuccess: (publicToken: string, metadata: any) => void }) {
+// The `/plaid/items/:id` detail endpoint returns the item plus its
+// child accounts and the denormalised hiddenAccountCount (accounts
+// visible to other tenants). Narrow locally; both of those fields
+// already live on the shared PlaidItem type.
+interface PlaidItemDetail {
+  item?: PlaidItem;
+  accounts: PlaidAccount[];
+  hiddenAccountCount?: number;
+}
+
+function PlaidLinkButton({ onSuccess }: { onSuccess: (publicToken: string, metadata: PlaidLinkOnSuccessMetadata) => void }) {
   const createLink = useCreateLinkToken();
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const startLink = async () => { const r = await createLink.mutateAsync(); setLinkToken(r.linkToken); };
@@ -46,7 +58,7 @@ function ActivityLog({ itemId }: { itemId: string }) {
       <p className="text-xs font-medium text-gray-500 mb-2">Activity</p>
       {logs.length === 0 ? <p className="text-xs text-gray-400">No activity recorded.</p> : (
         <div className="space-y-1 max-h-40 overflow-y-auto">
-          {logs.map((l: any) => (
+          {logs.map((l) => (
             <div key={l.id} className="text-xs text-gray-600 flex justify-between">
               <span>{l.action.replace(/_/g, ' ')} {l.performedByName && `by ${l.performedByName}`}</span>
               <span className="text-gray-400">{new Date(l.createdAt).toLocaleString()}</span>
@@ -67,24 +79,29 @@ export function BankConnectionsPage() {
   const syncItem = useSyncPlaidItem();
   const unmapCompany = useUnmapCompany();
   const [showImport, setShowImport] = useState(false);
-  const [mappingData, setMappingData] = useState<{ accounts: any[]; hiddenAccountCount: number } | null>(null);
-  const [remapAccount, setRemapAccount] = useState<any>(null);
+  const [mappingData, setMappingData] = useState<{ accounts: PlaidAccount[]; hiddenAccountCount: number } | null>(null);
+  const [remapAccount, setRemapAccount] = useState<PlaidAccount | null>(null);
   const [disconnectItem, setDisconnectItem] = useState<{ id: string; name: string } | null>(null);
   const [showActivity, setShowActivity] = useState<string | null>(null);
-  const [existingInstitution, setExistingInstitution] = useState<{ publicToken: string; metadata: any; item: any; accounts: any[]; hiddenCount: number } | null>(null);
-  const [fullDisconnect, setFullDisconnect] = useState<{ id: string; name: string; accounts: any[]; hiddenCount: number } | null>(null);
+  const [existingInstitution, setExistingInstitution] = useState<{ publicToken: string; metadata: PlaidLinkOnSuccessMetadata; item: PlaidItem; accounts: PlaidAccount[]; hiddenCount: number } | null>(null);
+  const [fullDisconnect, setFullDisconnect] = useState<{ id: string; name: string; accounts: PlaidAccount[]; hiddenCount: number } | null>(null);
+  const [unmapCompanyId, setUnmapCompanyId] = useState<string | null>(null);
 
-  const handlePlaidSuccess = useCallback(async (publicToken: string, metadata: any) => {
+  const handlePlaidSuccess = useCallback(async (publicToken: string, metadata: PlaidLinkOnSuccessMetadata) => {
     const result = await exchangeToken.mutateAsync({
-      publicToken, institutionId: metadata.institution?.institution_id,
-      institutionName: metadata.institution?.name, accounts: metadata.accounts, linkSessionId: metadata.link_session_id,
-    }) as any;
+      publicToken,
+      institutionId: metadata.institution?.institution_id,
+      institutionName: metadata.institution?.name,
+      accounts: metadata.accounts,
+      linkSessionId: metadata.link_session_id,
+    });
 
     // If existing institution was detected, show the choice dialog
-    if (result.isExisting) {
-      const detail = await apiClient<any>(`/plaid/items/${result.item.id}`);
+    if (result.isExisting && result.item) {
+      const detail = await apiClient<PlaidItemDetail>(`/plaid/items/${result.item.id}`);
       setExistingInstitution({
-        publicToken, metadata,
+        publicToken,
+        metadata,
         item: result.item,
         accounts: detail.accounts || [],
         hiddenCount: detail.hiddenAccountCount || 0,
@@ -93,7 +110,7 @@ export function BankConnectionsPage() {
     }
 
     if (result.item?.id) {
-      const detail = await apiClient<any>(`/plaid/items/${result.item.id}`);
+      const detail = await apiClient<PlaidItemDetail>(`/plaid/items/${result.item.id}`);
       setMappingData({ accounts: detail.accounts || [], hiddenAccountCount: detail.hiddenAccountCount || 0 });
     }
   }, [exchangeToken]);
@@ -101,10 +118,22 @@ export function BankConnectionsPage() {
   if (legacyLoading || plaidLoading) return <LoadingSpinner className="py-12" />;
   const legacyConnections = legacyData?.connections || [];
   const plaidItems = plaidData?.items || [];
-  const needsAttention = plaidItems.filter((i: any) => ['login_required', 'pending_disconnect', 'error'].includes(i.itemStatus));
+  const needsAttention = plaidItems.filter((i) => ['login_required', 'pending_disconnect', 'error'].includes(i.itemStatus));
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!unmapCompanyId}
+        title="Disconnect this company?"
+        message="Other companies using this connection are not affected. You can reconnect at any time."
+        confirmLabel="Disconnect"
+        variant="danger"
+        onCancel={() => setUnmapCompanyId(null)}
+        onConfirm={() => {
+          if (unmapCompanyId) unmapCompany.mutate({ itemId: unmapCompanyId });
+          setUnmapCompanyId(null);
+        }}
+      />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Bank Connections</h1>
         <div className="flex gap-2">
@@ -118,7 +147,7 @@ export function BankConnectionsPage() {
           <div className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-600" />
             <p className="text-sm font-medium text-amber-800">{needsAttention.length} connection{needsAttention.length > 1 ? 's' : ''} need attention</p>
           </div>
-          {needsAttention.map((item: any) => (
+          {needsAttention.map((item) => (
             <div key={item.id} className="mt-2 flex items-center justify-between">
               <span className="text-sm text-amber-700">{item.institutionName} — {item.errorMessage || item.itemStatus.replace(/_/g, ' ')}</span>
               <Button size="sm" variant="secondary"><Wrench className="h-3.5 w-3.5 mr-1" />Fix Now</Button>
@@ -130,9 +159,9 @@ export function BankConnectionsPage() {
       {plaidItems.length > 0 && (
         <div className="space-y-3 mb-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Connected via Plaid</h2>
-          {plaidItems.map((item: any) => {
-            const myAccounts = (item.accounts || []).filter((a: any) => a.mapping);
-            const unassigned = (item.accounts || []).filter((a: any) => !a.mapping);
+          {plaidItems.map((item) => {
+            const myAccounts = (item.accounts || []).filter((a) => a.mapping);
+            const unassigned = (item.accounts || []).filter((a) => !a.mapping);
             const isShared = (item.hiddenAccountCount || 0) > 0;
 
             return (
@@ -147,7 +176,7 @@ export function BankConnectionsPage() {
                       </p>
                       <p className="text-xs text-gray-500">
                         {myAccounts.length} mapped{unassigned.length > 0 && ` · ${unassigned.length} unassigned`}
-                        {item.hiddenAccountCount > 0 && ` · ${item.hiddenAccountCount} in other companies`}
+                        {(item.hiddenAccountCount ?? 0) > 0 && ` · ${item.hiddenAccountCount} in other companies`}
                         {' · '}Last sync: {item.lastSyncAt ? new Date(item.lastSyncAt).toLocaleString() : 'Never'}
                       </p>
                     </div>
@@ -156,10 +185,10 @@ export function BankConnectionsPage() {
                     {statusBadge(item.itemStatus)}
                     <Button variant="ghost" size="sm" onClick={() => syncItem.mutate(item.id)} loading={syncItem.isPending} title="Sync"><RefreshCw className="h-4 w-4" /></Button>
                     {unassigned.length > 0 && (
-                      <Button variant="secondary" size="sm" onClick={() => setMappingData({ accounts: item.accounts, hiddenAccountCount: item.hiddenAccountCount || 0 })}>Map</Button>
+                      <Button variant="secondary" size="sm" onClick={() => setMappingData({ accounts: item.accounts ?? [], hiddenAccountCount: item.hiddenAccountCount || 0 })}>Map</Button>
                     )}
                     <Button variant="ghost" size="sm" onClick={() => setShowActivity(showActivity === item.id ? null : item.id)} title="Activity"><Clock className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="sm" onClick={() => { if (confirm('Disconnect this company from this connection? Other companies are not affected.')) unmapCompany.mutate({ itemId: item.id }); }} title="Disconnect company">
+                    <Button variant="ghost" size="sm" onClick={() => setUnmapCompanyId(item.id)} title="Disconnect company">
                       <Unplug className="h-4 w-4 text-amber-500" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setFullDisconnect({ id: item.id, name: item.institutionName || 'Bank', accounts: item.accounts || [], hiddenCount: item.hiddenAccountCount || 0 })} title="Delete entire connection">
@@ -170,7 +199,7 @@ export function BankConnectionsPage() {
 
                 {myAccounts.length > 0 && (
                   <div className="border-t border-gray-100 pt-2 space-y-1">
-                    {myAccounts.map((acct: any) => (
+                    {myAccounts.map((acct) => (
                       <div key={acct.id} className="flex items-center justify-between text-sm py-1.5">
                         <div className="flex items-center gap-2">
                           <input type="checkbox" checked={acct.mapping?.isSyncEnabled !== false}
@@ -191,7 +220,7 @@ export function BankConnectionsPage() {
                 {unassigned.length > 0 && (
                   <div className="border-t border-gray-100 pt-2 mt-1">
                     <p className="text-xs text-gray-400 mb-1">Unassigned:</p>
-                    {unassigned.map((acct: any) => (
+                    {unassigned.map((acct) => (
                       <div key={acct.id} className="flex items-center justify-between text-sm py-1 text-gray-500">
                         <span>{acct.name} {acct.mask && `(****${acct.mask})`} · {acct.accountSubtype}</span>
                         <span className="text-xs text-amber-600">Not mapped</span>
@@ -210,7 +239,7 @@ export function BankConnectionsPage() {
       {legacyConnections.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">File Imports</h2>
-          {legacyConnections.map((conn: any) => (
+          {legacyConnections.map((conn) => (
             <div key={conn.id} className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
               onClick={() => navigate('/banking/feed')}>
               <div className="flex items-center gap-3">
@@ -267,9 +296,9 @@ export function BankConnectionsPage() {
               accounts: existingInstitution.metadata.accounts,
               linkSessionId: existingInstitution.metadata.link_session_id,
               forceNew: true,
-            }) as any;
+            });
             if (result.item?.id) {
-              const detail = await apiClient<any>(`/plaid/items/${result.item.id}`);
+              const detail = await apiClient<PlaidItemDetail>(`/plaid/items/${result.item.id}`);
               setMappingData({ accounts: detail.accounts || [], hiddenAccountCount: detail.hiddenAccountCount || 0 });
             }
             setExistingInstitution(null);

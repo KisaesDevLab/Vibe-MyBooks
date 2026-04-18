@@ -42,6 +42,7 @@ export function CheckPrintSettingsPage() {
   });
 
   const [routingError, setRoutingError] = useState('');
+  const [testPrintError, setTestPrintError] = useState('');
 
   useEffect(() => {
     if (data?.settings) {
@@ -137,7 +138,7 @@ export function CheckPrintSettingsPage() {
                     name="format"
                     value={f.value}
                     checked={form.format === f.value}
-                    onChange={() => setForm((prev) => ({ ...prev, format: f.value as any }))}
+                    onChange={() => setForm((prev) => ({ ...prev, format: f.value as 'voucher' | 'check_middle' }))}
                     className="text-primary-600 focus:ring-primary-500 mt-0.5"
                   />
                   <div>
@@ -240,7 +241,7 @@ export function CheckPrintSettingsPage() {
             <label key={opt.key} className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                checked={(form as any)[opt.key]}
+                checked={form[opt.key as keyof typeof form] as boolean}
                 onChange={(e) => setForm((prev) => ({ ...prev, [opt.key]: e.target.checked }))}
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
               />
@@ -299,13 +300,21 @@ export function CheckPrintSettingsPage() {
                   w.print();
                 }
               } catch {
-                alert('Failed to generate test print');
+                setTestPrintError('Failed to generate test print.');
               }
             }}
           >
             <Printer className="h-4 w-4 mr-2" />
             Print Test Page
           </Button>
+          {testPrintError && (
+            <div role="alert" className="mt-3 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <span>{testPrintError}</span>
+              <button type="button" onClick={() => setTestPrintError('')} className="text-xs underline text-red-600 hover:text-red-800">
+                Dismiss
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Check Numbering */}

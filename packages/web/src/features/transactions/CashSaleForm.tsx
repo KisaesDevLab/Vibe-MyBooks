@@ -2,8 +2,11 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import type { JournalLine } from '@kis-books/shared';
 import { useCreateTransaction, useUpdateTransaction, useTransaction } from '../../api/hooks/useTransactions';
 import { useCompanySettings } from '../../api/hooks/useCompany';
 import { Button } from '../../components/ui/Button';
@@ -30,7 +33,7 @@ export function CashSaleForm() {
   const createTxn = useCreateTransaction();
   const updateTxn = useUpdateTransaction();
   const { data: existingData, isLoading: loadingExisting } = useTransaction(editId || '');
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
 
   const { data: settingsData } = useCompanySettings();
   const defaultTaxRateDecimal = settingsData?.settings?.defaultSalesTaxRate || '0';
@@ -54,12 +57,12 @@ export function CashSaleForm() {
 
       const txnLines = txn.lines || [];
       // Debit line is deposit-to, credit lines are revenue
-      const debitLine = txnLines.find((l: any) => parseFloat(l.debit) > 0 && !l.description?.includes('Sales Tax'));
-      const revenueLines = txnLines.filter((l: any) => parseFloat(l.credit) > 0 && l.description !== 'Sales Tax');
+      const debitLine = txnLines.find((l: JournalLine) => parseFloat(l.debit) > 0 && !l.description?.includes('Sales Tax'));
+      const revenueLines = txnLines.filter((l: JournalLine) => parseFloat(l.credit) > 0 && l.description !== 'Sales Tax');
 
       if (debitLine) setDepositToAccountId(debitLine.accountId);
       if (revenueLines.length > 0) {
-        setLines(revenueLines.map((l: any) => ({
+        setLines(revenueLines.map((l: JournalLine) => ({
           accountId: l.accountId,
           description: l.description || '',
           quantity: l.quantity ? parseFloat(l.quantity).toString() : '1',
@@ -86,7 +89,17 @@ export function CashSaleForm() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const payload: any = {
+    interface CashSalePayload extends Record<string, unknown> {
+      txnType: 'cash_sale';
+      txnDate: string;
+      contactId?: string;
+      depositToAccountId: string;
+      memo: string;
+      lines: Array<{ accountId: string; description: string; quantity: string; unitPrice: string; isTaxable: boolean; taxRate: string }>;
+      tags: string[];
+      draftAttachmentId?: string;
+    }
+    const payload: CashSalePayload = {
       txnType: 'cash_sale',
       txnDate,
       contactId: contactId || undefined,

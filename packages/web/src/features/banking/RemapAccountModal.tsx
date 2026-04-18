@@ -4,13 +4,25 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import type { Account, PlaidAccount } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
 import { useMapPlaidAccount, usePlaidAccountSuggestions } from '../../api/hooks/usePlaid';
 import { Button } from '../../components/ui/Button';
 import { AlertTriangle } from 'lucide-react';
 
+// The list endpoint enriches each account with the current mapping and a
+// computed "is mapped" flag. Narrow at the use site.
+type RemapAccount = PlaidAccount & { mappedAccountId?: string | null; isMapped?: boolean };
+
+interface Suggestion {
+  coaAccountId: string;
+  coaAccountNumber?: string | null;
+  coaAccountName: string;
+  confidence: string;
+}
+
 interface Props {
-  account: any;
+  account: RemapAccount;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -22,7 +34,7 @@ export function RemapAccountModal({ account, onClose, onSaved }: Props) {
 
   const { data: coaData } = useQuery({
     queryKey: ['accounts'],
-    queryFn: () => apiClient<{ data: any[] }>('/accounts?limit=500'),
+    queryFn: () => apiClient<{ data: Account[] }>('/accounts?limit=500'),
   });
   const coaAccounts = coaData?.data || [];
   const suggestions = suggestionsData?.suggestions || [];
@@ -66,7 +78,7 @@ export function RemapAccountModal({ account, onClose, onSaved }: Props) {
               <option value="">Not mapped (stop importing)</option>
               {suggestions.length > 0 && (
                 <optgroup label="Suggested">
-                  {suggestions.map((s: any) => (
+                  {(suggestions as Suggestion[]).map((s) => (
                     <option key={s.coaAccountId} value={s.coaAccountId}>
                       {s.coaAccountNumber ? `${s.coaAccountNumber} - ` : ''}{s.coaAccountName} ({s.confidence})
                     </option>
@@ -75,8 +87,8 @@ export function RemapAccountModal({ account, onClose, onSaved }: Props) {
               )}
               <optgroup label="All Accounts">
                 {coaAccounts
-                  .filter((a: any) => ['bank', 'credit_card', 'other_current_asset', 'other_current_liability'].includes(a.detailType))
-                  .map((a: any) => (
+                  .filter((a) => ['bank', 'credit_card', 'other_current_asset', 'other_current_liability'].includes(a.detailType ?? ''))
+                  .map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.accountNumber ? `${a.accountNumber} - ` : ''}{a.name}
                     </option>
@@ -86,7 +98,7 @@ export function RemapAccountModal({ account, onClose, onSaved }: Props) {
           </div>
         </div>
 
-        {mapAccount.error && <p className="text-sm text-red-600 mt-2">{(mapAccount.error as any).message}</p>}
+        {mapAccount.error && <p className="text-sm text-red-600 mt-2">{mapAccount.error.message}</p>}
 
         <div className="flex justify-end gap-3 mt-6">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>

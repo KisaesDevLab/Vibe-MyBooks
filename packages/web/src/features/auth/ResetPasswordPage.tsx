@@ -37,8 +37,8 @@ export function ResetPasswordPage() {
         throw new Error(data.error?.message || 'Failed to reset password');
       }
       setSuccess(true);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset password');
     } finally {
       setLoading(false);
     }

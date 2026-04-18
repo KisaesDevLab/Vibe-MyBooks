@@ -9,7 +9,36 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Plus, Pencil, Trash2, Globe, X, CheckCircle, XCircle, Inbox } from 'lucide-react';
+
+interface GlobalBankRuleInput {
+  name: string;
+  applyTo: string;
+  priority: number;
+  descriptionContains: string | null;
+  descriptionExact: string | null;
+  amountEquals: string | null;
+  amountMin: string | null;
+  amountMax: string | null;
+  assignAccountName: string | null;
+  assignContactName: string | null;
+  assignMemo: string | null;
+  autoConfirm: boolean;
+}
+
+interface BankRuleSubmission {
+  id: string;
+  name: string;
+  submittedBy?: string;
+  submittedByEmail?: string;
+  createdAt?: string;
+  descriptionContains?: string | null;
+  assignAccountName?: string | null;
+  assignContactName?: string | null;
+  note?: string | null;
+  tenantName?: string;
+}
 
 interface GlobalRule {
   id: string;
@@ -51,12 +80,13 @@ export function GlobalBankRulesPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (input: any) => apiClient('/admin/bank-rules', { method: 'POST', body: JSON.stringify(input) }),
+    mutationFn: (input: GlobalBankRuleInput) => apiClient('/admin/bank-rules', { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin', 'bank-rules'] }); resetForm(); },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...input }: any) => apiClient(`/admin/bank-rules/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+    mutationFn: ({ id, ...input }: GlobalBankRuleInput & { id: string }) =>
+      apiClient(`/admin/bank-rules/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin', 'bank-rules'] }); resetForm(); },
   });
 
@@ -68,7 +98,7 @@ export function GlobalBankRulesPage() {
   const { data: submissions } = useQuery({
     queryKey: ['admin', 'bank-rule-submissions'],
     queryFn: async () => {
-      const res = await apiClient<{ submissions: any[] }>('/admin/bank-rule-submissions?status=pending');
+      const res = await apiClient<{ submissions: BankRuleSubmission[] }>('/admin/bank-rule-submissions?status=pending');
       return res.submissions;
     },
   });
@@ -87,6 +117,9 @@ export function GlobalBankRulesPage() {
   });
 
   const resetForm = () => { setShowForm(false); setEditingId(null); setForm(emptyForm); };
+
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<{ id: string; name: string } | null>(null);
 
   const handleEdit = (rule: GlobalRule) => {
     setForm({
@@ -220,7 +253,7 @@ export function GlobalBankRulesPage() {
             <h2 className="text-sm font-semibold text-amber-800">Pending Submissions ({submissions.length})</h2>
           </div>
           <div className="space-y-2">
-            {submissions.map((sub: any) => (
+            {submissions.map((sub: BankRuleSubmission) => (
               <div key={sub.id} className="bg-white rounded-lg border border-amber-100 p-4 flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="font-medium text-gray-900">{sub.name}</div>
@@ -240,7 +273,7 @@ export function GlobalBankRulesPage() {
                     <CheckCircle className="h-3.5 w-3.5" /> Approve
                   </button>
                   <button
-                    onClick={() => { if (confirm('Reject this submission?')) rejectMutation.mutate(sub.id); }}
+                    onClick={() => setRejectId(sub.id)}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
                   >
                     <XCircle className="h-3.5 w-3.5" /> Reject
@@ -291,7 +324,7 @@ export function GlobalBankRulesPage() {
                       <button onClick={() => handleEdit(rule)} className="p-1.5 rounded hover:bg-gray-200 text-gray-600" title="Edit">
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button onClick={() => { if (confirm(`Delete rule "${rule.name}"?`)) deleteMutation.mutate(rule.id); }}
+                      <button onClick={() => setDeleteId({ id: rule.id, name: rule.name })}
                         className="p-1.5 rounded hover:bg-gray-200 text-red-500" title="Delete">
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -303,6 +336,31 @@ export function GlobalBankRulesPage() {
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!rejectId}
+        title="Reject submission?"
+        message="The submitted rule will not be promoted to a global rule."
+        confirmLabel="Reject"
+        variant="danger"
+        onCancel={() => setRejectId(null)}
+        onConfirm={() => {
+          if (rejectId) rejectMutation.mutate(rejectId);
+          setRejectId(null);
+        }}
+      />
+      <ConfirmDialog
+        open={!!deleteId}
+        title="Delete global rule?"
+        message={deleteId ? `Remove "${deleteId.name}" from global rules. Tenants using this rule will stop receiving matches.` : ''}
+        confirmLabel="Delete"
+        variant="danger"
+        onCancel={() => setDeleteId(null)}
+        onConfirm={() => {
+          if (deleteId) deleteMutation.mutate(deleteId.id);
+          setDeleteId(null);
+        }}
+      />
     </div>
   );
 }

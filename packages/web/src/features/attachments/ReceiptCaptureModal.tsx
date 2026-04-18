@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, type ChangeEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAiOcrReceipt } from '../../api/hooks/useAi';
@@ -43,29 +45,28 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
       if (!res.ok) throw new Error('Upload failed');
       return res.json();
     },
-    onSuccess: async (data: any) => {
+    onSuccess: async (data: { id?: string; attachment?: { id: string } }) => {
       const aid = data.id || data.attachment?.id;
+      if (!aid) return;
       setAttachmentId(aid);
 
       // Auto-trigger AI OCR
-      if (aid) {
-        setOcrProcessing(true);
-        try {
-          const result = await aiOcr.mutateAsync(aid) as any;
-          setOcrResult({
-            vendor: result.vendor || '',
-            date: result.date || new Date().toISOString().split('T')[0]!,
-            total: result.total || '',
-            tax: result.tax || '0',
-          });
-          setOcrConfidence(result.confidence || null);
-          setQualityWarnings(Array.isArray(result.qualityWarnings) ? result.qualityWarnings : []);
-        } catch {
-          // OCR failed — show empty form for manual entry
-          setOcrResult({ vendor: '', date: new Date().toISOString().split('T')[0]!, total: '', tax: '0' });
-        } finally {
-          setOcrProcessing(false);
-        }
+      setOcrProcessing(true);
+      try {
+        const result = await aiOcr.mutateAsync(aid);
+        setOcrResult({
+          vendor: result.vendor || '',
+          date: result.date || todayLocalISO(),
+          total: result.total || '',
+          tax: result.tax || '0',
+        });
+        setOcrConfidence(result.confidence ?? null);
+        setQualityWarnings(Array.isArray(result.qualityWarnings) ? result.qualityWarnings : []);
+      } catch {
+        // OCR failed — show empty form for manual entry
+        setOcrResult({ vendor: '', date: todayLocalISO(), total: '', tax: '0' });
+      } finally {
+        setOcrProcessing(false);
       }
     },
   });

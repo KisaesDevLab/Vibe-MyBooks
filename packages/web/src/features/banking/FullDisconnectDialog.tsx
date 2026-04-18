@@ -3,6 +3,7 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useState } from 'react';
+import type { PlaidAccount } from '@kis-books/shared';
 import { useRemovePlaidItem } from '../../api/hooks/usePlaid';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -11,7 +12,7 @@ import { AlertTriangle, Trash2 } from 'lucide-react';
 interface Props {
   itemId: string;
   institutionName: string;
-  accounts: any[];
+  accounts: PlaidAccount[];
   hiddenAccountCount: number;
   onClose: () => void;
   onRemoved: () => void;
@@ -22,7 +23,7 @@ export function FullDisconnectDialog({ itemId, institutionName, accounts, hidden
   const [deletePending, setDeletePending] = useState(true);
   const removeItem = useRemovePlaidItem();
 
-  const mappedAccounts = accounts.filter((a: any) => a.mapping);
+  const mappedAccounts = accounts.filter((a) => a.mapping);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -46,7 +47,7 @@ export function FullDisconnectDialog({ itemId, institutionName, accounts, hidden
           {mappedAccounts.length > 0 && (
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Your mapped accounts</p>
-              {mappedAccounts.map((a: any) => (
+              {mappedAccounts.map((a) => (
                 <div key={a.id} className="text-sm text-gray-700 py-0.5">
                   {a.name} {a.mask && `(****${a.mask})`}
                 </div>

@@ -2,9 +2,23 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import type { JournalLine } from '@kis-books/shared';
 import { useCreateTransaction, useUpdateTransaction, useTransaction } from '../../api/hooks/useTransactions';
+
+interface TransferPayload extends Record<string, unknown> {
+  txnType: 'transfer';
+  txnDate: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: string;
+  memo: string;
+  tags: string[];
+  draftAttachmentId?: string;
+}
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
@@ -21,7 +35,7 @@ export function TransferForm() {
   const createTxn = useCreateTransaction();
   const updateTxn = useUpdateTransaction();
   const { data: existingData, isLoading: loadingExisting } = useTransaction(editId || '');
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
 
   const [txnDate, setTxnDate] = useState(today);
   const [fromAccountId, setFromAccountId] = useState('');
@@ -39,8 +53,8 @@ export function TransferForm() {
       setMemo(txn.memo || '');
 
       const txnLines = txn.lines || [];
-      const debitLine = txnLines.find((l: any) => parseFloat(l.debit) > 0);
-      const creditLine = txnLines.find((l: any) => parseFloat(l.credit) > 0);
+      const debitLine = txnLines.find((l: JournalLine) => parseFloat(l.debit) > 0);
+      const creditLine = txnLines.find((l: JournalLine) => parseFloat(l.credit) > 0);
 
       if (debitLine) { setToAccountId(debitLine.accountId); setAmount(parseFloat(debitLine.debit).toString()); }
       if (creditLine) setFromAccountId(creditLine.accountId);
@@ -52,7 +66,7 @@ export function TransferForm() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const payload: any = { txnType: 'transfer', txnDate, fromAccountId, toAccountId, amount, memo, tags: tagIds };
+    const payload: TransferPayload = { txnType: 'transfer', txnDate, fromAccountId, toAccountId, amount, memo, tags: tagIds };
 
     if (isEdit) {
       updateTxn.mutate({ id: editId!, ...payload }, { onSuccess: () => navigate(`/transactions/${editId}`) });

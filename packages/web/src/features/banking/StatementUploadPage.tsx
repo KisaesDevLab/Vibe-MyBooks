@@ -30,8 +30,16 @@ export function StatementUploadPage() {
   const [transactions, setTransactions] = useState<ParsedTransaction[]>([]);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState('');
-  const [metadata, setMetadata] = useState<any>(null);
-  const [imported, setImported] = useState<{ imported: number; skipped: number } | null>(null);
+  interface StatementMetadata {
+    accountNumber?: string | null;
+    period?: { start?: string; end?: string } | string | null;
+    openingBalance?: string | null;
+    closingBalance?: string | null;
+    confidence?: number | null;
+    qualityWarnings: string[];
+  }
+  const [metadata, setMetadata] = useState<StatementMetadata | null>(null);
+  const [imported, setImported] = useState<{ imported: number; skipped?: number; duplicates?: number } | null>(null);
   const [bankConnectionId, setBankConnectionId] = useState('');
 
   const { data: aiConfig, isLoading: aiConfigLoading } = useAiConfig();
@@ -52,17 +60,21 @@ export function StatementUploadPage() {
       if (!res.ok) throw new Error('Upload failed');
       return res.json();
     },
-    onSuccess: async (data: any) => {
+    onSuccess: async (data: { id?: string; attachment?: { id: string } }) => {
       const aid = data.id || data.attachment?.id;
+      if (!aid) return;
       setAttachmentId(aid);
 
       // Auto-parse with AI
       setParsing(true);
       setParseError('');
       try {
-        const result = await parseStatement.mutateAsync(aid) as any;
-        setTransactions((result.transactions || []).map((t: any) => ({
-          ...t,
+        const result = await parseStatement.mutateAsync(aid);
+        setTransactions((result.transactions || []).map((t) => ({
+          date: t.date,
+          description: t.description,
+          amount: t.amount,
+          type: (t.type === 'credit' ? 'credit' : 'debit'),
           selected: true,
           duplicate: false,
         })));
@@ -74,18 +86,23 @@ export function StatementUploadPage() {
           confidence: result.confidence,
           qualityWarnings: Array.isArray(result.qualityWarnings) ? result.qualityWarnings : [],
         });
-      } catch (err: any) {
-        setParseError(err.message || 'Failed to parse statement. Try a different file format.');
+      } catch (err) {
+        setParseError(err instanceof Error ? err.message : 'Failed to parse statement. Try a different file format.');
       } finally {
         setParsing(false);
       }
     },
   });
 
+  interface StatementImportResult {
+    imported: number;
+    duplicates?: number;
+    errors?: string[];
+  }
   const importMutation = useMutation({
     mutationFn: async () => {
       const selected = transactions.filter((t) => t.selected && !t.duplicate);
-      const res = await apiClient<any>('/ai/parse/statement/import', {
+      const res = await apiClient<StatementImportResult>('/ai/parse/statement/import', {
         method: 'POST',
         body: JSON.stringify({
           bankConnectionId: bankConnectionId || '00000000-0000-0000-0000-000000000000',
@@ -94,7 +111,7 @@ export function StatementUploadPage() {
       });
       return res;
     },
-    onSuccess: (data: any) => setImported(data),
+    onSuccess: (data) => setImported(data),
   });
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -172,7 +189,11 @@ export function StatementUploadPage() {
               {metadata.period && (
                 <div>
                   <span className="text-gray-500">Period:</span>{' '}
-                  <span className="font-medium">{metadata.period.start} — {metadata.period.end}</span>
+                  <span className="font-medium">
+                    {typeof metadata.period === 'string'
+                      ? metadata.period
+                      : `${metadata.period.start ?? ''} — ${metadata.period.end ?? ''}`}
+                  </span>
                 </div>
               )}
               {metadata.confidence && (
@@ -184,7 +205,7 @@ export function StatementUploadPage() {
             </div>
           )}
 
-          {metadata?.qualityWarnings?.length > 0 && (
+          {metadata && (metadata.qualityWarnings?.length ?? 0) > 0 && (
             <div className="mb-4">
               <OcrQualityNotice warnings={metadata.qualityWarnings} />
             </div>
@@ -246,7 +267,7 @@ export function StatementUploadPage() {
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center space-y-3">
               <Check className="h-6 w-6 text-green-600 mx-auto mb-2" />
               <p className="text-sm font-medium text-green-800">Imported {imported.imported} transactions</p>
-              {imported.skipped > 0 && <p className="text-xs text-green-600">{imported.skipped} duplicates skipped</p>}
+              {(imported.skipped ?? 0) > 0 && <p className="text-xs text-green-600">{imported.skipped} duplicates skipped</p>}
               <Button onClick={() => navigate('/banking/feed')}>Review in Bank Feed</Button>
             </div>
           )}

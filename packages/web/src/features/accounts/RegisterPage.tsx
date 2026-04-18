@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useRegister, useRegisterSummary } from '../../api/hooks/useRegister';
@@ -36,7 +38,7 @@ export function RegisterPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
   const ninetyAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]!;
 
   const [startDate, setStartDate] = useState(ninetyAgo);
@@ -61,7 +63,7 @@ export function RegisterPage() {
 
   const { data, isLoading, isError, refetch } = useRegister(id!, {
     startDate, endDate, search: search || undefined, txnType: txnTypeFilter || undefined,
-    sortBy: sortBy as any, sortDir: sortDir as any, page, perPage: 50, includeVoid,
+    sortBy, sortDir, page, perPage: 50, includeVoid,
   });
   const { data: summary } = useRegisterSummary(id!);
   const voidTxn = useVoidTransaction();

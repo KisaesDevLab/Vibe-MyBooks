@@ -31,7 +31,7 @@ export function BillDetailPage() {
   const isVoid = bill.status === 'void';
   const status = bill.billStatus || 'unpaid';
 
-  const expenseLines = (bill.lines || []).filter((l: any) => parseFloat(l.debit) > 0);
+  const expenseLines = (bill.lines || []).filter((l) => parseFloat(l.debit) > 0);
 
   const handleVoid = () => {
     if (!voidReason) return;
@@ -105,7 +105,7 @@ export function BillDetailPage() {
             </tr>
           </thead>
           <tbody>
-            {expenseLines.map((line: any) => (
+            {expenseLines.map((line) => (
               <tr key={line.id} className="border-b last:border-0">
                 <td className="py-2 text-sm">{line.accountNumber} {line.accountName}</td>
                 <td className="py-2 text-sm">{line.description || '—'}</td>

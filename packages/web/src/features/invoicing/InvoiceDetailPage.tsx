@@ -39,6 +39,7 @@ export function InvoiceDetailPage() {
   const [showVoid, setShowVoid] = useState(false);
   const [voidReason, setVoidReason] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState('');
 
   const markAsSent = useMutation({
     mutationFn: () => apiClient(`/invoices/${id}/mark-sent`, { method: 'POST' }),
@@ -58,6 +59,7 @@ export function InvoiceDetailPage() {
 
   const handleDownloadPdf = async () => {
     setPdfLoading(true);
+    setPdfError('');
     try {
       const token = localStorage.getItem('accessToken');
       const res = await fetch(`/api/v1/invoices/${inv.id}/pdf`, {
@@ -70,14 +72,20 @@ export function InvoiceDetailPage() {
       a.download = `invoice-${inv.txnNumber || inv.id.slice(0, 8)}.pdf`;
       a.click();
       URL.revokeObjectURL(a.href);
-    } catch (err: any) {
-      alert(err.message || 'PDF download failed');
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'PDF download failed');
     }
     setPdfLoading(false);
   };
 
   return (
     <div>
+      {pdfError && (
+        <div role="alert" className="mb-3 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <span>{pdfError}</span>
+          <button onClick={() => setPdfError('')} className="text-xs underline text-red-600 hover:text-red-800">Dismiss</button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Invoice {inv.txnNumber ? `#${inv.txnNumber}` : ''}</h1>
@@ -108,7 +116,7 @@ export function InvoiceDetailPage() {
             invoiceId={inv.id}
             invoiceNumber={inv.txnNumber || undefined}
             total={inv.total || undefined}
-            contactPhone={(inv as any).contactPhone}
+            contactPhone={inv.contactPhone ?? undefined}
           />
           <Button variant="secondary" size="sm" onClick={handleDownloadPdf} loading={pdfLoading}>
             <Download className="h-4 w-4 mr-1" /> PDF

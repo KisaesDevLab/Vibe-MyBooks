@@ -5,6 +5,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Eye, EyeOff, CheckCircle, Loader2, Info, CreditCard, Trash2 } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
@@ -28,6 +29,7 @@ export function StripeSettingsPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
   const [removeStatus, setRemoveStatus] = useState<'idle' | 'removing' | 'removed'>('idle');
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -78,14 +80,16 @@ export function StripeSettingsPage() {
       setConfig({ configured: true, publishableKey: form.publishableKey, onlinePaymentsEnabled: true });
       setForm(f => ({ ...f, secretKey: '', webhookSecret: '' }));
       setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch (err: any) {
+    } catch (err) {
       setSaveStatus('error');
-      setSaveError(err.message || 'Failed to save');
+      setSaveError(err instanceof Error ? err.message : 'Failed to save');
     }
   };
 
-  const handleRemove = async () => {
-    if (!confirm('Remove Stripe configuration? Online payments will be disabled.')) return;
+  const handleRemove = () => setShowRemoveConfirm(true);
+
+  const performRemove = async () => {
+    setShowRemoveConfirm(false);
     setRemoveStatus('removing');
     try {
       await apiClient('/company/stripe', { method: 'DELETE' });
@@ -108,6 +112,15 @@ export function StripeSettingsPage() {
 
   return (
     <div>
+      <ConfirmDialog
+        open={showRemoveConfirm}
+        title="Remove Stripe configuration?"
+        message="Online payments will be disabled and your saved keys will be deleted."
+        confirmLabel="Remove"
+        variant="danger"
+        onCancel={() => setShowRemoveConfirm(false)}
+        onConfirm={performRemove}
+      />
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Online Payments (Stripe)</h1>
       <p className="text-sm text-gray-500 mb-6">
         Connect your Stripe account to accept credit card and digital wallet payments on shared invoice links.

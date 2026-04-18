@@ -50,6 +50,8 @@ export function usePrintQueue(bankAccountId?: string) {
       payeeNameOnCheck: string;
       amount: string;
       printedMemo: string | null;
+      contactName?: string | null;
+      memo?: string | null;
     }>; total: number }>(`/checks/print-queue${qs ? `?${qs}` : ''}`),
     enabled: !!bankAccountId,
   });

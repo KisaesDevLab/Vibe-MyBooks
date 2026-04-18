@@ -170,21 +170,57 @@ export function useAiBatchCategorize() {
   });
 }
 
+export interface OcrReceiptResult {
+  vendor?: string;
+  date?: string;
+  total?: string;
+  tax?: string;
+  confidence?: number | null;
+  qualityWarnings?: string[];
+}
+
 export function useAiOcrReceipt() {
   return useMutation({
-    mutationFn: (attachmentId: string) => apiClient('/ai/ocr/receipt', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
+    mutationFn: (attachmentId: string) =>
+      apiClient<OcrReceiptResult>('/ai/ocr/receipt', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
   });
+}
+
+export interface ParsedStatementTransaction {
+  date: string;
+  description: string;
+  amount: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
+export interface ParsedStatement {
+  transactions?: ParsedStatementTransaction[];
+  accountNumberMasked?: string | null;
+  statementPeriod?: { start?: string; end?: string } | string | null;
+  openingBalance?: string | null;
+  closingBalance?: string | null;
+  confidence?: number | null;
+  qualityWarnings?: string[];
 }
 
 export function useAiParseStatement() {
   return useMutation({
-    mutationFn: (attachmentId: string) => apiClient('/ai/parse/statement', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
+    mutationFn: (attachmentId: string) =>
+      apiClient<ParsedStatement>('/ai/parse/statement', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
   });
+}
+
+export interface ClassifiedDocument {
+  documentType?: string;
+  confidence?: number;
+  [key: string]: unknown;
 }
 
 export function useAiClassify() {
   return useMutation({
-    mutationFn: (attachmentId: string) => apiClient('/ai/classify', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
+    mutationFn: (attachmentId: string) =>
+      apiClient<ClassifiedDocument>('/ai/classify', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
   });
 }
 

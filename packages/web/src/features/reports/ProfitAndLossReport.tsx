@@ -7,6 +7,67 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
+
+// The /reports/profit-loss endpoint returns two shapes depending on whether
+// a `compare=` parameter is set. Keep both unions permissive on optional
+// sections — the view components branch on the fields they need.
+interface PLRow {
+  accountId?: string;
+  accountNumber?: string | null;
+  name: string;
+  amount: number;
+}
+
+interface PLStandardData {
+  startDate: string;
+  endDate: string;
+  labels?: PLSectionLabels;
+  revenue: PLRow[];
+  totalRevenue: number;
+  cogs?: PLRow[];
+  totalCogs?: number;
+  grossProfit?: number;
+  expenses: PLRow[];
+  totalExpenses: number;
+  operatingIncome?: number;
+  otherRevenue?: PLRow[];
+  totalOtherRevenue?: number;
+  otherExpenses?: PLRow[];
+  totalOtherExpenses?: number;
+  netIncome: number;
+  columns?: undefined;
+}
+
+interface PLComparativeColumn {
+  label: string;
+  type?: 'variance' | 'percent_variance' | string;
+  startDate?: string;
+  endDate?: string;
+}
+
+interface PLComparativeRow {
+  accountId?: string;
+  accountNumber?: string | null;
+  account: string;
+  accountType: string;
+  values: Array<number | null>;
+}
+
+interface PLComparativeData {
+  startDate: string;
+  endDate: string;
+  labels?: PLSectionLabels;
+  columns: PLComparativeColumn[];
+  rows: PLComparativeRow[];
+  totalRevenue: number[];
+  totalCogs: number[];
+  totalExpenses: number[];
+  totalOtherRevenue?: number[];
+  totalOtherExpenses?: number[];
+  netIncome: number[];
+}
+
+type PLData = PLStandardData | PLComparativeData;
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -40,10 +101,10 @@ export function ProfitAndLossReport() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'profit-loss', startDate, endDate, basis, compare, activeCompanyId, scope],
-    queryFn: () => apiClient<any>(`/reports/profit-loss?${queryParams}`),
+    queryFn: () => apiClient<PLData>(`/reports/profit-loss?${queryParams}`),
   });
 
-  const isComparative = compare && data?.columns;
+  const isComparative = compare && data && 'columns' in data && data.columns;
 
   return (
     <ReportShell title="Profit and Loss"
@@ -52,7 +113,7 @@ export function ProfitAndLossReport() {
       filters={
         <div className="flex items-center gap-4 flex-wrap">
           <DateRangePicker startDate={startDate} endDate={endDate} onChange={(s, e) => { setStartDate(s); setEndDate(e); }} />
-          <select value={basis} onChange={(e) => setBasis(e.target.value as any)}
+          <select value={basis} onChange={(e) => setBasis(e.target.value as 'accrual' | 'cash')}
             className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
             <option value="accrual">Accrual</option>
             <option value="cash">Cash</option>
@@ -69,21 +130,21 @@ export function ProfitAndLossReport() {
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (
         isComparative
-          ? <ComparativeView data={data} />
-          : <StandardView data={data} />
+          ? <ComparativeView data={data as PLComparativeData} />
+          : <StandardView data={data as PLStandardData} />
       )}
     </ReportShell>
   );
 }
 
-function StandardView({ data }: { data: any }) {
+function StandardView({ data }: { data: PLStandardData }) {
   const navigate = useNavigate();
   const hasCogs = (data.cogs?.length ?? 0) > 0;
   const hasOtherRev = (data.otherRevenue?.length ?? 0) > 0;
   const hasOtherExp = (data.otherExpenses?.length ?? 0) > 0;
   const showOperatingIncome = hasCogs || hasOtherRev || hasOtherExp;
 
-  const L = (data.labels as PLSectionLabels | undefined) ?? DEFAULT_PL_LABELS;
+  const L = data.labels ?? DEFAULT_PL_LABELS;
 
   const DrillAmount = ({ accountId, amount }: { accountId: string | undefined; amount: number }) => {
     const href = drillUrl(accountId, data.startDate, data.endDate);
@@ -100,10 +161,10 @@ function StandardView({ data }: { data: any }) {
     );
   };
 
-  const Section = ({ title, items, total }: { title: string; items: any[]; total: number }) => (
+  const Section = ({ title, items, total }: { title: string; items: PLRow[]; total: number }) => (
     <div>
       <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
-      {items.map((r: any, i: number) => (
+      {items.map((r, i) => (
         <div key={i} className="flex justify-between py-1 text-sm">
           <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
           <DrillAmount accountId={r.accountId} amount={r.amount} />
@@ -127,14 +188,14 @@ function StandardView({ data }: { data: any }) {
       <Section title={L.revenue} items={data.revenue} total={data.totalRevenue} />
       {hasCogs && (
         <>
-          <Section title={L.cogs} items={data.cogs} total={data.totalCogs} />
+          <Section title={L.cogs} items={data.cogs ?? []} total={data.totalCogs ?? 0} />
           <Subtotal label={L.grossProfit} value={data.grossProfit ?? 0} />
         </>
       )}
       <Section title={L.expenses} items={data.expenses} total={data.totalExpenses} />
       {showOperatingIncome && <Subtotal label={L.operatingIncome} value={data.operatingIncome ?? 0} />}
-      {hasOtherRev && <Section title={L.otherRevenue} items={data.otherRevenue} total={data.totalOtherRevenue} />}
-      {hasOtherExp && <Section title={L.otherExpenses} items={data.otherExpenses} total={data.totalOtherExpenses} />}
+      {hasOtherRev && <Section title={L.otherRevenue} items={data.otherRevenue ?? []} total={data.totalOtherRevenue ?? 0} />}
+      {hasOtherExp && <Section title={L.otherExpenses} items={data.otherExpenses ?? []} total={data.totalOtherExpenses ?? 0} />}
       <div className="flex justify-between py-2 font-bold text-lg border-t-2">
         <span>{L.netIncome}</span>
         <span className={`font-mono ${data.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(data.netIncome)}</span>
@@ -143,12 +204,12 @@ function StandardView({ data }: { data: any }) {
   );
 }
 
-function ComparativeView({ data }: { data: any }) {
+function ComparativeView({ data }: { data: PLComparativeData }) {
   const navigate = useNavigate();
-  const columns: Array<{ label: string; type?: string; startDate?: string; endDate?: string }> = data.columns;
-  const isVarianceCol = (col: any) => col.type === 'variance' || col.type === 'percent_variance';
+  const columns: PLComparativeColumn[] = data.columns;
+  const isVarianceCol = (col: PLComparativeColumn) => col.type === 'variance' || col.type === 'percent_variance';
 
-  const allRows = (data.rows as any[]);
+  const allRows = data.rows;
   const byType = (t: string) => allRows.filter((r) => r.accountType === t);
   const revenueRows = byType('revenue');
   const cogsRows = byType('cogs');
@@ -161,7 +222,7 @@ function ComparativeView({ data }: { data: any }) {
   const hasOtherExp = otherExpRows.length > 0;
   const showOperatingIncome = hasCogs || hasOtherRev || hasOtherExp;
 
-  const L = (data.labels as PLSectionLabels | undefined) ?? DEFAULT_PL_LABELS;
+  const L = data.labels ?? DEFAULT_PL_LABELS;
 
   // Build a subtotal row "a − b" across all period columns. For variance
   // / % variance columns we re-derive from the new current & prior rather
@@ -187,7 +248,7 @@ function ComparativeView({ data }: { data: any }) {
     ? subtractRow((grossProfit ?? data.totalRevenue) as number[], data.totalExpenses)
     : null;
 
-  function CellValue({ value, col }: { value: number | null; col: any }) {
+  function CellValue({ value, col }: { value: number | null; col: PLComparativeColumn }) {
     if (col.type === 'percent_variance') {
       return <span className={`font-mono text-right ${(value ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmtPct(value)}</span>;
     }
@@ -197,13 +258,13 @@ function ComparativeView({ data }: { data: any }) {
     return <span className="font-mono text-right">{fmt(value ?? 0)}</span>;
   }
 
-  function TotalRow({ label, values, bold }: { label: string; values: any[]; bold?: boolean }) {
+  function TotalRow({ label, values, bold }: { label: string; values: Array<number | null>; bold?: boolean }) {
     return (
       <tr className={bold ? 'border-t-2 border-gray-300' : 'border-t border-gray-200 bg-gray-50'}>
         <td className={`px-3 py-2 text-sm ${bold ? 'font-bold text-base' : 'font-semibold'}`}>{label}</td>
-        {values.map((v: any, i: number) => (
+        {values.map((v, i) => (
           <td key={i} className={`px-3 py-2 text-right text-sm ${bold ? 'font-bold' : 'font-semibold'}`}>
-            <CellValue value={v} col={columns[i]} />
+            <CellValue value={v} col={columns[i]!} />
           </td>
         ))}
       </tr>
@@ -216,13 +277,13 @@ function ComparativeView({ data }: { data: any }) {
     );
   }
 
-  function AccountRows({ rows }: { rows: any[] }) {
+  function AccountRows({ rows }: { rows: PLComparativeRow[] }) {
     return (
       <>
-        {rows.map((row: any, i: number) => (
+        {rows.map((row, i) => (
           <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
             <td className="px-3 py-1.5">{row.accountNumber ? `${row.accountNumber} — ` : ''}{row.account}</td>
-            {(row.values as any[]).map((v: any, j: number) => {
+            {row.values.map((v, j) => {
               const col = columns[j]!;
               const href = drillUrl(row.accountId, col.startDate, col.endDate);
               return (
@@ -285,7 +346,7 @@ function ComparativeView({ data }: { data: any }) {
             <>
               <SectionHeader label={L.otherRevenue} />
               <AccountRows rows={otherRevRows} />
-              <TotalRow label={`Total ${L.otherRevenue}`} values={data.totalOtherRevenue} />
+              <TotalRow label={`Total ${L.otherRevenue}`} values={data.totalOtherRevenue ?? []} />
             </>
           )}
 
@@ -293,7 +354,7 @@ function ComparativeView({ data }: { data: any }) {
             <>
               <SectionHeader label={L.otherExpenses} />
               <AccountRows rows={otherExpRows} />
-              <TotalRow label={`Total ${L.otherExpenses}`} values={data.totalOtherExpenses} />
+              <TotalRow label={`Total ${L.otherExpenses}`} values={data.totalOtherExpenses ?? []} />
             </>
           )}
 

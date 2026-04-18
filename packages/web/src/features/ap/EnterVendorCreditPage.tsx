@@ -2,8 +2,11 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { AccountType } from '@kis-books/shared';
 import { useCreateVendorCredit } from '../../api/hooks/useAp';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -23,7 +26,7 @@ const emptyLine = (): CreditLine => ({ accountId: '', description: '', amount: '
 
 export function EnterVendorCreditPage() {
   const navigate = useNavigate();
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
   const createCredit = useCreateVendorCredit();
 
   const [contactId, setContactId] = useState('');
@@ -98,7 +101,7 @@ export function EnterVendorCreditPage() {
                     <AccountSelector
                       value={line.accountId}
                       onChange={(v) => updateLine(i, 'accountId', v)}
-                      accountTypeFilter={['expense', 'asset'] as any}
+                      accountTypeFilter={['expense', 'asset'] as AccountType[]}
                     />
                   </td>
                   <td className="px-2 py-1">

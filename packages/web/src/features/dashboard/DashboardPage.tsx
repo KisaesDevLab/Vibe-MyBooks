@@ -9,6 +9,8 @@ import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Landmark, FileText, ArrowRight, Wallet, Receipt, Banknote } from 'lucide-react';
 import { DashboardAiFooter } from '../../components/ui/DashboardAiFooter';
+import { OnboardingBanner } from './OnboardingBanner';
+import { useMe } from '../../api/hooks/useAuth';
 
 function fmt(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -55,92 +57,104 @@ function StatCard({ title, value, subtitle, icon: Icon, color }: {
   );
 }
 
+interface BudgetPeriodPerf { revenueActual: number; revenueBudget: number; expenseActual: number; expenseBudget: number; netActual: number; netBudget: number }
+interface BudgetPerf { budgetName: string; budgetId: string; mtd: BudgetPeriodPerf; ytd: BudgetPeriodPerf }
+interface DashboardSummary {
+  snapshot: { mtd: { revenue: number; expenses: number; netIncome: number }; ytd: { revenue: number; expenses: number; netIncome: number } } | null;
+  trend: { data: Array<{ month: string; revenue: number; expenses: number }> } | null;
+  cashPosition: { bankAccounts: Array<{ name: string; balance: number }>; creditCards: Array<{ name: string; balance: number }>; totalBank: number; totalCC: number } | null;
+  receivables: { totalOutstanding: number; overdueCount: number; overdueAmount: number; invoiceCount: number } | null;
+  payables: {
+    totalOwed: number; billCount: number;
+    overdueCount: number; overdueAmount: number;
+    dueThisWeekCount: number; dueThisWeekAmount: number;
+    creditCount: number; creditAmount: number;
+    apBalance: number;
+  } | null;
+  actionItems: { pendingFeedCount: number; overdueInvoiceCount: number; staleReconciliations: Array<{ accountName: string; lastReconciled: string | null }>; pendingDepositCount: number; pendingDepositAmount: number; printQueueCount: number; printQueueAmount: number } | null;
+  budgetPerformance: BudgetPerf | null;
+  bankingHealth: { totalConnections: number; needsAttention: number; needsAttentionItems: Array<{ id: string; institutionName: string; itemStatus: string; errorMessage: string | null }>; pendingFeedItems: number } | null;
+  errors: string[];
+}
+
 export function DashboardPage() {
   const navigate = useNavigate();
 
-  const snapshotQ = useQuery({
-    queryKey: ['dashboard', 'snapshot'],
-    queryFn: () => apiClient<{ mtd: { revenue: number; expenses: number; netIncome: number }; ytd: { revenue: number; expenses: number; netIncome: number } }>('/dashboard/snapshot'),
+  // /me tells us how many users have access — one of the onboarding
+  // banner's completion signals. useMe() is cached app-wide so this
+  // doesn't add a request; it's the same query the sidebar / app shell
+  // already ran before rendering this page.
+  const { data: meData } = useMe();
+
+  // One consolidated query instead of the nine independent useQuery calls
+  // this used to fire on mount. The backend runs the panels in parallel
+  // with Promise.allSettled so a single panel's failure still returns the
+  // rest as nulls and lists the failing panel in `errors[]`.
+  const summaryQ = useQuery({
+    queryKey: ['dashboard', 'summary'],
+    queryFn: () => apiClient<DashboardSummary>('/dashboard/summary?months=6'),
   });
-  const snapshot = snapshotQ.data;
+  const summary = summaryQ.data;
 
-  const trendQ = useQuery({
-    queryKey: ['dashboard', 'trend'],
-    queryFn: () => apiClient<{ data: Array<{ month: string; revenue: number; expenses: number }> }>('/dashboard/trend?months=6'),
-  });
-  const trend = trendQ.data;
+  if (summaryQ.isLoading) return <LoadingSpinner className="py-12" />;
 
-  const cashQ = useQuery({
-    queryKey: ['dashboard', 'cash-position'],
-    queryFn: () => apiClient<{ bankAccounts: Array<{ name: string; balance: number }>; creditCards: Array<{ name: string; balance: number }>; totalBank: number; totalCC: number }>('/dashboard/cash-position'),
-  });
-  const cash = cashQ.data;
+  const snapshot = summary?.snapshot ?? null;
+  const trend = summary?.trend ?? null;
+  const cash = summary?.cashPosition ?? null;
+  const receivables = summary?.receivables ?? null;
+  const payables = summary?.payables ?? null;
+  const budgetPerf = summary?.budgetPerformance ?? null;
+  const actions = summary?.actionItems ?? null;
+  const bankingHealth = summary?.bankingHealth ?? null;
 
-  const receivablesQ = useQuery({
-    queryKey: ['dashboard', 'receivables'],
-    queryFn: () => apiClient<{ totalOutstanding: number; overdueCount: number; overdueAmount: number; invoiceCount: number }>('/dashboard/receivables'),
-  });
-  const receivables = receivablesQ.data;
-
-  const payablesQ = useQuery({
-    queryKey: ['dashboard', 'payables'],
-    queryFn: () => apiClient<{
-      totalOwed: number; billCount: number;
-      overdueCount: number; overdueAmount: number;
-      dueThisWeekCount: number; dueThisWeekAmount: number;
-      creditCount: number; creditAmount: number;
-      apBalance: number;
-    }>('/dashboard/payables'),
-  });
-  const payables = payablesQ.data;
-
-  interface BudgetPeriodPerf { revenueActual: number; revenueBudget: number; expenseActual: number; expenseBudget: number; netActual: number; netBudget: number }
-  interface BudgetPerf { budgetName: string; mtd: BudgetPeriodPerf; ytd: BudgetPeriodPerf }
-  const budgetPerfQ = useQuery({
-    queryKey: ['dashboard', 'budget-performance'],
-    queryFn: () => apiClient<BudgetPerf | null>('/dashboard/budget-performance'),
-  });
-  const budgetPerf = budgetPerfQ.data;
-
-  const actionsQ = useQuery({
-    queryKey: ['dashboard', 'action-items'],
-    queryFn: () => apiClient<{ pendingFeedCount: number; overdueInvoiceCount: number; staleReconciliations: Array<{ accountName: string; lastReconciled: string | null }>; pendingDepositCount: number; pendingDepositAmount: number; printQueueCount: number; printQueueAmount: number }>('/dashboard/action-items'),
-  });
-  const actions = actionsQ.data;
-
-  const bankingHealthQ = useQuery({
-    queryKey: ['dashboard', 'banking-health'],
-    queryFn: () => apiClient<{ totalConnections: number; needsAttention: number; needsAttentionItems: Array<{ id: string; institutionName: string; itemStatus: string; errorMessage: string | null }>; pendingFeedItems: number }>('/dashboard/banking-health'),
-  });
-  const bankingHealth = bankingHealthQ.data;
-
-  if (snapshotQ.isLoading) return <LoadingSpinner className="py-12" />;
-
-  // Collect any secondary-query errors and surface them as a single
-  // banner at the top of the dashboard. Without this the tiles silently
-  // render zeros when a panel's endpoint returns 500 and the user has
-  // no idea the data is stale.
-  const dashboardErrors = [
-    { q: snapshotQ, label: 'Financial snapshot' },
-    { q: trendQ, label: 'Revenue/expense trend' },
-    { q: cashQ, label: 'Cash position' },
-    { q: receivablesQ, label: 'Receivables' },
-    { q: payablesQ, label: 'Payables' },
-    { q: budgetPerfQ, label: 'Budget performance' },
-    { q: actionsQ, label: 'Action items' },
-    { q: bankingHealthQ, label: 'Banking health' },
-  ].filter((x) => x.q.isError);
+  // Server already assembles the list of failed panels. If the whole request
+  // blew up (network error, auth expired, etc.) fall back to "all panels
+  // failed" so the banner still renders.
+  const dashboardErrors: string[] = summaryQ.isError && !summary
+    ? ['Dashboard summary']
+    : (summary?.errors ?? []);
 
   const ytd = snapshot?.ytd || { revenue: 0, expenses: 0, netIncome: 0 };
   const mtd = snapshot?.mtd || { revenue: 0, expenses: 0, netIncome: 0 };
+  // When the primary snapshot query errors, show placeholder values in the
+  // stat cards instead of zeros — otherwise a failed endpoint silently
+  // presents "YTD Net Income $0" as real data alongside the error banner.
+  const snapshotFailed = !snapshot;
+  const displayValue = (v: number) => snapshotFailed ? '—' : fmt(v);
+
+  // Onboarding signals for the "What's next" banner. We reuse existing
+  // summary fields (no new API calls) — if the tenant has any bank
+  // connections, any invoice in receivables, or more than one accessible
+  // user, that item is marked done.
+  const hasBanking =
+    (bankingHealth?.totalConnections ?? 0) > 0 ||
+    (cash?.bankAccounts.length ?? 0) > 0;
+  const hasInvoices = (receivables?.invoiceCount ?? 0) > 0;
+  // Proxy: the user has access to more than one tenant (they've been
+  // invited into a client's books, or they've added a co-owner). Not a
+  // perfect signal for "this tenant has multiple users" but accurate
+  // enough as a nudge — we don't have a per-tenant user count in the
+  // /me payload and adding an extra fetch just for the banner isn't worth it.
+  const hasTeam = (meData?.accessibleTenants?.length ?? 0) > 1;
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
 
-      {/* Query-error banner. Without it, a 500 from any of the 8 dashboard
-          endpoints rendered zeros in place of real data — the user had no
-          way to know the numbers were stale. */}
+      {/* First-run onboarding banner — points new operators at the three
+          most common next steps. Self-hides once every step is complete,
+          and user-dismissable via the X button (persisted in localStorage). */}
+      <OnboardingBanner
+        hasBanking={hasBanking}
+        hasInvoices={hasInvoices}
+        hasTeam={hasTeam}
+      />
+
+      {/* Per-panel error banner — server reports which panels failed inside
+          the single /summary response. A retry re-issues the consolidated
+          query, so one click re-tries every panel (including the ones that
+          succeeded previously — cheap; the backend is already optimized for
+          parallel fetch). */}
       {dashboardErrors.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start justify-between gap-3">
           <div>
@@ -148,11 +162,11 @@ export function DashboardPage() {
               Couldn't load part of the dashboard
             </p>
             <p className="text-xs text-red-700 mt-1">
-              {dashboardErrors.map((e) => e.label).join(', ')}
+              {dashboardErrors.join(', ')}
             </p>
           </div>
           <button
-            onClick={() => { for (const e of dashboardErrors) e.q.refetch(); }}
+            onClick={() => { void summaryQ.refetch(); }}
             className="text-xs font-medium text-red-900 underline whitespace-nowrap"
           >
             Retry
@@ -177,17 +191,17 @@ export function DashboardPage() {
 
       {/* Financial Snapshot */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Net Income (YTD)" value={fmt(ytd.netIncome)}
-          subtitle={`MTD: ${fmt(mtd.netIncome)}`}
+        <StatCard title="Net Income (YTD)" value={displayValue(ytd.netIncome)}
+          subtitle={snapshotFailed ? undefined : `MTD: ${fmt(mtd.netIncome)}`}
           icon={ytd.netIncome >= 0 ? TrendingUp : TrendingDown}
           color={ytd.netIncome >= 0 ? 'bg-green-500' : 'bg-red-500'} />
-        <StatCard title="Revenue (YTD)" value={fmt(ytd.revenue)}
-          subtitle={`MTD: ${fmt(mtd.revenue)}`}
+        <StatCard title="Revenue (YTD)" value={displayValue(ytd.revenue)}
+          subtitle={snapshotFailed ? undefined : `MTD: ${fmt(mtd.revenue)}`}
           icon={TrendingUp} color="bg-blue-500" />
-        <StatCard title="Expenses (YTD)" value={fmt(ytd.expenses)}
-          subtitle={`MTD: ${fmt(mtd.expenses)}`}
+        <StatCard title="Expenses (YTD)" value={displayValue(ytd.expenses)}
+          subtitle={snapshotFailed ? undefined : `MTD: ${fmt(mtd.expenses)}`}
           icon={TrendingDown} color="bg-orange-500" />
-        <StatCard title="Cash Position" value={fmt(cash?.totalBank || 0)}
+        <StatCard title="Cash Position" value={!cash ? '—' : fmt(cash.totalBank || 0)}
           subtitle={cash?.totalCC ? `CC: ${fmt(cash.totalCC)}` : undefined}
           icon={DollarSign} color="bg-primary-600" />
       </div>

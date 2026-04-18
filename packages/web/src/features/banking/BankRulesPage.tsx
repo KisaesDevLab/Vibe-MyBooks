@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { AccountSelector } from '../../components/forms/AccountSelector';
@@ -10,6 +10,7 @@ import { ContactSelector } from '../../components/forms/ContactSelector';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Plus, Pencil, Trash2, X, Globe, Send } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -19,6 +20,8 @@ interface BankRule {
   name: string;
   applyTo: 'deposits' | 'expenses' | 'both';
   descriptionContains: string | null;
+  // Global rules carry this; tenant rules do not.
+  descriptionExact?: string | null;
   amountEquals: string | null;
   amountMin: string | null;
   amountMax: string | null;
@@ -126,7 +129,7 @@ export function BankRulesPage() {
   const { data: globalRulesData } = useQuery({
     queryKey: ['bank-rules', 'global'],
     queryFn: async () => {
-      const res = await apiClient<{ rules: any[] }>('/bank-rules/global/list');
+      const res = await apiClient<{ rules: BankRule[] }>('/bank-rules/global/list');
       return res.rules;
     },
   });
@@ -134,6 +137,17 @@ export function BankRulesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<BankRuleInput>({ ...blankForm });
+  const [globalSubmitSuccess, setGlobalSubmitSuccess] = useState('');
+  const [pendingAction, setPendingAction] = useState<
+    | { title: string; message: string; confirmLabel: string; variant?: 'primary' | 'danger'; onConfirm: () => void }
+    | null
+  >(null);
+
+  useEffect(() => {
+    if (!globalSubmitSuccess) return;
+    const t = setTimeout(() => setGlobalSubmitSuccess(''), 3000);
+    return () => clearTimeout(t);
+  }, [globalSubmitSuccess]);
 
   const rules = data?.data || [];
 
@@ -238,6 +252,23 @@ export function BankRulesPage() {
 
   return (
     <div>
+      {globalSubmitSuccess && (
+        <div role="status" className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {globalSubmitSuccess}
+        </div>
+      )}
+      <ConfirmDialog
+        open={!!pendingAction}
+        title={pendingAction?.title ?? ''}
+        message={pendingAction?.message}
+        confirmLabel={pendingAction?.confirmLabel ?? 'Confirm'}
+        variant={pendingAction?.variant ?? 'primary'}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          pendingAction?.onConfirm();
+          setPendingAction(null);
+        }}
+      />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Bank Rules</h1>
         {!showCreate && !editingId && (
@@ -432,24 +463,33 @@ export function BankRulesPage() {
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm(`Submit "${rule.name}" as a global rule suggestion?`)) {
-                            submitToGlobal.mutate({ ruleId: rule.id }, {
-                              onSuccess: () => alert('Rule submitted for global review'),
-                            });
-                          }
-                        }}
+                        onClick={() =>
+                          setPendingAction({
+                            title: 'Submit as global rule?',
+                            message: `Submit "${rule.name}" as a global rule suggestion for review.`,
+                            confirmLabel: 'Submit',
+                            variant: 'primary',
+                            onConfirm: () =>
+                              submitToGlobal.mutate({ ruleId: rule.id }, {
+                                onSuccess: () => setGlobalSubmitSuccess('Rule submitted for global review.'),
+                              }),
+                          })
+                        }
                         className="text-gray-400 hover:text-blue-500 p-1"
                         title="Submit as Global Rule"
                       >
                         <Send className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm(`Delete rule "${rule.name}"?`)) {
-                            deleteRule.mutate(rule.id);
-                          }
-                        }}
+                        onClick={() =>
+                          setPendingAction({
+                            title: 'Delete rule?',
+                            message: `This removes "${rule.name}" from your bank rules. This cannot be undone.`,
+                            confirmLabel: 'Delete',
+                            variant: 'danger',
+                            onConfirm: () => deleteRule.mutate(rule.id),
+                          })
+                        }
                         className="text-gray-400 hover:text-red-500 p-1"
                         title="Delete"
                       >
@@ -482,7 +522,7 @@ export function BankRulesPage() {
                 </tr>
               </thead>
               <tbody>
-                {globalRulesData.map((rule: any) => (
+                {globalRulesData.map((rule) => (
                   <tr key={rule.id} className="border-b border-blue-50">
                     <td className="px-4 py-2.5 font-medium text-gray-900">{rule.name}</td>
                     <td className="px-4 py-2.5 text-gray-600 text-xs">
