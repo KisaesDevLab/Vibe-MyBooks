@@ -11,7 +11,17 @@ import { apiClient } from '../client';
 // The shape mirrors `getConfig()` in packages/api/src/services/ai-config.service.ts
 // — if that function adds/renames fields, the server is the source of
 // truth; update this interface to match.
-export type AiProviderName = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'glm';
+export type AiProviderName =
+  | 'anthropic'
+  | 'openai'
+  | 'gemini'
+  | 'ollama'
+  | 'glm'
+  // Second self-hosted option: any server that exposes the
+  // OpenAI-compatible `/v1/chat/completions` endpoint — Ollama's /v1
+  // interface, llama.cpp's built-in server, LM Studio, vLLM, etc.
+  // Configured via openaiCompatBaseUrl / openaiCompatModel / key.
+  | 'openai_compat';
 export type PiiProtectionLevel = 'strict' | 'redact_sensitive' | 'allow_raw';
 export type ChatDataAccessLevel = 'none' | 'contextual' | 'full';
 
@@ -30,6 +40,9 @@ export interface AiConfigDto {
   ollamaBaseUrl: string | null;
   hasGlmOcrKey: boolean;
   glmOcrBaseUrl: string | null;
+  openaiCompatBaseUrl: string | null;
+  openaiCompatModel: string | null;
+  hasOpenaiCompatKey: boolean;
   autoCategorizeOnImport: boolean;
   autoOcrOnUpload: boolean;
   categorizationConfidenceThreshold: number;
@@ -66,6 +79,9 @@ export interface UpdateAiConfigInput {
   ollamaBaseUrl?: string | null;
   glmOcrApiKey?: string | null;
   glmOcrBaseUrl?: string | null;
+  openaiCompatApiKey?: string | null;
+  openaiCompatBaseUrl?: string | null;
+  openaiCompatModel?: string | null;
   autoCategorizeOnImport?: boolean;
   autoOcrOnUpload?: boolean;
   categorizationConfidenceThreshold?: number;
