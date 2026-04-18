@@ -162,6 +162,49 @@ if (-not $gitInstalled) {
 
 Write-Info "Docker and git are ready."
 
+# ─── Port availability check ──────────────────────────────────
+# Avoid the confusing "port is already allocated" that compose throws
+# mid-startup. Test-NetConnection probes whether anything's already
+# listening on $AppPort. If so, offer a free alternative rather than
+# making the user guess.
+function Test-PortInUse([int]$port) {
+    try {
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)
+        $listener.Start()
+        $listener.Stop()
+        return $false  # bound + released cleanly → free
+    } catch {
+        return $true   # bind failed → in use
+    }
+}
+
+function Find-FreePort {
+    foreach ($candidate in 3011, 3021, 3031, 3111, 3211, 3311, 8001, 8081, 8181) {
+        if (-not (Test-PortInUse $candidate)) { return $candidate }
+    }
+    return $null
+}
+
+if (Test-PortInUse $AppPort) {
+    Write-Err "Port $AppPort is already in use on this host."
+    $alt = Find-FreePort
+    if ($alt -and [Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+        $confirm = Read-Host "Use port $alt instead? [Y/n]"
+        if ([string]::IsNullOrWhiteSpace($confirm) -or $confirm -match '^[Yy]') {
+            $AppPort = "$alt"
+            Write-Info "Using port $AppPort."
+        } else {
+            Write-Host ""
+            Write-Host "  Re-run with APP_PORT set, e.g.:" -ForegroundColor Gray
+            Write-Host "    `$env:APP_PORT='$alt'; irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.ps1 | iex" -ForegroundColor Gray
+            Pause-Then-Exit 1
+        }
+    } else {
+        Write-Err "Set `$env:APP_PORT=<free-port> and re-run."
+        Pause-Then-Exit 1
+    }
+}
+
 # ─── Update mode ──────────────────────────────────────────────
 if ($update) {
     if (-not (Test-Path $InstallDir)) {

@@ -72,7 +72,13 @@ services:
       # Host bind mount — attachments, backups, and generated files live on
       # disk next to the compose file so they can be inspected, backed up
       # with standard tools, and survive `docker volume prune`.
-      - ./data:/data
+      # `:z` applies a shared SELinux label on hosts that enforce MAC
+      # (Fedora/RHEL/CentOS). Silently ignored on every other host, so
+      # this is safe as a universal default. Without it, SELinux blocks
+      # the container from writing to the bind-mounted host dir — and
+      # the error surfaces as a bewildering EACCES rather than anything
+      # obviously labeled "SELinux".
+      - ./data:/data:z
       # Read-only access to the Tailscale sidecar socket for super-admin
       # remote-access management. Works on any Docker host OS.
       - ts-socket:/var/run/tailscale:ro
@@ -85,6 +91,17 @@ services:
     # covers concurrent requests without leaving room for a runaway.
     mem_limit: ${API_MEM_LIMIT:-1g}
     mem_reservation: 256m
+    # Same healthcheck the prod Dockerfile bakes in, surfaced here so the
+    # dev image (which doesn't have HEALTHCHECK inside its Dockerfile)
+    # gets Starting/Healthy/Unhealthy states in `docker compose ps`
+    # instead of just "Up" the instant the node process starts.
+    # start_period gives preflight + migrations time to run on first boot.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3001/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     logging: *default-logging
 
   web:
@@ -114,7 +131,13 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env (64 hex chars — generate with `openssl rand -hex 32`).}
       PLAID_ENCRYPTION_KEY: ${PLAID_ENCRYPTION_KEY:?PLAID_ENCRYPTION_KEY must be set in .env (64 hex chars — generate with `openssl rand -hex 32`).}
     volumes:
-      - ./data:/data
+      # `:z` applies a shared SELinux label on hosts that enforce MAC
+      # (Fedora/RHEL/CentOS). Silently ignored on every other host, so
+      # this is safe as a universal default. Without it, SELinux blocks
+      # the container from writing to the bind-mounted host dir — and
+      # the error surfaces as a bewildering EACCES rather than anything
+      # obviously labeled "SELinux".
+      - ./data:/data:z
     depends_on:
       db:
         condition: service_healthy

@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Copyright 2026 Kisaes LLC
+# Licensed under the PolyForm Internal Use License 1.0.0.
+# You may not distribute this software. See LICENSE for terms.
+#
 # Vibe MyBooks — One-Line Install & Update Script (Production)
 # Usage:
 #   Install:  curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.sh | bash
@@ -69,6 +73,57 @@ if ! command -v git &>/dev/null; then
 fi
 
 info "Docker and git are ready."
+
+# ─── Port availability check ──────────────────────────────────
+# Catch the common "something's already on 3001" case before we clone,
+# pull, and `up -d` — otherwise compose fails with a bare "port is
+# already allocated" that doesn't tell the user how to recover. We
+# probe via bash's built-in /dev/tcp (works on every bash ≥ 2.04,
+# no extra tools required). If the port is taken and stdin is a real
+# terminal, offer to pick a free alternative and re-export $APP_PORT
+# so the .env generation below writes the new value.
+port_in_use() {
+  local p=$1
+  # A successful connect means something is listening there.
+  (exec 3<>/dev/tcp/127.0.0.1/"$p") 2>/dev/null && { exec 3>&-; return 0; } || return 1
+}
+
+pick_free_port() {
+  local candidate
+  for candidate in 3011 3021 3031 3111 3211 3311 8001 8081 8181; do
+    if ! port_in_use "$candidate"; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  echo "" # nothing free in our shortlist — caller handles the empty case
+}
+
+if port_in_use "$APP_PORT"; then
+  error "Port $APP_PORT is already in use on this host."
+  if [ -t 0 ] && [ -t 1 ]; then
+    alt=$(pick_free_port)
+    if [ -n "$alt" ]; then
+      read -rp "Use port $alt instead? [Y/n] " confirm
+      if [[ -z "$confirm" || "$confirm" =~ ^[Yy]$ ]]; then
+        APP_PORT=$alt
+        info "Using port $APP_PORT."
+      else
+        echo ""
+        echo "  Re-run with APP_PORT=<free-port> set, or free up port 3001 first:"
+        echo "    APP_PORT=$alt bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.sh)\""
+        exit 1
+      fi
+    else
+      error "Could not find a free port in the default shortlist."
+      error "Re-run with APP_PORT=<free-port> set."
+      exit 1
+    fi
+  else
+    error "Non-interactive shell — re-run with APP_PORT=<free-port> set."
+    exit 1
+  fi
+fi
 
 # ─── Update mode ──────────────────────────────────────────────
 if [ "$UPDATE_MODE" = true ]; then

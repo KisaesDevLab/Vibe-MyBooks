@@ -187,7 +187,9 @@ cd Vibe-MyBooks
 # Copy environment config
 cp .env.example .env
 
-# Generate secure secrets (edit .env with output)
+# Generate the four required secrets — paste the output into .env,
+# overwriting the blank POSTGRES_PASSWORD / JWT_SECRET /
+# ENCRYPTION_KEY / PLAID_ENCRYPTION_KEY lines.
 npx tsx scripts/generate-secrets.ts
 
 # Start all services (first run builds images — 5-10 minutes)
@@ -201,8 +203,16 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 ```bash
 # Prerequisites: Node.js 20+, Docker
 
-# Install dependencies
+# Install dependencies (host-side, so your IDE's type-checker works)
 npm install
+
+# Pre-build the shared package. The dev compose stack bind-mounts
+# ./packages/shared/dist into the api/web/worker containers; on a
+# fresh clone that directory doesn't exist yet, Docker would create
+# it root-owned, and the in-container tsc --watch (running as UID
+# 1001) then can't write to it. Building once up-front creates the
+# dir with your user's ownership, after which the watcher takes over.
+npm run build --workspace=@kis-books/shared
 
 # Start database and Redis
 docker compose up db redis -d

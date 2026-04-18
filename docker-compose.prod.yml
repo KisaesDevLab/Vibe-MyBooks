@@ -27,8 +27,9 @@ services:
     volumes:
       # Host bind mount — see docker-compose.yml for rationale. Data lives at
       # <compose-dir>/data so it can be backed up, inspected, and migrated
-      # with standard file tools.
-      - ./data:/data
+      # with standard file tools. `:z` applies a shared SELinux label on
+      # enforcing hosts (Fedora/RHEL); silently ignored elsewhere.
+      - ./data:/data:z
     depends_on:
       db:
         condition: service_healthy
