@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+
+import { todayLocalISO } from '../../utils/date';
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePayableBills, usePayBills } from '../../api/hooks/useAp';
@@ -28,7 +30,7 @@ interface CreditSelection {
 
 export function PayBillsPage() {
   const navigate = useNavigate();
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayLocalISO();
   const { data: settingsData } = useCheckSettings();
 
   const [bankAccountId, setBankAccountId] = useState(
@@ -56,8 +58,13 @@ export function PayBillsPage() {
     }
   }, [settingsData, bankAccountId]);
 
-  const bills = data?.bills || [];
-  const credits = data?.credits || [];
+  // Memoize the fallback-to-empty arrays so downstream useMemo/useEffect
+  // deps stay stable while the request is pending. Without this, every
+  // render rebuilds `data?.bills || []` into a fresh `[]` reference,
+  // which re-triggers the credit-sync effect below on every render and
+  // sends us into an infinite render loop.
+  const bills = useMemo(() => data?.bills ?? [], [data?.bills]);
+  const credits = useMemo(() => data?.credits ?? [], [data?.credits]);
 
   // Group bills by vendor for credit-allocation logic
   const billsByVendor = useMemo(() => {
@@ -152,22 +159,34 @@ export function PayBillsPage() {
     return credits.filter((c) => c.contactId && selectedVendors.has(c.contactId));
   }, [credits, bills, selectedBillIds]);
 
-  // Disable credits whose vendor was deselected
+  // Disable credits whose vendor was deselected. Returns `prev` unchanged
+  // when nothing would differ, otherwise React sees a new object reference
+  // and re-runs the effect — which combined with upstream memos that are
+  // sensitive to the same inputs loops us back into another setState.
   useEffect(() => {
     setCreditSelections((prev) => {
+      const prevKeys = Object.keys(prev);
+      if (prevKeys.length === 0) return prev;
       const next: Record<string, CreditSelection> = {};
+      let changed = false;
       for (const [cid, cs] of Object.entries(prev)) {
         const credit = credits.find((c) => c.id === cid);
-        if (!credit?.contactId) continue;
+        if (!credit?.contactId) {
+          changed = true;
+          continue;
+        }
         const vendorBills = billsByVendor.get(credit.contactId) || [];
         const stillSelected = vendorBills.some((b) => billSelections[b.id]?.selected);
         if (stillSelected) {
-          // Make sure billId still points to a selected bill
           const targetBill = vendorBills.find((b) => billSelections[b.id]?.selected);
-          next[cid] = { ...cs, billId: targetBill?.id || cs.billId };
+          const nextBillId = targetBill?.id || cs.billId;
+          if (nextBillId !== cs.billId) changed = true;
+          next[cid] = { ...cs, billId: nextBillId };
+        } else {
+          changed = true;
         }
       }
-      return next;
+      return changed ? next : prev;
     });
   }, [billSelections, credits, billsByVendor]);
 

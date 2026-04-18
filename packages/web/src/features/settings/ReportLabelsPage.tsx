@@ -37,7 +37,14 @@ export function ReportLabelsPage() {
     (async () => {
       try {
         const data = await apiClient<ApiResponse>('/tenant-settings/report');
-        setForm(data.resolvedPLLabels);
+        // Guard against a partial response shape — if the server (or a
+        // mock in tests) omits resolvedPLLabels, keep the defaults we
+        // seeded into state instead of blowing up with an undefined form
+        // on the next render. Merge so any fields the server does send
+        // override their default counterparts.
+        if (data?.resolvedPLLabels) {
+          setForm({ ...DEFAULT_PL_LABELS, ...data.resolvedPLLabels });
+        }
       } catch {
         // defaults are fine
       } finally {
@@ -74,9 +81,9 @@ export function ReportLabelsPage() {
       });
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (err: any) {
+    } catch (err) {
       setSaveStatus('error');
-      setSaveError(err.message || 'Failed to save');
+      setSaveError(err instanceof Error ? err.message : 'Failed to save');
     }
   };
 

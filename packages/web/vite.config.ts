@@ -2,11 +2,35 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  // Vitest runs both unit + component-render tests. jsdom is needed for
+  // the React Testing Library suite (DOM APIs, window, fetch). Pure-helper
+  // tests (money, date) run identically under jsdom — the overhead is ~100ms
+  // per file, acceptable for our suite size.
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test-setup.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    exclude: ['node_modules', 'dist'],
+    // jsdom + recharts + the many-mocked-page tests accumulate heap when
+    // tinypool reuses a worker. `pool: 'forks'` with `isolate: true`
+    // recycles the worker after each test file so growth is bounded to
+    // one file's footprint. execArgv raises the Node heap as headroom
+    // for the heavier page-render files — NODE_OPTIONS / .npmrc don't
+    // reliably propagate into tinypool-spawned forks, execArgv does.
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        isolate: true,
+        execArgv: ['--max-old-space-size=4096'],
+      },
+    },
+  },
   // Split the bundle so first-load doesn't ship every vendor lib in one
   // 2MB blob. Heavy libs (react-pdf, html2canvas, react-hot-toast, the
   // AI markdown renderer, etc.) go in their own chunk and are cached
