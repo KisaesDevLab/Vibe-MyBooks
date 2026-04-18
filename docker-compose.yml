@@ -62,6 +62,12 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-kisbooks}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set — put it in .env, do not run with the default}@db:5432/${POSTGRES_DB:-kisbooks}
       REDIS_URL: redis://redis:6379
       TAILSCALE_SOCKET_PATH: /var/run/tailscale/tailscaled.sock
+      # Both crypto keys wrap data at rest. Compose refuses to start without
+      # them — rotating a key in place silently corrupts every encrypted row,
+      # so a loud boot-time error is strictly better than a wrong default.
+      # Generate with: openssl rand -hex 32  (produces 64 hex chars)
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env (64 hex chars — generate with `openssl rand -hex 32`). The in-repo scripts/install.sh does this automatically.}
+      PLAID_ENCRYPTION_KEY: ${PLAID_ENCRYPTION_KEY:?PLAID_ENCRYPTION_KEY must be set in .env (64 hex chars — generate with `openssl rand -hex 32`). Despite the name this wraps all encrypted-at-rest data (Plaid + Stripe + OAuth + TFA).}
     volumes:
       # Host bind mount — attachments, backups, and generated files live on
       # disk next to the compose file so they can be inspected, backed up
@@ -103,6 +109,10 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-kisbooks}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set — put it in .env, do not run with the default}@db:5432/${POSTGRES_DB:-kisbooks}
       REDIS_URL: redis://redis:6379
+      # Worker shares the api image and reads the same encrypted rows, so it
+      # needs the identical key guards. Keep these in sync with the api block.
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env (64 hex chars — generate with `openssl rand -hex 32`).}
+      PLAID_ENCRYPTION_KEY: ${PLAID_ENCRYPTION_KEY:?PLAID_ENCRYPTION_KEY must be set in .env (64 hex chars — generate with `openssl rand -hex 32`).}
     volumes:
       - ./data:/data
     depends_on:

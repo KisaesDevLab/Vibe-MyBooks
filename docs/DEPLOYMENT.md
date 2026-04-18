@@ -92,9 +92,11 @@ docker compose -f docker-compose.prod.yml up -d
 
 ## Security Checklist
 
-- [ ] Change `JWT_SECRET` from the default value
-- [ ] Set a strong `BACKUP_ENCRYPTION_KEY`
-- [ ] Save your recovery key in a secure location
+- [ ] Set `POSTGRES_PASSWORD` to a long random value (not `kisbooks`)
+- [ ] Set `JWT_SECRET` to a long random value (≥ 48 chars)
+- [ ] Set `ENCRYPTION_KEY` and `PLAID_ENCRYPTION_KEY` to distinct 64-hex-char random values
+- [ ] Save your recovery key in a secure location (password manager, not the appliance)
+- [ ] Optional: set `BACKUP_ENCRYPTION_KEY` if you want encrypted scheduled backups
 - [ ] Configure HTTPS via reverse proxy
 - [ ] Enable 2FA for all admin accounts
 - [ ] Set up automated backups (local + remote)
@@ -102,14 +104,21 @@ docker compose -f docker-compose.prod.yml up -d
 
 ## Environment Variables
 
-See [`.env.example`](../.env.example) for the complete list. Key settings:
+See [`.env.example`](../.env.example) for the complete list. The four
+variables marked Required below must be set before compose will start —
+`scripts/install.sh` generates strong random values automatically on a
+fresh install; hand-edit `.env` only when you're provisioning by some
+other mechanism.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `JWT_SECRET` | Yes | Must change in production |
-| `ENCRYPTION_KEY` | Yes | AES-256 key for sentinel and encrypted data |
-| `BACKUP_ENCRYPTION_KEY` | Yes | AES-256 key for legacy backups |
-| `SMTP_HOST/PORT/USER/PASS` | No | Email delivery for invoices and notifications |
-| `PLAID_CLIENT_ID/SECRET` | No | Enable Plaid bank connections |
-| `ANTHROPIC_API_KEY` | No | Enable AI features (categorization, OCR, chat) |
+| `POSTGRES_PASSWORD` | Yes | Database password. Generate with `openssl rand -base64 32 \| tr -d '/+='`. Compose refuses to start if unset. |
+| `JWT_SECRET` | Yes | Access-token signing key (≥20 chars). Generate with `openssl rand -base64 48`. |
+| `ENCRYPTION_KEY` | Yes | 64-hex-char AES-256 key wrapping the installation sentinel. Generate with `openssl rand -hex 32`. **Do not rotate after first boot — the existing sentinel becomes unreadable.** |
+| `PLAID_ENCRYPTION_KEY` | Yes | 64-hex-char AES-256 key wrapping **all** encrypted-at-rest columns — Plaid, Stripe, OAuth refresh tokens, TFA secrets. Misleading name kept for backwards compatibility. Generate with `openssl rand -hex 32`. **Do not rotate after first boot.** |
+| `DATABASE_URL` | Yes (composed) | Composed automatically inside compose from POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB. Set directly only when running the API outside compose. |
+| `BACKUP_ENCRYPTION_KEY` | No | Optional encryption key for scheduled backups. If unset, backups are unencrypted. |
+| `SMTP_HOST/PORT/USER/PASS` | No | Email delivery for invoices and notifications. |
+| `PLAID_CLIENT_ID/SECRET` | No | Enable Plaid bank connections. Separate from `PLAID_ENCRYPTION_KEY` above. |
+| `ANTHROPIC_API_KEY` | No | Enable AI features (categorization, OCR, chat). |
+| `TS_AUTHKEY` | No | Tailscale pre-auth key. If blank, pair via the in-app wizard. |
