@@ -47,7 +47,8 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    font-noto-emoji
+    font-noto-emoji \
+    su-exec
 ENV PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
@@ -91,11 +92,14 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
 # shebang causes the kernel's execve() to fail looking for an
 # interpreter named "/bin/sh\r", surfacing as the misleading error
 # "exec /docker-entrypoint.sh: no such file or directory".
-COPY --chown=app:app scripts/docker-entrypoint.sh /docker-entrypoint.sh
+COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
 RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 
-# Drop to the unprivileged user before running anything. This is the
-# last build step so migrations + app startup all run as UID 1001,
-# limiting container-escape blast radius to the `app` user's files.
-USER app
+# Note: we deliberately do NOT `USER app` here. The entrypoint starts as
+# root so it can chown the bind-mounted /data volume (owned on the host
+# by whoever ran `docker compose up`, commonly UID 1000) to UID 1001,
+# then `su-exec`s down to the `app` user before running the CMD. Every
+# line of Node.js / bootstrap / migration code still runs as UID 1001 —
+# only the first few ms of /docker-entrypoint.sh execute as root.
 ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["node", "packages/api/dist/bootstrap.js"]

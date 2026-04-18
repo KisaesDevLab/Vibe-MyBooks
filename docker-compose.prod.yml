@@ -11,7 +11,10 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      # Honor PORT from .env (install.sh writes it when APP_PORT is
+      # overridden) so users who already have something on 3001 can
+      # rebind at install time instead of after.
+      - "${PORT:-3001}:3001"
     env_file: .env
     environment:
       DATABASE_URL: postgresql://kisbooks:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env for production}@db:5432/kisbooks
@@ -31,6 +34,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Puppeteer/Chromium (PDF gen: invoices, checks, reports) peaks at
+    # ~300-400 MB per concurrent render. 1 GB ceiling covers a handful
+    # of parallel renders on a small VPS without letting a runaway
+    # process OOM the whole host.
+    mem_limit: ${APP_MEM_LIMIT:-1g}
+    mem_reservation: 256m
 
   db:
     image: postgres:16-alpine
