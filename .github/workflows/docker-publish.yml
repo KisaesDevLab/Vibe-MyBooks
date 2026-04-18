@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
   packages: write
+  # cosign sign (keyless) attaches a signature to the published image
+  # by calling Sigstore's Fulcio + Rekor via the GitHub OIDC identity
+  # token. `id-token: write` grants that identity; without it cosign's
+  # keyless flow has no way to prove "this signature came from this
+  # workflow run".
+  id-token: write
+  attestations: write
 
 env:
   REGISTRY: ghcr.io
@@ -30,8 +37,15 @@ jobs:
       contents: read
       issues: write
 
+  ci:
+    # Run typecheck + unit tests before burning the build hours. A
+    # failing test shouldn't ship to GHCR.
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build:
-    needs: license-check
+    needs: [license-check, ci]
     strategy:
       fail-fast: false
       matrix:
@@ -144,3 +158,33 @@ jobs:
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ steps.image.outputs.name }}:${{ steps.meta.outputs.version }}
+
+      # Resolve the manifest-list digest once so the SBOM + signature
+      # steps both reference the exact same image.
+      - name: Resolve manifest digest
+        id: digest
+        run: |
+          DIGEST=$(docker buildx imagetools inspect ${{ steps.image.outputs.name }}:${{ steps.meta.outputs.version }} --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign published image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: 'true'
+        run: |
+          cosign sign --yes "${{ steps.image.outputs.name }}@${{ steps.digest.outputs.digest }}"
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
+      - name: Generate + attach CycloneDX SBOM
+        run: |
+          syft "${{ steps.image.outputs.name }}@${{ steps.digest.outputs.digest }}" \
+            -o cyclonedx-json=sbom.cdx.json
+      - name: Attest SBOM to image
+        uses: actions/attest-sbom@v3
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          sbom-path: sbom.cdx.json
+          push-to-registry: true

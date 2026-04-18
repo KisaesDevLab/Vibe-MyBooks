@@ -25,6 +25,7 @@
 
 import { startBackupScheduler } from '../../api/src/services/backup-scheduler.service.js';
 import { startRecurringScheduler } from '../../api/src/services/recurring.service.js';
+import { pool } from '../../api/src/db/index.js';
 
 const startedAt = new Date().toISOString();
 console.log(`[Worker] Vibe MyBooks worker starting at ${startedAt}`);
@@ -44,7 +45,34 @@ try {
 
 // Heartbeat log so operators can verify the worker is alive without
 // waiting for the first scheduler tick (hourly) — otherwise a crashed
-// scheduler could go unnoticed for 60 minutes.
-setInterval(() => {
+// scheduler could go unnoticed for 60 minutes. Keep a handle so the
+// shutdown path can stop it cleanly.
+const heartbeat = setInterval(() => {
   console.log(`[Worker] Heartbeat ${new Date().toISOString()}`);
 }, 15 * 60 * 1000);
+
+// Graceful shutdown — same shape as the API's handler. The in-process
+// schedulers use setInterval/setTimeout, which Node's built-in pool
+// unref doesn't clear, so we explicitly stop the heartbeat and flush
+// the DB pool. Postgres session advisory locks release on connection
+// close, which frees the next scheduler tick elsewhere immediately.
+let shuttingDown = false;
+const shutdown = async (signal: string) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[Worker] ${signal} received — shutting down`);
+  clearInterval(heartbeat);
+  const forceExit = setTimeout(() => {
+    console.error('[Worker] shutdown deadline exceeded — forcing exit');
+    process.exit(1);
+  }, 10_000);
+  if (typeof forceExit.unref === 'function') forceExit.unref();
+  try { await pool.end(); } catch (err) { console.error('[Worker] pool.end error:', err); }
+  clearTimeout(forceExit);
+  process.exit(0);
+};
+
+process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+process.on('SIGINT', () => { void shutdown('SIGINT'); });
+process.on('unhandledRejection', (reason) => console.error('[Worker:unhandledRejection]', reason));
+process.on('uncaughtException', (err) => { console.error('[Worker:uncaughtException]', err); void shutdown('uncaughtException'); });
