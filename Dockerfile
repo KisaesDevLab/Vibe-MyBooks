@@ -69,15 +69,20 @@ COPY --from=web-build /app/packages/web/dist ./packages/web/dist
 COPY scripts/ ./scripts/
 RUN chmod +x scripts/*.sh 2>/dev/null || true
 
-# Create data directories
-RUN mkdir -p /data/uploads /data/backups /data/config /data/generated
+# Create data directories with ownership for the non-root runtime user.
+# UID/GID 1001 is used deliberately (not the `node` user at UID 1000)
+# so host bind-mounts of ./data don't accidentally collide with any
+# host-side user.
+RUN addgroup -g 1001 -S app && adduser -S -u 1001 -G app app \
+  && mkdir -p /data/uploads /data/backups /data/config /data/generated \
+  && chown -R app:app /app /data
 
 # Serve static web files from API
 ENV NODE_ENV=production
 ENV PORT=3001
 EXPOSE 3001
 
-# Health check
+# Health check — app:app has access via the unprivileged port (3001).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD wget -q -O - http://localhost:3001/health || exit 1
 
@@ -86,6 +91,11 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
 # shebang causes the kernel's execve() to fail looking for an
 # interpreter named "/bin/sh\r", surfacing as the misleading error
 # "exec /docker-entrypoint.sh: no such file or directory".
-COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
+COPY --chown=app:app scripts/docker-entrypoint.sh /docker-entrypoint.sh
 RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
+
+# Drop to the unprivileged user before running anything. This is the
+# last build step so migrations + app startup all run as UID 1001,
+# limiting container-escape blast radius to the `app` user's files.
+USER app
 ENTRYPOINT ["/docker-entrypoint.sh"]
