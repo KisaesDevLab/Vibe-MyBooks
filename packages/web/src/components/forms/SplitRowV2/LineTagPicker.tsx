@@ -70,7 +70,14 @@ export function LineTagPicker({
     setSearch('');
   };
 
-  const sizeClasses = compact ? 'text-xs py-1 px-2' : 'text-sm py-2 px-3';
+  // Vertical padding matches the standard input / selector height
+  // (py-2 + text-sm) whether or not `compact` is set — mixing a
+  // shorter tag button next to py-2 fields looked visually off. The
+  // compact prop now only tightens horizontal padding and rounds the
+  // corners a hair less, keeping the line height flush with siblings.
+  const sizeClasses = compact
+    ? 'text-sm py-2 px-2 rounded'
+    : 'text-sm py-2 px-3 rounded-lg';
 
   return (
     <div ref={wrapperRef} className={clsx('relative', className)}>
@@ -81,7 +88,7 @@ export function LineTagPicker({
         aria-expanded={isOpen}
         onClick={() => setIsOpen((v) => !v)}
         className={clsx(
-          'flex items-center justify-between w-full rounded border border-gray-300 bg-white hover:border-gray-400',
+          'flex items-center justify-between w-full border border-gray-300 bg-white hover:border-gray-400',
           sizeClasses,
         )}
       >
