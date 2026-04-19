@@ -311,19 +311,6 @@ export function ExpenseForm() {
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/transactions/${editId}` : '/transactions')}>Cancel</Button>
         </div>
 
-        <p className="text-xs text-gray-400">
-          {isEdit ? (
-            <>
-              <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">Ctrl/Cmd+Enter</kbd> save changes
-            </>
-          ) : (
-            <>
-              <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">Ctrl/Cmd+Enter</kbd> record + new
-              &nbsp; · &nbsp;
-              <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">Ctrl/Cmd+Shift+Enter</kbd> record expense
-            </>
-          )}
-        </p>
 
         {isEdit
           ? <AttachmentPanel attachableType="expense" attachableId={editId!} />
