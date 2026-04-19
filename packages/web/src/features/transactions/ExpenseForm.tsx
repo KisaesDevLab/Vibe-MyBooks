@@ -275,16 +275,38 @@ export function ExpenseForm() {
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
         <div className="flex gap-3">
-          <Button type="submit" loading={mutation.isPending && !andNew}
-            title={isEdit ? 'Save Changes (Ctrl/Cmd+Enter)' : 'Record Expense (Ctrl/Cmd+Shift+Enter)'}>
-            {isEdit ? 'Save Changes' : 'Record Expense'}
-          </Button>
-          {!isEdit && (
-            <Button type="button" variant="secondary" loading={createTxn.isPending && andNew}
-              title="Record + New (Ctrl/Cmd+Enter)"
-              onClick={() => { setAndNew(true); formRef.current?.requestSubmit(); }}>
-              Record + New
+          <span className="relative group inline-block">
+            <Button type="submit" loading={mutation.isPending && !andNew}>
+              {isEdit ? 'Save Changes' : 'Record Expense'}
             </Button>
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs font-medium text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <kbd className="font-mono">Ctrl/Cmd{isEdit ? '' : '+Shift'}+Enter</kbd>
+              <span
+                aria-hidden="true"
+                className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900"
+              />
+            </span>
+          </span>
+          {!isEdit && (
+            <span className="relative group inline-block">
+              <Button type="button" variant="secondary" loading={createTxn.isPending && andNew}
+                onClick={() => { setAndNew(true); formRef.current?.requestSubmit(); }}>
+                Record + New
+              </Button>
+              <span
+                role="tooltip"
+                className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs font-medium text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <kbd className="font-mono">Ctrl/Cmd+Enter</kbd>
+                <span
+                  aria-hidden="true"
+                  className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900"
+                />
+              </span>
+            </span>
           )}
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/transactions/${editId}` : '/transactions')}>Cancel</Button>
         </div>
