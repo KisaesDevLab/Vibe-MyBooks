@@ -190,42 +190,53 @@ export function ExpenseForm() {
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Line Items</h2>
-          <div className="space-y-3">
-            <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase px-1">
-              <div className="col-span-4">Category</div>
-              <div className="col-span-3 text-right">Amount</div>
-              <div className="col-span-2">Description</div>
-              <div className="col-span-2">Tag</div>
-              <div className="col-span-1"></div>
-            </div>
-            {lines.map((line, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-start">
-                <div className="col-span-4">
-                  <AccountSelector value={line.expenseAccountId} onChange={(val) => updateLine(i, 'expenseAccountId', val)} accountTypeFilter="expense" required={i === 0} />
-                </div>
-                <div className="col-span-3">
-                  <MoneyInput value={line.amount} onChange={(val) => updateLine(i, 'amount', val)} required={i === 0} />
-                </div>
-                <div className="col-span-2">
-                  <input type="text" value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)} placeholder="Description"
-                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                </div>
-                <div className="col-span-2">
-                  <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
-                </div>
-                <div className="col-span-1 flex justify-center pt-2">
-                  {lines.length > 1 && (
-                    <button type="button" onClick={() => removeLine(i)} className="text-gray-400 hover:text-red-500 transition-colors">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-            <button type="button" onClick={addLine} className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700 px-1 py-1">
-              <Plus className="h-4 w-4" /> Add Line
-            </button>
-          </div>
+          <table className="min-w-full table-fixed">
+            <colgroup>
+              <col style={{ width: '34%' }} />
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '20%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '6%' }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 pr-2">Category</th>
+                <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 px-2">Amount</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 px-2">Description</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 px-2">Tag</th>
+                <th className="pb-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line, i) => (
+                <tr key={i} className="align-top">
+                  <td className="pr-2 py-1">
+                    <AccountSelector value={line.expenseAccountId} onChange={(val) => updateLine(i, 'expenseAccountId', val)} accountTypeFilter="expense" required={i === 0} />
+                  </td>
+                  <td className="px-2 py-1">
+                    <MoneyInput value={line.amount} onChange={(val) => updateLine(i, 'amount', val)} required={i === 0} />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input type="text" value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)} placeholder="Description"
+                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                  </td>
+                  <td className="px-2 py-1">
+                    <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                  </td>
+                  <td className="pl-2 py-1">
+                    {lines.length > 1 && (
+                      <button type="button" onClick={() => removeLine(i)} className="text-gray-400 hover:text-red-500 transition-colors pt-2">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button type="button" onClick={addLine} className="mt-3 flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700 px-1 py-1">
+            <Plus className="h-4 w-4" /> Add Line
+          </button>
           <div className="flex justify-end mt-4 pt-3 border-t border-gray-200">
             <div className="text-right">
               <span className="text-sm text-gray-500 mr-3">Total:</span>
