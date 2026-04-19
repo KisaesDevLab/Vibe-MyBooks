@@ -175,7 +175,7 @@ export function ExpenseForm() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Expense' : 'New Expense'}</h1>
-      <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
+      <form onSubmit={handleSubmit} className="max-w-5xl space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
@@ -193,9 +193,9 @@ export function ExpenseForm() {
           <div className="space-y-3">
             <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase px-1">
               <div className="col-span-4">Category</div>
-              <div className="col-span-3">Description</div>
+              <div className="col-span-2">Description</div>
               <div className="col-span-2">Tag</div>
-              <div className="col-span-2 text-right">Amount</div>
+              <div className="col-span-3 text-right">Amount</div>
               <div className="col-span-1"></div>
             </div>
             {lines.map((line, i) => (
@@ -203,14 +203,14 @@ export function ExpenseForm() {
                 <div className="col-span-4">
                   <AccountSelector value={line.expenseAccountId} onChange={(val) => updateLine(i, 'expenseAccountId', val)} accountTypeFilter="expense" required={i === 0} />
                 </div>
-                <div className="col-span-3">
+                <div className="col-span-2">
                   <input type="text" value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)} placeholder="Description"
                     className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
                 </div>
                 <div className="col-span-2">
                   <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-3">
                   <MoneyInput value={line.amount} onChange={(val) => updateLine(i, 'amount', val)} required={i === 0} />
                 </div>
                 <div className="col-span-1 flex justify-center pt-2">
