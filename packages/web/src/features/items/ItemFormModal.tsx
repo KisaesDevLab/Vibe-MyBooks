@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { AccountSelector } from '../../components/forms/AccountSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { X } from 'lucide-react';
 
 interface ItemFormModalProps {
@@ -24,6 +25,11 @@ export function ItemFormModal({ item, onClose }: ItemFormModalProps) {
   const [unitPrice, setUnitPrice] = useState(item?.unitPrice || '');
   const [incomeAccountId, setIncomeAccountId] = useState(item?.incomeAccountId || '');
   const [isTaxable, setIsTaxable] = useState(item?.isTaxable ?? false);
+  // ADR 0XY — default tag stamped onto any new journal line referencing
+  // this item when the ledger resolver fires with an empty line tag.
+  const [defaultTagId, setDefaultTagId] = useState<string | null>(
+    (item as { defaultTagId?: string | null } | null | undefined)?.defaultTagId ?? null,
+  );
 
   const createItem = useCreateItem();
   const updateItem = useUpdateItem();
@@ -37,6 +43,7 @@ export function ItemFormModal({ item, onClose }: ItemFormModalProps) {
       unitPrice: unitPrice || null,
       incomeAccountId,
       isTaxable,
+      defaultTagId,
     };
 
     if (isEdit) {
@@ -91,6 +98,15 @@ export function ItemFormModal({ item, onClose }: ItemFormModalProps) {
             accountTypeFilter="revenue"
             required
           />
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Default Tag</label>
+            <LineTagPicker value={defaultTagId} onChange={(t) => setDefaultTagId(t)} />
+            <p className="text-xs text-gray-500">
+              Applied to new lines using this item when no tag is explicitly set.
+              Bank rules, explicit user entry, and AI suggestions override.
+            </p>
+          </div>
 
           <div className="flex items-center gap-3">
             <label className="relative inline-flex items-center cursor-pointer">

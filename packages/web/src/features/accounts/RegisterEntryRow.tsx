@@ -9,6 +9,7 @@ import type { AccountType } from '@kis-books/shared';
 import { useCreateTransaction } from '../../api/hooks/useTransactions';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { Button } from '../../components/ui/Button';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
@@ -44,6 +45,9 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
   const [memo, setMemo] = useState('');
   const [payment, setPayment] = useState('');
   const [deposit, setDeposit] = useState('');
+  // ADR 0XX/0XY — single-line register entry carries one tag. All user-
+  // facing lines produced by this entry are stamped with it.
+  const [tagId, setTagId] = useState<string | null>(null);
   const dateRef = useRef<HTMLInputElement>(null);
 
   const createTxn = useCreateTransaction();
@@ -66,6 +70,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
     setMemo('');
     setPayment('');
     setDeposit('');
+    setTagId(null);
   };
 
   const handleSave = () => {
@@ -76,22 +81,35 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
 
     switch (txnType) {
       case 'expense':
-        payload = { txnType: 'expense', txnDate, contactId: contactId || undefined, payFromAccountId: accountId, expenseAccountId: otherAccountId, amount, memo };
+        // The single-line expense path shapes a {expenseAccountId, amount}
+        // line array so the service passes tagId through to the ledger.
+        payload = {
+          txnType: 'expense', txnDate, contactId: contactId || undefined,
+          payFromAccountId: accountId,
+          lines: [{ expenseAccountId: otherAccountId, amount, description: memo, tagId }],
+          memo,
+        };
         break;
       case 'deposit':
-        payload = { txnType: 'deposit', txnDate, depositToAccountId: accountId, lines: [{ accountId: otherAccountId, amount, description: memo }], memo };
+        payload = {
+          txnType: 'deposit', txnDate, depositToAccountId: accountId,
+          lines: [{ accountId: otherAccountId, amount, description: memo, tagId }],
+          memo,
+        };
         break;
       case 'transfer':
+        // Transfer legs are internal cash postings; no user tag.
         payload = { txnType: 'transfer', txnDate, fromAccountId: accountId, toAccountId: otherAccountId, amount, memo };
         break;
       case 'journal_entry': {
         const d = payment || '0';
         const c = deposit || '0';
+        // Both JE lines on a single-row register entry share the same tag.
         payload = {
           txnType: 'journal_entry', txnDate, memo,
           lines: [
-            { accountId, debit: d, credit: c },
-            { accountId: otherAccountId, debit: c, credit: d },
+            { accountId, debit: d, credit: c, tagId },
+            { accountId: otherAccountId, debit: c, credit: d, tagId },
           ],
         };
         break;
@@ -200,7 +218,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
           </div>
         </div>
 
-        {/* Row 2: Memo, Payment, Deposit, Save */}
+        {/* Row 2: Memo, Tag, Payment, Deposit, Save */}
         <div className="flex gap-3 items-end">
           <div className="flex-1">
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Memo / Description</label>
@@ -211,6 +229,12 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
               className="w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             />
           </div>
+          {txnType !== 'transfer' && (
+            <div className="w-36">
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Tag</label>
+              <LineTagPicker value={tagId} onChange={(t) => setTagId(t)} compact />
+            </div>
+          )}
 
           {/* Payment / Decrease */}
           {!config.isDeposit && (

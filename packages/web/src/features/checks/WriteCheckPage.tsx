@@ -14,6 +14,7 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { numberToWords } from '@kis-books/shared';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -21,7 +22,17 @@ interface ExpenseLine {
   accountId: string;
   description: string;
   amount: string;
+  tagId: string | null;
+  userHasTouchedTag: boolean;
 }
+
+const emptyLine = (): ExpenseLine => ({
+  accountId: '',
+  description: '',
+  amount: '',
+  tagId: null,
+  userHasTouchedTag: false,
+});
 
 export function WriteCheckPage() {
   const navigate = useNavigate();
@@ -40,15 +51,20 @@ export function WriteCheckPage() {
   const [memo, setMemo] = useState('');
   const [printLater, setPrintLater] = useState(false);
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const [lines, setLines] = useState<ExpenseLine[]>([
-    { accountId: '', description: '', amount: '' },
-  ]);
+  const [lines, setLines] = useState<ExpenseLine[]>([emptyLine()]);
 
   const amountWords = numberToWords(amount);
   const linesTotal = lines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0);
 
-  const updateLine = (i: number, field: keyof ExpenseLine, value: string) =>
+  const updateLine = (i: number, field: 'accountId' | 'description' | 'amount', value: string) =>
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
+
+  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
+      ),
+    );
 
   const handleContactSelect = (contact: ContactSelection | null) => {
     if (contact) {
@@ -80,6 +96,7 @@ export function WriteCheckPage() {
             accountId: l.accountId,
             description: l.description || undefined,
             amount: l.amount,
+            tagId: l.tagId,
           })),
         tagIds: tagIds.length > 0 ? tagIds : undefined,
       },
@@ -172,11 +189,14 @@ export function WriteCheckPage() {
           <table className="min-w-full">
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">
                   Account
                 </th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">
                   Description
+                </th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">
+                  Tag
                 </th>
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-28">
                   Amount
@@ -205,6 +225,9 @@ export function WriteCheckPage() {
                     />
                   </td>
                   <td className="px-2 py-1">
+                    <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                  </td>
+                  <td className="px-2 py-1">
                     <MoneyInput
                       value={line.amount}
                       onChange={(v) => updateLine(i, 'amount', v)}
@@ -230,12 +253,7 @@ export function WriteCheckPage() {
 
           <button
             type="button"
-            onClick={() =>
-              setLines((p) => [
-                ...p,
-                { accountId: '', description: '', amount: '' },
-              ])
-            }
+            onClick={() => setLines((p) => [...p, emptyLine()])}
             className="mt-3 flex items-center gap-1 text-sm text-primary-600"
           >
             <Plus className="h-4 w-4" /> Add line item

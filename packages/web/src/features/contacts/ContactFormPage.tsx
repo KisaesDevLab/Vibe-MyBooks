@@ -8,6 +8,7 @@ import type { ContactType } from '@kis-books/shared';
 import { useContact, useCreateContact, useUpdateContact } from '../../api/hooks/useContacts';
 import { Input } from '../../components/ui/Input';
 import { AccountSelector } from '../../components/forms/AccountSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
@@ -45,6 +46,9 @@ export function ContactFormPage() {
     shippingZip: '',
     defaultPaymentTerms: '',
     defaultExpenseAccountId: '',
+    // ADR 0XY — vendor-scoped default tag. The resolver only consults
+    // this when the contact's type is 'vendor' or 'both' at write time.
+    defaultTagId: null as string | null,
     taxId: '',
     is1099Eligible: false,
     notes: '',
@@ -73,6 +77,7 @@ export function ContactFormPage() {
         shippingZip: c.shippingZip || '',
         defaultPaymentTerms: c.defaultPaymentTerms || '',
         defaultExpenseAccountId: c.defaultExpenseAccountId || '',
+        defaultTagId: (c as { defaultTagId?: string | null }).defaultTagId ?? null,
         taxId: c.taxId || '',
         is1099Eligible: c.is1099Eligible ?? false,
         notes: c.notes || '',
@@ -103,6 +108,7 @@ export function ContactFormPage() {
       shippingZip: form.shippingZip || null,
       defaultPaymentTerms: form.defaultPaymentTerms || null,
       defaultExpenseAccountId: form.defaultExpenseAccountId || null,
+      defaultTagId: form.defaultTagId,
       taxId: form.taxId || null,
       notes: form.notes || null,
     };
@@ -193,6 +199,17 @@ export function ContactFormPage() {
               onChange={(v) => setForm((f) => ({ ...f, defaultExpenseAccountId: v }))}
               accountTypeFilter="expense"
             />
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Default Tag</label>
+              <LineTagPicker
+                value={form.defaultTagId}
+                onChange={(t) => setForm((f) => ({ ...f, defaultTagId: t }))}
+              />
+              <p className="text-xs text-gray-500">
+                Applied to transaction lines with this vendor when no other
+                default (bank rule, item, or explicit entry) sets one.
+              </p>
+            </div>
             <Input label="Tax ID / EIN" value={form.taxId} onChange={set('taxId')} placeholder="XX-XXXXXXX" />
             <label className="flex items-center gap-2 text-sm">
               <input

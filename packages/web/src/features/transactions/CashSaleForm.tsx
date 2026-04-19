@@ -16,14 +16,33 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Plus, Trash2 } from 'lucide-react';
 
-interface SaleLine { accountId: string; description: string; quantity: string; unitPrice: string; isTaxable: boolean; taxRate: string }
+interface SaleLine {
+  accountId: string;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  isTaxable: boolean;
+  taxRate: string;
+  tagId: string | null;
+  userHasTouchedTag: boolean;
+}
 
 function emptyLine(defaultTaxRate: string): SaleLine {
-  return { accountId: '', description: '', quantity: '1', unitPrice: '', isTaxable: true, taxRate: defaultTaxRate };
+  return {
+    accountId: '',
+    description: '',
+    quantity: '1',
+    unitPrice: '',
+    isTaxable: true,
+    taxRate: defaultTaxRate,
+    tagId: null,
+    userHasTouchedTag: false,
+  };
 }
 
 export function CashSaleForm() {
@@ -69,14 +88,23 @@ export function CashSaleForm() {
           unitPrice: l.unitPrice ? parseFloat(l.unitPrice).toString() : parseFloat(l.credit).toString(),
           isTaxable: l.isTaxable || false,
           taxRate: l.taxRate ? (parseFloat(l.taxRate) * 100).toString() : defaultTaxRate,
+          tagId: l.tagId ?? null,
+          userHasTouchedTag: l.tagId != null,
         })));
       }
       setLoaded(true);
     }
   }, [isEdit, existingData, loaded]);
 
-  const updateLine = (i: number, field: keyof SaleLine, value: string | boolean) =>
+  const updateLine = (i: number, field: 'accountId' | 'description' | 'quantity' | 'unitPrice' | 'isTaxable' | 'taxRate', value: string | boolean) =>
     setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
+
+  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
+      ),
+    );
 
   const subtotal = lines.reduce((sum, l) => sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
   const totalTax = lines.reduce((sum, l) => {
@@ -95,7 +123,7 @@ export function CashSaleForm() {
       contactId?: string;
       depositToAccountId: string;
       memo: string;
-      lines: Array<{ accountId: string; description: string; quantity: string; unitPrice: string; isTaxable: boolean; taxRate: string }>;
+      lines: Array<{ accountId: string; description: string; quantity: string; unitPrice: string; isTaxable: boolean; taxRate: string; tagId?: string | null }>;
       tags: string[];
       draftAttachmentId?: string;
     }
@@ -112,6 +140,7 @@ export function CashSaleForm() {
         unitPrice: l.unitPrice,
         isTaxable: l.isTaxable,
         taxRate: l.isTaxable ? (parseFloat(l.taxRate) / 100).toString() : '0',
+        tagId: l.tagId,
       })),
       tags: tagIds,
     };
@@ -149,6 +178,7 @@ export function CashSaleForm() {
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-36">Rate</th>
                 <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-12">Tax</th>
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Tax %</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">Tag</th>
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-24">Amount</th>
                 <th className="w-8 pb-2" />
               </tr>
@@ -177,6 +207,9 @@ export function CashSaleForm() {
                         <input type="number" step="0.0001" value={line.taxRate} onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
                           className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right" />
                       )}
+                    </td>
+                    <td className="px-1 py-1">
+                      <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                     </td>
                     <td className="px-2 py-1 text-right font-mono text-sm pt-2.5">${lineAmount.toFixed(2)}</td>
                     <td className="pl-1 py-1 pt-2.5">

@@ -14,7 +14,7 @@ interface DepositPayload extends Record<string, unknown> {
   txnDate: string;
   depositToAccountId: string;
   memo: string;
-  lines: Array<{ accountId: string; amount: string; description: string }>;
+  lines: Array<{ accountId: string; amount: string; description: string; tagId?: string | null }>;
   tags: string[];
   draftAttachmentId?: string;
 }
@@ -24,11 +24,23 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Plus, Trash2 } from 'lucide-react';
 
-interface DepositLine { accountId: string; amount: string; description: string }
+// ADR 0XX/0XY — per-line tag + stickiness flag.
+interface DepositLine {
+  accountId: string;
+  amount: string;
+  description: string;
+  tagId: string | null;
+  userHasTouchedTag: boolean;
+}
+
+function emptyLine(): DepositLine {
+  return { accountId: '', amount: '', description: '', tagId: null, userHasTouchedTag: false };
+}
 
 export function DepositForm() {
   const { id: editId } = useParams<{ id: string }>();
@@ -43,7 +55,7 @@ export function DepositForm() {
   const [depositToAccountId, setDepositToAccountId] = useState('');
   const [memo, setMemo] = useState('');
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const [lines, setLines] = useState<DepositLine[]>([{ accountId: '', amount: '', description: '' }]);
+  const [lines, setLines] = useState<DepositLine[]>([emptyLine()]);
   const [draftId] = useState(() => crypto.randomUUID());
   const [loaded, setLoaded] = useState(false);
 
@@ -63,14 +75,23 @@ export function DepositForm() {
           accountId: l.accountId,
           amount: parseFloat(l.credit).toString(),
           description: l.description || '',
+          tagId: l.tagId ?? null,
+          userHasTouchedTag: l.tagId != null,
         })));
       }
       setLoaded(true);
     }
   }, [isEdit, existingData, loaded]);
 
-  const updateLine = (i: number, field: keyof DepositLine, value: string) =>
+  const updateLine = (i: number, field: 'accountId' | 'amount' | 'description', value: string) =>
     setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
+
+  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
+      ),
+    );
 
   const total = lines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0);
   const mutation = isEdit ? updateTxn : createTxn;
@@ -82,7 +103,12 @@ export function DepositForm() {
       txnDate,
       depositToAccountId,
       memo,
-      lines: lines.filter((l) => l.accountId && l.amount),
+      lines: lines.filter((l) => l.accountId && l.amount).map((l) => ({
+        accountId: l.accountId,
+        amount: l.amount,
+        description: l.description,
+        tagId: l.tagId,
+      })),
       tags: tagIds,
     };
 
@@ -117,6 +143,9 @@ export function DepositForm() {
                 <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
               </div>
+              <div className="w-36">
+                <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+              </div>
               {lines.length > 1 && (
                 <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
                   <Trash2 className="h-4 w-4" />
@@ -124,7 +153,7 @@ export function DepositForm() {
               )}
             </div>
           ))}
-          <button type="button" onClick={() => setLines((p) => [...p, { accountId: '', amount: '', description: '' }])}
+          <button type="button" onClick={() => setLines((p) => [...p, emptyLine()])}
             className="mt-2 flex items-center gap-1 text-sm text-primary-600"><Plus className="h-4 w-4" /> Add line</button>
           <p className="text-right text-sm font-medium mt-3">Total: ${total.toFixed(2)}</p>
         </div>

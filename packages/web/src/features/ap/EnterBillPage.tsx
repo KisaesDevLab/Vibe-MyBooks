@@ -17,6 +17,7 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { FieldHelpIcon } from '../chat/FieldHelpIcon';
@@ -28,6 +29,9 @@ interface BillLine {
   accountId: string;
   description: string;
   amount: string;
+  // ADR 0XX/0XY — per-line tag + stickiness flag.
+  tagId: string | null;
+  userHasTouchedTag: boolean;
 }
 
 interface OcrExtraction {
@@ -59,7 +63,7 @@ const TERM_DAYS: Record<string, number> = {
 };
 
 function emptyLine(): BillLine {
-  return { accountId: '', description: '', amount: '' };
+  return { accountId: '', description: '', amount: '', tagId: null, userHasTouchedTag: false };
 }
 
 function calcDueDate(billDate: string, terms: string, customDays: string): string {
@@ -165,6 +169,8 @@ export function EnterBillPage() {
         accountId: l.accountId,
         description: l.description || '',
         amount: parseFloat(l.debit).toFixed(2),
+        tagId: l.tagId ?? null,
+        userHasTouchedTag: l.tagId != null,
       }));
     if (billLines.length > 0) setLines(billLines);
     setLoaded(true);
@@ -273,6 +279,8 @@ export function EnterBillPage() {
           accountId: ext.defaultExpenseAccountId || '',
           description: li.description || '',
           amount: parseFloat(li.amount!).toFixed(2),
+          tagId: null,
+          userHasTouchedTag: false,
         }));
       if (formLines.length > 0) {
         // Only replace if the form is still showing the initial empty line.
@@ -286,6 +294,8 @@ export function EnterBillPage() {
         accountId: ext.defaultExpenseAccountId || '',
         description: ext.notes || 'Vendor invoice',
         amount: parseFloat(ext.total).toFixed(2),
+        tagId: null,
+        userHasTouchedTag: false,
       }];
       const hasUserContent = lines.some((l) => l.accountId || l.description || l.amount);
       if (!hasUserContent) setLines(formLines);
@@ -307,8 +317,15 @@ export function EnterBillPage() {
     return { label: 'Low — please review', cls: 'bg-red-100 text-red-700' };
   }, [ocrExtraction]);
 
-  const updateLine = (i: number, field: keyof BillLine, value: string) =>
+  const updateLine = (i: number, field: 'accountId' | 'description' | 'amount', value: string) =>
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
+
+  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
+      ),
+    );
 
   const total = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
 
@@ -334,6 +351,7 @@ export function EnterBillPage() {
         accountId: l.accountId,
         description: l.description || undefined,
         amount: l.amount,
+        tagId: l.tagId,
       })),
   });
 
@@ -593,8 +611,9 @@ export function EnterBillPage() {
           <table className="min-w-full">
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">Account</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">Tag</th>
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Amount</th>
                 <th className="w-8 pb-2" />
               </tr>
@@ -616,6 +635,9 @@ export function EnterBillPage() {
                       className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                       placeholder="Description"
                     />
+                  </td>
+                  <td className="px-2 py-1">
+                    <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                   </td>
                   <td className="px-2 py-1">
                     <MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} />

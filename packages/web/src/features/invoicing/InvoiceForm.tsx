@@ -19,6 +19,7 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { SearchableDropdown } from '../../components/forms/SearchableDropdown';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Plus, Trash2 } from 'lucide-react';
@@ -34,10 +35,23 @@ interface InvoiceLine {
   unitPrice: string;
   isTaxable: boolean;
   taxRate: string;
+  tagId: string | null;
+  userHasTouchedTag: boolean;
 }
 
 function emptyLine(mode: EntryMode, defaultTaxRate: string = '0'): InvoiceLine {
-  return { entryMode: mode, accountId: '', itemId: '', description: '', quantity: '1', unitPrice: '', isTaxable: true, taxRate: defaultTaxRate };
+  return {
+    entryMode: mode,
+    accountId: '',
+    itemId: '',
+    description: '',
+    quantity: '1',
+    unitPrice: '',
+    isTaxable: true,
+    taxRate: defaultTaxRate,
+    tagId: null,
+    userHasTouchedTag: false,
+  };
 }
 
 export function InvoiceForm() {
@@ -125,6 +139,8 @@ export function InvoiceForm() {
         unitPrice: l.unitPrice || String(parseFloat(l.credit)),
         isTaxable: l.isTaxable ?? true,
         taxRate: l.taxRate ? String(parseFloat(l.taxRate) * 100) : defaultTaxRatePercent,
+        tagId: l.tagId ?? null,
+        userHasTouchedTag: l.tagId != null,
       }));
     if (invLines.length > 0) setLines(invLines);
     setLoaded(true);
@@ -142,8 +158,15 @@ export function InvoiceForm() {
     },
   });
 
-  const updateLine = (i: number, field: keyof InvoiceLine, value: string) =>
+  const updateLine = (i: number, field: 'accountId' | 'itemId' | 'description' | 'quantity' | 'unitPrice' | 'taxRate', value: string) =>
     setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
+
+  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
+      ),
+    );
 
   const handleItemSelect = (i: number, itemId: string) => {
     const item = itemsData?.data?.find((it) => it.id === itemId);
@@ -188,6 +211,7 @@ export function InvoiceForm() {
       unitPrice: l.unitPrice,
       isTaxable: l.isTaxable,
       taxRate: l.isTaxable ? (parseFloat(l.taxRate) / 100).toString() : '0',
+      tagId: l.tagId,
     })),
   });
 
@@ -292,6 +316,7 @@ export function InvoiceForm() {
                   <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-36">Rate</th>
                   <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-12">Tax</th>
                   <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Tax %</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">Tag</th>
                   <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-24">Amount</th>
                   <th className="w-8 pb-2" />
                 </tr>
@@ -333,6 +358,9 @@ export function InvoiceForm() {
                             onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
                             className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right" />
                         )}
+                      </td>
+                      <td className="px-1 py-1">
+                        <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                       </td>
                       <td className="px-2 py-1 text-right font-mono text-sm pt-2.5">${lineAmount.toFixed(2)}</td>
                       <td className="pl-1 py-1 pt-2.5">

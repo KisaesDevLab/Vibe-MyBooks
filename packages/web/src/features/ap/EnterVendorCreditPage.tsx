@@ -14,15 +14,18 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface CreditLine {
   accountId: string;
   description: string;
   amount: string;
+  tagId: string | null;
+  userHasTouchedTag: boolean;
 }
 
-const emptyLine = (): CreditLine => ({ accountId: '', description: '', amount: '' });
+const emptyLine = (): CreditLine => ({ accountId: '', description: '', amount: '', tagId: null, userHasTouchedTag: false });
 
 export function EnterVendorCreditPage() {
   const navigate = useNavigate();
@@ -35,8 +38,15 @@ export function EnterVendorCreditPage() {
   const [memo, setMemo] = useState('');
   const [lines, setLines] = useState<CreditLine[]>([emptyLine()]);
 
-  const updateLine = (i: number, field: keyof CreditLine, value: string) =>
+  const updateLine = (i: number, field: 'accountId' | 'description' | 'amount', value: string) =>
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
+
+  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
+      ),
+    );
 
   const total = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
 
@@ -53,6 +63,7 @@ export function EnterVendorCreditPage() {
           accountId: l.accountId,
           description: l.description || undefined,
           amount: l.amount,
+          tagId: l.tagId,
         })),
     };
     if (payload.lines.length === 0) return;
@@ -88,8 +99,9 @@ export function EnterVendorCreditPage() {
           <table className="min-w-full">
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">Account</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">Tag</th>
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Amount</th>
                 <th className="w-8 pb-2" />
               </tr>
@@ -111,6 +123,9 @@ export function EnterVendorCreditPage() {
                       className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                       placeholder="Description"
                     />
+                  </td>
+                  <td className="px-2 py-1">
+                    <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                   </td>
                   <td className="px-2 py-1">
                     <MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} />

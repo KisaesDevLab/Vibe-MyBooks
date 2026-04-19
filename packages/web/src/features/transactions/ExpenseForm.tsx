@@ -15,6 +15,7 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Plus, Trash2 } from 'lucide-react';
@@ -23,10 +24,15 @@ interface ExpenseLine {
   expenseAccountId: string;
   amount: string;
   description: string;
+  // ADR 0XX/0XY — per-line tag + stickiness flag (set whenever the user
+  // touches the tag field directly so subsequent default recomputation
+  // does not overwrite user intent).
+  tagId: string | null;
+  userHasTouchedTag: boolean;
 }
 
 function emptyLine(): ExpenseLine {
-  return { expenseAccountId: '', amount: '', description: '' };
+  return { expenseAccountId: '', amount: '', description: '', tagId: null, userHasTouchedTag: false };
 }
 
 export function ExpenseForm() {
@@ -66,14 +72,25 @@ export function ExpenseForm() {
           expenseAccountId: l.accountId,
           amount: parseFloat(l.debit).toString(),
           description: l.description || '',
+          tagId: l.tagId ?? null,
+          // Loaded lines with a tag are treated as user-intent.
+          userHasTouchedTag: l.tagId != null,
         })));
       }
       setLoaded(true);
     }
   }, [isEdit, existingData, loaded]);
 
-  const updateLine = (index: number, field: keyof ExpenseLine, value: string) => {
+  const updateLine = (index: number, field: 'expenseAccountId' | 'amount' | 'description', value: string) => {
     setLines((prev) => prev.map((line, i) => i === index ? { ...line, [field]: value } : line));
+  };
+
+  const updateLineTag = (index: number, tagId: string | null, touched: boolean) => {
+    setLines((prev) =>
+      prev.map((line, i) =>
+        i === index ? { ...line, tagId, userHasTouchedTag: line.userHasTouchedTag || touched } : line,
+      ),
+    );
   };
 
   const addLine = () => setLines((prev) => [...prev, emptyLine()]);
@@ -98,12 +115,18 @@ export function ExpenseForm() {
     const validLines = lines.filter((l) => l.expenseAccountId && l.amount);
     if (validLines.length === 0) return;
 
+    interface ExpensePayloadLine {
+      expenseAccountId: string;
+      amount: string;
+      description: string;
+      tagId?: string | null;
+    }
     interface ExpensePayload extends Record<string, unknown> {
       txnType: 'expense';
       txnDate: string;
       contactId?: string;
       payFromAccountId: string;
-      lines: ExpenseLine[];
+      lines: ExpensePayloadLine[];
       memo: string;
       tags: string[];
       draftAttachmentId?: string;
@@ -113,7 +136,13 @@ export function ExpenseForm() {
       txnDate,
       contactId: contactId || undefined,
       payFromAccountId,
-      lines: validLines,
+      // Flatten stickiness-tracking state — API only needs tagId.
+      lines: validLines.map((l) => ({
+        expenseAccountId: l.expenseAccountId,
+        amount: l.amount,
+        description: l.description,
+        tagId: l.tagId,
+      })),
       memo,
       tags: tagIds,
     };
@@ -163,19 +192,23 @@ export function ExpenseForm() {
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Line Items</h2>
           <div className="space-y-3">
             <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase px-1">
-              <div className="col-span-5">Category</div>
-              <div className="col-span-4">Description</div>
+              <div className="col-span-4">Category</div>
+              <div className="col-span-3">Description</div>
+              <div className="col-span-2">Tag</div>
               <div className="col-span-2 text-right">Amount</div>
               <div className="col-span-1"></div>
             </div>
             {lines.map((line, i) => (
               <div key={i} className="grid grid-cols-12 gap-2 items-start">
-                <div className="col-span-5">
+                <div className="col-span-4">
                   <AccountSelector value={line.expenseAccountId} onChange={(val) => updateLine(i, 'expenseAccountId', val)} accountTypeFilter="expense" required={i === 0} />
                 </div>
-                <div className="col-span-4">
+                <div className="col-span-3">
                   <input type="text" value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)} placeholder="Description"
                     className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                </div>
+                <div className="col-span-2">
+                  <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                 </div>
                 <div className="col-span-2">
                   <MoneyInput value={line.amount} onChange={(val) => updateLine(i, 'amount', val)} required={i === 0} />
