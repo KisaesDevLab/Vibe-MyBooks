@@ -4,7 +4,7 @@
 
 
 import { todayLocalISO } from '../../utils/date';
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { JournalLine } from '@kis-books/shared';
 import { useCreateTransaction, useUpdateTransaction, useTransaction } from '../../api/hooks/useTransactions';
@@ -110,6 +110,27 @@ export function ExpenseForm() {
 
   const mutation = isEdit ? updateTxn : createTxn;
 
+  // Form-scoped keyboard shortcuts. Ctrl/Cmd+Enter submits "Record
+  // Expense"; Ctrl/Cmd+Shift+Enter submits as "Record + New" and
+  // resets the form on success. Plain Enter in a text field keeps its
+  // default browser behavior (submits via the primary button on inputs
+  // that don't have their own Enter semantics).
+  const formRef = useRef<HTMLFormElement>(null);
+  const handleFormKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod || e.key !== 'Enter') return;
+    e.preventDefault();
+    if (e.shiftKey && !isEdit) {
+      // Record + New
+      setAndNew(true);
+      formRef.current?.requestSubmit();
+    } else {
+      // Record Expense (or Save Changes in edit mode)
+      setAndNew(false);
+      formRef.current?.requestSubmit();
+    }
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const validLines = lines.filter((l) => l.expenseAccountId && l.amount);
@@ -175,7 +196,7 @@ export function ExpenseForm() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Expense' : 'New Expense'}</h1>
-      <form onSubmit={handleSubmit} className="max-w-5xl space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="max-w-5xl space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
@@ -248,15 +269,27 @@ export function ExpenseForm() {
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
         <div className="flex gap-3">
-          <Button type="submit" loading={mutation.isPending && !andNew}>{isEdit ? 'Save Changes' : 'Record Expense'}</Button>
+          <Button type="submit" loading={mutation.isPending && !andNew}
+            title={isEdit ? 'Save Changes (Ctrl/Cmd+Enter)' : 'Record Expense (Ctrl/Cmd+Enter)'}>
+            {isEdit ? 'Save Changes' : 'Record Expense'}
+          </Button>
           {!isEdit && (
             <Button type="button" variant="secondary" loading={createTxn.isPending && andNew}
-              onClick={() => { setAndNew(true); document.querySelector<HTMLFormElement>('form')?.requestSubmit(); }}>
+              title="Record + New (Ctrl/Cmd+Shift+Enter)"
+              onClick={() => { setAndNew(true); formRef.current?.requestSubmit(); }}>
               Record + New
             </Button>
           )}
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/transactions/${editId}` : '/transactions')}>Cancel</Button>
         </div>
+
+        <p className="text-xs text-gray-400">
+          <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">Ctrl/Cmd+Enter</kbd> {isEdit ? 'save changes' : 'record expense'}
+          {!isEdit && (<>
+            &nbsp; · &nbsp;
+            <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">Ctrl/Cmd+Shift+Enter</kbd> record + new
+          </>)}
+        </p>
 
         {isEdit
           ? <AttachmentPanel attachableType="expense" attachableId={editId!} />
