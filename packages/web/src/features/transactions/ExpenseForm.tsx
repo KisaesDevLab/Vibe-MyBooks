@@ -110,25 +110,31 @@ export function ExpenseForm() {
 
   const mutation = isEdit ? updateTxn : createTxn;
 
-  // Form-scoped keyboard shortcuts. Ctrl/Cmd+Enter submits "Record
-  // Expense"; Ctrl/Cmd+Shift+Enter submits as "Record + New" and
-  // resets the form on success. Plain Enter in a text field keeps its
-  // default browser behavior (submits via the primary button on inputs
-  // that don't have their own Enter semantics).
+  // Form-scoped keyboard shortcuts. The shorter chord goes to the path
+  // power users hit repeatedly — Ctrl/Cmd+Enter is "Record + New" on
+  // create so back-to-back entry stays one-handed. Ctrl/Cmd+Shift+Enter
+  // is the single-save path (Record Expense or, in edit mode, Save
+  // Changes — where + New isn't available so plain Ctrl/Cmd+Enter also
+  // saves).
   const formRef = useRef<HTMLFormElement>(null);
   const handleFormKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
     const mod = e.metaKey || e.ctrlKey;
     if (!mod || e.key !== 'Enter') return;
     e.preventDefault();
-    if (e.shiftKey && !isEdit) {
-      // Record + New
-      setAndNew(true);
-      formRef.current?.requestSubmit();
-    } else {
-      // Record Expense (or Save Changes in edit mode)
+    if (isEdit) {
+      // Edit mode has no "+ New"; any Ctrl/Cmd+Enter just saves.
       setAndNew(false);
       formRef.current?.requestSubmit();
+      return;
     }
+    if (e.shiftKey) {
+      // Record Expense (single save, navigate away on success).
+      setAndNew(false);
+    } else {
+      // Record + New (save and reset for another entry).
+      setAndNew(true);
+    }
+    formRef.current?.requestSubmit();
   };
 
   const handleSubmit = (e: FormEvent) => {
@@ -270,12 +276,12 @@ export function ExpenseForm() {
 
         <div className="flex gap-3">
           <Button type="submit" loading={mutation.isPending && !andNew}
-            title={isEdit ? 'Save Changes (Ctrl/Cmd+Enter)' : 'Record Expense (Ctrl/Cmd+Enter)'}>
+            title={isEdit ? 'Save Changes (Ctrl/Cmd+Enter)' : 'Record Expense (Ctrl/Cmd+Shift+Enter)'}>
             {isEdit ? 'Save Changes' : 'Record Expense'}
           </Button>
           {!isEdit && (
             <Button type="button" variant="secondary" loading={createTxn.isPending && andNew}
-              title="Record + New (Ctrl/Cmd+Shift+Enter)"
+              title="Record + New (Ctrl/Cmd+Enter)"
               onClick={() => { setAndNew(true); formRef.current?.requestSubmit(); }}>
               Record + New
             </Button>
@@ -284,11 +290,17 @@ export function ExpenseForm() {
         </div>
 
         <p className="text-xs text-gray-400">
-          <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">Ctrl/Cmd+Enter</kbd> {isEdit ? 'save changes' : 'record expense'}
-          {!isEdit && (<>
-            &nbsp; · &nbsp;
-            <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">Ctrl/Cmd+Shift+Enter</kbd> record + new
-          </>)}
+          {isEdit ? (
+            <>
+              <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">Ctrl/Cmd+Enter</kbd> save changes
+            </>
+          ) : (
+            <>
+              <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">Ctrl/Cmd+Enter</kbd> record + new
+              &nbsp; · &nbsp;
+              <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-500 text-[10px]">Ctrl/Cmd+Shift+Enter</kbd> record expense
+            </>
+          )}
         </p>
 
         {isEdit
