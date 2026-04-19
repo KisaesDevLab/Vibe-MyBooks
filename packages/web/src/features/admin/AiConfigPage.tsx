@@ -63,7 +63,7 @@ export function AiConfigPage() {
     geminiApiKey: '',
     ollamaBaseUrl: '',
     glmOcrApiKey: '',
-    glmOcrBaseUrl: '',
+    glmOcrBaseUrl: 'http://vibe-glm-ocr:8090',
     autoCategorizeOnImport: true,
     autoOcrOnUpload: true,
     categorizationConfidenceThreshold: 0.7,
@@ -91,7 +91,7 @@ export function AiConfigPage() {
         ocrProvider: data.ocrProvider || '',
         ocrModel: data.ocrModel || '',
         ollamaBaseUrl: data.ollamaBaseUrl || '',
-        glmOcrBaseUrl: data.glmOcrBaseUrl || '',
+        glmOcrBaseUrl: data.glmOcrBaseUrl || 'http://vibe-glm-ocr:8090',
         autoCategorizeOnImport: data.autoCategorizeOnImport,
         autoOcrOnUpload: data.autoOcrOnUpload,
         categorizationConfidenceThreshold: data.categorizationConfidenceThreshold,
@@ -331,7 +331,7 @@ export function AiConfigPage() {
               <div className="flex-1 min-w-0">
                 <Input label="GLM-OCR Base URL (local)" value={form.glmOcrBaseUrl}
                   onChange={(e) => setForm((f) => ({ ...f, glmOcrBaseUrl: e.target.value }))}
-                  placeholder="http://localhost:11434" />
+                  placeholder="http://vibe-glm-ocr:8090" />
               </div>
               <div className="pt-5">
                 <Button variant="secondary" size="sm" onClick={() => handleTest('glm_ocr_local')}

@@ -2,30 +2,11 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
 import type { TailscaleStatus } from '@kis-books/shared';
 import { KeyRound, ExternalLink } from 'lucide-react';
-import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
-import { useTailscaleConnect } from '../../../api/hooks/useTailscale';
+import { AuthKeyPairForm } from './AuthKeyPairForm';
 
 export function FirstRunWizard({ status }: { status: TailscaleStatus }) {
-  const [authKey, setAuthKey] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const connect = useTailscaleConnect();
-
-  const submit = () => {
-    setError(null);
-    connect.mutate(
-      { authKey: authKey.trim() || undefined },
-      {
-        onError: (err: unknown) => {
-          setError((err as Error).message || 'Failed to connect');
-        },
-      },
-    );
-  };
-
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
       <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
@@ -71,22 +52,7 @@ export function FirstRunWizard({ status }: { status: TailscaleStatus }) {
             </a>{' '}
             and paste it below.
           </p>
-          <div className="flex gap-2 items-end">
-            <div className="flex-1">
-              <Input
-                label="Auth key"
-                value={authKey}
-                onChange={(e) => setAuthKey(e.target.value)}
-                placeholder="tskey-auth-..."
-              />
-            </div>
-            <Button onClick={submit} loading={connect.isPending} disabled={!authKey.trim()}>
-              Pair
-            </Button>
-          </div>
-          {error && (
-            <div className="mt-2 text-sm text-red-600">{error}</div>
-          )}
+          <AuthKeyPairForm />
         </div>
       </div>
     </div>
