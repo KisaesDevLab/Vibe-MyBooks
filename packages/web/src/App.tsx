@@ -160,6 +160,7 @@ const PayBillsPage = lazyNamed(() => import('./features/ap/PayBillsPage'), 'PayB
 
 // ─── Budgets ─────────────────────────────────────────────────
 const BudgetEditorPage = lazyNamed(() => import('./features/budgets/BudgetEditorPage'), 'BudgetEditorPage');
+const BudgetVsActualsPage = lazyNamed(() => import('./features/budgets/BudgetVsActualsPage'), 'BudgetVsActualsPage');
 
 // ─── Reports (heavy: ships charts + pdf libs) ────────────────
 const ReportsPage = lazyNamed(() => import('./features/reports/ReportsPage'), 'ReportsPage');
@@ -301,6 +302,7 @@ export function App() {
             <Route path="/recurring" element={<RecurringListPage />} />
             <Route path="/settings/tags" element={<TagManagerPage />} />
             <Route path="/budgets" element={<BudgetEditorPage />} />
+            <Route path="/budgets/vs-actuals" element={<BudgetVsActualsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/reports/profit-loss" element={<ProfitAndLossReport />} />
             <Route path="/reports/balance-sheet" element={<BalanceSheetReport />} />

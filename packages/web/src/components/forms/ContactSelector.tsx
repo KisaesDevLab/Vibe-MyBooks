@@ -13,7 +13,11 @@ import { X } from 'lucide-react';
 export interface ContactSelection {
   id: string;
   displayName: string;
+  contactType: string;
   defaultExpenseAccountId: string | null;
+  // ADR 0XY — default tag, used by forms to re-run resolveDefaultTag
+  // on untouched lines when the contact changes.
+  defaultTagId: string | null;
 }
 
 interface ContactSelectorProps {
@@ -47,7 +51,9 @@ export function ContactSelector({ value, onChange, onSelect, label, contactTypeF
         onSelect({
           id: contact.id,
           displayName: contact.displayName,
+          contactType: contact.contactType,
           defaultExpenseAccountId: contact.defaultExpenseAccountId,
+          defaultTagId: (contact as unknown as { defaultTagId?: string | null }).defaultTagId ?? null,
         });
       }
     }

@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useBills } from '../../api/hooks/useAp';
+import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -22,12 +23,22 @@ export function BillListPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<BillStatus | ''>('');
   const [search, setSearch] = useState('');
+  // ADR / build plan — Bills list gets date-range and tag filters.
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
 
   const { data, isLoading, isError, refetch } = useBills({
     billStatus: statusFilter || undefined,
     search: search || undefined,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+    tagId: tagFilter || undefined,
     limit: 100,
   });
+
+  const { data: tagsData } = useTags({ isActive: true });
+  const tagsList = tagsData?.tags || [];
 
   const bills = data?.data || [];
 
@@ -41,24 +52,46 @@ export function BillListPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-4 flex gap-3">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by vendor, bill #, vendor invoice #..."
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as BillStatus | '')}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="">All statuses</option>
-          <option value="unpaid">Unpaid</option>
-          <option value="partial">Partial</option>
-          <option value="paid">Paid</option>
-          <option value="overdue">Overdue</option>
-        </select>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-4 space-y-3">
+        <div className="flex gap-3 flex-wrap items-end">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by vendor, bill #, vendor invoice #..."
+            className="flex-1 min-w-[200px] rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as BillStatus | '')}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">All statuses</option>
+            <option value="unpaid">Unpaid</option>
+            <option value="partial">Partial</option>
+            <option value="paid">Paid</option>
+            <option value="overdue">Overdue</option>
+          </select>
+          <select
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[200px]"
+          >
+            <option value="">All Tags</option>
+            {tagsList.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        <div className="flex gap-3 items-end">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">

@@ -128,9 +128,13 @@ export function SplitRowV2(props: SplitRowV2Props) {
         )}
       />
 
-      {/* Line 1 — primary fields + row actions. */}
-      <div className={clsx('flex items-center gap-2', padX, padY)}>
-        <div className="flex-1 min-w-0 flex items-center gap-2">{line1}</div>
+      {/* Line 1 — primary fields + row actions.
+          ADR 0XZ §5.1 mobile breakpoint: under ~768px the slot's inner
+          flex wraps (flex-wrap) so each field drops to its own line
+          rather than horizontally scrolling. Line 1 and Line 2 still
+          render as separate blocks but the inner fields stack. */}
+      <div className={clsx('flex items-center gap-2 flex-wrap md:flex-nowrap', padX, padY)}>
+        <div className="flex-1 min-w-0 flex flex-wrap md:flex-nowrap items-center gap-2">{line1}</div>
         <div className="flex items-center gap-1">
           {isFirst && onApplyTagToAll && (
             <button
@@ -171,10 +175,8 @@ export function SplitRowV2(props: SplitRowV2Props) {
       {/* Visual separator between the two logical lines. */}
       <div className="border-t border-gray-100" aria-hidden="true" />
 
-      {/* Line 2 — Description + Tag. Width proportions are enforced by the
-          caller's layout; this container just provides the horizontal
-          flex surface. */}
-      <div className={clsx('flex items-center gap-2', padX, padY)}>
+      {/* Line 2 — Description + Tag. Same mobile-stack pattern as Line 1. */}
+      <div className={clsx('flex items-center gap-2 flex-wrap md:flex-nowrap', padX, padY)}>
         {line2}
       </div>
 

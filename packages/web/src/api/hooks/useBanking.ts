@@ -113,9 +113,19 @@ export function useBulkApprove() {
 export function useBulkCategorize() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { feedItemIds: string[]; accountId: string; contactId?: string; memo?: string }) =>
+    mutationFn: (input: { feedItemIds: string[]; accountId: string; contactId?: string; memo?: string; tagId?: string | null }) =>
       apiClient('/banking/feed/bulk-categorize', { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); },
+  });
+}
+
+// ADR 0XX §7 — bulk set-tag on already-categorized feed items.
+export function useBulkSetTag() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { feedItemIds: string[]; tagId: string | null }) =>
+      apiClient('/banking/feed/bulk-set-tag', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); qc.invalidateQueries({ queryKey: ['transactions'] }); },
   });
 }
 

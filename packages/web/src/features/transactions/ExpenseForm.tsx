@@ -108,6 +108,16 @@ export function ExpenseForm() {
     if (c?.defaultExpenseAccountId && lines.length === 1 && !lines[0]!.expenseAccountId) {
       updateLine(0, 'expenseAccountId', c.defaultExpenseAccountId);
     }
+    // ADR 0XY §3.1 — when the header vendor changes, re-run default-
+    // tag resolution for every line the user hasn't touched. Vendor
+    // default only feeds the chain for vendor-type contacts.
+    const newTag =
+      c && (c.contactType === 'vendor' || c.contactType === 'both')
+        ? c.defaultTagId ?? null
+        : null;
+    setLines((prev) =>
+      prev.map((l) => (l.userHasTouchedTag ? l : { ...l, tagId: newTag })),
+    );
   };
 
   const mutation = isEdit ? updateTxn : createTxn;
