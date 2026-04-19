@@ -193,9 +193,9 @@ export function ExpenseForm() {
           <div className="space-y-3">
             <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase px-1">
               <div className="col-span-4">Category</div>
+              <div className="col-span-3 text-right">Amount</div>
               <div className="col-span-2">Description</div>
               <div className="col-span-2">Tag</div>
-              <div className="col-span-3 text-right">Amount</div>
               <div className="col-span-1"></div>
             </div>
             {lines.map((line, i) => (
@@ -203,15 +203,15 @@ export function ExpenseForm() {
                 <div className="col-span-4">
                   <AccountSelector value={line.expenseAccountId} onChange={(val) => updateLine(i, 'expenseAccountId', val)} accountTypeFilter="expense" required={i === 0} />
                 </div>
+                <div className="col-span-3">
+                  <MoneyInput value={line.amount} onChange={(val) => updateLine(i, 'amount', val)} required={i === 0} />
+                </div>
                 <div className="col-span-2">
                   <input type="text" value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)} placeholder="Description"
                     className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
                 </div>
                 <div className="col-span-2">
                   <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
-                </div>
-                <div className="col-span-3">
-                  <MoneyInput value={line.amount} onChange={(val) => updateLine(i, 'amount', val)} required={i === 0} />
                 </div>
                 <div className="col-span-1 flex justify-center pt-2">
                   {lines.length > 1 && (
