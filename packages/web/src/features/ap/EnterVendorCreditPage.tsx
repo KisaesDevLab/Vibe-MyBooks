@@ -15,6 +15,8 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
+import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface CreditLine {
@@ -50,6 +52,10 @@ export function EnterVendorCreditPage() {
 
   const total = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
 
+  const { formRef, handleKeyDown, saveChord } = useFormShortcuts({
+    onSave: () => formRef.current?.requestSubmit(),
+  });
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const payload = {
@@ -75,7 +81,7 @@ export function EnterVendorCreditPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Enter Vendor Credit</h1>
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6 max-w-5xl">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <ContactSelector
             label="Vendor"
@@ -170,7 +176,9 @@ export function EnterVendorCreditPage() {
         {createCredit.error && <p className="text-sm text-red-600">{createCredit.error.message}</p>}
 
         <div className="flex gap-3">
-          <Button type="submit" loading={createCredit.isPending}>Create Vendor Credit</Button>
+          <ShortcutTooltip chord={saveChord}>
+            <Button type="submit" loading={createCredit.isPending}>Create Vendor Credit</Button>
+          </ShortcutTooltip>
           <Button type="button" variant="secondary" onClick={() => navigate('/vendor-credits')}>Cancel</Button>
         </div>
       </form>

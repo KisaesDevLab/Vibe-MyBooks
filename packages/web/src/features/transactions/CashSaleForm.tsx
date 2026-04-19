@@ -17,6 +17,8 @@ import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
+import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Plus, Trash2 } from 'lucide-react';
@@ -115,6 +117,10 @@ export function CashSaleForm() {
   const grandTotal = subtotal + totalTax;
   const mutation = isEdit ? updateTxn : createTxn;
 
+  const { formRef, handleKeyDown, saveChord } = useFormShortcuts({
+    onSave: () => formRef.current?.requestSubmit(),
+  });
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     interface CashSalePayload extends Record<string, unknown> {
@@ -158,7 +164,7 @@ export function CashSaleForm() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Cash Sale' : 'New Cash Sale'}</h1>
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
           <ContactSelector label="Customer" value={contactId} onChange={setContactId} contactTypeFilter="customer" />
@@ -238,7 +244,9 @@ export function CashSaleForm() {
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
         <div className="flex gap-3">
-          <Button type="submit" loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Record Cash Sale'}</Button>
+          <ShortcutTooltip chord={saveChord}>
+            <Button type="submit" loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Record Cash Sale'}</Button>
+          </ShortcutTooltip>
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/transactions/${editId}` : '/transactions')}>Cancel</Button>
         </div>
 

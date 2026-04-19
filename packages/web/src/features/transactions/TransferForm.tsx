@@ -25,6 +25,8 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
+import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
@@ -64,6 +66,10 @@ export function TransferForm() {
 
   const mutation = isEdit ? updateTxn : createTxn;
 
+  const { formRef, handleKeyDown, saveChord } = useFormShortcuts({
+    onSave: () => formRef.current?.requestSubmit(),
+  });
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const payload: TransferPayload = { txnType: 'transfer', txnDate, fromAccountId, toAccountId, amount, memo, tags: tagIds };
@@ -81,7 +87,7 @@ export function TransferForm() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Transfer' : 'New Transfer'}</h1>
-      <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="max-w-2xl space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
           <AccountSelector label="From Account" value={fromAccountId} onChange={setFromAccountId} accountTypeFilter={['asset', 'liability']} required />
@@ -94,7 +100,9 @@ export function TransferForm() {
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
         <div className="flex gap-3">
-          <Button type="submit" loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Record Transfer'}</Button>
+          <ShortcutTooltip chord={saveChord}>
+            <Button type="submit" loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Record Transfer'}</Button>
+          </ShortcutTooltip>
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/transactions/${editId}` : '/transactions')}>Cancel</Button>
         </div>
 

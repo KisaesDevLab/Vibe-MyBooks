@@ -24,6 +24,8 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
 import { SplitRowV2, LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
+import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -106,6 +108,10 @@ export function JournalEntryForm() {
   const isBalanced = Math.abs(difference) < 0.01 && totalDebits > 0;
   const mutation = isEdit ? updateTxn : createTxn;
 
+  const { formRef, handleKeyDown, saveChord } = useFormShortcuts({
+    onSave: () => formRef.current?.requestSubmit(),
+  });
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!isBalanced) return;
@@ -137,7 +143,7 @@ export function JournalEntryForm() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Journal Entry' : 'New Journal Entry'}</h1>
-      <form onSubmit={handleSubmit} className="max-w-4xl space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="max-w-4xl space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
@@ -251,7 +257,9 @@ export function JournalEntryForm() {
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
         <div className="flex gap-3">
-          <Button type="submit" disabled={!isBalanced} loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Post Journal Entry'}</Button>
+          <ShortcutTooltip chord={saveChord}>
+            <Button type="submit" disabled={!isBalanced} loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Post Journal Entry'}</Button>
+          </ShortcutTooltip>
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/transactions/${editId}` : '/transactions')}>Cancel</Button>
         </div>
 

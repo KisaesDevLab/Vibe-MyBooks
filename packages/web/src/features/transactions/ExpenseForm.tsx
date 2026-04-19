@@ -4,7 +4,7 @@
 
 
 import { todayLocalISO } from '../../utils/date';
-import { useState, useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { JournalLine } from '@kis-books/shared';
 import { useCreateTransaction, useUpdateTransaction, useTransaction } from '../../api/hooks/useTransactions';
@@ -16,6 +16,8 @@ import { ContactSelector, type ContactSelection } from '../../components/forms/C
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
+import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Plus, Trash2 } from 'lucide-react';
@@ -110,32 +112,10 @@ export function ExpenseForm() {
 
   const mutation = isEdit ? updateTxn : createTxn;
 
-  // Form-scoped keyboard shortcuts. The shorter chord goes to the path
-  // power users hit repeatedly — Ctrl/Cmd+Enter is "Record + New" on
-  // create so back-to-back entry stays one-handed. Ctrl/Cmd+Shift+Enter
-  // is the single-save path (Record Expense or, in edit mode, Save
-  // Changes — where + New isn't available so plain Ctrl/Cmd+Enter also
-  // saves).
-  const formRef = useRef<HTMLFormElement>(null);
-  const handleFormKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
-    const mod = e.metaKey || e.ctrlKey;
-    if (!mod || e.key !== 'Enter') return;
-    e.preventDefault();
-    if (isEdit) {
-      // Edit mode has no "+ New"; any Ctrl/Cmd+Enter just saves.
-      setAndNew(false);
-      formRef.current?.requestSubmit();
-      return;
-    }
-    if (e.shiftKey) {
-      // Record Expense (single save, navigate away on success).
-      setAndNew(false);
-    } else {
-      // Record + New (save and reset for another entry).
-      setAndNew(true);
-    }
-    formRef.current?.requestSubmit();
-  };
+  const { formRef, handleKeyDown, saveChord, saveAndNewChord } = useFormShortcuts({
+    onSave: () => { setAndNew(false); formRef.current?.requestSubmit(); },
+    onSaveAndNew: isEdit ? undefined : () => { setAndNew(true); formRef.current?.requestSubmit(); },
+  });
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -202,7 +182,7 @@ export function ExpenseForm() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Expense' : 'New Expense'}</h1>
-      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="max-w-5xl space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="max-w-5xl space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
@@ -275,38 +255,18 @@ export function ExpenseForm() {
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
         <div className="flex gap-3">
-          <span className="relative group inline-block">
+          <ShortcutTooltip chord={saveChord}>
             <Button type="submit" loading={mutation.isPending && !andNew}>
               {isEdit ? 'Save Changes' : 'Record Expense'}
             </Button>
-            <span
-              role="tooltip"
-              className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs font-medium text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <kbd className="font-mono">Ctrl/Cmd{isEdit ? '' : '+Shift'}+Enter</kbd>
-              <span
-                aria-hidden="true"
-                className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900"
-              />
-            </span>
-          </span>
+          </ShortcutTooltip>
           {!isEdit && (
-            <span className="relative group inline-block">
+            <ShortcutTooltip chord={saveAndNewChord}>
               <Button type="button" variant="secondary" loading={createTxn.isPending && andNew}
                 onClick={() => { setAndNew(true); formRef.current?.requestSubmit(); }}>
                 Record + New
               </Button>
-              <span
-                role="tooltip"
-                className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs font-medium text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <kbd className="font-mono">Ctrl/Cmd+Enter</kbd>
-                <span
-                  aria-hidden="true"
-                  className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900"
-                />
-              </span>
-            </span>
+            </ShortcutTooltip>
           )}
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/transactions/${editId}` : '/transactions')}>Cancel</Button>
         </div>

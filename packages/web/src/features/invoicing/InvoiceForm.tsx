@@ -20,6 +20,8 @@ import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
+import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { SearchableDropdown } from '../../components/forms/SearchableDropdown';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Plus, Trash2 } from 'lucide-react';
@@ -225,6 +227,11 @@ export function InvoiceForm() {
     setAndNew(false);
   };
 
+  const { formRef, handleKeyDown, saveChord, saveAndNewChord } = useFormShortcuts({
+    onSave: () => { setAndNew(false); formRef.current?.requestSubmit(); },
+    onSaveAndNew: isEdit ? undefined : () => { setAndNew(true); formRef.current?.requestSubmit(); },
+  });
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const payload = buildPayload();
@@ -260,7 +267,7 @@ export function InvoiceForm() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Invoice' : 'New Invoice'}</h1>
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 sm:p-6 space-y-4">
           <ContactSelector label="Customer" value={contactId} onChange={setContactId} contactTypeFilter="customer" required />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -461,12 +468,16 @@ export function InvoiceForm() {
         {error && <p className="text-sm text-red-600">{error.message}</p>}
 
         <div className="flex flex-wrap gap-3">
-          <Button type="submit" loading={isPending && !andNew}>{isEdit ? 'Save Changes' : 'Create Invoice'}</Button>
+          <ShortcutTooltip chord={saveChord}>
+            <Button type="submit" loading={isPending && !andNew}>{isEdit ? 'Save Changes' : 'Create Invoice'}</Button>
+          </ShortcutTooltip>
           {!isEdit && (
-            <Button type="button" variant="secondary" loading={isPending && andNew}
-              onClick={() => { setAndNew(true); document.querySelector<HTMLFormElement>('form')?.requestSubmit(); }}>
-              Create + New
-            </Button>
+            <ShortcutTooltip chord={saveAndNewChord}>
+              <Button type="button" variant="secondary" loading={isPending && andNew}
+                onClick={() => { setAndNew(true); formRef.current?.requestSubmit(); }}>
+                Create + New
+              </Button>
+            </ShortcutTooltip>
           )}
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/invoices/${editId}` : '/invoices')}>Cancel</Button>
         </div>

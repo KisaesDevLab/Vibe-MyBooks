@@ -4,7 +4,7 @@
 
 
 import { todayLocalISO } from '../../utils/date';
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWriteCheck, useCheckSettings } from '../../api/hooks/useChecks';
 import { Button } from '../../components/ui/Button';
@@ -15,6 +15,7 @@ import { ContactSelector, type ContactSelection } from '../../components/forms/C
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { TagSelector } from '../../components/forms/TagSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { numberToWords } from '@kis-books/shared';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -78,6 +79,20 @@ export function WriteCheckPage() {
     }
   };
 
+  // WriteCheck is a two-action form (Save vs Save & Queue for Print)
+  // rather than a save-and-new pattern — keyboard chords map to the
+  // two distinct destinations. Ctrl/Cmd+Enter saves; Ctrl/Cmd+Shift+
+  // Enter saves and queues for print.
+  const formRef = useRef<HTMLFormElement>(null);
+  const handleKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod || e.key !== 'Enter') return;
+    e.preventDefault();
+    // Fake a synthetic form event; handleSubmit only needs .preventDefault.
+    const synthetic = { preventDefault: () => {} } as FormEvent;
+    handleSubmit(synthetic, e.shiftKey);
+  };
+
   const handleSubmit = (e: FormEvent, queueForPrint: boolean) => {
     e.preventDefault();
     writeCheck.mutate(
@@ -108,7 +123,9 @@ export function WriteCheckPage() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Write Check</h1>
       <form
+        ref={formRef}
         onSubmit={(e) => handleSubmit(e, printLater)}
+        onKeyDown={handleKeyDown}
         className="max-w-4xl space-y-6"
       >
         {/* Bank Account & Date */}
@@ -314,21 +331,25 @@ export function WriteCheckPage() {
 
         {/* Actions */}
         <div className="flex gap-3">
-          <Button
-            type="submit"
-            loading={writeCheck.isPending}
-            onClick={(e) => handleSubmit(e, false)}
-          >
-            Save
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            loading={writeCheck.isPending}
-            onClick={(e) => handleSubmit(e, true)}
-          >
-            Save &amp; Queue for Print
-          </Button>
+          <ShortcutTooltip chord="Ctrl/Cmd+Enter">
+            <Button
+              type="submit"
+              loading={writeCheck.isPending}
+              onClick={(e) => handleSubmit(e, false)}
+            >
+              Save
+            </Button>
+          </ShortcutTooltip>
+          <ShortcutTooltip chord="Ctrl/Cmd+Shift+Enter">
+            <Button
+              type="button"
+              variant="secondary"
+              loading={writeCheck.isPending}
+              onClick={(e) => handleSubmit(e, true)}
+            >
+              Save &amp; Queue for Print
+            </Button>
+          </ShortcutTooltip>
           <Button
             type="button"
             variant="ghost"
