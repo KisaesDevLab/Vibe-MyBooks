@@ -22,6 +22,10 @@ const PROVIDERS = [
   { key: 'ollama', label: 'Ollama (Self-Hosted)', models: [] },
   { key: 'glm_ocr_cloud', label: 'GLM-OCR (Cloud)', models: ['glm-ocr'] },
   { key: 'glm_ocr_local', label: 'GLM-OCR (Local/Ollama)', models: ['glm-ocr'] },
+  // Generic OpenAI-compatible endpoint (Ollama /v1, llama.cpp server, LM
+  // Studio, vLLM, or any cloud proxy that speaks the OpenAI chat API).
+  // Model name is free-form and configured in the credentials section.
+  { key: 'openai_compat', label: 'OpenAI-compatible (custom)', models: [] },
 ];
 
 export function AiConfigPage() {
@@ -43,6 +47,9 @@ export function AiConfigPage() {
     ollamaBaseUrl: string;
     glmOcrApiKey: string;
     glmOcrBaseUrl: string;
+    openaiCompatBaseUrl: string;
+    openaiCompatModel: string;
+    openaiCompatApiKey: string;
     autoCategorizeOnImport: boolean;
     autoOcrOnUpload: boolean;
     categorizationConfidenceThreshold: number;
@@ -64,6 +71,9 @@ export function AiConfigPage() {
     ollamaBaseUrl: '',
     glmOcrApiKey: '',
     glmOcrBaseUrl: 'http://vibe-glm-ocr:8090',
+    openaiCompatBaseUrl: '',
+    openaiCompatModel: '',
+    openaiCompatApiKey: '',
     autoCategorizeOnImport: true,
     autoOcrOnUpload: true,
     categorizationConfidenceThreshold: 0.7,
@@ -92,6 +102,8 @@ export function AiConfigPage() {
         ocrModel: data.ocrModel || '',
         ollamaBaseUrl: data.ollamaBaseUrl || '',
         glmOcrBaseUrl: data.glmOcrBaseUrl || 'http://vibe-glm-ocr:8090',
+        openaiCompatBaseUrl: data.openaiCompatBaseUrl || '',
+        openaiCompatModel: data.openaiCompatModel || '',
         autoCategorizeOnImport: data.autoCategorizeOnImport,
         autoOcrOnUpload: data.autoOcrOnUpload,
         categorizationConfidenceThreshold: data.categorizationConfidenceThreshold,
@@ -342,6 +354,40 @@ export function AiConfigPage() {
               <p className={`text-xs ${testResults['glm_ocr_local']!.ok ? 'text-green-600' : 'text-red-600'}`}>
                 {testResults['glm_ocr_local']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
                 {testResults['glm_ocr_local']!.msg}
+              </p>
+            )}
+          </div>
+          {/* Generic OpenAI-compatible endpoint. Point this at Ollama's
+              /v1, a llama.cpp server, LM Studio, vLLM, or any hosted
+              proxy that speaks the OpenAI chat API. A local URL keeps
+              the PII sanitizer in self-hosted mode; a public URL still
+              engages sanitization. */}
+          <div className="space-y-2 border-t border-gray-100 pt-4">
+            <p className="text-xs text-gray-500">
+              OpenAI-compatible endpoint — generic <code>/v1/chat/completions</code> target.
+              Use a local URL (loopback, private IP, <code>.local</code>, Compose short name) to keep data on-server.
+            </p>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Input label="OpenAI-compat Base URL" value={form.openaiCompatBaseUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, openaiCompatBaseUrl: e.target.value }))}
+                  placeholder="http://localhost:11434 or https://api.example.com" />
+              </div>
+              <div className="pt-5">
+                <Button variant="secondary" size="sm" onClick={() => handleTest('openai_compat')}
+                  disabled={!form.openaiCompatBaseUrl && !data?.openaiCompatBaseUrl}>Test</Button>
+              </div>
+            </div>
+            <Input label="OpenAI-compat Model" value={form.openaiCompatModel}
+              onChange={(e) => setForm((f) => ({ ...f, openaiCompatModel: e.target.value }))}
+              placeholder="e.g. llama3.2, mistral, gpt-oss" />
+            <Input label="OpenAI-compat API Key (optional)" type="password" value={form.openaiCompatApiKey}
+              onChange={(e) => setForm((f) => ({ ...f, openaiCompatApiKey: e.target.value }))}
+              placeholder={data?.hasOpenaiCompatKey ? '••••••••••• (configured)' : 'Leave blank if the server is open'} />
+            {testResults['openai_compat'] && (
+              <p className={`text-xs ${testResults['openai_compat']!.ok ? 'text-green-600' : 'text-red-600'}`}>
+                {testResults['openai_compat']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
+                {testResults['openai_compat']!.msg}
               </p>
             )}
           </div>
