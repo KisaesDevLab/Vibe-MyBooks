@@ -181,6 +181,7 @@ const McpConfigPage = lazyNamed(() => import('./features/admin/McpConfigPage'), 
 const CoaTemplatesPage = lazyNamed(() => import('./features/admin/CoaTemplatesPage'), 'CoaTemplatesPage');
 const TailscaleAdminPage = lazyNamed(() => import('./features/admin/TailscaleAdminPage'), 'TailscaleAdminPage');
 const StaffIpAllowlistPage = lazyNamed(() => import('./features/admin/StaffIpAllowlistPage'), 'StaffIpAllowlistPage');
+const TunnelConfigPage = lazyNamed(() => import('./features/admin/TunnelConfigPage'), 'TunnelConfigPage');
 
 // ─── Payroll / help ──────────────────────────────────────────
 const PayrollImportPage = lazyNamed(() => import('./features/payroll/PayrollImportPage'), 'PayrollImportPage');
@@ -378,6 +379,7 @@ export function App() {
             <Route path="/admin/mcp" element={<AdminRoute><McpConfigPage /></AdminRoute>} />
             <Route path="/admin/tailscale" element={<AdminRoute><TailscaleAdminPage /></AdminRoute>} />
             <Route path="/admin/ip-allowlist" element={<AdminRoute><StaffIpAllowlistPage /></AdminRoute>} />
+            <Route path="/admin/tunnel" element={<AdminRoute><TunnelConfigPage /></AdminRoute>} />
             <Route path="/payroll/import" element={<PayrollImportPage />} />
             <Route path="/payroll/imports" element={<PayrollHistoryPage />} />
             <Route path="/settings/payroll-accounts" element={<PayrollAccountMappingPage />} />

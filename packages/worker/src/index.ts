@@ -26,6 +26,7 @@
 import { startBackupScheduler } from '../../api/src/services/backup-scheduler.service.js';
 import { startRecurringScheduler } from '../../api/src/services/recurring.service.js';
 import { runChunkedTagBackfill } from '../../api/src/services/tags/backfill-sweep.service.js';
+import { startCloudflaredAlerter, stopCloudflaredAlerter } from '../../api/src/services/cloudflared/alert.service.js';
 import { pool } from '../../api/src/db/index.js';
 
 const startedAt = new Date().toISOString();
@@ -34,7 +35,8 @@ console.log(`[Worker] Vibe MyBooks worker starting at ${startedAt}`);
 try {
   startBackupScheduler();
   startRecurringScheduler();
-  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler');
+  startCloudflaredAlerter();
+  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter');
 
   // One-shot chunked tag backfill sweep. Runs in the background so
   // worker startup isn't gated on it — the advisory lock ensures no
@@ -80,6 +82,7 @@ const shutdown = async (signal: string) => {
   shuttingDown = true;
   console.log(`[Worker] ${signal} received — shutting down`);
   clearInterval(heartbeat);
+  stopCloudflaredAlerter();
   const forceExit = setTimeout(() => {
     console.error('[Worker] shutdown deadline exceeded — forcing exit');
     process.exit(1);

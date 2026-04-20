@@ -73,6 +73,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/ai', label: 'AI Processing', icon: Shield },
   { to: '/admin/mcp', label: 'MCP / API', icon: Shield },
   { to: '/admin/tailscale', label: 'Tailscale', icon: Network },
+  { to: '/admin/tunnel', label: 'Cloudflare Tunnel', icon: Network },
   { to: '/admin/ip-allowlist', label: 'Staff IP Allowlist', icon: ShieldAlert },
   { to: '/admin/system', label: 'System Settings', icon: Wrench },
 ];
