@@ -172,6 +172,48 @@ services:
     mem_limit: ${TS_MEM_LIMIT:-128m}
     logging: *default-logging
 
+  # Cloudflare Tunnel sidecar — see Build Plans/CLOUDFLARE_TUNNEL_PLAN.md.
+  # Customer-owned Cloudflare account model: the firm creates the tunnel in
+  # their own CF dashboard (setup guide Part D), pastes the token into .env,
+  # and this sidecar establishes the outbound tunnel — no inbound port
+  # forwarding on the appliance's router.
+  #
+  # Gated behind the `tunnel` compose profile so LAN-only installs do not
+  # need a Cloudflare account. To enable: `docker compose --profile tunnel up -d`.
+  # The sidecar is on the default Compose network alongside `api` + `web`
+  # so CF ingress rules can address them by Compose service name
+  # (`api:3001`, `web:5173`). No published host ports — traffic enters via
+  # Cloudflare's edge, never this container's port.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    # --no-autoupdate: the image tag controls the version on purpose;
+    # silent in-place upgrades inside a long-running sidecar have broken
+    # token formats across Cloudflare releases before.
+    #
+    # --metrics 0.0.0.0:2000 exposes the Prometheus endpoint to the
+    # Compose network (never to the host) so the api container can
+    # scrape tunnel status. See CLOUDFLARE_TUNNEL_PLAN Phase 8.
+    #
+    # NB: we can't use `${VAR:?msg}` here because Compose evaluates
+    # interpolation at parse time, even for services gated behind a
+    # profile — so LAN-only installs without a CF token would see the
+    # error on every `docker compose up`. Using `${VAR:-}` lets the
+    # value be empty at parse time; cloudflared itself fails loudly
+    # (and keeps restarting) if given no token, which is the correct
+    # signal when the operator opts into --profile tunnel without
+    # completing the setup guide.
+    command: ["tunnel", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:-}"]
+    depends_on:
+      api:
+        condition: service_healthy
+    # 128MB is comfortable — cloudflared sits under 40MB in steady state;
+    # the ceiling exists so a runaway retry loop cannot starve neighbours.
+    mem_limit: ${CLOUDFLARED_MEM_LIMIT:-128m}
+    mem_reservation: 32m
+    logging: *default-logging
+
 volumes:
   pgdata:
   redis-data:

@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useRegister } from '../../api/hooks/useAuth';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
+import { TurnstileWidget } from '../../components/auth/TurnstileWidget';
 
 export function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -16,6 +17,7 @@ export function RegisterPage() {
   const [displayName, setDisplayName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [businessType, setBusinessType] = useState('general_business');
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const businessTypeOptions = useCoaTemplateOptions();
   const register = useRegister();
   const navigate = useNavigate();
@@ -23,7 +25,7 @@ export function RegisterPage() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     register.mutate(
-      { email, password, displayName, companyName, businessType },
+      { email, password, displayName, companyName, businessType, turnstileToken: turnstileToken ?? '' },
       { onSuccess: () => setTimeout(() => navigate('/setup'), 50) },
     );
   };
@@ -71,10 +73,11 @@ export function RegisterPage() {
           autoComplete="new-password"
           placeholder="At least 8 characters"
         />
+        <TurnstileWidget action="register" onToken={setTurnstileToken} />
         {register.error && (
           <p className="text-sm text-red-600">{register.error.message}</p>
         )}
-        <Button type="submit" className="w-full" loading={register.isPending}>
+        <Button type="submit" className="w-full" loading={register.isPending} disabled={turnstileToken === null}>
           Create account
         </Button>
         <p className="text-center text-sm text-gray-500">
