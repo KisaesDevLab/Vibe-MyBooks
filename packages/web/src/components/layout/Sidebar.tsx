@@ -348,7 +348,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const handleLogout = () => {
     logout.mutate(undefined, {
       onSuccess: () => {
-        window.location.href = '/login';
+        window.location.href = `${import.meta.env.BASE_URL}login`;
       },
     });
   };

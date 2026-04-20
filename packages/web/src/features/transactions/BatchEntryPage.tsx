@@ -576,7 +576,7 @@ export function BatchEntryPage() {
               <Button variant="secondary" onClick={() => { setShowResult(null); setRows(Array.from({ length: 10 }, (_, i) => emptyRow(i + 1))); }}>
                 Enter Another Batch
               </Button>
-              <Button onClick={() => { setShowResult(null); window.location.href = '/transactions'; }}>
+              <Button onClick={() => { setShowResult(null); window.location.href = `${import.meta.env.BASE_URL}transactions`; }}>
                 View Transactions
               </Button>
             </div>

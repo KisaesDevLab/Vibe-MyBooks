@@ -78,7 +78,7 @@ export function TenantListPage() {
       });
       setTokens(result.tokens);
       queryClient.clear();
-      window.location.href = '/';
+      window.location.href = import.meta.env.BASE_URL;
     } catch {
       setSwitchError('Failed to switch tenant. You may not have access.');
     }
