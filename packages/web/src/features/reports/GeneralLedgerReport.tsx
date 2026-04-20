@@ -10,6 +10,7 @@ import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
+import { ReportTagFilter } from './ReportTagFilter';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 // ─── Types matching the buildGeneralLedger response shape ────────
@@ -87,12 +88,13 @@ export function GeneralLedgerReport() {
   const [startDate, setStartDate] = useState(`${today.getFullYear()}-01-01`);
   const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
   const [scope, setScope] = useState<'company' | 'consolidated'>('company');
+  const [tagId, setTagId] = useState('');
   const { activeCompanyId } = useCompanyContext();
 
-  const queryParams = `start_date=${startDate}&end_date=${endDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}`;
+  const queryParams = `start_date=${startDate}&end_date=${endDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
 
   const { data, isLoading, error } = useQuery<GLReportData>({
-    queryKey: ['reports', 'general-ledger', startDate, endDate, activeCompanyId, scope],
+    queryKey: ['reports', 'general-ledger', startDate, endDate, activeCompanyId, scope, tagId],
     queryFn: () => apiClient<GLReportData>(`/reports/general-ledger?${queryParams}`),
   });
 
@@ -112,6 +114,7 @@ export function GeneralLedgerReport() {
             }}
           />
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
+          <ReportTagFilter value={tagId} onChange={setTagId} />
         </div>
       }
     >

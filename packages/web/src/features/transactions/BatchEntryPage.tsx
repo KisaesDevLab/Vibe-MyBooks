@@ -2,14 +2,15 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useCallback, type ChangeEvent, type ClipboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent } from 'react';
 import { useValidateBatch, useSaveBatch, useParseCsv } from '../../api/hooks/useBatch';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2/LineTagPicker';
 import { Button } from '../../components/ui/Button';
 import { useAccounts } from '../../api/hooks/useAccounts';
 import { useContacts } from '../../api/hooks/useContacts';
-import { Check, X as XIcon, AlertTriangle, Upload, Trash2, CheckCircle } from 'lucide-react';
+import { Check, X as XIcon, AlertTriangle, Upload, Trash2, CheckCircle, Columns } from 'lucide-react';
 
 // The string-valued fields are the ones the grid cells edit directly via
 // CSV paste / keyed updates. `status` / `errors` hold the server-supplied
@@ -27,7 +28,11 @@ type GridStringField =
   | 'credit'
   | 'description'
   | 'dueDate'
-  | 'invoiceNo';
+  | 'invoiceNo'
+  // Build-plan Phase 8 — per-user-toggleable tag column. Stored as a
+  // string so the grid keeps its uniform string-cell contract; an
+  // empty string means "no tag", a UUID means "tag selected".
+  | 'tagId';
 
 type GridRow = {
   rowNumber: number;
@@ -123,7 +128,35 @@ const columnsByType: Record<string, Array<{ key: GridStringField; label: string;
 };
 
 function emptyRow(n: number): GridRow {
-  return { rowNumber: n, date: '', refNo: '', contactName: '', contactId: '', accountName: '', accountId: '', memo: '', amount: '', debit: '', credit: '', description: '', dueDate: '', invoiceNo: '' };
+  return { rowNumber: n, date: '', refNo: '', contactName: '', contactId: '', accountName: '', accountId: '', memo: '', amount: '', debit: '', credit: '', description: '', dueDate: '', invoiceNo: '', tagId: '' };
+}
+
+// Build-plan Phase 8 — per-user column-visibility prefs. Persisted to
+// localStorage so every subsequent session honors the same choice.
+// Two independent toggles: Memo (which is in the base column layout
+// for most txn types) and Tag (appended as an extra column regardless
+// of txn type).
+interface BatchColumnPrefs {
+  showMemo: boolean;
+  showTag: boolean;
+}
+
+const BATCH_COLUMN_PREFS_KEY = 'vb_batchEntryColumns_v1';
+
+function loadBatchColumnPrefs(): BatchColumnPrefs {
+  const defaults: BatchColumnPrefs = { showMemo: true, showTag: false };
+  try {
+    const raw = window.localStorage.getItem(BATCH_COLUMN_PREFS_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<BatchColumnPrefs>;
+    return { ...defaults, ...parsed };
+  } catch {
+    return defaults;
+  }
+}
+
+function saveBatchColumnPrefs(prefs: BatchColumnPrefs) {
+  try { window.localStorage.setItem(BATCH_COLUMN_PREFS_KEY, JSON.stringify(prefs)); } catch { /* quota / privacy mode */ }
 }
 
 export function BatchEntryPage() {
@@ -143,7 +176,30 @@ export function BatchEntryPage() {
   const accountNameMap = new Map((accountsData?.data || []).map((a) => [a.id, a.name]));
   const contactNameMap = new Map((contactsData?.data || []).map((c) => [c.id, c.displayName]));
 
-  const columns = columnsByType[txnType] || columnsByType['expense']!;
+  // Per-user column-visibility state — loaded once from localStorage
+  // and flushed on every change. The derived `columns` list filters
+  // the base layout by `showMemo` and appends a Tag column when
+  // `showTag` is on.
+  const [columnPrefs, setColumnPrefs] = useState<BatchColumnPrefs>(() => loadBatchColumnPrefs());
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+  const columnMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => { saveBatchColumnPrefs(columnPrefs); }, [columnPrefs]);
+  useEffect(() => {
+    if (!columnMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (columnMenuRef.current && !columnMenuRef.current.contains(e.target as Node)) setColumnMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [columnMenuOpen]);
+
+  const baseColumns = columnsByType[txnType] || columnsByType['expense']!;
+  const columns = useMemo(() => {
+    let cols = baseColumns;
+    if (!columnPrefs.showMemo) cols = cols.filter((c) => c.key !== 'memo');
+    if (columnPrefs.showTag)   cols = [...cols, { key: 'tagId' as GridStringField, label: 'Tag', width: 'w-40' }];
+    return cols;
+  }, [baseColumns, columnPrefs]);
   const needsAccount = txnTypes.find((t) => t.value === txnType)?.needsAccount || false;
 
   const updateCell = (rowIdx: number, key: keyof GridRow, value: string) => {
@@ -215,6 +271,9 @@ export function BatchEntryPage() {
         description: r.description,
         dueDate: r.dueDate,
         invoiceNo: r.invoiceNo,
+        // Empty string means "no tag" — don't shadow the service-layer
+        // default resolver; only forward a real UUID.
+        tagId: r.tagId || null,
       }));
 
   const handleValidate = () => {
@@ -312,6 +371,33 @@ export function BatchEntryPage() {
             </span>
           </label>
 
+          <div className="relative" ref={columnMenuRef}>
+            <Button variant="secondary" size="sm" onClick={() => setColumnMenuOpen((v) => !v)}>
+              <Columns className="h-3 w-3 mr-1" /> Columns
+            </Button>
+            {columnMenuOpen && (
+              <div className="absolute right-0 mt-2 z-20 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 text-sm">
+                <div className="px-3 pb-1 text-xs uppercase text-gray-500 font-medium">Show columns</div>
+                <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={columnPrefs.showMemo}
+                    onChange={(e) => setColumnPrefs((p) => ({ ...p, showMemo: e.target.checked }))}
+                  />
+                  <span>Memo</span>
+                </label>
+                <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={columnPrefs.showTag}
+                    onChange={(e) => setColumnPrefs((p) => ({ ...p, showTag: e.target.checked }))}
+                  />
+                  <span>Tag</span>
+                </label>
+              </div>
+            )}
+          </div>
+
           <Button variant="secondary" size="sm" onClick={handleValidate} loading={validateBatch.isPending}>
             Validate
           </Button>
@@ -361,6 +447,20 @@ export function BatchEntryPage() {
                     const hasError = errorFields.has(col.key) || errorFields.has(col.key.replace(/([A-Z])/g, '_$1').toLowerCase());
                     const cellError = rowErrors.find((e) => e.field === col.key || e.field === col.key.replace(/([A-Z])/g, '_$1').toLowerCase());
                     const cellBorder = hasError ? 'border-red-400 bg-red-50' : 'border-gray-200';
+
+                    // Tag picker cell — single-select, empty string
+                    // in row state means "no tag".
+                    if (col.key === 'tagId') {
+                      return (
+                        <td key={col.key} className="px-px" title={cellError?.message}>
+                          <LineTagPicker
+                            value={row.tagId || null}
+                            onChange={(id) => updateCell(rowIdx, 'tagId', id ?? '')}
+                            compact
+                          />
+                        </td>
+                      );
+                    }
 
                     // Contact dropdown cell
                     if (col.key === 'contactName') {

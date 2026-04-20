@@ -25,6 +25,7 @@
 
 import { startBackupScheduler } from '../../api/src/services/backup-scheduler.service.js';
 import { startRecurringScheduler } from '../../api/src/services/recurring.service.js';
+import { runChunkedTagBackfill } from '../../api/src/services/tags/backfill-sweep.service.js';
 import { pool } from '../../api/src/db/index.js';
 
 const startedAt = new Date().toISOString();
@@ -34,6 +35,23 @@ try {
   startBackupScheduler();
   startRecurringScheduler();
   console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler');
+
+  // One-shot chunked tag backfill sweep. Runs in the background so
+  // worker startup isn't gated on it — the advisory lock ensures no
+  // two processes do the work, and the sweep is a no-op when no
+  // untagged-but-transaction-tagged journal lines remain (which is
+  // the steady state once it has run once on a tenant).
+  void runChunkedTagBackfill()
+    .then((r) => {
+      if (r.skipped) {
+        console.log('[Worker] tag-backfill sweep skipped (lock held elsewhere)');
+      } else if (r.chunks === 0) {
+        console.log('[Worker] tag-backfill sweep found nothing to backfill');
+      } else {
+        console.log(`[Worker] tag-backfill sweep done: chunks=${r.chunks} rows=${r.rowsUpdated}`);
+      }
+    })
+    .catch((err) => console.error('[Worker] tag-backfill sweep failed:', err));
 } catch (err) {
   // A bootstrap-time error here would leave the container restarting
   // every few seconds under `restart: unless-stopped`. Log loudly and

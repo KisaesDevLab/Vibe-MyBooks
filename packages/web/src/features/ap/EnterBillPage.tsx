@@ -18,6 +18,7 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -620,7 +621,30 @@ export function EnterBillPage() {
               <tr>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">Account</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">Tag</th>
+                {ENTRY_FORMS_V2 && (
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">
+                    <div className="flex items-center gap-2">
+                      <span>Tag</span>
+                      {lines[0]?.tagId && lines.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const firstTag = lines[0]?.tagId ?? null;
+                            setLines((prev) =>
+                              prev.map((l, idx) =>
+                                idx === 0 || l.userHasTouchedTag ? l : { ...l, tagId: firstTag },
+                              ),
+                            );
+                          }}
+                          className="text-[10px] normal-case font-normal text-primary-600 hover:text-primary-700 underline"
+                          title="Copy this row's tag to every untouched row below"
+                        >
+                          Apply to all
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                )}
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Amount</th>
                 <th className="w-8 pb-2" />
               </tr>
@@ -643,9 +667,11 @@ export function EnterBillPage() {
                       placeholder="Description"
                     />
                   </td>
-                  <td className="px-2 py-1">
-                    <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
-                  </td>
+                  {ENTRY_FORMS_V2 && (
+                    <td className="px-2 py-1">
+                      <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                    </td>
+                  )}
                   <td className="px-2 py-1">
                     <MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} />
                   </td>

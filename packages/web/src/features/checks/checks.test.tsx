@@ -39,4 +39,10 @@ describe('checks pages', () => {
     const statuses = screen.queryAllByRole('status');
     expect(headings.length + statuses.length).toBeGreaterThan(0);
   });
+
+  // ADR 0XX §4 — header-level Tag selector was removed from WriteCheckPage.
+  it('WriteCheckPage does not render a header-level Tags selector', () => {
+    renderRoute(<WriteCheckPage />);
+    expect(screen.queryByText(/^Tags$/)).toBeNull();
+  });
 });

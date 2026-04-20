@@ -13,8 +13,8 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
-import { TagSelector } from '../../components/forms/TagSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { numberToWords } from '@kis-books/shared';
 import { Plus, Trash2 } from 'lucide-react';
@@ -51,7 +51,6 @@ export function WriteCheckPage() {
   const [printedMemo, setPrintedMemo] = useState('');
   const [memo, setMemo] = useState('');
   const [printLater, setPrintLater] = useState(false);
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [lines, setLines] = useState<ExpenseLine[]>([emptyLine()]);
 
   const amountWords = numberToWords(amount);
@@ -113,7 +112,6 @@ export function WriteCheckPage() {
             amount: l.amount,
             tagId: l.tagId,
           })),
-        tagIds: tagIds.length > 0 ? tagIds : undefined,
       },
       { onSuccess: () => navigate('/transactions') },
     );
@@ -212,9 +210,11 @@ export function WriteCheckPage() {
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">
                   Description
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">
-                  Tag
-                </th>
+                {ENTRY_FORMS_V2 && (
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">
+                    Tag
+                  </th>
+                )}
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-28">
                   Amount
                 </th>
@@ -241,9 +241,11 @@ export function WriteCheckPage() {
                       placeholder="Description"
                     />
                   </td>
-                  <td className="px-2 py-1">
-                    <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
-                  </td>
+                  {ENTRY_FORMS_V2 && (
+                    <td className="px-2 py-1">
+                      <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                    </td>
+                  )}
                   <td className="px-2 py-1">
                     <MoneyInput
                       value={line.amount}
@@ -297,11 +299,6 @@ export function WriteCheckPage() {
                 )}
             </div>
           </div>
-        </div>
-
-        {/* Tags */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-          <TagSelector label="Tags" value={tagIds} onChange={setTagIds} />
         </div>
 
         {/* Print Later Toggle */}

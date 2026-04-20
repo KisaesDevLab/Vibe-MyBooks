@@ -18,8 +18,8 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
-import { TagSelector } from '../../components/forms/TagSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { SearchableDropdown } from '../../components/forms/SearchableDropdown';
@@ -70,7 +70,6 @@ export function InvoiceForm() {
   const [paymentTerms, setPaymentTerms] = useState('net_30');
   const [memo, setMemo] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [defaultMode, setDefaultMode] = useState<EntryMode>('category');
 
   // Fetch company default tax rate
@@ -221,7 +220,6 @@ export function InvoiceForm() {
     setContactId('');
     setMemo('');
     setInternalNotes('');
-    setTagIds([]);
     setLines([emptyLine(defaultMode, defaultTaxRatePercent)]);
     setDueDateManual(false);
     setAndNew(false);
@@ -242,13 +240,7 @@ export function InvoiceForm() {
       });
     } else {
       createInvoice.mutate(payload, {
-        onSuccess: async (data) => {
-          if (tagIds.length > 0) {
-            await apiClient(`/tags/transactions/${data.invoice.id}/add`, {
-              method: 'POST',
-              body: JSON.stringify({ tagIds }),
-            }).catch(() => {});
-          }
+        onSuccess: (data) => {
           if (andNew) {
             resetForNew();
           } else {
@@ -323,7 +315,9 @@ export function InvoiceForm() {
                   <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-36">Rate</th>
                   <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-12">Tax</th>
                   <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Tax %</th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">Tag</th>
+                  {ENTRY_FORMS_V2 && (
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">Tag</th>
+                  )}
                   <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-24">Amount</th>
                   <th className="w-8 pb-2" />
                 </tr>
@@ -366,9 +360,11 @@ export function InvoiceForm() {
                             className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right" />
                         )}
                       </td>
-                      <td className="px-1 py-1">
-                        <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
-                      </td>
+                      {ENTRY_FORMS_V2 && (
+                        <td className="px-1 py-1">
+                          <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                        </td>
+                      )}
                       <td className="px-2 py-1 text-right font-mono text-sm pt-2.5">${lineAmount.toFixed(2)}</td>
                       <td className="pl-1 py-1 pt-2.5">
                         {lines.length > 1 && (
@@ -462,7 +458,6 @@ export function InvoiceForm() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 sm:p-6 space-y-4">
           <Input label="Memo to Customer" value={memo} onChange={(e) => setMemo(e.target.value)} />
           <Input label="Internal Notes" value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} />
-          {!isEdit && <TagSelector label="Tags" value={tagIds} onChange={setTagIds} />}
         </div>
 
         {error && <p className="text-sm text-red-600">{error.message}</p>}

@@ -15,7 +15,6 @@ interface DepositPayload extends Record<string, unknown> {
   depositToAccountId: string;
   memo: string;
   lines: Array<{ accountId: string; amount: string; description: string; tagId?: string | null }>;
-  tags: string[];
   draftAttachmentId?: string;
 }
 import { Button } from '../../components/ui/Button';
@@ -23,8 +22,8 @@ import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
-import { TagSelector } from '../../components/forms/TagSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
@@ -56,7 +55,6 @@ export function DepositForm() {
   const [txnDate, setTxnDate] = useState(today);
   const [depositToAccountId, setDepositToAccountId] = useState('');
   const [memo, setMemo] = useState('');
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [lines, setLines] = useState<DepositLine[]>([emptyLine()]);
   const [draftId] = useState(() => crypto.randomUUID());
   const [loaded, setLoaded] = useState(false);
@@ -115,7 +113,6 @@ export function DepositForm() {
         description: l.description,
         tagId: l.tagId,
       })),
-      tags: tagIds,
     };
 
     if (isEdit) {
@@ -136,7 +133,6 @@ export function DepositForm() {
           <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
           <AccountSelector label="Deposit To" value={depositToAccountId} onChange={setDepositToAccountId} accountTypeFilter="asset" required />
           <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
-          {!isEdit && <TagSelector label="Tags" value={tagIds} onChange={setTagIds} />}
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
@@ -149,9 +145,11 @@ export function DepositForm() {
                 <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
               </div>
-              <div className="w-36">
-                <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
-              </div>
+              {ENTRY_FORMS_V2 && (
+                <div className="w-36">
+                  <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                </div>
+              )}
               {lines.length > 1 && (
                 <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
                   <Trash2 className="h-4 w-4" />

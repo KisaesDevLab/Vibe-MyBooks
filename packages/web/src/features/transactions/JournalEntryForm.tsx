@@ -14,7 +14,6 @@ interface JournalEntryPayload extends Record<string, unknown> {
   txnDate: string;
   memo: string;
   lines: JournalLineInput[];
-  tags: string[];
   draftAttachmentId?: string;
 }
 import { Button } from '../../components/ui/Button';
@@ -22,7 +21,6 @@ import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
-import { TagSelector } from '../../components/forms/TagSelector';
 import { SplitRowV2, LineTagPicker } from '../../components/forms/SplitRowV2';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { useFormShortcuts } from '../../hooks/useFormShortcuts';
@@ -59,7 +57,6 @@ export function JournalEntryForm() {
 
   const [txnDate, setTxnDate] = useState(today);
   const [memo, setMemo] = useState('');
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()]);
   const [draftId] = useState(() => crypto.randomUUID());
   const [loaded, setLoaded] = useState(false);
@@ -127,7 +124,6 @@ export function JournalEntryForm() {
         description: l.description,
         tagId: l.tagId,
       })),
-      tags: tagIds,
     };
 
     if (isEdit) {
@@ -149,7 +145,6 @@ export function JournalEntryForm() {
             <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
             <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
           </div>
-          {!isEdit && <TagSelector label="Tags" value={tagIds} onChange={setTagIds} />}
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">

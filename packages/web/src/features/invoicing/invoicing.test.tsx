@@ -47,4 +47,10 @@ describe('invoicing pages', () => {
       expect(headings.length + statuses.length > 0 || hasText).toBe(true);
     });
   }
+
+  // ADR 0XX §4 — header-level Tag selector removed from InvoiceForm.
+  it('InvoiceForm does not render a header-level Tags selector', () => {
+    renderRoute(<InvoiceForm />, { route: '/invoices/new', path: '/invoices/new' });
+    expect(screen.queryByText(/^Tags$/)).toBeNull();
+  });
 });

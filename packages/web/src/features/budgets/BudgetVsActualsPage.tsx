@@ -202,12 +202,31 @@ export function BudgetVsActualsPage() {
       )}
 
       {isLoading && <LoadingSpinner className="py-12" />}
-      {isError && (
-        <div>
-          <ErrorMessage onRetry={() => refetch()} />
-          {error instanceof Error && <p className="text-sm text-red-600 mt-2">{error.message}</p>}
-        </div>
-      )}
+      {isError && (() => {
+        // TAG_BUDGETS_V1 off on the server → the tag-scoped endpoint
+        // returns a 400 with "TAG_BUDGETS_V1 feature flag is not enabled".
+        // Don't surface it as a red error; direct the user to the legacy
+        // /vs-actual report instead so they still get something useful.
+        const msg = error instanceof Error ? error.message : '';
+        const flagOff = msg.includes('TAG_BUDGETS_V1');
+        if (flagOff) {
+          return (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-sm text-amber-900 space-y-2">
+              <p className="font-medium">Tag-scoped Budget vs. Actuals is disabled on this deployment.</p>
+              <p className="text-amber-800">
+                Ask your admin to set <code className="bg-amber-100 px-1 rounded">TAG_BUDGETS_V1=true</code> in the API environment to turn on this view.
+                Until then, the legacy <a className="underline" href={`/api/v1/budgets/${activeBudgetId}/vs-actual`} target="_blank" rel="noreferrer">Budget vs. Actual</a> endpoint still works company-wide.
+              </p>
+            </div>
+          );
+        }
+        return (
+          <div>
+            <ErrorMessage onRetry={() => refetch()} />
+            {error instanceof Error && <p className="text-sm text-red-600 mt-2">{error.message}</p>}
+          </div>
+        );
+      })()}
 
       {report && report.rows.length === 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-500">

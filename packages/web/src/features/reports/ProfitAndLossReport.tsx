@@ -72,6 +72,7 @@ import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
+import { ReportTagFilter } from './ReportTagFilter';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 // QuickZoom: build the /transactions URL that filters to a given account
@@ -95,12 +96,13 @@ export function ProfitAndLossReport() {
   const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
   const [compare, setCompare] = useState<CompareMode>('');
   const [scope, setScope] = useState<'company' | 'consolidated'>('company');
+  const [tagId, setTagId] = useState('');
   const { activeCompanyId } = useCompanyContext();
 
-  const queryParams = `start_date=${startDate}&end_date=${endDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}`;
+  const queryParams = `start_date=${startDate}&end_date=${endDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports', 'profit-loss', startDate, endDate, basis, compare, activeCompanyId, scope],
+    queryKey: ['reports', 'profit-loss', startDate, endDate, basis, compare, activeCompanyId, scope, tagId],
     queryFn: () => apiClient<PLData>(`/reports/profit-loss?${queryParams}`),
   });
 
@@ -126,6 +128,7 @@ export function ProfitAndLossReport() {
             <option value="multi_period">Monthly Breakdown</option>
           </select>
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
+          <ReportTagFilter value={tagId} onChange={setTagId} />
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (

@@ -11,6 +11,7 @@ import { apiClient } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { ReportScopeSelector } from './ReportScopeSelector';
+import { ReportTagFilter } from './ReportTagFilter';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 interface BSRow {
@@ -82,12 +83,13 @@ export function BalanceSheetReport() {
   const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
   const [compare, setCompare] = useState<CompareMode>('');
   const [scope, setScope] = useState<'company' | 'consolidated'>('company');
+  const [tagId, setTagId] = useState('');
   const { activeCompanyId } = useCompanyContext();
 
-  const queryParams = `as_of_date=${asOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}`;
+  const queryParams = `as_of_date=${asOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports', 'balance-sheet', asOfDate, basis, compare, activeCompanyId, scope],
+    queryKey: ['reports', 'balance-sheet', asOfDate, basis, compare, activeCompanyId, scope, tagId],
     queryFn: () => apiClient<BSData>(`/reports/balance-sheet?${queryParams}`),
   });
 
@@ -116,6 +118,7 @@ export function BalanceSheetReport() {
             <option value="previous_year">vs. Previous Year</option>
           </select>
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
+          <ReportTagFilter value={tagId} onChange={setTagId} />
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (

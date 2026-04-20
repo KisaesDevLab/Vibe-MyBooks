@@ -16,7 +16,6 @@ interface TransferPayload extends Record<string, unknown> {
   toAccountId: string;
   amount: string;
   memo: string;
-  tags: string[];
   draftAttachmentId?: string;
 }
 import { Button } from '../../components/ui/Button';
@@ -24,7 +23,6 @@ import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
-import { TagSelector } from '../../components/forms/TagSelector';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
@@ -44,7 +42,6 @@ export function TransferForm() {
   const [toAccountId, setToAccountId] = useState('');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [draftId] = useState(() => crypto.randomUUID());
   const [loaded, setLoaded] = useState(false);
 
@@ -72,7 +69,7 @@ export function TransferForm() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const payload: TransferPayload = { txnType: 'transfer', txnDate, fromAccountId, toAccountId, amount, memo, tags: tagIds };
+    const payload: TransferPayload = { txnType: 'transfer', txnDate, fromAccountId, toAccountId, amount, memo };
 
     if (isEdit) {
       updateTxn.mutate({ id: editId!, ...payload }, { onSuccess: () => navigate(`/transactions/${editId}`) });
@@ -94,7 +91,6 @@ export function TransferForm() {
           <AccountSelector label="To Account" value={toAccountId} onChange={setToAccountId} accountTypeFilter={['asset', 'liability']} required />
           <MoneyInput label="Amount" value={amount} onChange={setAmount} required />
           <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
-          {!isEdit && <TagSelector label="Tags" value={tagIds} onChange={setTagIds} />}
         </div>
 
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}

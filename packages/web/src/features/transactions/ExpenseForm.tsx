@@ -14,8 +14,8 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
-import { TagSelector } from '../../components/forms/TagSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
@@ -50,7 +50,6 @@ export function ExpenseForm() {
   const [contactId, setContactId] = useState('');
   const [payFromAccountId, setPayFromAccountId] = useState('');
   const [memo, setMemo] = useState('');
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [lines, setLines] = useState<ExpenseLine[]>([emptyLine()]);
   const [andNew, setAndNew] = useState(false);
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
@@ -145,7 +144,6 @@ export function ExpenseForm() {
       payFromAccountId: string;
       lines: ExpensePayloadLine[];
       memo: string;
-      tags: string[];
       draftAttachmentId?: string;
     }
     const payload: ExpensePayload = {
@@ -161,7 +159,6 @@ export function ExpenseForm() {
         tagId: l.tagId,
       })),
       memo,
-      tags: tagIds,
     };
 
     if (isEdit) {
@@ -175,7 +172,6 @@ export function ExpenseForm() {
           if (andNew) {
             setContactId('');
             setMemo('');
-            setTagIds([]);
             setLines([emptyLine()]);
             setAndNew(false);
             setDraftId(crypto.randomUUID());
@@ -202,17 +198,16 @@ export function ExpenseForm() {
           <AccountSelector label="Pay From Account" value={payFromAccountId} onChange={setPayFromAccountId}
             accountTypeFilter={['asset', 'liability']} required />
           <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
-          {!isEdit && <TagSelector label="Tags" value={tagIds} onChange={setTagIds} />}
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Line Items</h2>
           <table className="min-w-full table-fixed">
             <colgroup>
-              <col style={{ width: '34%' }} />
-              <col style={{ width: '22%' }} />
-              <col style={{ width: '20%' }} />
-              <col style={{ width: '18%' }} />
+              <col style={{ width: ENTRY_FORMS_V2 ? '34%' : '42%' }} />
+              <col style={{ width: ENTRY_FORMS_V2 ? '22%' : '26%' }} />
+              <col style={{ width: ENTRY_FORMS_V2 ? '20%' : '26%' }} />
+              {ENTRY_FORMS_V2 && <col style={{ width: '18%' }} />}
               <col style={{ width: '6%' }} />
             </colgroup>
             <thead>
@@ -220,7 +215,34 @@ export function ExpenseForm() {
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 pr-2">Category</th>
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 px-2">Amount</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 px-2">Description</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 px-2">Tag</th>
+                {ENTRY_FORMS_V2 && (
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 px-2">
+                    <div className="flex items-center gap-2">
+                      <span>Tag</span>
+                      {/* ADR 0XY §4.3 — copy first row's tag to every
+                          untouched row. Skips touched rows so user edits
+                          aren't overwritten. Rendered only when the
+                          first row actually has a tag to apply. */}
+                      {lines[0]?.tagId && lines.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const firstTag = lines[0]?.tagId ?? null;
+                            setLines((prev) =>
+                              prev.map((l, idx) =>
+                                idx === 0 || l.userHasTouchedTag ? l : { ...l, tagId: firstTag },
+                              ),
+                            );
+                          }}
+                          className="text-[10px] normal-case font-normal text-primary-600 hover:text-primary-700 underline"
+                          title="Copy this row's tag to every untouched row below"
+                        >
+                          Apply to all
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                )}
                 <th className="pb-2" />
               </tr>
             </thead>
@@ -237,9 +259,11 @@ export function ExpenseForm() {
                     <input type="text" value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)} placeholder="Description"
                       className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
                   </td>
-                  <td className="px-2 py-1">
-                    <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
-                  </td>
+                  {ENTRY_FORMS_V2 && (
+                    <td className="px-2 py-1">
+                      <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                    </td>
+                  )}
                   <td className="pl-2 py-1">
                     {lines.length > 1 && (
                       <button type="button" onClick={() => removeLine(i)} className="text-gray-400 hover:text-red-500 transition-colors pt-2">

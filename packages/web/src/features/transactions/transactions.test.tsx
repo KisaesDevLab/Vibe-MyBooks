@@ -73,4 +73,26 @@ describe('transactions pages', () => {
       expect(headings.length + statuses.length).toBeGreaterThan(0);
     });
   }
+
+  // ADR 0XX §4 — tags are line-authoritative. The legacy header-level
+  // multi-tag "<TagSelector>" block was removed from every entry form
+  // so a user can no longer write tags into the junction-only path
+  // that silently disappears on the next ledger edit. The per-line
+  // <LineTagPicker> inside SplitRowV2 is the only tag affordance now.
+  // If this test fails, a header tag selector re-appeared — fix the
+  // form, don't loosen the assertion.
+  for (const [name, Component] of [
+    ['JournalEntryForm', JournalEntryForm],
+    ['ExpenseForm', ExpenseForm],
+    ['TransferForm', TransferForm],
+    ['DepositForm', DepositForm],
+    ['CashSaleForm', CashSaleForm],
+  ] as const) {
+    it(`${name} does not render a header-level Tags selector`, () => {
+      renderRoute(<Component />);
+      // The legacy selector always rendered with `label="Tags"`. The new
+      // per-line picker uses `aria-label="Select a tag"` and no label.
+      expect(screen.queryByText(/^Tags$/)).toBeNull();
+    });
+  }
 });

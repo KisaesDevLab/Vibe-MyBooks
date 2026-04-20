@@ -5,6 +5,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 // Mock the data hook BEFORE the component is imported so the component
@@ -14,10 +15,24 @@ vi.mock('../../api/hooks/useInvoices', () => ({
   useInvoices: (...args: unknown[]) => useInvoicesMock(...args),
 }));
 
+// Stub /tags calls made by useTags() inside the filter dropdown. Without
+// this the network call happens even when the Tag filter is hidden, and
+// any fetch failure creates a noisy promise rejection in the test log.
+vi.mock('../../api/hooks/useTags', () => ({
+  useTags: () => ({ data: { tags: [] }, isLoading: false }),
+}));
+
 import { InvoiceListPage } from './InvoiceListPage';
 
 function wrap(ui: ReactNode) {
-  return render(<MemoryRouter>{ui}</MemoryRouter>);
+  // Fresh QueryClient per render so one test's cache can't bleed into
+  // another. retry:false keeps error-state tests deterministic.
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>,
+  );
 }
 
 describe('InvoiceListPage', () => {
