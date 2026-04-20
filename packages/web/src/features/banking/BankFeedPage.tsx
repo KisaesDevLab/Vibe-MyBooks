@@ -4,7 +4,8 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
-import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
+import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useBulkSetTag, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/hooks/useAi';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { AccountSelector } from '../../components/forms/AccountSelector';
@@ -106,6 +107,9 @@ export function BankFeedPage() {
   const bulkCategorize = useBulkCategorize();
   const bulkExclude = useBulkExclude();
   const bulkRecleanse = useBulkRecleanse();
+  const bulkSetTag = useBulkSetTag();
+  const [showBatchSetTag, setShowBatchSetTag] = useState(false);
+  const [batchSetTagId, setBatchSetTagId] = useState<string | null>(null);
   const aiCategorize = useAiCategorize();
   const aiBatch = useAiBatchCategorize();
   const matchFeedItem = useMatchFeedItem();
@@ -301,6 +305,18 @@ export function BankFeedPage() {
                 )}>Apply</Button>
               <Button size="sm" variant="ghost" onClick={() => { setShowBatchCategorize(false); setBatchCatAccountId(''); }}>Cancel</Button>
             </div>
+          ) : showBatchSetTag ? (
+            <div className="flex items-center gap-2">
+              <div className="w-56">
+                <LineTagPicker value={batchSetTagId} onChange={(t) => setBatchSetTagId(t)} />
+              </div>
+              <Button size="sm" loading={bulkSetTag.isPending}
+                onClick={() => bulkSetTag.mutate(
+                  { feedItemIds: [...selected], tagId: batchSetTagId },
+                  { onSuccess: () => { setSelected(new Set()); setShowBatchSetTag(false); setBatchSetTagId(null); } },
+                )}>Apply</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setShowBatchSetTag(false); setBatchSetTagId(null); }}>Cancel</Button>
+            </div>
           ) : (
             <>
               <Button size="sm" variant="secondary" onClick={() => setShowBatchCategorize(true)}>
@@ -316,6 +332,9 @@ export function BankFeedPage() {
               </Button>
               <Button size="sm" variant="secondary" onClick={() => bulkRecleanse.mutate([...selected], { onSuccess: () => setSelected(new Set()) })} loading={bulkRecleanse.isPending}>
                 <RefreshCw className="h-4 w-4 mr-1" /> Re-cleanse
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowBatchSetTag(true)}>
+                Set Tag…
               </Button>
               <Button size="sm" variant="danger"
                 onClick={() => setShowExcludeConfirm(true)}

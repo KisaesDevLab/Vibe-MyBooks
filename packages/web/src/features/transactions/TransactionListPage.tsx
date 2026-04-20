@@ -8,6 +8,7 @@ import type { TxnType, TxnStatus } from '@kis-books/shared';
 import { useTransactions } from '../../api/hooks/useTransactions';
 import { useAccounts } from '../../api/hooks/useAccounts';
 import { useContacts } from '../../api/hooks/useContacts';
+import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -60,6 +61,10 @@ export function TransactionListPage() {
   const contactFilter = searchParams.get('contact') || '';
   const startDate = searchParams.get('from') || '';
   const endDate = searchParams.get('to') || '';
+  // ADR 0XX §5.2 — list filter is header-level: "show transactions
+  // where any line carries this tag." Backend implements this via an
+  // EXISTS subquery on journal_lines.
+  const tagFilter = searchParams.get('tagId') || '';
   const urlSearch = searchParams.get('q') || '';
   // Pagination is URL-synced so the Back button from a detail page drops
   // the operator back on the exact page + filter combo. offset clamped to
@@ -96,6 +101,7 @@ export function TransactionListPage() {
   const setContactFilter = (v: string) => updateParam('contact', v);
   const setStartDate = (v: string) => updateParam('from', v);
   const setEndDate = (v: string) => updateParam('to', v);
+  const setTagFilter = (v: string) => updateParam('tagId', v);
   const setOffset = (v: number) => updateParam('offset', v > 0 ? String(v) : '', { resetOffset: false });
 
   // Push the debounced search text into the URL.
@@ -111,10 +117,14 @@ export function TransactionListPage() {
     contactId: contactFilter || undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
+    tagId: tagFilter || undefined,
     search: debouncedSearch || undefined,
     limit: PAGE_SIZE,
     offset,
   });
+
+  const { data: tagsData } = useTags({ isActive: true });
+  const tagsList = tagsData?.tags || [];
 
   const { data: accountsData } = useAccounts({ limit: 500, isActive: true });
   const accountsList = accountsData?.data || [];
@@ -130,6 +140,20 @@ export function TransactionListPage() {
   if (isError && !data) return <ErrorMessage onRetry={() => refetch()} />;
 
   const txns = data?.data || [];
+  // Show the split-level tag-filter banner once per session when the
+  // user first applies a tag filter, explaining that the scope is
+  // "any line carries this tag" per ADR 0XX §5.2.
+  const [showTagBanner, setShowTagBanner] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !window.localStorage.getItem('vb_tagFilterBannerDismissed');
+  });
+  useEffect(() => {
+    if (!tagFilter) setShowTagBanner(false);
+  }, [tagFilter]);
+  const dismissTagBanner = () => {
+    try { window.localStorage.setItem('vb_tagFilterBannerDismissed', '1'); } catch { /* ignore */ }
+    setShowTagBanner(false);
+  };
 
   const newTxnOptions = [
     { label: 'Journal Entry', path: '/transactions/new/journal-entry' },
@@ -139,7 +163,7 @@ export function TransactionListPage() {
     { label: 'Cash Sale', path: '/transactions/new/cash-sale' },
   ];
 
-  const hasFilters = typeFilter || statusFilter || accountFilter || contactFilter || startDate || endDate || search;
+  const hasFilters = typeFilter || statusFilter || accountFilter || contactFilter || startDate || endDate || tagFilter || search;
 
   const clearFilters = () => {
     setSearch('');
@@ -234,6 +258,16 @@ export function TransactionListPage() {
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Tag</label>
+            <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[200px]">
+              <option value="">All Tags</option>
+              {tagsList.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="flex gap-3 items-end">
           <div>
@@ -255,6 +289,20 @@ export function TransactionListPage() {
         </div>
       </div>
 
+      {showTagBanner && tagFilter && (
+        <div className="mb-4 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-900 flex items-start justify-between">
+          <div>
+            <p className="font-medium mb-0.5">Tag filter is line-level</p>
+            <p className="text-primary-800">
+              A transaction appears in the results when <span className="font-semibold">any</span> of its lines carries the selected tag.
+              Totals remain the full transaction totals; drill into a transaction to see which lines matched.
+            </p>
+          </div>
+          <button onClick={dismissTagBanner} className="text-primary-600 hover:text-primary-900 ml-3">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       {txns.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-500">
           No transactions found.{hasFilters ? ' Try adjusting your filters.' : ' Create your first transaction.'}
@@ -269,6 +317,7 @@ export function TransactionListPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">No.</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payee / Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Memo</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tag</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
               </tr>
@@ -287,6 +336,29 @@ export function TransactionListPage() {
                   <td className="px-4 py-3 text-sm text-gray-500">{txn.txnNumber || '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-900">{txn.contactName || '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 truncate max-w-[200px]">{txn.memo || '—'}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {(() => {
+                      // ADR 0XX §4.1 rendering: single pill when uniform,
+                      // "Mixed" when lines differ, "—" when all untagged.
+                      const tags = (txn as { lineTags?: string[] | null }).lineTags ?? null;
+                      if (!tags || tags.length === 0) return <span className="text-gray-300">—</span>;
+                      if (tags.length === 1) {
+                        return (
+                          <span className="inline-flex items-center rounded-full bg-primary-50 text-primary-700 px-2 py-0.5 text-xs font-medium">
+                            {tags[0]}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span
+                          title={tags.join(', ')}
+                          className="inline-flex items-center rounded-full bg-amber-50 text-amber-800 px-2 py-0.5 text-xs font-medium cursor-help"
+                        >
+                          Mixed ({tags.length})
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">
                     {txn.total ? parseFloat(txn.total).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '—'}
                   </td>

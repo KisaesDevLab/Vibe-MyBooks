@@ -27,6 +27,14 @@ const reportGroups = [
     ],
   },
   {
+    title: 'Sales',
+    icon: DollarSign,
+    reports: [
+      { label: 'Sales by Customer', path: '/reports/sales-by-customer' },
+      { label: 'Sales by Item', path: '/reports/sales-by-item' },
+    ],
+  },
+  {
     title: 'Expenses',
     icon: Receipt,
     reports: [

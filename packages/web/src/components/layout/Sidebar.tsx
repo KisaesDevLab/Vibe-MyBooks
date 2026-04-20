@@ -135,6 +135,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/reports', label: 'Reports', icon: BarChart3 },
       { to: '/budgets', label: 'Budgets', icon: Wallet },
+      { to: '/budgets/vs-actuals', label: 'Budget vs. Actuals', icon: Wallet },
     ],
   },
   {

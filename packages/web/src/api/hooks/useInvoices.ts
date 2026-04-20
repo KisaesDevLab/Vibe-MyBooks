@@ -12,6 +12,8 @@ export function useInvoices(filters?: TransactionFilters) {
   if (filters?.contactId) params.set('contactId', filters.contactId);
   if (filters?.startDate) params.set('startDate', filters.startDate);
   if (filters?.endDate) params.set('endDate', filters.endDate);
+  // ADR 0XX §5.2 — pass the header-level tag filter to the list endpoint.
+  if (filters?.tagId) params.set('tagId', filters.tagId);
   if (filters?.search) params.set('search', filters.search);
   if (filters?.limit) params.set('limit', String(filters.limit));
   if (filters?.offset) params.set('offset', String(filters.offset));

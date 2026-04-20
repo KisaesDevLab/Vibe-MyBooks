@@ -51,6 +51,36 @@ export function useDeleteTag() {
   });
 }
 
+// ADR 0XX §8 — pre-delete usage check. Fetches counts of every place
+// the tag is referenced so the confirm dialog can show an actionable
+// "used by N transactions / M budgets" summary.
+export interface TagUsageSnapshot {
+  tag: Tag;
+  usage: {
+    transactionLines: number;
+    transactions: number;
+    budgets: number;
+    items: number;
+    vendorContacts: number;
+    // ADR 0XY §2.1 — customer-only contact defaults are ignored by the
+    // resolver but still block a tag delete via the FK on contacts.
+    // Surfacing this separately so the UI can explain why the delete
+    // is blocked even when the tag "shouldn't" apply to customers.
+    customerContacts: number;
+    bankRules: number;
+    total: number;
+  };
+}
+
+export function useTagUsage(tagId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['tag-usage', tagId],
+    queryFn: () => apiClient<TagUsageSnapshot>(`/tags/${tagId}/usage`),
+    enabled: Boolean(tagId),
+    staleTime: 30 * 1000,
+  });
+}
+
 export function useMergeTags() {
   const qc = useQueryClient();
   return useMutation({

@@ -3,12 +3,12 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useState } from 'react';
-import { useTags, useTagGroups, useCreateTag, useUpdateTag, useDeleteTag, useMergeTags, useCreateTagGroup, useDeleteTagGroup } from '../../api/hooks/useTags';
+import { useTags, useTagGroups, useCreateTag, useUpdateTag, useDeleteTag, useMergeTags, useCreateTagGroup, useDeleteTagGroup, useTagUsage } from '../../api/hooks/useTags';
 import { TAG_COLOR_PALETTE, type Tag } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Plus, Trash2, Edit, Merge, X } from 'lucide-react';
+import { Plus, Trash2, Edit, Merge, X, AlertTriangle } from 'lucide-react';
 
 export function TagManagerPage() {
   const { data: tagsData, isLoading } = useTags();
@@ -24,6 +24,7 @@ export function TagManagerPage() {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
   const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
 
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState(TAG_COLOR_PALETTE[0]!);
@@ -116,7 +117,7 @@ export function TagManagerPage() {
             </div>
             <div className="divide-y divide-gray-50">
               {group.tags?.map((tag) => (
-                <TagRow key={tag.id} tag={tag} onDelete={() => deleteTag.mutate(tag.id)} onEdit={(input) => updateTag.mutate({ id: tag.id, ...input })} />
+                <TagRow key={tag.id} tag={tag} onDelete={() => setDeletingTagId(tag.id)} onEdit={(input) => updateTag.mutate({ id: tag.id, ...input })} />
               ))}
               {(!group.tags || group.tags.length === 0) && <div className="px-5 py-3 text-sm text-gray-400">No tags in this group</div>}
             </div>
@@ -130,7 +131,7 @@ export function TagManagerPage() {
             </div>
             <div className="divide-y divide-gray-50">
               {ungroupedTags.map((tag) => (
-                <TagRow key={tag.id} tag={tag} onDelete={() => deleteTag.mutate(tag.id)} onEdit={(input) => updateTag.mutate({ id: tag.id, ...input })} />
+                <TagRow key={tag.id} tag={tag} onDelete={() => setDeletingTagId(tag.id)} onEdit={(input) => updateTag.mutate({ id: tag.id, ...input })} />
               ))}
             </div>
           </div>
@@ -142,6 +143,19 @@ export function TagManagerPage() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation with usage pre-check (ADR 0XX §8). */}
+      {deletingTagId && (
+        <DeleteTagDialog
+          tagId={deletingTagId}
+          onClose={() => setDeletingTagId(null)}
+          onOpenMerge={() => {
+            setMergeSource(deletingTagId);
+            setDeletingTagId(null);
+            setShowMerge(true);
+          }}
+        />
+      )}
 
       {/* Merge Modal */}
       {showMerge && (
@@ -173,6 +187,96 @@ export function TagManagerPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ADR 0XX §8 / ADR 0XY §5 — deletion blocked while references exist.
+// Fetches the live usage snapshot; when anything references the tag the
+// Delete button stays disabled and we offer Merge instead. The server
+// still returns a structured TAG_IN_USE 409 as a backstop if the user
+// somehow bypasses the UI (e.g., direct API call).
+function DeleteTagDialog({
+  tagId,
+  onClose,
+  onOpenMerge,
+}: {
+  tagId: string;
+  onClose: () => void;
+  onOpenMerge: () => void;
+}) {
+  const { data, isLoading } = useTagUsage(tagId);
+  const deleteTag = useDeleteTag();
+
+  const usage = data?.usage;
+  const inUse = (usage?.total ?? 0) > 0;
+
+  const rows: Array<[string, number]> = usage
+    ? ([
+        ['Transaction lines', usage.transactionLines],
+        ['Transactions (header)', usage.transactions],
+        ['Budgets', usage.budgets],
+        ['Item defaults', usage.items],
+        ['Vendor defaults', usage.vendorContacts],
+        ['Customer refs', usage.customerContacts],
+        ['Bank rule assignments', usage.bankRules],
+      ] satisfies Array<[string, number]>).filter(([, n]) => n > 0)
+    : [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+        <div className="flex items-start justify-between">
+          <h2 className="text-lg font-semibold">Delete tag</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+        </div>
+
+        {isLoading ? (
+          <LoadingSpinner className="py-6" />
+        ) : inUse ? (
+          <>
+            <div className="flex gap-2 items-start bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-900">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">“{data?.tag.name}” is still in use.</p>
+                <p className="text-amber-800 mt-1">
+                  Reassign or merge into another tag before deleting. History stays intact — deletion is blocked so references can't silently break.
+                </p>
+              </div>
+            </div>
+            <dl className="text-sm border border-gray-200 rounded divide-y">
+              {rows.map(([label, n]) => (
+                <div key={label} className="flex items-center justify-between px-3 py-1.5">
+                  <dt className="text-gray-600">{label}</dt>
+                  <dd className="font-mono text-gray-900">{n.toLocaleString()}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button onClick={onOpenMerge}>
+                <Merge className="h-4 w-4 mr-1" /> Merge into another tag
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-gray-700">
+              Delete “{data?.tag.name}”? This tag has no references, so history stays clean.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button
+                variant="danger"
+                loading={deleteTag.isPending}
+                onClick={() => deleteTag.mutate(tagId, { onSuccess: onClose })}
+              >
+                <Trash2 className="h-4 w-4 mr-1" /> Delete
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

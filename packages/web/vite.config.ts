@@ -39,6 +39,13 @@ export default defineConfig({
   // assets/index-*.js and the "Some chunks are larger than 500 kB"
   // warning fires on every build.
   build: {
+    // The main chunk lands around ~590 KB minified (≈62 KB gzipped)
+    // after the manualChunks + route-lazy splits below. The default
+    // 500 KB Vite warning threshold would fire on every build even
+    // though gzipped first-load cost is small. We hold the line at
+    // 600 KB so legitimate regressions (e.g., a new eager import that
+    // pulls a heavy lib into the main bundle) still trip the warning.
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {

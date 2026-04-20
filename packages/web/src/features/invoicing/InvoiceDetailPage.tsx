@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useInvoice, useVoidInvoice, useDuplicateInvoice } from '../../api/hooks/useInvoices';
+import { useContact } from '../../api/hooks/useContacts';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -30,6 +31,13 @@ export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useInvoice(id!);
+  // Build-plan Phase 8 — fetch the full contact record so the customer
+  // panel can render name, email, phone, and billing address. The
+  // invoice payload only carries contactId; the contacts endpoint is
+  // the authoritative source for the rest. `enabled` guards against
+  // firing before the invoice resolves.
+  const contactId = data?.invoice?.contactId ?? '';
+  const { data: contactData } = useContact(contactId);
   const voidInvoice = useVoidInvoice();
   const duplicateInvoice = useDuplicateInvoice();
 
@@ -202,6 +210,37 @@ export function InvoiceDetailPage() {
 
         {/* Sidebar Info */}
         <div className="space-y-4">
+          {contactData?.contact && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+              <h2 className="text-sm font-medium text-gray-700 mb-3">Customer</h2>
+              <div className="space-y-1 text-sm">
+                <div className="font-medium text-gray-900">{contactData.contact.displayName}</div>
+                {contactData.contact.companyName && contactData.contact.companyName !== contactData.contact.displayName && (
+                  <div className="text-gray-500">{contactData.contact.companyName}</div>
+                )}
+                <div className="text-gray-600">{contactData.contact.email || '—'}</div>
+                <div className="text-gray-600">{contactData.contact.phone || '—'}</div>
+                {(contactData.contact.billingLine1 || contactData.contact.billingCity) ? (
+                  <div className="pt-2 text-gray-600 border-t border-gray-100 mt-2">
+                    {contactData.contact.billingLine1 && <div>{contactData.contact.billingLine1}</div>}
+                    {contactData.contact.billingLine2 && <div>{contactData.contact.billingLine2}</div>}
+                    {(contactData.contact.billingCity || contactData.contact.billingState || contactData.contact.billingZip) && (
+                      <div>
+                        {contactData.contact.billingCity}
+                        {contactData.contact.billingCity && contactData.contact.billingState && ', '}
+                        {contactData.contact.billingState} {contactData.contact.billingZip}
+                      </div>
+                    )}
+                    {contactData.contact.billingCountry && contactData.contact.billingCountry !== 'US' && (
+                      <div>{contactData.contact.billingCountry}</div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="pt-2 text-gray-400 border-t border-gray-100 mt-2">No billing address on file</div>
+                )}
+              </div>
+            </div>
+          )}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
             <h2 className="text-sm font-medium text-gray-700 mb-3">Summary</h2>
             <div className="space-y-2 text-sm">

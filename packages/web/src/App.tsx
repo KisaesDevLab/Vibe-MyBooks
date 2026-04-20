@@ -10,24 +10,19 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { AdminRoute } from './components/layout/AdminRoute';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
-// Eager-load only what the login path actually needs. Everything else is
-// route-lazy — the main bundle no longer ships chart/pdf/admin code on
-// first load, and route changes pull chunks on demand. Named exports are
-// mapped onto `default` in the lazy wrapper because React.lazy only
-// accepts default-exporting modules.
+// Eager-load only what the cold-start login path actually paints on
+// first render. Everything else — including the less-trafficked auth
+// screens (register, forgot/reset password, magic-link verify, OAuth
+// consent) — is route-lazy so the main bundle stays under the 500 KB
+// Vite warning threshold. Named exports are mapped onto `default` in
+// the lazy wrapper because React.lazy only accepts default-exporting
+// modules.
 
 import { LoginPage } from './features/auth/LoginPage';
-import { RegisterPage } from './features/auth/RegisterPage';
-import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
-import { MagicLinkVerifyPage } from './features/auth/MagicLinkVerifyPage';
-import { ResetPasswordPage } from './features/auth/ResetPasswordPage';
-import { OAuthConsentPage } from './features/auth/OAuthConsentPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { CompanyProvider } from './providers/CompanyProvider';
 import { DiagnosticRouter } from './features/diagnostics/DiagnosticRouter';
-import { FirstRunSetupWizard } from './features/setup/FirstRunSetupWizard';
 import { NotFoundPage } from './features/NotFoundPage';
-import { PublicInvoicePage } from './features/public/PublicInvoicePage';
 
 // Helper to lazy-load a named export. React.lazy expects `default`, so we
 // shim the named export onto it. Each call produces a separately chunked
@@ -160,6 +155,7 @@ const PayBillsPage = lazyNamed(() => import('./features/ap/PayBillsPage'), 'PayB
 
 // ─── Budgets ─────────────────────────────────────────────────
 const BudgetEditorPage = lazyNamed(() => import('./features/budgets/BudgetEditorPage'), 'BudgetEditorPage');
+const BudgetVsActualsPage = lazyNamed(() => import('./features/budgets/BudgetVsActualsPage'), 'BudgetVsActualsPage');
 
 // ─── Reports (heavy: ships charts + pdf libs) ────────────────
 const ReportsPage = lazyNamed(() => import('./features/reports/ReportsPage'), 'ReportsPage');
@@ -190,6 +186,16 @@ const PayrollImportPage = lazyNamed(() => import('./features/payroll/PayrollImpo
 const PayrollHistoryPage = lazyNamed(() => import('./features/payroll/PayrollHistoryPage'), 'PayrollHistoryPage');
 const KnowledgeBasePage = lazyNamed(() => import('./features/help/KnowledgeBasePage'), 'KnowledgeBasePage');
 const ArticlePage = lazyNamed(() => import('./features/help/ArticlePage'), 'ArticlePage');
+
+// ─── Auth (cold-path + one-time setup) — kept out of the main bundle ─
+const RegisterPage = lazyNamed(() => import('./features/auth/RegisterPage'), 'RegisterPage');
+const ForgotPasswordPage = lazyNamed(() => import('./features/auth/ForgotPasswordPage'), 'ForgotPasswordPage');
+const ResetPasswordPage = lazyNamed(() => import('./features/auth/ResetPasswordPage'), 'ResetPasswordPage');
+const MagicLinkVerifyPage = lazyNamed(() => import('./features/auth/MagicLinkVerifyPage'), 'MagicLinkVerifyPage');
+const OAuthConsentPage = lazyNamed(() => import('./features/auth/OAuthConsentPage'), 'OAuthConsentPage');
+const FirstRunSetupWizard = lazyNamed(() => import('./features/setup/FirstRunSetupWizard'), 'FirstRunSetupWizard');
+const PublicInvoicePage = lazyNamed(() => import('./features/public/PublicInvoicePage'), 'PublicInvoicePage');
+const SplitRowV2GalleryPage = lazyNamed(() => import('./features/__dev__/SplitRowV2Gallery'), 'SplitRowV2GalleryPage');
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -301,35 +307,42 @@ export function App() {
             <Route path="/recurring" element={<RecurringListPage />} />
             <Route path="/settings/tags" element={<TagManagerPage />} />
             <Route path="/budgets" element={<BudgetEditorPage />} />
+            <Route path="/budgets/vs-actuals" element={<BudgetVsActualsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/reports/profit-loss" element={<ProfitAndLossReport />} />
             <Route path="/reports/balance-sheet" element={<BalanceSheetReport />} />
-            <Route path="/reports/cash-flow" element={<GenericReport title="Cash Flow Statement" endpoint="cash-flow" columns={[{key:'operatingActivities',label:'Operating',align:'right',format:'money'},{key:'netChange',label:'Net Change',align:'right',format:'money'}]} dataKey="__single" />} />
-            <Route path="/reports/ar-aging-summary" element={<GenericReport title="AR Aging Summary" endpoint="ar-aging-summary" useDateRange={false} useAsOfDate columns={[{key:'customer_name',label:'Customer'},{key:'bucket',label:'Bucket'},{key:'balance',label:'Amount',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} dataKey="details" />} />
-            <Route path="/reports/ar-aging-detail" element={<GenericReport title="AR Aging Detail" endpoint="ar-aging-detail" useDateRange={false} useAsOfDate columns={[{key:'txn_number',label:'Invoice',drillDown:drillToTxn('id')},{key:'customer_name',label:'Customer'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'balance',label:'Balance',align:'right',format:'money'}]} dataKey="details" />} />
-            <Route path="/reports/customer-balance-summary" element={<GenericReport title="Customer Balance Summary" endpoint="customer-balance-summary" useDateRange={false} columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
-            <Route path="/reports/customer-balance-detail" element={<GenericReport title="Customer Balance Detail" endpoint="customer-balance-detail" useDateRange={false} columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
-            <Route path="/reports/invoice-list" element={<GenericReport title="Invoice List" endpoint="invoice-list" columns={[{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'customer_name',label:'Customer'},{key:'txn_date',label:'Date'},{key:'invoice_status',label:'Status'},{key:'total',label:'Total',align:'right',format:'money'},{key:'balance_due',label:'Balance',align:'right',format:'money'}]} />} />
-            <Route path="/reports/expense-by-vendor" element={<GenericReport title="Expenses by Vendor" endpoint="expense-by-vendor" columns={[{key:'vendor_name',label:'Vendor'},{key:'total',label:'Total',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} />} />
-            <Route path="/reports/expense-by-category" element={<GenericReport title="Expenses by Category" endpoint="expense-by-category" columns={[{key:'account_number',label:'#'},{key:'category',label:'Category'},{key:'total',label:'Total',align:'right',format:'money',drillDown:drillByAccount('account_id')}]} />} />
+            <Route path="/reports/cash-flow" element={<GenericReport title="Cash Flow Statement" endpoint="cash-flow" columns={[{key:'operatingActivities',label:'Operating',align:'right',format:'money'},{key:'netChange',label:'Net Change',align:'right',format:'money'}]} dataKey="__single" useTagFilter />} />
+            <Route path="/reports/ar-aging-summary" element={<GenericReport title="AR Aging Summary" endpoint="ar-aging-summary" useDateRange={false} useAsOfDate useTagFilter columns={[{key:'customer_name',label:'Customer'},{key:'bucket',label:'Bucket'},{key:'balance',label:'Amount',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} dataKey="details" />} />
+            <Route path="/reports/ar-aging-detail" element={<GenericReport title="AR Aging Detail" endpoint="ar-aging-detail" useDateRange={false} useAsOfDate useTagFilter columns={[{key:'txn_number',label:'Invoice',drillDown:drillToTxn('id')},{key:'customer_name',label:'Customer'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'balance',label:'Balance',align:'right',format:'money'}]} dataKey="details" />} />
+            <Route path="/reports/customer-balance-summary" element={<GenericReport title="Customer Balance Summary" endpoint="customer-balance-summary" useDateRange={false} useTagFilter columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
+            <Route path="/reports/customer-balance-detail" element={<GenericReport title="Customer Balance Detail" endpoint="customer-balance-detail" useDateRange={false} useTagFilter columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
+            <Route path="/reports/invoice-list" element={<GenericReport title="Invoice List" endpoint="invoice-list" useTagFilter columns={[{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'customer_name',label:'Customer'},{key:'txn_date',label:'Date'},{key:'invoice_status',label:'Status'},{key:'total',label:'Total',align:'right',format:'money'},{key:'balance_due',label:'Balance',align:'right',format:'money'}]} />} />
+            <Route path="/reports/expense-by-vendor" element={<GenericReport title="Expenses by Vendor" endpoint="expense-by-vendor" useTagFilter columns={[{key:'vendor_name',label:'Vendor'},{key:'total',label:'Total',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} />} />
+            <Route path="/reports/expense-by-category" element={<GenericReport title="Expenses by Category" endpoint="expense-by-category" useTagFilter columns={[{key:'account_number',label:'#'},{key:'category',label:'Category'},{key:'total',label:'Total',align:'right',format:'money',drillDown:drillByAccount('account_id')}]} />} />
             <Route path="/reports/vendor-balance-summary" element={<GenericReport title="Vendor Balance Summary" endpoint="vendor-balance-summary" useDateRange={false} columns={[{key:'display_name',label:'Vendor'},{key:'total_spent',label:'Total Spent',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
-            <Route path="/reports/ap-aging-summary" element={<GenericReport title="AP Aging Summary" endpoint="ap-aging-summary" useDateRange={false} useAsOfDate columns={[{key:'vendor_name',label:'Vendor'},{key:'current',label:'Current',align:'right',format:'money'},{key:'bucket1to30',label:'1-30',align:'right',format:'money'},{key:'bucket31to60',label:'31-60',align:'right',format:'money'},{key:'bucket61to90',label:'61-90',align:'right',format:'money'},{key:'bucketOver90',label:'90+',align:'right',format:'money'},{key:'total',label:'Total',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} dataKey="vendors" />} />
-            <Route path="/reports/ap-aging-detail" element={<GenericReport title="AP Aging Detail" endpoint="ap-aging-detail" useDateRange={false} useAsOfDate columns={[{key:'txn_number',label:'Bill #',drillDown:drillToTxn('id')},{key:'vendor_name',label:'Vendor'},{key:'vendor_invoice_number',label:'Vendor Inv #'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'days_overdue',label:'Days Overdue',align:'right'},{key:'balance',label:'Balance',align:'right',format:'money'}]} dataKey="details" />} />
+            <Route path="/reports/sales-by-customer" element={<GenericReport title="Sales by Customer" endpoint="sales-by-customer" useTagFilter columns={[{key:'customer_name',label:'Customer'},{key:'total',label:'Total',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} />} />
+            <Route path="/reports/sales-by-item" element={<GenericReport title="Sales by Item" endpoint="sales-by-item" useTagFilter columns={[{key:'item_sku',label:'SKU'},{key:'item_name',label:'Item'},{key:'txn_count',label:'Txns',align:'right'},{key:'total',label:'Total',align:'right',format:'money'}]} />} />
+            {/* Dev-only visual gallery for <SplitRowV2> states (build-plan Phase 6). */}
+            {import.meta.env.DEV && (
+              <Route path="/__dev/split-row-v2" element={<SplitRowV2GalleryPage />} />
+            )}
+            <Route path="/reports/ap-aging-summary" element={<GenericReport title="AP Aging Summary" endpoint="ap-aging-summary" useDateRange={false} useAsOfDate useTagFilter columns={[{key:'vendor_name',label:'Vendor'},{key:'current',label:'Current',align:'right',format:'money'},{key:'bucket1to30',label:'1-30',align:'right',format:'money'},{key:'bucket31to60',label:'31-60',align:'right',format:'money'},{key:'bucket61to90',label:'61-90',align:'right',format:'money'},{key:'bucketOver90',label:'90+',align:'right',format:'money'},{key:'total',label:'Total',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} dataKey="vendors" />} />
+            <Route path="/reports/ap-aging-detail" element={<GenericReport title="AP Aging Detail" endpoint="ap-aging-detail" useDateRange={false} useAsOfDate useTagFilter columns={[{key:'txn_number',label:'Bill #',drillDown:drillToTxn('id')},{key:'vendor_name',label:'Vendor'},{key:'vendor_invoice_number',label:'Vendor Inv #'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'days_overdue',label:'Days Overdue',align:'right'},{key:'balance',label:'Balance',align:'right',format:'money'}]} dataKey="details" />} />
             <Route path="/reports/unpaid-bills" element={<GenericReport title="Unpaid Bills" endpoint="unpaid-bills" useDateRange={false} columns={[{key:'vendor_name',label:'Vendor'},{key:'txn_number',label:'Bill #',drillDown:drillToTxn('id')},{key:'vendor_invoice_number',label:'Vendor Inv #'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'total',label:'Total',align:'right',format:'money'},{key:'balance_due',label:'Balance',align:'right',format:'money'}]} />} />
             <Route path="/reports/bill-payment-history" element={<GenericReport title="Bill Payment History" endpoint="bill-payment-history" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Payment #',drillDown:drillToTxn('id')},{key:'vendor_name',label:'Vendor'},{key:'check_number',label:'Check #'},{key:'bill_count',label:'# Bills',align:'right'},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
             <Route path="/reports/ap-1099-prep" element={<GenericReport title="1099 Preparation" endpoint="ap-1099-prep" useDateRange={false} columns={[{key:'vendor_name',label:'Vendor'},{key:'address',label:'Address'},{key:'tax_id',label:'Tax ID'},{key:'total_paid',label:'Total Paid',align:'right',format:'money'}]} />} />
             <Route path="/reports/transaction-list-by-vendor" element={<GenericReport title="Transactions by Vendor" endpoint="transaction-list-by-vendor" columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
             <Route path="/reports/bank-reconciliation-summary" element={<GenericReport title="Bank Reconciliation" endpoint="bank-reconciliation-summary" useDateRange={false} columns={[]} />} />
             <Route path="/reports/deposit-detail" element={<GenericReport title="Deposit Detail" endpoint="deposit-detail" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />
-            <Route path="/reports/check-register" element={<GenericReport title="Check Register" endpoint="check-register" columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'debit',label:'Debit',align:'right',format:'money'},{key:'credit',label:'Credit',align:'right',format:'money'}]} />} />
+            <Route path="/reports/check-register" element={<GenericReport title="Check Register" endpoint="check-register" useTagFilter columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'debit',label:'Debit',align:'right',format:'money'},{key:'credit',label:'Credit',align:'right',format:'money'}]} />} />
             <Route path="/reports/sales-tax-liability" element={<GenericReport title="Sales Tax Liability" endpoint="sales-tax-liability" columns={[]} dataKey="__single" />} />
             <Route path="/reports/taxable-sales-summary" element={<GenericReport title="Taxable Sales Summary" endpoint="taxable-sales-summary" columns={[]} dataKey="__single" />} />
             <Route path="/reports/sales-tax-payments" element={<GenericReport title="Sales Tax Payments" endpoint="sales-tax-payments" columns={[{key:'txn_date',label:'Date'},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
             <Route path="/reports/vendor-1099-summary" element={<GenericReport title="1099 Vendor Summary" endpoint="vendor-1099-summary" useDateRange={false} columns={[{key:'display_name',label:'Vendor'},{key:'tax_id',label:'Tax ID'},{key:'total_paid',label:'Total Paid',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
             <Route path="/reports/general-ledger" element={<GeneralLedgerReport />} />
-            <Route path="/reports/trial-balance" element={<GenericReport title="Trial Balance" endpoint="trial-balance" useDateRange={true} columns={[{key:'account_number',label:'#'},{key:'name',label:'Account'},{key:'account_type',label:'Type'},{key:'total_debit',label:'Debit',align:'right',format:'money',drillDown:drillByAccount('id')},{key:'total_credit',label:'Credit',align:'right',format:'money',drillDown:drillByAccount('id')}]} />} />
-            <Route path="/reports/transaction-list" element={<GenericReport title="Transaction List" endpoint="transaction-list" columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'contact_name',label:'Contact'},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />
-            <Route path="/reports/journal-entry-report" element={<GenericReport title="Journal Entries" endpoint="journal-entry-report" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />
+            <Route path="/reports/trial-balance" element={<GenericReport title="Trial Balance" endpoint="trial-balance" useDateRange={true} useTagFilter columns={[{key:'account_number',label:'#'},{key:'name',label:'Account'},{key:'account_type',label:'Type'},{key:'total_debit',label:'Debit',align:'right',format:'money',drillDown:drillByAccount('id')},{key:'total_credit',label:'Credit',align:'right',format:'money',drillDown:drillByAccount('id')}]} />} />
+            <Route path="/reports/transaction-list" element={<GenericReport title="Transaction List" endpoint="transaction-list" useTagFilter columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'contact_name',label:'Contact'},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />
+            <Route path="/reports/journal-entry-report" element={<GenericReport title="Journal Entries" endpoint="journal-entry-report" useTagFilter columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />
             <Route path="/reports/budget-vs-actual" element={<BudgetVsActualReport />} />
             <Route path="/reports/budget-overview" element={<BudgetOverviewReport />} />
             <Route path="/settings/company" element={<CompanyProfilePage />} />

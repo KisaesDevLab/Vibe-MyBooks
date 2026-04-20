@@ -10,6 +10,7 @@ import { ReportShell } from './ReportShell';
 import { ReportTable } from './ReportTable';
 import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
+import { ReportTagFilter } from './ReportTagFilter';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
@@ -26,25 +27,32 @@ interface GenericReportProps {
   columns: Column[];
   useDateRange?: boolean;
   useAsOfDate?: boolean;
+  // ADR 0XX §5.4 — opt-in split-level tag filter. Pages wire this on
+  // for every report in the Phase-5 tag-aware list (P&L, BS, Cash Flow,
+  // GL, TB, Transaction Detail, Account Detail, AR/AP Aging,
+  // Sales/Expenses-by-X, Invoice/Bill lists, Budget vs. Actuals).
+  useTagFilter?: boolean;
   extraParams?: Record<string, string>;
   dataKey?: string;
 }
 
-export function GenericReport({ title, endpoint, columns, useDateRange = true, useAsOfDate, extraParams, dataKey = 'data' }: GenericReportProps) {
+export function GenericReport({ title, endpoint, columns, useDateRange = true, useAsOfDate, useTagFilter = false, extraParams, dataKey = 'data' }: GenericReportProps) {
   const today = new Date();
   const [startDate, setStartDate] = useState(`${today.getFullYear()}-01-01`);
   const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
   const [asOfDate, setAsOfDate] = useState(today.toISOString().split('T')[0]!);
   const [scope, setScope] = useState<'company' | 'consolidated'>('company');
+  const [tagId, setTagId] = useState<string>('');
   const { activeCompanyId } = useCompanyContext();
 
   const params = new URLSearchParams(extraParams);
   if (useDateRange) { params.set('start_date', startDate); params.set('end_date', endDate); }
   if (useAsOfDate) params.set('as_of_date', asOfDate);
   if (scope === 'consolidated') params.set('scope', 'consolidated');
+  if (useTagFilter && tagId) params.set('tag_id', tagId);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['reports', endpoint, startDate, endDate, asOfDate, extraParams, activeCompanyId, scope],
+    queryKey: ['reports', endpoint, startDate, endDate, asOfDate, extraParams, activeCompanyId, scope, tagId],
     queryFn: () => apiClient<any>(`/reports/${endpoint}?${params.toString()}`),
   });
 
@@ -63,6 +71,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
                 className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
             </div>
           )}
+          {useTagFilter && <ReportTagFilter value={tagId} onChange={setTagId} />}
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
         </div>
       }>

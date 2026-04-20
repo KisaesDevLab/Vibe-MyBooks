@@ -14,15 +14,21 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
+import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface CreditLine {
   accountId: string;
   description: string;
   amount: string;
+  tagId: string | null;
+  userHasTouchedTag: boolean;
 }
 
-const emptyLine = (): CreditLine => ({ accountId: '', description: '', amount: '' });
+const emptyLine = (): CreditLine => ({ accountId: '', description: '', amount: '', tagId: null, userHasTouchedTag: false });
 
 export function EnterVendorCreditPage() {
   const navigate = useNavigate();
@@ -35,10 +41,21 @@ export function EnterVendorCreditPage() {
   const [memo, setMemo] = useState('');
   const [lines, setLines] = useState<CreditLine[]>([emptyLine()]);
 
-  const updateLine = (i: number, field: keyof CreditLine, value: string) =>
+  const updateLine = (i: number, field: 'accountId' | 'description' | 'amount', value: string) =>
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
 
+  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
+      ),
+    );
+
   const total = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+
+  const { formRef, handleKeyDown, saveChord } = useFormShortcuts({
+    onSave: () => formRef.current?.requestSubmit(),
+  });
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -53,6 +70,7 @@ export function EnterVendorCreditPage() {
           accountId: l.accountId,
           description: l.description || undefined,
           amount: l.amount,
+          tagId: l.tagId,
         })),
     };
     if (payload.lines.length === 0) return;
@@ -64,7 +82,7 @@ export function EnterVendorCreditPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Enter Vendor Credit</h1>
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6 max-w-5xl">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <ContactSelector
             label="Vendor"
@@ -88,8 +106,11 @@ export function EnterVendorCreditPage() {
           <table className="min-w-full">
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">Account</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
+                {ENTRY_FORMS_V2 && (
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">Tag</th>
+                )}
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Amount</th>
                 <th className="w-8 pb-2" />
               </tr>
@@ -112,6 +133,11 @@ export function EnterVendorCreditPage() {
                       placeholder="Description"
                     />
                   </td>
+                  {ENTRY_FORMS_V2 && (
+                    <td className="px-2 py-1">
+                      <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                    </td>
+                  )}
                   <td className="px-2 py-1">
                     <MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} />
                   </td>
@@ -155,7 +181,9 @@ export function EnterVendorCreditPage() {
         {createCredit.error && <p className="text-sm text-red-600">{createCredit.error.message}</p>}
 
         <div className="flex gap-3">
-          <Button type="submit" loading={createCredit.isPending}>Create Vendor Credit</Button>
+          <ShortcutTooltip chord={saveChord}>
+            <Button type="submit" loading={createCredit.isPending}>Create Vendor Credit</Button>
+          </ShortcutTooltip>
           <Button type="button" variant="secondary" onClick={() => navigate('/vendor-credits')}>Cancel</Button>
         </div>
       </form>

@@ -15,15 +15,36 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
-import { TagSelector } from '../../components/forms/TagSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
+import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Plus, Trash2 } from 'lucide-react';
 
-interface SaleLine { accountId: string; description: string; quantity: string; unitPrice: string; isTaxable: boolean; taxRate: string }
+interface SaleLine {
+  accountId: string;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  isTaxable: boolean;
+  taxRate: string;
+  tagId: string | null;
+  userHasTouchedTag: boolean;
+}
 
 function emptyLine(defaultTaxRate: string): SaleLine {
-  return { accountId: '', description: '', quantity: '1', unitPrice: '', isTaxable: true, taxRate: defaultTaxRate };
+  return {
+    accountId: '',
+    description: '',
+    quantity: '1',
+    unitPrice: '',
+    isTaxable: true,
+    taxRate: defaultTaxRate,
+    tagId: null,
+    userHasTouchedTag: false,
+  };
 }
 
 export function CashSaleForm() {
@@ -43,7 +64,6 @@ export function CashSaleForm() {
   const [contactId, setContactId] = useState('');
   const [depositToAccountId, setDepositToAccountId] = useState('');
   const [memo, setMemo] = useState('');
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [lines, setLines] = useState<SaleLine[]>([emptyLine(defaultTaxRate)]);
   const [draftId] = useState(() => crypto.randomUUID());
   const [loaded, setLoaded] = useState(false);
@@ -69,14 +89,23 @@ export function CashSaleForm() {
           unitPrice: l.unitPrice ? parseFloat(l.unitPrice).toString() : parseFloat(l.credit).toString(),
           isTaxable: l.isTaxable || false,
           taxRate: l.taxRate ? (parseFloat(l.taxRate) * 100).toString() : defaultTaxRate,
+          tagId: l.tagId ?? null,
+          userHasTouchedTag: l.tagId != null,
         })));
       }
       setLoaded(true);
     }
   }, [isEdit, existingData, loaded]);
 
-  const updateLine = (i: number, field: keyof SaleLine, value: string | boolean) =>
+  const updateLine = (i: number, field: 'accountId' | 'description' | 'quantity' | 'unitPrice' | 'isTaxable' | 'taxRate', value: string | boolean) =>
     setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
+
+  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
+      ),
+    );
 
   const subtotal = lines.reduce((sum, l) => sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
   const totalTax = lines.reduce((sum, l) => {
@@ -87,6 +116,10 @@ export function CashSaleForm() {
   const grandTotal = subtotal + totalTax;
   const mutation = isEdit ? updateTxn : createTxn;
 
+  const { formRef, handleKeyDown, saveChord } = useFormShortcuts({
+    onSave: () => formRef.current?.requestSubmit(),
+  });
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     interface CashSalePayload extends Record<string, unknown> {
@@ -95,8 +128,7 @@ export function CashSaleForm() {
       contactId?: string;
       depositToAccountId: string;
       memo: string;
-      lines: Array<{ accountId: string; description: string; quantity: string; unitPrice: string; isTaxable: boolean; taxRate: string }>;
-      tags: string[];
+      lines: Array<{ accountId: string; description: string; quantity: string; unitPrice: string; isTaxable: boolean; taxRate: string; tagId?: string | null }>;
       draftAttachmentId?: string;
     }
     const payload: CashSalePayload = {
@@ -112,8 +144,8 @@ export function CashSaleForm() {
         unitPrice: l.unitPrice,
         isTaxable: l.isTaxable,
         taxRate: l.isTaxable ? (parseFloat(l.taxRate) / 100).toString() : '0',
+        tagId: l.tagId,
       })),
-      tags: tagIds,
     };
 
     if (isEdit) {
@@ -129,13 +161,12 @@ export function CashSaleForm() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Cash Sale' : 'New Cash Sale'}</h1>
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
           <ContactSelector label="Customer" value={contactId} onChange={setContactId} contactTypeFilter="customer" />
           <AccountSelector label="Deposit To" value={depositToAccountId} onChange={setDepositToAccountId} accountTypeFilter="asset" required />
           <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
-          {!isEdit && <TagSelector label="Tags" value={tagIds} onChange={setTagIds} />}
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
@@ -149,6 +180,9 @@ export function CashSaleForm() {
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-36">Rate</th>
                 <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-12">Tax</th>
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Tax %</th>
+                {ENTRY_FORMS_V2 && (
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">Tag</th>
+                )}
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-24">Amount</th>
                 <th className="w-8 pb-2" />
               </tr>
@@ -178,6 +212,11 @@ export function CashSaleForm() {
                           className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right" />
                       )}
                     </td>
+                    {ENTRY_FORMS_V2 && (
+                      <td className="px-1 py-1">
+                        <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                      </td>
+                    )}
                     <td className="px-2 py-1 text-right font-mono text-sm pt-2.5">${lineAmount.toFixed(2)}</td>
                     <td className="pl-1 py-1 pt-2.5">
                       {lines.length > 1 && (
@@ -205,7 +244,9 @@ export function CashSaleForm() {
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
         <div className="flex gap-3">
-          <Button type="submit" loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Record Cash Sale'}</Button>
+          <ShortcutTooltip chord={saveChord}>
+            <Button type="submit" loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Record Cash Sale'}</Button>
+          </ShortcutTooltip>
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/transactions/${editId}` : '/transactions')}>Cancel</Button>
         </div>
 

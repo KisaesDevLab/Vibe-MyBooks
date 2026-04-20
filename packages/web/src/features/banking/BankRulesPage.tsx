@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -30,6 +31,8 @@ interface BankRule {
   assignContactId: string | null;
   assignContactName: string | null;
   assignMemo: string | null;
+  // ADR 0XY — tag stamped onto journal lines produced when this rule matches.
+  assignTagId: string | null;
   autoConfirm: boolean;
   priority: number;
   isActive: boolean;
@@ -46,6 +49,7 @@ interface BankRuleInput {
   assignAccountId: string | null;
   assignContactId: string | null;
   assignMemo: string | null;
+  assignTagId: string | null;
   autoConfirm: boolean;
   priority: number;
   isActive: boolean;
@@ -112,6 +116,7 @@ const blankForm: BankRuleInput = {
   assignAccountId: '',
   assignContactId: '',
   assignMemo: '',
+  assignTagId: null,
   autoConfirm: false,
   priority: 10,
   isActive: true,
@@ -168,6 +173,7 @@ export function BankRulesPage() {
         assignAccountId: form.assignAccountId || null,
         assignContactId: form.assignContactId || null,
         assignMemo: form.assignMemo || null,
+        assignTagId: form.assignTagId,
       },
       { onSuccess: resetForm },
     );
@@ -186,6 +192,7 @@ export function BankRulesPage() {
         assignAccountId: form.assignAccountId || null,
         assignContactId: form.assignContactId || null,
         assignMemo: form.assignMemo || null,
+        assignTagId: form.assignTagId,
       },
       { onSuccess: resetForm },
     );
@@ -204,6 +211,7 @@ export function BankRulesPage() {
       assignAccountId: rule.assignAccountId || '',
       assignContactId: rule.assignContactId || '',
       assignMemo: rule.assignMemo || '',
+      assignTagId: rule.assignTagId ?? null,
       autoConfirm: rule.autoConfirm,
       priority: rule.priority,
       isActive: rule.isActive,
@@ -377,6 +385,16 @@ export function BankRulesPage() {
                 onChange={(e) => setForm({ ...form, assignMemo: e.target.value })}
                 placeholder="Optional memo text"
               />
+            </div>
+            <div className="mt-4 max-w-md">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Assign Tag</label>
+              <LineTagPicker
+                value={form.assignTagId}
+                onChange={(t) => setForm({ ...form, assignTagId: t })}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Stamped on every journal line produced when this rule matches.
+              </p>
             </div>
           </div>
 

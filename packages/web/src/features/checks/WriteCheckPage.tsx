@@ -4,7 +4,7 @@
 
 
 import { todayLocalISO } from '../../utils/date';
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWriteCheck, useCheckSettings } from '../../api/hooks/useChecks';
 import { Button } from '../../components/ui/Button';
@@ -13,7 +13,9 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
-import { TagSelector } from '../../components/forms/TagSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { numberToWords } from '@kis-books/shared';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -21,7 +23,17 @@ interface ExpenseLine {
   accountId: string;
   description: string;
   amount: string;
+  tagId: string | null;
+  userHasTouchedTag: boolean;
 }
+
+const emptyLine = (): ExpenseLine => ({
+  accountId: '',
+  description: '',
+  amount: '',
+  tagId: null,
+  userHasTouchedTag: false,
+});
 
 export function WriteCheckPage() {
   const navigate = useNavigate();
@@ -39,16 +51,20 @@ export function WriteCheckPage() {
   const [printedMemo, setPrintedMemo] = useState('');
   const [memo, setMemo] = useState('');
   const [printLater, setPrintLater] = useState(false);
-  const [tagIds, setTagIds] = useState<string[]>([]);
-  const [lines, setLines] = useState<ExpenseLine[]>([
-    { accountId: '', description: '', amount: '' },
-  ]);
+  const [lines, setLines] = useState<ExpenseLine[]>([emptyLine()]);
 
   const amountWords = numberToWords(amount);
   const linesTotal = lines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0);
 
-  const updateLine = (i: number, field: keyof ExpenseLine, value: string) =>
+  const updateLine = (i: number, field: 'accountId' | 'description' | 'amount', value: string) =>
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
+
+  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
+      ),
+    );
 
   const handleContactSelect = (contact: ContactSelection | null) => {
     if (contact) {
@@ -60,6 +76,20 @@ export function WriteCheckPage() {
     } else {
       setPayeeNameOnCheck('');
     }
+  };
+
+  // WriteCheck is a two-action form (Save vs Save & Queue for Print)
+  // rather than a save-and-new pattern — keyboard chords map to the
+  // two distinct destinations. Ctrl/Cmd+Enter saves; Ctrl/Cmd+Shift+
+  // Enter saves and queues for print.
+  const formRef = useRef<HTMLFormElement>(null);
+  const handleKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod || e.key !== 'Enter') return;
+    e.preventDefault();
+    // Fake a synthetic form event; handleSubmit only needs .preventDefault.
+    const synthetic = { preventDefault: () => {} } as FormEvent;
+    handleSubmit(synthetic, e.shiftKey);
   };
 
   const handleSubmit = (e: FormEvent, queueForPrint: boolean) => {
@@ -80,8 +110,8 @@ export function WriteCheckPage() {
             accountId: l.accountId,
             description: l.description || undefined,
             amount: l.amount,
+            tagId: l.tagId,
           })),
-        tagIds: tagIds.length > 0 ? tagIds : undefined,
       },
       { onSuccess: () => navigate('/transactions') },
     );
@@ -91,7 +121,9 @@ export function WriteCheckPage() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Write Check</h1>
       <form
+        ref={formRef}
         onSubmit={(e) => handleSubmit(e, printLater)}
+        onKeyDown={handleKeyDown}
         className="max-w-4xl space-y-6"
       >
         {/* Bank Account & Date */}
@@ -172,12 +204,17 @@ export function WriteCheckPage() {
           <table className="min-w-full">
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">
                   Account
                 </th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">
                   Description
                 </th>
+                {ENTRY_FORMS_V2 && (
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">
+                    Tag
+                  </th>
+                )}
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-28">
                   Amount
                 </th>
@@ -204,6 +241,11 @@ export function WriteCheckPage() {
                       placeholder="Description"
                     />
                   </td>
+                  {ENTRY_FORMS_V2 && (
+                    <td className="px-2 py-1">
+                      <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                    </td>
+                  )}
                   <td className="px-2 py-1">
                     <MoneyInput
                       value={line.amount}
@@ -230,12 +272,7 @@ export function WriteCheckPage() {
 
           <button
             type="button"
-            onClick={() =>
-              setLines((p) => [
-                ...p,
-                { accountId: '', description: '', amount: '' },
-              ])
-            }
+            onClick={() => setLines((p) => [...p, emptyLine()])}
             className="mt-3 flex items-center gap-1 text-sm text-primary-600"
           >
             <Plus className="h-4 w-4" /> Add line item
@@ -262,11 +299,6 @@ export function WriteCheckPage() {
                 )}
             </div>
           </div>
-        </div>
-
-        {/* Tags */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-          <TagSelector label="Tags" value={tagIds} onChange={setTagIds} />
         </div>
 
         {/* Print Later Toggle */}
@@ -296,21 +328,25 @@ export function WriteCheckPage() {
 
         {/* Actions */}
         <div className="flex gap-3">
-          <Button
-            type="submit"
-            loading={writeCheck.isPending}
-            onClick={(e) => handleSubmit(e, false)}
-          >
-            Save
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            loading={writeCheck.isPending}
-            onClick={(e) => handleSubmit(e, true)}
-          >
-            Save &amp; Queue for Print
-          </Button>
+          <ShortcutTooltip chord="Ctrl/Cmd+Enter">
+            <Button
+              type="submit"
+              loading={writeCheck.isPending}
+              onClick={(e) => handleSubmit(e, false)}
+            >
+              Save
+            </Button>
+          </ShortcutTooltip>
+          <ShortcutTooltip chord="Ctrl/Cmd+Shift+Enter">
+            <Button
+              type="button"
+              variant="secondary"
+              loading={writeCheck.isPending}
+              onClick={(e) => handleSubmit(e, true)}
+            >
+              Save &amp; Queue for Print
+            </Button>
+          </ShortcutTooltip>
           <Button
             type="button"
             variant="ghost"

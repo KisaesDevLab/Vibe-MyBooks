@@ -17,6 +17,10 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
+import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
+import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { FieldHelpIcon } from '../chat/FieldHelpIcon';
@@ -28,6 +32,9 @@ interface BillLine {
   accountId: string;
   description: string;
   amount: string;
+  // ADR 0XX/0XY — per-line tag + stickiness flag.
+  tagId: string | null;
+  userHasTouchedTag: boolean;
 }
 
 interface OcrExtraction {
@@ -59,7 +66,7 @@ const TERM_DAYS: Record<string, number> = {
 };
 
 function emptyLine(): BillLine {
-  return { accountId: '', description: '', amount: '' };
+  return { accountId: '', description: '', amount: '', tagId: null, userHasTouchedTag: false };
 }
 
 function calcDueDate(billDate: string, terms: string, customDays: string): string {
@@ -165,6 +172,8 @@ export function EnterBillPage() {
         accountId: l.accountId,
         description: l.description || '',
         amount: parseFloat(l.debit).toFixed(2),
+        tagId: l.tagId ?? null,
+        userHasTouchedTag: l.tagId != null,
       }));
     if (billLines.length > 0) setLines(billLines);
     setLoaded(true);
@@ -273,6 +282,8 @@ export function EnterBillPage() {
           accountId: ext.defaultExpenseAccountId || '',
           description: li.description || '',
           amount: parseFloat(li.amount!).toFixed(2),
+          tagId: null,
+          userHasTouchedTag: false,
         }));
       if (formLines.length > 0) {
         // Only replace if the form is still showing the initial empty line.
@@ -286,6 +297,8 @@ export function EnterBillPage() {
         accountId: ext.defaultExpenseAccountId || '',
         description: ext.notes || 'Vendor invoice',
         amount: parseFloat(ext.total).toFixed(2),
+        tagId: null,
+        userHasTouchedTag: false,
       }];
       const hasUserContent = lines.some((l) => l.accountId || l.description || l.amount);
       if (!hasUserContent) setLines(formLines);
@@ -307,8 +320,15 @@ export function EnterBillPage() {
     return { label: 'Low — please review', cls: 'bg-red-100 text-red-700' };
   }, [ocrExtraction]);
 
-  const updateLine = (i: number, field: keyof BillLine, value: string) =>
+  const updateLine = (i: number, field: 'accountId' | 'description' | 'amount', value: string) =>
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
+
+  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
+      ),
+    );
 
   const total = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
 
@@ -334,6 +354,7 @@ export function EnterBillPage() {
         accountId: l.accountId,
         description: l.description || undefined,
         amount: l.amount,
+        tagId: l.tagId,
       })),
   });
 
@@ -351,6 +372,11 @@ export function EnterBillPage() {
     setOcrExtraction(null);
     setOcrError(null);
   };
+
+  const { formRef, handleKeyDown, saveChord, saveAndNewChord } = useFormShortcuts({
+    onSave: () => { setAndNew(false); formRef.current?.requestSubmit(); },
+    onSaveAndNew: isEdit ? undefined : () => { setAndNew(true); formRef.current?.requestSubmit(); },
+  });
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -513,7 +539,7 @@ export function EnterBillPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6 max-w-5xl">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           {/* Vendor selector. ContactSelector doesn't accept a
               `disabled` prop directly, so we wrap it to visually
@@ -593,8 +619,32 @@ export function EnterBillPage() {
           <table className="min-w-full">
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">Account</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
+                {ENTRY_FORMS_V2 && (
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">
+                    <div className="flex items-center gap-2">
+                      <span>Tag</span>
+                      {lines[0]?.tagId && lines.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const firstTag = lines[0]?.tagId ?? null;
+                            setLines((prev) =>
+                              prev.map((l, idx) =>
+                                idx === 0 || l.userHasTouchedTag ? l : { ...l, tagId: firstTag },
+                              ),
+                            );
+                          }}
+                          className="text-[10px] normal-case font-normal text-primary-600 hover:text-primary-700 underline"
+                          title="Copy this row's tag to every untouched row below"
+                        >
+                          Apply to all
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                )}
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Amount</th>
                 <th className="w-8 pb-2" />
               </tr>
@@ -617,6 +667,11 @@ export function EnterBillPage() {
                       placeholder="Description"
                     />
                   </td>
+                  {ENTRY_FORMS_V2 && (
+                    <td className="px-2 py-1">
+                      <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                    </td>
+                  )}
                   <td className="px-2 py-1">
                     <MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} />
                   </td>
@@ -693,18 +748,22 @@ export function EnterBillPage() {
         )}
 
         <div className="flex gap-3">
-          <Button type="submit" loading={isPending && !andNew} disabled={totalMismatch}>
-            {isEdit ? 'Save Changes' : 'Create Bill'}
-          </Button>
-          {!isEdit && (
-            <Button
-              type="button"
-              variant="secondary"
-              loading={isPending && andNew}
-              onClick={() => { setAndNew(true); document.querySelector<HTMLFormElement>('form')?.requestSubmit(); }}
-            >
-              Save + New
+          <ShortcutTooltip chord={saveChord}>
+            <Button type="submit" loading={isPending && !andNew} disabled={totalMismatch}>
+              {isEdit ? 'Save Changes' : 'Create Bill'}
             </Button>
+          </ShortcutTooltip>
+          {!isEdit && (
+            <ShortcutTooltip chord={saveAndNewChord}>
+              <Button
+                type="button"
+                variant="secondary"
+                loading={isPending && andNew}
+                onClick={() => { setAndNew(true); formRef.current?.requestSubmit(); }}
+              >
+                Save + New
+              </Button>
+            </ShortcutTooltip>
           )}
           <Button
             type="button"

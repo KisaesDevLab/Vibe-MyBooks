@@ -6,15 +6,22 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useAccounts } from '../../api/hooks/useAccounts';
+import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { Plus, Save, Calendar, Copy, Percent, ArrowRight, EyeOff, Eye, Grid3X3, DollarSign, Sparkles } from 'lucide-react';
 
 interface Budget {
   id: string;
   name: string;
   fiscalYear: number;
+  // ADR 0XW extensions — surfaced for the list filter + tag chip.
+  tagId?: string | null;
+  periodType?: 'monthly' | 'quarterly' | 'annual';
+  status?: 'draft' | 'active' | 'archived';
+  description?: string | null;
 }
 
 type MonthKey = `month${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12}`;
@@ -45,6 +52,10 @@ export function BudgetEditorPage() {
   const [percentValue, setPercentValue] = useState('5');
   const [setupGrowthPct, setSetupGrowthPct] = useState('5');
   const [newBudgetId, setNewBudgetId] = useState<string | null>(null);
+  // ADR 0XW — scope + lifecycle knobs for budget creation.
+  const [createTagId, setCreateTagId] = useState<string | null>(null);
+  const [createPeriodType, setCreatePeriodType] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
+  const [createStatus, setCreateStatus] = useState<'draft' | 'active' | 'archived'>('active');
 
   // Fetch all budgets
   const { data: budgetsData, isLoading: budgetsLoading, isError: budgetsError, refetch: refetchBudgets } = useQuery({
@@ -99,7 +110,7 @@ export function BudgetEditorPage() {
   // ─── Mutations ────────────────────────────────────────────────
 
   const createBudget = useMutation({
-    mutationFn: (input: { name: string; fiscalYear: number }) =>
+    mutationFn: (input: { name: string; fiscalYear: number; tagId: string | null; periodType: string; status: string }) =>
       apiClient<{ budget: Budget }>('/budgets', {
         method: 'POST',
         body: JSON.stringify(input),
@@ -214,8 +225,21 @@ export function BudgetEditorPage() {
   };
 
   const handleCreate = () => {
-    createBudget.mutate({ name: `Budget ${fiscalYear}`, fiscalYear });
+    createBudget.mutate({
+      name: `Budget ${fiscalYear}`,
+      fiscalYear,
+      tagId: createTagId,
+      periodType: createPeriodType,
+      status: createStatus,
+    });
   };
+
+  // Fetch the tag list so we can show the tag chip on the current budget.
+  const { data: tagsData } = useTags({ isActive: true });
+  const activeTagName = useMemo(() => {
+    if (!budgetForYear?.tagId) return null;
+    return tagsData?.tags?.find((t) => t.id === budgetForYear.tagId)?.name ?? null;
+  }, [budgetForYear, tagsData]);
 
   // Setup modal handlers
   const handleSetupBlank = () => {
@@ -330,13 +354,70 @@ export function BudgetEditorPage() {
           </select>
         </div>
         {!budgetForYear && (
-          <div className="self-end">
-            <Button onClick={handleCreate} loading={createBudget.isPending}>
-              <Plus className="h-4 w-4 mr-1" /> Create Budget for {fiscalYear}
-            </Button>
-          </div>
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Scope</label>
+              <div className="flex items-center gap-2">
+                <div className="w-48">
+                  <LineTagPicker value={createTagId} onChange={(t) => setCreateTagId(t)} />
+                </div>
+                {!createTagId && (
+                  <span className="text-xs text-gray-500">Company-wide</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Period</label>
+              <select
+                value={createPeriodType}
+                onChange={(e) => setCreatePeriodType(e.target.value as 'monthly' | 'quarterly' | 'annual')}
+                className="block rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="annual">Annual</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={createStatus}
+                onChange={(e) => setCreateStatus(e.target.value as 'draft' | 'active' | 'archived')}
+                className="block rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            <div className="self-end">
+              <Button onClick={handleCreate} loading={createBudget.isPending}>
+                <Plus className="h-4 w-4 mr-1" /> Create Budget for {fiscalYear}
+              </Button>
+            </div>
+          </>
         )}
       </div>
+
+      {/* Active-budget scope strip */}
+      {budgetForYear && (
+        <div className="mb-4 flex items-center gap-3 text-sm text-gray-600">
+          <span>
+            <span className="font-medium text-gray-900">{budgetForYear.name}</span>
+            {budgetForYear.periodType ? <> · {budgetForYear.periodType}</> : null}
+            {budgetForYear.status ? <> · {budgetForYear.status}</> : null}
+          </span>
+          {activeTagName ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-50 text-primary-700 px-2 py-0.5 text-xs font-medium">
+              Tag: {activeTagName}
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-600 px-2 py-0.5 text-xs">
+              Company-wide
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Quick Setup Modal */}
       {showSetupModal && (

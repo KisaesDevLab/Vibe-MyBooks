@@ -29,6 +29,7 @@ export function useBills(filters?: BillFilters) {
   if (filters?.endDate) params.set('endDate', filters.endDate);
   if (filters?.dueOnOrBefore) params.set('dueOnOrBefore', filters.dueOnOrBefore);
   if (filters?.overdueOnly) params.set('overdueOnly', String(filters.overdueOnly));
+  if (filters?.tagId) params.set('tagId', filters.tagId);
   if (filters?.search) params.set('search', filters.search);
   if (filters?.limit) params.set('limit', String(filters.limit));
   if (filters?.offset) params.set('offset', String(filters.offset));
