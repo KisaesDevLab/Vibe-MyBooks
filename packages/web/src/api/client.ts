@@ -2,7 +2,13 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-const API_BASE = '/api/v1';
+// `import.meta.env.BASE_URL` is the subpath the SPA is mounted under
+// (Vite injects this from the `base` option in vite.config.ts). It
+// always has a trailing slash — '/' at root, '/mb/' under a subpath —
+// so concatenation produces '/api/v1' or '/mb/api/v1' without a double
+// slash. When the appliance's front nginx strips the `/mb/` prefix, the
+// backend still receives `/api/v1/…` and routing is unaffected.
+const API_BASE = `${import.meta.env.BASE_URL}api/v1`;
 
 // What the web actually handles. The refresh token lives in an HttpOnly
 // cookie now, so this side of the wire only ever sees the access token.
@@ -104,7 +110,7 @@ export async function apiClient<T>(
 
     const tokens = await refreshPromise;
     if (!tokens) {
-      window.location.href = '/login';
+      window.location.href = `${import.meta.env.BASE_URL}login`;
       throw new Error('Session expired');
     }
     headers['Authorization'] = `Bearer ${accessToken}`;

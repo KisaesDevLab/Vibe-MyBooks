@@ -16,13 +16,17 @@ export type AiProviderName =
   | 'openai'
   | 'gemini'
   | 'ollama'
-  | 'glm'
-  // Second self-hosted option: any server that exposes the
-  // OpenAI-compatible `/v1/chat/completions` endpoint — Ollama's /v1
-  // interface, llama.cpp's built-in server, LM Studio, vLLM, etc.
-  // Configured via openaiCompatBaseUrl / openaiCompatModel / key.
+  // GLM-OCR has two flavours: cloud (z.ai hosted) and local (Vibe-GLM-OCR
+  // appliance / llama.cpp server). They're registered as separate
+  // providers on the server and each has its own credentials check.
+  | 'glm_ocr_cloud'
+  | 'glm_ocr_local'
+  // Any server that exposes the OpenAI-compatible `/v1/chat/completions`
+  // endpoint — Ollama's /v1 interface, llama.cpp's built-in server, LM
+  // Studio, vLLM, etc. Configured via openaiCompatBaseUrl /
+  // openaiCompatModel / openaiCompatApiKey.
   | 'openai_compat';
-export type PiiProtectionLevel = 'strict' | 'redact_sensitive' | 'allow_raw';
+export type PiiProtectionLevel = 'strict' | 'standard' | 'permissive';
 export type ChatDataAccessLevel = 'none' | 'contextual' | 'full';
 
 export interface AiConfigDto {
@@ -61,9 +65,16 @@ export interface AiConfigDto {
   disclosureVersion: number;
 }
 
-// Mutation input mirrors `updateConfig()` — every field is optional;
-// unset keys mean "don't touch" on the server. Plaintext API keys are
-// write-only (the server encrypts; reads return `hasXKey` booleans).
+// Mutation input mirrors the server's `aiConfigUpdateSchema` (shared/
+// schemas/ai.ts). Every field is optional; unset keys mean "don't
+// touch" on the server. Plaintext API keys are write-only (the server
+// encrypts; reads return `hasXKey` booleans).
+//
+// Chat settings are intentionally NOT part of this payload — they flow
+// through the separate `PUT /chat/admin/config` endpoint (see
+// ChatSettingsSection in AiConfigPage). Adding them here would make
+// them round-trip through `/ai/admin/config` where the Zod schema
+// strips unknown keys.
 export interface UpdateAiConfigInput {
   isEnabled?: boolean;
   categorizationProvider?: AiProviderName | null;
@@ -88,11 +99,6 @@ export interface UpdateAiConfigInput {
   maxConcurrentJobs?: number;
   trackUsage?: boolean;
   monthlyBudgetLimit?: number | null;
-  chatSupportEnabled?: boolean;
-  chatProvider?: AiProviderName | null;
-  chatModel?: string | null;
-  chatMaxHistory?: number;
-  chatDataAccessLevel?: ChatDataAccessLevel;
   piiProtectionLevel?: PiiProtectionLevel;
   cloudVisionEnabled?: boolean;
 }
