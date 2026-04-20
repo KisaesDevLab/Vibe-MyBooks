@@ -10,25 +10,19 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { AdminRoute } from './components/layout/AdminRoute';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
-// Eager-load only what the login path actually needs. Everything else is
-// route-lazy — the main bundle no longer ships chart/pdf/admin code on
-// first load, and route changes pull chunks on demand. Named exports are
-// mapped onto `default` in the lazy wrapper because React.lazy only
-// accepts default-exporting modules.
+// Eager-load only what the cold-start login path actually paints on
+// first render. Everything else — including the less-trafficked auth
+// screens (register, forgot/reset password, magic-link verify, OAuth
+// consent) — is route-lazy so the main bundle stays under the 500 KB
+// Vite warning threshold. Named exports are mapped onto `default` in
+// the lazy wrapper because React.lazy only accepts default-exporting
+// modules.
 
 import { LoginPage } from './features/auth/LoginPage';
-import { RegisterPage } from './features/auth/RegisterPage';
-import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
-import { MagicLinkVerifyPage } from './features/auth/MagicLinkVerifyPage';
-import { ResetPasswordPage } from './features/auth/ResetPasswordPage';
-import { OAuthConsentPage } from './features/auth/OAuthConsentPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { CompanyProvider } from './providers/CompanyProvider';
 import { DiagnosticRouter } from './features/diagnostics/DiagnosticRouter';
-import { FirstRunSetupWizard } from './features/setup/FirstRunSetupWizard';
 import { NotFoundPage } from './features/NotFoundPage';
-import { PublicInvoicePage } from './features/public/PublicInvoicePage';
-import { SplitRowV2GalleryPage } from './features/__dev__/SplitRowV2Gallery';
 
 // Helper to lazy-load a named export. React.lazy expects `default`, so we
 // shim the named export onto it. Each call produces a separately chunked
@@ -192,6 +186,16 @@ const PayrollImportPage = lazyNamed(() => import('./features/payroll/PayrollImpo
 const PayrollHistoryPage = lazyNamed(() => import('./features/payroll/PayrollHistoryPage'), 'PayrollHistoryPage');
 const KnowledgeBasePage = lazyNamed(() => import('./features/help/KnowledgeBasePage'), 'KnowledgeBasePage');
 const ArticlePage = lazyNamed(() => import('./features/help/ArticlePage'), 'ArticlePage');
+
+// ─── Auth (cold-path + one-time setup) — kept out of the main bundle ─
+const RegisterPage = lazyNamed(() => import('./features/auth/RegisterPage'), 'RegisterPage');
+const ForgotPasswordPage = lazyNamed(() => import('./features/auth/ForgotPasswordPage'), 'ForgotPasswordPage');
+const ResetPasswordPage = lazyNamed(() => import('./features/auth/ResetPasswordPage'), 'ResetPasswordPage');
+const MagicLinkVerifyPage = lazyNamed(() => import('./features/auth/MagicLinkVerifyPage'), 'MagicLinkVerifyPage');
+const OAuthConsentPage = lazyNamed(() => import('./features/auth/OAuthConsentPage'), 'OAuthConsentPage');
+const FirstRunSetupWizard = lazyNamed(() => import('./features/setup/FirstRunSetupWizard'), 'FirstRunSetupWizard');
+const PublicInvoicePage = lazyNamed(() => import('./features/public/PublicInvoicePage'), 'PublicInvoicePage');
+const SplitRowV2GalleryPage = lazyNamed(() => import('./features/__dev__/SplitRowV2Gallery'), 'SplitRowV2GalleryPage');
 
 const queryClient = new QueryClient({
   defaultOptions: {
