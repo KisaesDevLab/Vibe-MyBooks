@@ -10,6 +10,13 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# VITE_BASE_URL is baked into the built bundle — Vite rewrites asset
+# URLs and the SPA router basename to this prefix. Default '/' keeps
+# root deployment working; pass `--build-arg VITE_BASE_URL=/mb/` for
+# a subpath deployment where the upstream proxy strips the prefix.
+ARG VITE_BASE_URL=/
+ENV VITE_BASE_URL=$VITE_BASE_URL
+
 COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/

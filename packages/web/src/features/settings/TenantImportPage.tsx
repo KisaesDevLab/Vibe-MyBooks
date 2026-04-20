@@ -151,7 +151,7 @@ export function TenantImportPage() {
           )}
 
           <div className="mt-6">
-            <Button onClick={() => window.location.href = '/'}>
+            <Button onClick={() => { window.location.href = import.meta.env.BASE_URL; }}>
               <ArrowRight className="h-4 w-4 mr-1" /> Go to Dashboard
             </Button>
           </div>

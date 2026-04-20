@@ -219,7 +219,13 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <DiagnosticRouter>
       <CompanyProvider>
-      <BrowserRouter>
+      {/* Vite's `base` option populates import.meta.env.BASE_URL with a
+          trailing-slash path (e.g. '/mb/'). Threading it through
+          BrowserRouter's basename keeps in-SPA navigation, <Navigate>,
+          and <Link> generating prefixed URLs automatically under a
+          subpath deployment. Raw window.location.href assignments still
+          need to use BASE_URL explicitly. */}
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Suspense fallback={<LoadingFallback />}>
         <Routes>
           {/* Public routes */}

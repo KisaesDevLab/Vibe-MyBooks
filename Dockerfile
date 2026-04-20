@@ -18,6 +18,13 @@ RUN npm run build --workspace=@kis-books/api
 FROM node:20-alpine AS web-build
 WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
+# VITE_BASE_URL is baked into the web bundle at build time — Vite
+# rewrites asset URLs and the SPA router basename to this prefix. Pass
+# `--build-arg VITE_BASE_URL=/mb/` when the appliance's front nginx
+# serves the app under a path prefix. Default `/` keeps the bundle
+# identical for root deployments.
+ARG VITE_BASE_URL=/
+ENV VITE_BASE_URL=$VITE_BASE_URL
 COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/

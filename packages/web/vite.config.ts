@@ -7,6 +7,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  // Subpath deployment: when the appliance's front nginx mounts the app
+  // under `/mb/` (or any other prefix) and strips the prefix before
+  // proxying, the built asset URLs and in-SPA routes need to embed that
+  // prefix so the browser generates URLs the proxy recognises. Override
+  // by passing `VITE_BASE_URL=/mb/` at build time (e.g. docker build
+  // --build-arg VITE_BASE_URL=/mb/). Default `/` keeps root deployment
+  // working unchanged.
+  base: process.env.VITE_BASE_URL || '/',
   plugins: [react()],
   // Vitest runs both unit + component-render tests. jsdom is needed for
   // the React Testing Library suite (DOM APIs, window, fetch). Pure-helper
