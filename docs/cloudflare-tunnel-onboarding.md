@@ -68,6 +68,7 @@ Credentials live in your password manager, shared with the firm via end-to-end-e
    - `CLOUDFLARE_TUNNEL_TOKEN=...` (from the firm)
    - `TURNSTILE_SITE_KEY=...`
    - `TURNSTILE_SECRET_KEY=...`
+   - `TRUST_PROXY=true` — **do not skip.** Without this the staff IP allowlist, rate limiters, and invoice-link builder all read from the cloudflared sidecar's IP instead of the real client; see `.env.example` for the full explanation.
 4. `docker compose --profile tunnel up -d`
 5. Watch `docker compose logs -f cloudflared` for:
    - `Starting metrics server on [::]:2000/metrics`
