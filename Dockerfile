@@ -85,6 +85,14 @@ RUN addgroup -g 1001 -S app && adduser -S -u 1001 -G app app \
   && mkdir -p /data/uploads /data/backups /data/config /data/generated \
   && chown -R app:app /app /data
 
+# Version stamp — CI passes the release tag (e.g. v1.2.3) via
+# `--build-arg VERSION=$GITHUB_REF_NAME`. When absent (local `docker
+# compose build`) we fall back to "dev" so the in-app update-check can
+# still render something meaningful without pretending the image is a
+# release. Read at runtime via process.env.VIBE_MYBOOKS_VERSION.
+ARG VERSION=dev
+ENV VIBE_MYBOOKS_VERSION=$VERSION
+
 # Serve static web files from API
 ENV NODE_ENV=production
 ENV PORT=3001

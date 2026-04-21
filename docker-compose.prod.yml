@@ -1,15 +1,32 @@
+# Every service uses the same logging config (json-file with rotation) so a
+# long-running appliance cannot fill its disk with unrotated logs.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   app:
     # Pre-built image from GHCR — installs pull this instead of building
-    # locally. Pin a specific release via VIBE_MYBOOKS_TAG in .env.
+    # locally. Pin a specific release via VIBE_MYBOOKS_TAG in .env
+    # (e.g., VIBE_MYBOOKS_TAG=v1.2.3). Defaults to `latest` so fresh
+    # installs work out of the box, but once you have a working deploy
+    # you should PIN A TAG in .env — otherwise `pull_policy: missing`
+    # still lets a new tag sneak in if the local image is pruned.
     # The build: stanza is kept so `docker compose build` still works for
     # contributors who cloned the repo and want to exercise the Dockerfile.
     image: ghcr.io/kisaesdevlab/vibe-mybooks:${VIBE_MYBOOKS_TAG:-latest}
-    pull_policy: always
+    # `missing` (not `always`) prevents silent in-place upgrades on every
+    # `docker compose up`. When pinned to a specific tag this is a no-op;
+    # when left on :latest it at least avoids re-fetching unless the
+    # local image is absent.
+    pull_policy: missing
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     ports:
       # Honor PORT from .env (install.sh writes it when APP_PORT is
       # overridden) so users who already have something on 3001 can
@@ -56,6 +73,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging: *default-logging
 
   redis:
     image: redis:7-alpine
@@ -67,6 +85,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging: *default-logging
 
 volumes:
   pgdata:

@@ -27,6 +27,7 @@ import { startBackupScheduler } from '../../api/src/services/backup-scheduler.se
 import { startRecurringScheduler } from '../../api/src/services/recurring.service.js';
 import { runChunkedTagBackfill } from '../../api/src/services/tags/backfill-sweep.service.js';
 import { startCloudflaredAlerter, stopCloudflaredAlerter } from '../../api/src/services/cloudflared/alert.service.js';
+import { startBackupVerifier, stopBackupVerifier } from '../../api/src/services/backup-verify.service.js';
 import { pool } from '../../api/src/db/index.js';
 
 const startedAt = new Date().toISOString();
@@ -36,7 +37,8 @@ try {
   startBackupScheduler();
   startRecurringScheduler();
   startCloudflaredAlerter();
-  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter');
+  startBackupVerifier();
+  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier');
 
   // One-shot chunked tag backfill sweep. Runs in the background so
   // worker startup isn't gated on it — the advisory lock ensures no
@@ -83,6 +85,7 @@ const shutdown = async (signal: string) => {
   console.log(`[Worker] ${signal} received — shutting down`);
   clearInterval(heartbeat);
   stopCloudflaredAlerter();
+  stopBackupVerifier();
   const forceExit = setTimeout(() => {
     console.error('[Worker] shutdown deadline exceeded — forcing exit');
     process.exit(1);
