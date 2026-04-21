@@ -31,6 +31,7 @@ import {
   Wallet,
   Wrench,
   ShieldCheck,
+  ShieldAlert,
   Building2,
   UsersRound,
   HelpCircle,
@@ -41,6 +42,7 @@ import {
   Upload,
   ClipboardList,
   Network,
+  Cloud,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLogout, useMe } from '../../api/hooks/useAuth';
@@ -72,6 +74,8 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/ai', label: 'AI Processing', icon: Shield },
   { to: '/admin/mcp', label: 'MCP / API', icon: Shield },
   { to: '/admin/tailscale', label: 'Tailscale', icon: Network },
+  { to: '/admin/tunnel', label: 'Cloudflare Tunnel', icon: Cloud },
+  { to: '/admin/ip-allowlist', label: 'Staff IP Allowlist', icon: ShieldAlert },
   { to: '/admin/system', label: 'System Settings', icon: Wrench },
 ];
 

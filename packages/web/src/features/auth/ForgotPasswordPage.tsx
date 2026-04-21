@@ -8,11 +8,13 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { apiClient } from '../../api/client';
+import { TurnstileWidget } from '../../components/auth/TurnstileWidget';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -20,7 +22,7 @@ export function ForgotPasswordPage() {
     try {
       await apiClient('/auth/forgot-password', {
         method: 'POST',
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, turnstileToken: turnstileToken ?? '' }),
       });
       setSubmitted(true);
     } finally {
@@ -55,7 +57,8 @@ export function ForgotPasswordPage() {
           required
           autoComplete="email"
         />
-        <Button type="submit" className="w-full" loading={loading}>
+        <TurnstileWidget action="forgot_password" onToken={setTurnstileToken} />
+        <Button type="submit" className="w-full" loading={loading} disabled={turnstileToken === null}>
           Send reset link
         </Button>
         <p className="text-center text-sm text-gray-500">

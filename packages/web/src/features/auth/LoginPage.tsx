@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { setTokens } from '../../api/client';
 import { TfaVerifyStep, type TfaVerifiedPayload } from './TfaVerifyStep';
+import { TurnstileWidget } from '../../components/auth/TurnstileWidget';
 import { AlertCircle, Fingerprint, Mail, KeyRound } from 'lucide-react';
 
 // ─── Error helpers ────────────────────────────────────────────
@@ -95,6 +96,10 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Turnstile token. Empty string is valid when the server has the widget
+  // disabled (LAN-only / dev) — TurnstileWidget emits '' on mount in that
+  // case, so the submit handler's token check matches the server.
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   // Auth methods (fetched from server)
@@ -185,7 +190,7 @@ export function LoginPage() {
       const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, password }),
+        body: JSON.stringify({ email: trimmedEmail, password, turnstileToken: turnstileToken ?? '' }),
       });
       const data = await safeJson(res);
 
@@ -430,8 +435,9 @@ export function LoginPage() {
             {!hasAlternatives && null}
             <Input label="Password" type="password" value={password} onChange={handlePasswordChange}
               required autoComplete="current-password" />
+            <TurnstileWidget action="login" onToken={setTurnstileToken} />
             {error && <ErrorAlert message={error} />}
-            <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
+            <Button type="submit" className="w-full" loading={loading} disabled={turnstileToken === null}>Sign in</Button>
           </form>
         )}
 

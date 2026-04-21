@@ -5,6 +5,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { CloudflaredStatusCard } from './CloudflaredStatusCard';
+import { UpdateCheckCard } from './UpdateCheckCard';
 import {
   Building2,
   Users,
@@ -127,6 +129,10 @@ export function AdminDashboard() {
           color="bg-red-500"
         />
       </div>
+
+      <UpdateCheckCard />
+
+      <CloudflaredStatusCard />
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <div className="px-6 py-4 border-b border-gray-200">
