@@ -555,7 +555,7 @@ export function EnterBillPage() {
               required
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <DatePicker
               label="Bill Date"
               value={txnDate}
@@ -596,7 +596,7 @@ export function EnterBillPage() {
             </div>
           </div>
           {paymentTerms === 'custom' && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Input
                 label="Custom Days"
                 type="number"
@@ -619,10 +619,11 @@ export function EnterBillPage() {
           <table className="min-w-full">
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">Account</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-44">Amount</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
                 {ENTRY_FORMS_V2 && (
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-40">
                     <div className="flex items-center gap-2">
                       <span>Tag</span>
                       {lines[0]?.tagId && lines.length > 1 && (
@@ -645,7 +646,6 @@ export function EnterBillPage() {
                     </div>
                   </th>
                 )}
-                <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Amount</th>
                 <th className="w-8 pb-2" />
               </tr>
             </thead>
@@ -660,6 +660,9 @@ export function EnterBillPage() {
                     />
                   </td>
                   <td className="px-2 py-1">
+                    <MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} />
+                  </td>
+                  <td className="px-2 py-1">
                     <input
                       value={line.description}
                       onChange={(e) => updateLine(i, 'description', e.target.value)}
@@ -672,9 +675,6 @@ export function EnterBillPage() {
                       <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                     </td>
                   )}
-                  <td className="px-2 py-1">
-                    <MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} />
-                  </td>
                   <td className="pl-1 py-1 pt-2.5">
                     {lines.length > 1 && (
                       <button
@@ -747,7 +747,7 @@ export function EnterBillPage() {
           </div>
         )}
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <ShortcutTooltip chord={saveChord}>
             <Button type="submit" loading={isPending && !andNew} disabled={totalMismatch}>
               {isEdit ? 'Save Changes' : 'Create Bill'}

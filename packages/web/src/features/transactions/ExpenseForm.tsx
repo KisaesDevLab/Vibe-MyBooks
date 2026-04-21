@@ -202,21 +202,14 @@ export function ExpenseForm() {
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Line Items</h2>
-          <table className="min-w-full table-fixed">
-            <colgroup>
-              <col style={{ width: ENTRY_FORMS_V2 ? '34%' : '42%' }} />
-              <col style={{ width: ENTRY_FORMS_V2 ? '22%' : '26%' }} />
-              <col style={{ width: ENTRY_FORMS_V2 ? '20%' : '26%' }} />
-              {ENTRY_FORMS_V2 && <col style={{ width: '18%' }} />}
-              <col style={{ width: '6%' }} />
-            </colgroup>
+          <table className="min-w-full">
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 pr-2">Category</th>
-                <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 px-2">Amount</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 pr-2 w-1/3">Category</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 px-2 w-44">Amount</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 px-2">Description</th>
                 {ENTRY_FORMS_V2 && (
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 px-2">
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 px-2 w-40">
                     <div className="flex items-center gap-2">
                       <span>Tag</span>
                       {/* ADR 0XY §4.3 — copy first row's tag to every
@@ -243,7 +236,7 @@ export function ExpenseForm() {
                     </div>
                   </th>
                 )}
-                <th className="pb-2" />
+                <th className="w-8 pb-2" />
               </tr>
             </thead>
             <tbody>
@@ -288,7 +281,7 @@ export function ExpenseForm() {
 
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <ShortcutTooltip chord={saveChord}>
             <Button type="submit" loading={mutation.isPending && !andNew}>
               {isEdit ? 'Save Changes' : 'Record Expense'}

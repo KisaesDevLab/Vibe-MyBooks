@@ -118,7 +118,7 @@ export function ReceivePaymentPage() {
             required
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <DatePicker
               label="Payment Date"
               value={txnDate}
@@ -132,7 +132,7 @@ export function ReceivePaymentPage() {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <AccountSelector
               label="Deposit To"
               value={depositToAccountId}
@@ -168,7 +168,8 @@ export function ReceivePaymentPage() {
               </div>
             ) : (
               <>
-                <table className="min-w-full divide-y divide-gray-200">
+                <div className="overflow-x-auto">
+                <table className="min-w-[720px] divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-center w-10">
@@ -227,6 +228,7 @@ export function ReceivePaymentPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
 
                 <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
                   <div className="text-sm">
@@ -244,7 +246,7 @@ export function ReceivePaymentPage() {
           <p className="text-sm text-red-600">{receivePayment.error.message}</p>
         )}
 
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
           <Button type="button" variant="secondary" onClick={() => navigate('/invoices')}>
             Cancel
           </Button>

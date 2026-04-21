@@ -170,11 +170,11 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
         </button>
       </div>
 
-      {/* Entry fields — two-row layout */}
+      {/* Entry fields — two-row layout on desktop, stacked on mobile */}
       <div className="bg-white border-l-4 border-primary-500 mx-4 my-3 rounded-lg shadow-sm p-4 space-y-3">
         {/* Row 1: Date, Ref, Payee/Received, Account */}
-        <div className="flex gap-3">
-          <div className="w-[70px]">
+        <div className="flex flex-wrap gap-3">
+          <div className="w-full sm:w-[150px]">
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Date</label>
             <input
               ref={dateRef}
@@ -185,7 +185,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
             />
           </div>
 
-          <div className="w-24">
+          <div className="w-full sm:w-24">
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Ref #</label>
             <input
               value={refNo}
@@ -196,7 +196,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
           </div>
 
           {(config.showPayee || config.showReceived) && (
-            <div className="flex-1 min-w-[160px]">
+            <div className="w-full sm:flex-1 sm:min-w-[160px]">
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
                 {config.showPayee ? 'Payee' : 'Received From'}
               </label>
@@ -205,7 +205,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
             </div>
           )}
 
-          <div className="flex-1 min-w-[160px]">
+          <div className="w-full sm:flex-1 sm:min-w-[216px]">
             <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
               {txnType === 'transfer' ? 'Transfer To Account' : 'Category / Account'}
             </label>
@@ -218,27 +218,11 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
           </div>
         </div>
 
-        {/* Row 2: Memo, Tag, Payment, Deposit, Save */}
-        <div className="flex gap-3 items-end">
-          <div className="flex-1">
-            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Memo / Description</label>
-            <input
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              placeholder="What's this for?"
-              className="w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-            />
-          </div>
-          {txnType !== 'transfer' && (
-            <div className="w-36">
-              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Tag</label>
-              <LineTagPicker value={tagId} onChange={(t) => setTagId(t)} compact />
-            </div>
-          )}
-
+        {/* Row 2: Payment/Deposit, Memo, Tag (always last before actions), Save */}
+        <div className="flex flex-wrap gap-3 items-end">
           {/* Payment / Decrease */}
           {!config.isDeposit && (
-            <div className="w-32">
+            <div className="w-full sm:w-44">
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
                 {isBankOrCC ? 'Payment' : 'Decrease'}
               </label>
@@ -259,7 +243,7 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
 
           {/* Deposit / Increase */}
           {(config.isDeposit || showBothAmounts) && (
-            <div className="w-32">
+            <div className="w-full sm:w-44">
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
                 {isBankOrCC ? 'Deposit' : 'Increase'}
               </label>
@@ -278,7 +262,24 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="w-full sm:flex-1">
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Memo / Description</label>
+            <input
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              placeholder="What's this for?"
+              className="w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+            />
+          </div>
+
+          {txnType !== 'transfer' && (
+            <div className="w-full sm:w-40">
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Tag</label>
+              <LineTagPicker value={tagId} onChange={(t) => setTagId(t)} compact />
+            </div>
+          )}
+
+          <div className="flex gap-2 w-full sm:w-auto">
             <Button
               onClick={handleSave}
               disabled={(!payment && !deposit) || !otherAccountId || createTxn.isPending}
