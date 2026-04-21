@@ -128,7 +128,7 @@ export function WriteCheckPage() {
       >
         {/* Bank Account & Date */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <AccountSelector
               label="Bank Account"
               value={bankAccountId}
@@ -204,20 +204,20 @@ export function WriteCheckPage() {
           <table className="min-w-full">
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">
                   Account
+                </th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-44">
+                  Amount
                 </th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">
                   Description
                 </th>
                 {ENTRY_FORMS_V2 && (
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-40">
                     Tag
                   </th>
                 )}
-                <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-28">
-                  Amount
-                </th>
                 <th className="w-10 pb-2" />
               </tr>
             </thead>
@@ -229,6 +229,12 @@ export function WriteCheckPage() {
                       value={line.accountId}
                       onChange={(v) => updateLine(i, 'accountId', v)}
                       accountTypeFilter="expense"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <MoneyInput
+                      value={line.amount}
+                      onChange={(v) => updateLine(i, 'amount', v)}
                     />
                   </td>
                   <td className="px-2 py-1">
@@ -246,12 +252,6 @@ export function WriteCheckPage() {
                       <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                     </td>
                   )}
-                  <td className="px-2 py-1">
-                    <MoneyInput
-                      value={line.amount}
-                      onChange={(v) => updateLine(i, 'amount', v)}
-                    />
-                  </td>
                   <td className="pl-2 py-1">
                     {lines.length > 1 && (
                       <button
@@ -327,7 +327,7 @@ export function WriteCheckPage() {
         )}
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <ShortcutTooltip chord="Ctrl/Cmd+Enter">
             <Button
               type="submit"

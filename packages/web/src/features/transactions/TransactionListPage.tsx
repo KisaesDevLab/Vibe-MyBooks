@@ -134,12 +134,6 @@ export function TransactionListPage() {
   const { data: contactsData } = useContacts({ limit: 500, isActive: true });
   const contactsList = contactsData?.data || [];
 
-  const firstLoad = isLoading && !data;
-
-  if (firstLoad) return <LoadingSpinner className="py-12" />;
-  if (isError && !data) return <ErrorMessage onRetry={() => refetch()} />;
-
-  const txns = data?.data || [];
   // Show the split-level tag-filter banner once per session when the
   // user first applies a tag filter, explaining that the scope is
   // "any line carries this tag" per ADR 0XX §5.2.
@@ -154,6 +148,13 @@ export function TransactionListPage() {
     try { window.localStorage.setItem('vb_tagFilterBannerDismissed', '1'); } catch { /* ignore */ }
     setShowTagBanner(false);
   };
+
+  const firstLoad = isLoading && !data;
+
+  if (firstLoad) return <LoadingSpinner className="py-12" />;
+  if (isError && !data) return <ErrorMessage onRetry={() => refetch()} />;
+
+  const txns = data?.data || [];
 
   const newTxnOptions = [
     { label: 'Journal Entry', path: '/transactions/new/journal-entry' },

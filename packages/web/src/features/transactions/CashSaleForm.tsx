@@ -174,16 +174,16 @@ export function CashSaleForm() {
           <table className="min-w-full">
             <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/4">Account</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
                 <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-16">Qty</th>
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-36">Rate</th>
                 <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-12">Tax</th>
                 <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Tax %</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-44">Amount</th>
                 {ENTRY_FORMS_V2 && (
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-36">Tag</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-40">Tag</th>
                 )}
-                <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-24">Amount</th>
                 <th className="w-8 pb-2" />
               </tr>
             </thead>
@@ -212,12 +212,12 @@ export function CashSaleForm() {
                           className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right" />
                       )}
                     </td>
+                    <td className="px-2 py-1 text-right font-mono text-sm pt-2.5">${lineAmount.toFixed(2)}</td>
                     {ENTRY_FORMS_V2 && (
                       <td className="px-1 py-1">
                         <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                       </td>
                     )}
-                    <td className="px-2 py-1 text-right font-mono text-sm pt-2.5">${lineAmount.toFixed(2)}</td>
                     <td className="pl-1 py-1 pt-2.5">
                       {lines.length > 1 && (
                         <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
@@ -243,7 +243,7 @@ export function CashSaleForm() {
 
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <ShortcutTooltip chord={saveChord}>
             <Button type="submit" loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Record Cash Sale'}</Button>
           </ShortcutTooltip>

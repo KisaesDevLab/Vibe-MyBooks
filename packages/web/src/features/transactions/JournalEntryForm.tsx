@@ -141,7 +141,7 @@ export function JournalEntryForm() {
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{isEdit ? 'Edit Journal Entry' : 'New Journal Entry'}</h1>
       <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="max-w-4xl space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
             <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
           </div>
@@ -251,7 +251,7 @@ export function JournalEntryForm() {
 
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <ShortcutTooltip chord={saveChord}>
             <Button type="submit" disabled={!isBalanced} loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Post Journal Entry'}</Button>
           </ShortcutTooltip>

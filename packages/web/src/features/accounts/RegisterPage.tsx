@@ -255,9 +255,9 @@ export function RegisterPage() {
               <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-16" onClick={() => toggleSort('type')}>
                 Type {sortBy === 'type' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
-              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-32">Payee</th>
-              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-32">Account</th>
-              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase">Memo</th>
+              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-56">Payee</th>
+              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-56">Account</th>
+              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-64">Memo</th>
               <th className="px-2 py-2 text-right font-medium text-gray-500 uppercase w-24" onClick={() => toggleSort('amount')}>
                 {paymentLabel} {sortBy === 'amount' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
@@ -289,9 +289,9 @@ export function RegisterPage() {
                   {line.txnNumber && <span className="text-gray-400 ml-1">#{line.txnNumber}</span>}
                   {line.status === 'void' && <span className="ml-1 text-xs text-red-500 font-medium">VOID</span>}
                 </td>
-                <td className="px-2 py-1 text-gray-700 truncate max-w-[120px]">{line.payeeName || ''}</td>
-                <td className="px-2 py-1 text-gray-500 truncate max-w-[120px]">{line.accountName || ''}</td>
-                <td className="px-2 py-1 text-gray-500 truncate max-w-[200px]">{line.memo || ''}</td>
+                <td className="px-2 py-1 text-gray-700 truncate max-w-[220px]" title={line.payeeName || ''}>{line.payeeName || ''}</td>
+                <td className="px-2 py-1 text-gray-500 truncate max-w-[220px]" title={line.accountName || ''}>{line.accountName || ''}</td>
+                <td className="px-2 py-1 text-gray-500 truncate max-w-[260px]" title={line.memo || ''}>{line.memo || ''}</td>
                 <td className="px-2 py-1 text-right font-mono text-gray-700">{line.payment ? fmt(line.payment) : ''}</td>
                 <td className="px-2 py-1 text-right font-mono text-gray-700">{line.deposit ? fmt(line.deposit) : ''}</td>
                 <td className={`px-2 py-1 text-right font-mono font-bold ${line.runningBalance < 0 ? 'text-red-600' : 'text-gray-900'}`}>

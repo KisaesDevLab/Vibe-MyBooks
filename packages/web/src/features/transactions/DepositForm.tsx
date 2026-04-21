@@ -138,20 +138,20 @@ export function DepositForm() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h2 className="text-sm font-medium text-gray-700 mb-3">Deposit Lines</h2>
           {lines.map((line, i) => (
-            <div key={i} className="flex gap-3 mb-2">
-              <div className="flex-1"><AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} /></div>
-              <div className="w-32"><MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} /></div>
-              <div className="flex-1">
+            <div key={i} className="flex flex-wrap gap-3 mb-2 pb-2 sm:pb-0 border-b sm:border-b-0 border-gray-100 last:border-b-0">
+              <div className="w-full sm:flex-1 sm:min-w-[216px]"><AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} /></div>
+              <div className="w-full sm:w-44"><MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} /></div>
+              <div className="w-full sm:flex-1 sm:min-w-[160px]">
                 <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
               </div>
               {ENTRY_FORMS_V2 && (
-                <div className="w-36">
+                <div className="w-full sm:w-40">
                   <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                 </div>
               )}
               {lines.length > 1 && (
-                <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
+                <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500 self-start sm:self-center">
                   <Trash2 className="h-4 w-4" />
                 </button>
               )}
@@ -164,7 +164,7 @@ export function DepositForm() {
 
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <ShortcutTooltip chord={saveChord}>
             <Button type="submit" loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Record Deposit'}</Button>
           </ShortcutTooltip>

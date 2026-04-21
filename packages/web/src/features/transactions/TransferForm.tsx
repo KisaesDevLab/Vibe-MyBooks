@@ -95,7 +95,7 @@ export function TransferForm() {
 
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <ShortcutTooltip chord={saveChord}>
             <Button type="submit" loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Record Transfer'}</Button>
           </ShortcutTooltip>

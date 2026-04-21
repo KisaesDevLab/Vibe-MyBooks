@@ -108,6 +108,11 @@ services:
     build:
       context: .
       dockerfile: packages/web/Dockerfile
+      args:
+        # Pass feature flags through at build time — Vite bakes them
+        # into the JS bundle, so flipping these requires `docker compose
+        # build web` to take effect. See packages/web/src/utils/feature-flags.ts.
+        VITE_ENTRY_FORMS_V2: ${VITE_ENTRY_FORMS_V2:-true}
     restart: unless-stopped
     ports:
       - "${VITE_PORT:-5173}:5173"

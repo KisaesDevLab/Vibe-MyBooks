@@ -25,6 +25,9 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 # identical for root deployments.
 ARG VITE_BASE_URL=/
 ENV VITE_BASE_URL=$VITE_BASE_URL
+# ADR 0XZ — two-line split-row entry forms with per-line tag picker.
+ARG VITE_ENTRY_FORMS_V2=true
+ENV VITE_ENTRY_FORMS_V2=$VITE_ENTRY_FORMS_V2
 COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
