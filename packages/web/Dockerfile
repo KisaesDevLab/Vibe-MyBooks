@@ -10,12 +10,11 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# VITE_BASE_URL is baked into the built bundle — Vite rewrites asset
-# URLs and the SPA router basename to this prefix. Default '/' keeps
-# root deployment working; pass `--build-arg VITE_BASE_URL=/mb/` for
-# a subpath deployment where the upstream proxy strips the prefix.
-ARG VITE_BASE_URL=/
-ENV VITE_BASE_URL=$VITE_BASE_URL
+# Subpath deployment is now a runtime concern — the bundle bakes in the
+# sentinel `/__VIBE_BASE_PATH__/` and the web container's startup hook
+# substitutes it from the VITE_BASE_PATH env var. See
+# packages/web/vite.config.ts and docker-entrypoint.d/40-base-path.sh.
+# (Removed: ARG/ENV VITE_BASE_URL — no longer needed at build time.)
 
 # ADR 0XZ — two-line split-row entry forms with per-line tag picker.
 # Baked in at build time; flip the compose build arg and rebuild `web`.
@@ -42,6 +41,12 @@ FROM nginx:1.27-alpine
 RUN printf 'server {\n  listen 5173;\n  server_name _;\n  root /usr/share/nginx/html;\n  index index.html;\n  gzip on;\n  gzip_types text/css application/javascript application/json image/svg+xml;\n  # Long-cache hashed assets, no-cache the HTML entry point so deploys take effect.\n  location ~* \\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|webp|ico)$ {\n    expires 1y;\n    add_header Cache-Control "public, immutable";\n    try_files $uri =404;\n  }\n  location / {\n    add_header Cache-Control "no-store";\n    try_files $uri /index.html;\n  }\n  location /api/ {\n    proxy_pass http://api:3001;\n    proxy_set_header Host $host;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-Forwarded-Proto $scheme;\n    client_max_body_size 50m;\n  }\n  location /oauth/ {\n    proxy_pass http://api:3001;\n    proxy_set_header Host $host;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n  }\n}\n' > /etc/nginx/conf.d/default.conf
 
 COPY --from=builder /app/packages/web/dist /usr/share/nginx/html
+
+# Runtime base-path substitution — runs before nginx (the upstream
+# /docker-entrypoint.sh executes everything in /docker-entrypoint.d/ in
+# numerical order). VITE_BASE_PATH defaults to '/' if unset.
+COPY packages/web/docker-entrypoint.d/40-base-path.sh /docker-entrypoint.d/40-base-path.sh
+RUN chmod +x /docker-entrypoint.d/40-base-path.sh
 
 EXPOSE 5173
 

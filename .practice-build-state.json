@@ -1,0 +1,11 @@
+{
+  "current_phase": 7,
+  "current_subphase": null,
+  "last_completed_phase": 6,
+  "last_completed_subphase": null,
+  "last_completed_at": "2026-04-24T23:00:00Z",
+  "phases_completed": [1, 2, 3, 4, 5, 6],
+  "subphases_completed": ["2a", "2b", "5a", "5b"],
+  "blocked": false,
+  "blocker_notes": null
+}

@@ -177,6 +177,55 @@ services:
     mem_limit: ${TS_MEM_LIMIT:-128m}
     logging: *default-logging
 
+  # GLM-OCR sidecar — local llama.cpp server serving the GLM-OCR
+  # GGUF model over an OpenAI-compatible /v1/chat/completions endpoint.
+  # See github.com/KisaesDevLab/Vibe-GLM-OCR for the appliance source
+  # and the OCR_PORT default (8090).
+  #
+  # Gated behind the `glm-ocr` compose profile so single-firm appliances
+  # that send OCR to a cloud provider (Anthropic vision, etc.) don't
+  # have to run the model locally. To enable:
+  #
+  #   docker compose --profile glm-ocr up -d
+  #
+  # After bringing the sidecar up, configure the API to talk to it via
+  # the admin UI: set "GLM-OCR base URL" to http://glm-ocr:8090 (the
+  # internal compose hostname) and pick the local mode in the
+  # provider dropdown. Models live in /models inside the container —
+  # the GLM_OCR_IMAGE default ships the GGUF baked in; override
+  # GLM_OCR_IMAGE in .env to use a custom appliance build.
+  #
+  # First boot is slow (~10–30s) while the model file mmap-loads;
+  # the healthcheck polls /health which the appliance only exposes
+  # once the model has finished loading.
+  glm-ocr:
+    image: ${GLM_OCR_IMAGE:-ghcr.io/kisaesdevlab/vibe-glm-ocr:latest}
+    restart: unless-stopped
+    profiles: ["glm-ocr"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8090/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # First boot on an empty cache pulls multi-GB GGUF weights and
+      # mmap-loads them — comfortably exceeds 60s on slower disks or
+      # links. 180s default; tighten via GLM_OCR_START_PERIOD on
+      # warm appliances if the wait is annoying.
+      start_period: ${GLM_OCR_START_PERIOD:-180s}
+    # 4 GB ceiling covers the model's resident set on a small VPS
+    # (the GGUF Q4_K_M weights sit around 2.5 GB; the rest is the
+    # llama.cpp KV cache). Operators on bigger boxes should bump
+    # GLM_OCR_MEM_LIMIT in .env to reduce OOM risk on long jobs.
+    mem_limit: ${GLM_OCR_MEM_LIMIT:-4g}
+    mem_reservation: 1g
+    # Persistent cache for downloaded model files. Without this, every
+    # `docker compose up` re-downloads the GGUF — fine for small
+    # models (a few hundred MB) but painful for the multi-GB GLM-OCR
+    # weights. The appliance writes to /models by convention.
+    volumes:
+      - glm-ocr-models:/models
+    logging: *default-logging
+
   # Cloudflare Tunnel sidecar — see Build Plans/CLOUDFLARE_TUNNEL_PLAN.md.
   # Customer-owned Cloudflare account model: the firm creates the tunnel in
   # their own CF dashboard (setup guide Part D), pastes the token into .env,
@@ -224,3 +273,7 @@ volumes:
   redis-data:
   ts-state:
   ts-socket:
+  # GLM-OCR model cache (only populated when the `glm-ocr` profile is
+  # active; benign empty volume otherwise). Survives `docker compose
+  # down` so the next `up` doesn't re-download multi-GB weights.
+  glm-ocr-models:

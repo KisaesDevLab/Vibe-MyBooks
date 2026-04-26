@@ -2,13 +2,14 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+import { useState, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useContact, useDeactivateContact, useContactTransactions } from '../../api/hooks/useContacts';
 import { useBills, useVendorCredits } from '../../api/hooks/useAp';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
-import { Mail, Phone, MapPin, Edit, UserX, Receipt, Banknote, RotateCcw } from 'lucide-react';
+import { Mail, Phone, MapPin, Edit, UserX, Receipt, Banknote, RotateCcw, FileText } from 'lucide-react';
 
 export function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -87,6 +88,12 @@ export function ContactDetailPage() {
               <h3 className="text-sm font-medium text-gray-700 mb-1">Vendor Details</h3>
               {contact.taxId && <p className="text-sm text-gray-600">Tax ID: {contact.taxId}</p>}
               <p className="text-sm text-gray-600">1099 Eligible: {contact.is1099Eligible ? 'Yes' : 'No'}</p>
+              {contact.is1099Eligible && (
+                <RequestW9Inline
+                  contactId={contact.id}
+                  defaultEmail={contact.email ?? ''}
+                />
+              )}
             </div>
           )}
 
@@ -252,5 +259,113 @@ function VendorApSection({ contactId }: { contactId: string }) {
         )}
       </div>
     </div>
+  );
+}
+
+function RequestW9Inline({
+  contactId,
+  defaultEmail,
+}: {
+  contactId: string;
+  defaultEmail: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState(defaultEmail);
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'sent' | 'error'>('idle');
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrMsg(null);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch('/api/v1/practice/1099/w9-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token ?? ''}`,
+        },
+        body: JSON.stringify({
+          contactId,
+          email: email.trim(),
+          message: message.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error?.message || `HTTP ${res.status}`);
+      }
+      setStatus('sent');
+      setOpen(false);
+    } catch (err) {
+      setStatus('error');
+      setErrMsg(err instanceof Error ? err.message : 'Failed to send.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <div className="mt-2">
+        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+          <FileText className="h-4 w-4 mr-1" />
+          Request W-9
+        </Button>
+        {status === 'sent' && (
+          <p className="mt-1 text-xs text-green-700">W-9 request sent.</p>
+        )}
+        {status === 'error' && errMsg && (
+          <p className="mt-1 text-xs text-red-700">{errMsg}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-2 space-y-2 p-3 border border-gray-200 rounded-md bg-gray-50">
+      <label className="block text-xs">
+        <span className="text-gray-700 font-medium">Recipient email</span>
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          maxLength={320}
+        />
+      </label>
+      <label className="block text-xs">
+        <span className="text-gray-700 font-medium">Message (optional)</span>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          rows={2}
+          maxLength={2000}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+        />
+      </label>
+      {errMsg && <p className="text-xs text-red-700">{errMsg}</p>}
+      <div className="flex items-center gap-2">
+        <Button size="sm" type="submit" loading={submitting}>
+          Send request
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setStatus('idle');
+            setErrMsg(null);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }

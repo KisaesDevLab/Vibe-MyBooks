@@ -3,7 +3,7 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
@@ -189,6 +189,31 @@ const PayrollHistoryPage = lazyNamed(() => import('./features/payroll/PayrollHis
 const KnowledgeBasePage = lazyNamed(() => import('./features/help/KnowledgeBasePage'), 'KnowledgeBasePage');
 const ArticlePage = lazyNamed(() => import('./features/help/ArticlePage'), 'ArticlePage');
 
+// ─── Practice (Phase 1 placeholders + Phase 2 Close Review) ─────
+const PracticeLayout = lazyNamed(() => import('./features/practice/PracticeLayout'), 'PracticeLayout');
+const CloseReviewPage = lazyNamed(() => import('./features/practice/close-review/CloseReviewPage'), 'CloseReviewPage');
+const PracticeSettingsPage = lazyNamed(() => import('./features/practice/settings/PracticeSettingsPage'), 'PracticeSettingsPage');
+const RulesPage = lazyNamed(() => import('./features/practice/rules/RulesPage'), 'RulesPage');
+const ReceiptsInboxPage = lazyNamed(() => import('./features/practice/receipts/ReceiptsInboxPage'), 'ReceiptsInboxPage');
+const Tax1099Page = lazyNamed(() => import('./features/practice/tax-1099/Tax1099Page'), 'Tax1099Page');
+const ClientPortalAdminPage = lazyNamed(() => import('./features/practice/client-portal/ClientPortalAdminPage'), 'ClientPortalAdminPage');
+const PortalLayout = lazyNamed(() => import('./features/portal/PortalLayout'), 'PortalLayout');
+const PortalLoginPage = lazyNamed(() => import('./features/portal/PortalLoginPage'), 'PortalLoginPage');
+const PortalVerifyPage = lazyNamed(() => import('./features/portal/PortalVerifyPage'), 'PortalVerifyPage');
+const PortalDashboardPage = lazyNamed(() => import('./features/portal/PortalDashboardPage'), 'PortalDashboardPage');
+const PortalQuestionsListPage = lazyNamed(() => import('./features/portal/PortalQuestionsPage'), 'PortalQuestionsListPage');
+const PortalQuestionDetailPage = lazyNamed(() => import('./features/portal/PortalQuestionsPage'), 'PortalQuestionDetailPage');
+const PortalCapturePage = lazyNamed(() => import('./features/portal/PortalCapturePage'), 'PortalCapturePage');
+const PortalFinancialsPage = lazyNamed(() => import('./features/portal/PortalFinancialsPage'), 'PortalFinancialsPage');
+const RemindersPage = lazyNamed(() => import('./features/practice/reminders/RemindersPage'), 'RemindersPage');
+const ReportBuilderPage = lazyNamed(() => import('./features/practice/report-builder/ReportBuilderPage'), 'ReportBuilderPage');
+// 3-tier rules plan, Phase 1 — firm admin pages.
+const FirmListPage = lazyNamed(() => import('./features/firm/FirmListPage'), 'FirmListPage');
+const FirmStaffPage = lazyNamed(() => import('./features/firm/FirmStaffPage'), 'FirmStaffPage');
+const FirmTenantsPage = lazyNamed(() => import('./features/firm/FirmTenantsPage'), 'FirmTenantsPage');
+const FirmRulesPage = lazyNamed(() => import('./features/firm/FirmRulesPage'), 'FirmRulesPage');
+const FeatureFlagsPage = lazyNamed(() => import('./features/admin/FeatureFlagsPage'), 'FeatureFlagsPage');
+
 // ─── Auth (cold-path + one-time setup) — kept out of the main bundle ─
 const RegisterPage = lazyNamed(() => import('./features/auth/RegisterPage'), 'RegisterPage');
 const ForgotPasswordPage = lazyNamed(() => import('./features/auth/ForgotPasswordPage'), 'ForgotPasswordPage');
@@ -197,6 +222,7 @@ const MagicLinkVerifyPage = lazyNamed(() => import('./features/auth/MagicLinkVer
 const OAuthConsentPage = lazyNamed(() => import('./features/auth/OAuthConsentPage'), 'OAuthConsentPage');
 const FirstRunSetupWizard = lazyNamed(() => import('./features/setup/FirstRunSetupWizard'), 'FirstRunSetupWizard');
 const PublicInvoicePage = lazyNamed(() => import('./features/public/PublicInvoicePage'), 'PublicInvoicePage');
+const W9SubmitPage = lazyNamed(() => import('./features/public/W9SubmitPage'), 'W9SubmitPage');
 const SplitRowV2GalleryPage = lazyNamed(() => import('./features/__dev__/SplitRowV2Gallery'), 'SplitRowV2GalleryPage');
 
 const queryClient = new QueryClient({
@@ -239,6 +265,20 @@ export function App() {
           <Route path="/oauth/consent" element={<OAuthConsentPage />} />
           <Route path="/first-run-setup" element={<FirstRunSetupWizard />} />
           <Route path="/pay/:token" element={<PublicInvoicePage />} />
+          {/* Public W-9 collection — magic-link in URL is the auth.
+              Backed by /api/w9/* (rate-limited public router). */}
+          <Route path="/w9/:token" element={<W9SubmitPage />} />
+
+          {/* Client portal — distinct namespace, magic-link cookie auth */}
+          <Route path="/portal/login" element={<PortalLoginPage />} />
+          <Route path="/portal/auth/verify" element={<PortalVerifyPage />} />
+          <Route path="/portal" element={<PortalLayout />}>
+            <Route index element={<PortalDashboardPage />} />
+            <Route path="questions" element={<PortalQuestionsListPage />} />
+            <Route path="questions/:id" element={<PortalQuestionDetailPage />} />
+            <Route path="capture" element={<PortalCapturePage />} />
+            <Route path="financials" element={<PortalFinancialsPage />} />
+          </Route>
 
           {/* Setup wizard */}
           <Route
@@ -386,6 +426,47 @@ export function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/help" element={<KnowledgeBasePage />} />
             <Route path="/help/:id" element={<ArticlePage />} />
+            {/* Practice Management — VIBE_MYBOOKS_PRACTICE_BUILD_PLAN.
+                Each route wraps its placeholder in PracticeLayout
+                with the owning feature flag + minimum role. The
+                layout handles client-user redirect, role gate, and
+                flag gate so routes don't repeat the logic. */}
+            <Route path="/practice" element={<Navigate to="/practice/close-review" replace />} />
+            <Route path="/practice/close-review" element={
+              <PracticeLayout flag="CLOSE_REVIEW_V1" minRole="bookkeeper"><CloseReviewPage /></PracticeLayout>
+            } />
+            <Route path="/practice/settings" element={
+              <PracticeLayout flag="AI_BUCKET_WORKFLOW_V1" minRole="owner"><PracticeSettingsPage /></PracticeLayout>
+            } />
+            <Route path="/practice/rules" element={
+              <PracticeLayout flag="CONDITIONAL_RULES_V1" minRole="bookkeeper"><RulesPage /></PracticeLayout>
+            } />
+            <Route path="/practice/receipts-inbox" element={
+              <PracticeLayout flag="RECEIPT_PWA_V1" minRole="bookkeeper"><ReceiptsInboxPage /></PracticeLayout>
+            } />
+            <Route path="/practice/1099" element={
+              <PracticeLayout flag="TAX_1099_V1" minRole="bookkeeper"><Tax1099Page /></PracticeLayout>
+            } />
+            <Route path="/practice/client-portal" element={
+              <PracticeLayout flag="CLIENT_PORTAL_V1" minRole="owner"><ClientPortalAdminPage /></PracticeLayout>
+            } />
+            <Route path="/practice/reminders" element={
+              <PracticeLayout flag="REMINDERS_V1" minRole="owner"><RemindersPage /></PracticeLayout>
+            } />
+            <Route path="/practice/report-builder" element={
+              <PracticeLayout flag="REPORT_BUILDER_V1" minRole="bookkeeper"><ReportBuilderPage /></PracticeLayout>
+            } />
+            {/* 3-tier rules plan, Phase 1 — firm admin pages.
+                Visible to any user with firm_users membership.
+                Server-side gates handle authorization; the routes
+                here just need a logged-in session, which the
+                ProtectedRoute wrapper above already enforces. */}
+            <Route path="/firm" element={<FirmListPage />} />
+            <Route path="/firm/:firmId" element={<Navigate to="staff" replace />} />
+            <Route path="/firm/:firmId/staff" element={<FirmStaffPage />} />
+            <Route path="/firm/:firmId/tenants" element={<FirmTenantsPage />} />
+            <Route path="/firm/:firmId/rules" element={<FirmRulesPage />} />
+            <Route path="/admin/feature-flags" element={<AdminRoute><FeatureFlagsPage /></AdminRoute>} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

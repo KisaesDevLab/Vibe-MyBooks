@@ -265,6 +265,26 @@ export function BankRulesPage() {
           {globalSubmitSuccess}
         </div>
       )}
+      {/* 3-tier rules plan, Phase 6 — deprecation banner. The
+          legacy bank-rules surface continues to work; new authoring
+          should happen on Practice → Rules where the conditional-
+          rules engine handles tier-aware ownership and richer
+          conditions. The migration CLI converts existing rules
+          one tenant at a time. */}
+      <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="font-semibold mb-1">Bank Rules will be retired</div>
+        <p>
+          Conditional Rules in <span className="font-medium">Practice → Rules</span> are
+          the supported successor — richer conditions, tier-aware ownership
+          (Mine / Firm / Global), per-fire audit, sandbox testing. Existing rules here
+          continue to fire; new authoring should happen there.
+        </p>
+        <p className="mt-1 text-xs text-amber-800">
+          Operators: convert a tenant&apos;s legacy rules in bulk via{' '}
+          <code className="font-mono">migrate-bank-rules.ts</code>{' '}
+          (run from the api container with <code className="font-mono">--commit</code>).
+        </p>
+      </div>
       <ConfirmDialog
         open={!!pendingAction}
         title={pendingAction?.title ?? ''}

@@ -168,20 +168,32 @@ export function CompanySwitcher() {
       clearActiveCompany();
       queryClient.clear();
       setIsOpen(false);
-      // Force a full-page reload so every cached component, provider, and
-      // closed-over access token gets rebuilt with the new tenant's
-      // context. We used to do `window.location.href = '/'` here, but
-      // that's a no-op in every modern browser when the user is ALREADY
-      // at `/` — which is the default landing route, so it hit most
-      // users. The symptom: "switching…" spinner spun forever and the
-      // tenant only actually switched after a manual refresh.
+
+      // Force a full-page navigation so every cached component, provider,
+      // and closed-over access token gets rebuilt with the new tenant's
+      // context. Three known footguns we've hit and now defend against:
       //
-      // history.replaceState updates the URL bar without navigating, so
-      // the subsequent reload() is guaranteed to re-fetch `/` even when
-      // we were sitting on some tenant-scoped deep link whose resource
-      // isn't accessible under the new tenant.
-      window.history.replaceState(null, '', '/');
-      window.location.reload();
+      //  1. `window.location.href = '/'` is a no-op when the user is
+      //     already at `/`. Earlier fix used replaceState+reload to
+      //     work around this.
+      //  2. `window.location.reload()` is silently blocked when ANY
+      //     `beforeunload` handler in the tree returns truthy — e.g.
+      //     the dirty-layout warning in LayoutEditor. The symptom was
+      //     "switching…" spinner that never resolves.
+      //  3. Even when reload fires, an aggressive service-worker cache
+      //     can serve a stale shell that re-mounts CompanyProvider
+      //     before localStorage's new state is read.
+      //
+      // The cache-busting query param + .assign() avoids all three:
+      // assign() always navigates (no same-URL no-op), the unique
+      // query string defeats SW cache, and full navigation drops
+      // every in-memory closure including any beforeunload prompts.
+      const targetUrl = `${window.location.origin}/?_switch=${Date.now()}`;
+      // Suppress any beforeunload prompt the current page may have
+      // wired up — they're for "unsaved work" dialogs that don't
+      // apply when the user is intentionally switching firms.
+      window.onbeforeunload = null;
+      window.location.assign(targetUrl);
     } catch (err) {
       // Surface the real reason instead of a generic message. The user
       // could be hitting "no access to this tenant", a network failure, or

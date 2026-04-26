@@ -43,11 +43,14 @@ import {
   ClipboardList,
   Network,
   Cloud,
+  Flag,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLogout, useMe } from '../../api/hooks/useAuth';
 import { SidebarDisplayControls } from './SidebarDisplayControls';
 import { CompanySwitcher } from './CompanySwitcher';
+import { PracticeGroup } from './PracticeGroup';
+import { FirmGroup } from './FirmGroup';
 import type { LucideIcon } from 'lucide-react';
 
 interface NavItem {
@@ -76,6 +79,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/tailscale', label: 'Tailscale', icon: Network },
   { to: '/admin/tunnel', label: 'Cloudflare Tunnel', icon: Cloud },
   { to: '/admin/ip-allowlist', label: 'Staff IP Allowlist', icon: ShieldAlert },
+  { to: '/admin/feature-flags', label: 'Feature Flags', icon: Flag },
   { to: '/admin/system', label: 'System Settings', icon: Wrench },
 ];
 
@@ -409,6 +413,17 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   ))}
                 </>
               )}
+              {/* Practice group sits between Reporting and Manage
+                  per VIBE_MYBOOKS_PRACTICE_BUILD_PLAN sidebar spec.
+                  It self-gates by role + user_type + flags, so this
+                  unconditional render just positions it — nothing
+                  is rendered for staff/readonly or client users. */}
+              {group.label === 'Reporting' && <PracticeGroup onNavigate={onNavigate} />}
+              {/* 3-tier rules plan, Phase 1 — Firm sidebar entry.
+                  Self-gates on `useFirms()` returning a non-empty
+                  list, so non-firm users never see the link. Sits
+                  below Practice on the same hierarchy level. */}
+              {group.label === 'Reporting' && <FirmGroup onNavigate={onNavigate} />}
             </div>
           );
         })}

@@ -216,6 +216,8 @@ export function InvoiceForm() {
     })),
   });
 
+  const [clientError, setClientError] = useState<string | null>(null);
+
   const resetForNew = () => {
     setContactId('');
     setMemo('');
@@ -223,6 +225,10 @@ export function InvoiceForm() {
     setLines([emptyLine(defaultMode, defaultTaxRatePercent)]);
     setDueDateManual(false);
     setAndNew(false);
+    // Clear any "add at least one line" error from the previous
+    // submission so it doesn't sit stale on the freshly-reset form
+    // and confuse the user about the new state.
+    setClientError(null);
   };
 
   const { formRef, handleKeyDown, saveChord, saveAndNewChord } = useFormShortcuts({
@@ -232,7 +238,19 @@ export function InvoiceForm() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setClientError(null);
     const payload = buildPayload();
+
+    // buildPayload silently filters out lines without an account or
+    // unitPrice. If every row is incomplete (e.g. user pressed
+    // Save+New too fast and reset cleared the form), `lines` is
+    // empty and the server rejects with a 400. Catch the empty
+    // case here so the operator gets an inline message rather than
+    // a generic mutation error.
+    if (payload.lines.length === 0) {
+      setClientError('Add at least one line item with an account and unit price before saving.');
+      return;
+    }
 
     if (isEdit) {
       updateInvoice.mutate(payload, {
@@ -460,6 +478,7 @@ export function InvoiceForm() {
           <Input label="Internal Notes" value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} />
         </div>
 
+        {clientError && <p className="text-sm text-red-600">{clientError}</p>}
         {error && <p className="text-sm text-red-600">{error.message}</p>}
 
         <div className="flex flex-wrap gap-3">

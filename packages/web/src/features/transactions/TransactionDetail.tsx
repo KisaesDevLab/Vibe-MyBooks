@@ -10,6 +10,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { ArrowLeft, Copy, Ban, Download, Pencil } from 'lucide-react';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
+import { AskClientAboutTransactionButton } from './AskClientAboutTransactionButton';
 
 const txnTypeLabels: Record<string, string> = {
   invoice: 'Invoice', customer_payment: 'Payment', cash_sale: 'Cash Sale',
@@ -132,6 +133,22 @@ export function TransactionDetail() {
           <Button variant="secondary" size="sm" onClick={handleDuplicate} loading={duplicateTxn.isPending}>
             <Copy className="h-4 w-4 mr-1" /> Duplicate
           </Button>
+          {txn.status !== 'void' && (
+            <AskClientAboutTransactionButton
+              transactionId={txn.id}
+              contextSummary={
+                [
+                  txnTypeLabels[txn.txnType] ?? txn.txnType,
+                  txn.txnNumber,
+                  txn.contactName,
+                  txn.total ? `$${txn.total}` : null,
+                  txn.txnDate,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              }
+            />
+          )}
           {txn.status !== 'void' && (
             <Button variant="danger" size="sm" onClick={() => setShowVoidDialog(true)}>
               <Ban className="h-4 w-4 mr-1" /> Void
