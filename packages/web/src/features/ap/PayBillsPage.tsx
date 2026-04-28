@@ -190,7 +190,12 @@ export function PayBillsPage() {
     });
   }, [billSelections, credits, billsByVendor]);
 
-  const canSubmit = bankAccountId && selectedBillIds.length > 0;
+  // txnDate must be present — if a user clears the date input the
+  // current value is '' and the API records a payment with no posted
+  // date. The DatePicker has `required` but native validation only
+  // fires on form submit; keeping it in canSubmit guards the
+  // imperative button click path too.
+  const canSubmit = bankAccountId && selectedBillIds.length > 0 && txnDate.length > 0;
 
   const handlePay = () => {
     if (!canSubmit) return;

@@ -3,8 +3,14 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { LoginInput, RegisterInput, User } from '@kis-books/shared';
+import type { LoginInput, RegisterInput, User, UserType } from '@kis-books/shared';
 import { apiClient, setTokens, clearTokens } from '../client';
+
+// The wire User type from shared has userType optional; the
+// MeResponse User is the same but the consumer-side helper below
+// normalizes missing values to 'staff' for backwards compatibility
+// with pre-Phase-1 servers.
+export type UserWithType = User & { userType: UserType };
 
 interface AuthResponse {
   user: User;

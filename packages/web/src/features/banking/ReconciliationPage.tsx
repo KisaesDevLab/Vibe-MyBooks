@@ -11,6 +11,7 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
 export function ReconciliationPage() {
   const [reconId, setReconId] = useState('');
@@ -19,7 +20,7 @@ export function ReconciliationPage() {
   const [endingBalance, setEndingBalance] = useState('');
 
   const startRecon = useStartReconciliation();
-  const { data: reconData, isLoading } = useReconciliation(reconId);
+  const { data: reconData, isLoading, isError, refetch } = useReconciliation(reconId);
   const updateLines = useUpdateReconciliationLines();
   const completeRecon = useCompleteReconciliation();
 
@@ -52,8 +53,14 @@ export function ReconciliationPage() {
   }
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
+  // Without an explicit error path, a fetch failure produced a blank
+  // page (`if (!recon) return null`) — operators saw nothing happen
+  // after clicking Start Reconciliation. Surface the failure with a
+  // retry button so a transient network blip is recoverable without
+  // re-entering the statement balance.
+  if (isError) return <ErrorMessage message="Couldn't load this reconciliation." onRetry={() => refetch()} />;
   const recon = reconData?.reconciliation;
-  if (!recon) return null;
+  if (!recon) return <ErrorMessage message="Reconciliation not found." onRetry={() => refetch()} />;
 
   const lines = recon.lines || [];
   const diff = recon.difference ?? 0;

@@ -20,7 +20,15 @@ import {
   type PersistedSetupProgress,
 } from './setupHelpers';
 
-const SETUP_API = '/api/setup';
+// Subpath-aware setup API base. Vite injects import.meta.env.BASE_URL from
+// the runtime sentinel `/__VIBE_BASE_PATH__/` (substituted by the web
+// container's docker-entrypoint.d/40-base-path.sh hook before nginx
+// starts). Single-app boots BASE_URL=`/`, multi-app boots BASE_URL=
+// `/mybooks/`, so SETUP_API becomes `/api/setup` or `/mybooks/api/setup`
+// without a rebuild. Without this, the wizard fetches an absolute
+// /api/setup that the multi-app Caddy ingress doesn't route — operators
+// installing MyBooks as the second app would never see the wizard.
+const SETUP_API = `${import.meta.env.BASE_URL}api/setup`;
 
 async function setupFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
@@ -150,7 +158,7 @@ export function FirstRunSetupWizard() {
     let cancelled = false;
     const check = async () => {
       try {
-        const res = await fetch('/api/setup/status');
+        const res = await fetch(`${SETUP_API}/status`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const status = await res.json();
         if (cancelled) return;
@@ -160,7 +168,7 @@ export function FirstRunSetupWizard() {
         if (status.setupComplete && status.pendingRecoveryKey && status.installationId) {
           try {
             const pendingRes = await fetch(
-              `/api/setup/pending-recovery-key?installationId=${encodeURIComponent(status.installationId)}`,
+              `${SETUP_API}/pending-recovery-key?installationId=${encodeURIComponent(status.installationId)}`,
             );
             if (pendingRes.ok) {
               const body = await pendingRes.json();
@@ -226,7 +234,7 @@ export function FirstRunSetupWizard() {
       const formData = new FormData();
       formData.append('file', restoreFile);
       formData.append('passphrase', restorePassphrase);
-      const res = await fetch('/api/setup/restore/validate', { method: 'POST', body: formData });
+      const res = await fetch(`${SETUP_API}/restore/validate`, { method: 'POST', body: formData });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: { message: 'Validation failed' } }));
         throw new Error(err.error?.message || 'Validation failed');
@@ -248,7 +256,7 @@ export function FirstRunSetupWizard() {
       const formData = new FormData();
       formData.append('file', restoreFile);
       formData.append('passphrase', restorePassphrase);
-      const res = await fetch('/api/setup/restore/execute', {
+      const res = await fetch(`${SETUP_API}/restore/execute`, {
         method: 'POST',
         body: formData,
       });
@@ -401,7 +409,7 @@ export function FirstRunSetupWizard() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/setup/db-defaults');
+        const res = await fetch(`${SETUP_API}/db-defaults`);
         if (!res.ok) return;
         const data = (await res.json()) as {
           host?: string;
@@ -1004,7 +1012,7 @@ export function FirstRunSetupWizard() {
             onClick={async () => {
               if (pendingInstallationId) {
                 try {
-                  await fetch('/api/setup/acknowledge-recovery-key', {
+                  await fetch(`${SETUP_API}/acknowledge-recovery-key`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ installationId: pendingInstallationId }),
@@ -1969,7 +1977,7 @@ export function FirstRunSetupWizard() {
                           // recovery screen.
                           if (recoveryKey && pendingInstallationId) {
                             try {
-                              await fetch('/api/setup/acknowledge-recovery-key', {
+                              await fetch(`${SETUP_API}/acknowledge-recovery-key`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ installationId: pendingInstallationId }),
