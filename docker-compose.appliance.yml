@@ -1,0 +1,187 @@
+# vibe-mybooks-compatibility-addendum §3.10 — appliance overlay.
+#
+# Used by the Vibe-Appliance parent compose to embed Vibe MyBooks
+# alongside the other Vibe products. NOT for standalone use — operators
+# running on a single host should use docker-compose.prod.yml instead.
+#
+# Differences from docker-compose.prod.yml (the standalone prod stack):
+#
+# - No `db` / `redis` services. The appliance provides them at the
+#   shared `vibe_net` network. DATABASE_URL / REDIS_URL point at the
+#   shared instances via service-name DNS.
+# - No `tailscale` / `cloudflared` / `glm-ocr` sidecars. Those become
+#   appliance-shared services managed by the parent compose.
+# - No published ports. Caddy at the appliance ingress fronts every
+#   service via vibe_net; only Caddy publishes 80/443.
+# - MIGRATIONS_AUTO=false. The appliance runs migrations as an
+#   explicit one-shot container before bringing up the api. See
+#   `migrate` service below — operators run `docker compose -f
+#   docker-compose.appliance.yml run --rm migrate` before `up -d`.
+# - Volumes use `vibe-mybooks-` prefixed names so the appliance's
+#   backup tooling (Duplicati) can identify them deterministically.
+#
+# All environment values come in via VIBE_MYBOOKS_* keys so the
+# appliance parent compose reads its own env file and injects them
+# here without leaking values into the standalone path.
+#
+# Validation:
+#   VIBE_MYBOOKS_DATABASE_URL=postgres://x:y@db:5432/db \
+#   VIBE_MYBOOKS_REDIS_URL=redis://redis:6379 \
+#   VIBE_MYBOOKS_CORS_ORIGIN=https://mybooks.firm.com \
+#   VIBE_MYBOOKS_PUBLIC_URL=https://mybooks.firm.com \
+#   VIBE_MYBOOKS_JWT_SECRET=$(openssl rand -hex 32) \
+#   VIBE_MYBOOKS_ENCRYPTION_KEY=$(openssl rand -hex 32) \
+#   VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY=$(openssl rand -hex 32) \
+#     docker compose -f docker-compose.appliance.yml config
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # One-shot migration runner. Invoked before `up -d` so any failure
+  # is visible to the operator (rather than silently looping in the
+  # api container under restart: unless-stopped). Bypasses env.ts
+  # validation by reading DATABASE_URL directly — matches CI's
+  # migrate step.
+  migrate:
+    image: ghcr.io/kisaesdevlab/vibe-mybooks-api:${VIBE_MYBOOKS_TAG:-latest}
+    pull_policy: missing
+    command: ["npx", "tsx", "packages/api/src/migrate.ts"]
+    networks: [vibe_net]
+    environment:
+      DATABASE_URL: ${VIBE_MYBOOKS_DATABASE_URL:?VIBE_MYBOOKS_DATABASE_URL must be set}
+    restart: "no"
+    logging: *default-logging
+
+  vibe-mybooks-api:
+    image: ghcr.io/kisaesdevlab/vibe-mybooks-api:${VIBE_MYBOOKS_TAG:-latest}
+    pull_policy: missing
+    restart: unless-stopped
+    networks: [vibe_net]
+    environment:
+      DATABASE_URL: ${VIBE_MYBOOKS_DATABASE_URL:?VIBE_MYBOOKS_DATABASE_URL must be set}
+      REDIS_URL: ${VIBE_MYBOOKS_REDIS_URL:?VIBE_MYBOOKS_REDIS_URL must be set}
+      JWT_SECRET: ${VIBE_MYBOOKS_JWT_SECRET:?VIBE_MYBOOKS_JWT_SECRET must be set (64 hex chars — `openssl rand -hex 32`)}
+      ENCRYPTION_KEY: ${VIBE_MYBOOKS_ENCRYPTION_KEY:?VIBE_MYBOOKS_ENCRYPTION_KEY must be set (64 hex chars — `openssl rand -hex 32`)}
+      PLAID_ENCRYPTION_KEY: ${VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY:?VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY must be set (64 hex chars — `openssl rand -hex 32`)}
+      CORS_ORIGIN: ${VIBE_MYBOOKS_CORS_ORIGIN:?VIBE_MYBOOKS_CORS_ORIGIN must be set}
+      PUBLIC_URL: ${VIBE_MYBOOKS_PUBLIC_URL:?VIBE_MYBOOKS_PUBLIC_URL must be set}
+      NODE_ENV: production
+      # Appliance-mode knobs — see vibe-mybooks-compatibility-addendum.
+      MIGRATIONS_AUTO: "false"
+      COOKIE_PATH: ${VIBE_MYBOOKS_COOKIE_PATH:-/}
+      COOKIE_SECURE: ${VIBE_MYBOOKS_COOKIE_SECURE:-true}
+      EXPECT_WORKER: "true"
+      LOG_LEVEL: ${VIBE_MYBOOKS_LOG_LEVEL:-info}
+      # Licensing — defaults to disabled so the appliance ships in a
+      # working state until the operator pastes a key. See addendum
+      # §3.8 footnote.
+      DISABLE_LICENSE_CHECK: ${VIBE_MYBOOKS_DISABLE_LICENSE_CHECK:-1}
+      LICENSE_TOKEN: ${VIBE_MYBOOKS_LICENSE_TOKEN:-}
+      LICENSE_PUBLIC_KEY: ${VIBE_MYBOOKS_LICENSE_PUBLIC_KEY:-}
+      # AI providers — optional; appliance can wire these up later.
+      ANTHROPIC_API_KEY: ${VIBE_MYBOOKS_ANTHROPIC_API_KEY:-}
+    volumes:
+      - vibe-mybooks-uploads:/data/uploads
+      - vibe-mybooks-backups:/data/backups
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    mem_limit: ${VIBE_MYBOOKS_API_MEM_LIMIT:-1g}
+    mem_reservation: 256m
+    healthcheck:
+      # /api/v1/ping is the manifest-canonical liveness path. Stays
+      # 200 even if DB / Redis are wonky — that's the readiness
+      # concern surfaced by /api/v1/health, which the appliance polls
+      # separately for "ready to serve" decisions.
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3001/api/v1/ping || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging: *default-logging
+
+  vibe-mybooks-web:
+    image: ghcr.io/kisaesdevlab/vibe-mybooks-web:${VIBE_MYBOOKS_TAG:-latest}
+    pull_policy: missing
+    restart: unless-stopped
+    networks: [vibe_net]
+    environment:
+      # Multi-app default — Caddy fronts the SPA at https://<host>/mybooks/.
+      # Single-app appliance (rare) would override to /.
+      VITE_BASE_PATH: ${VIBE_MYBOOKS_VITE_BASE_PATH:-/mybooks/}
+    depends_on:
+      - vibe-mybooks-api
+    mem_limit: ${VIBE_MYBOOKS_WEB_MEM_LIMIT:-128m}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:5173/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *default-logging
+
+  vibe-mybooks-worker:
+    # Same image as api — the worker entrypoint lives in the api
+    # workspace tree and is baked into the same artifact at CI time.
+    # The :worker tag published by .github/workflows/docker-publish.yml
+    # is an alias of api's digest; pulling either gets the identical
+    # image. Using `-worker` here makes `docker ps` output more
+    # legible for operators.
+    image: ghcr.io/kisaesdevlab/vibe-mybooks-worker:${VIBE_MYBOOKS_TAG:-latest}
+    pull_policy: missing
+    restart: unless-stopped
+    command: ["npx", "tsx", "packages/worker/src/index.ts"]
+    networks: [vibe_net]
+    environment:
+      DATABASE_URL: ${VIBE_MYBOOKS_DATABASE_URL:?VIBE_MYBOOKS_DATABASE_URL must be set}
+      REDIS_URL: ${VIBE_MYBOOKS_REDIS_URL:?VIBE_MYBOOKS_REDIS_URL must be set}
+      ENCRYPTION_KEY: ${VIBE_MYBOOKS_ENCRYPTION_KEY:?VIBE_MYBOOKS_ENCRYPTION_KEY must be set}
+      PLAID_ENCRYPTION_KEY: ${VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY:?VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY must be set}
+      JWT_SECRET: ${VIBE_MYBOOKS_JWT_SECRET:?VIBE_MYBOOKS_JWT_SECRET must be set}
+      NODE_ENV: production
+      MIGRATIONS_AUTO: "false"
+      LOG_LEVEL: ${VIBE_MYBOOKS_LOG_LEVEL:-info}
+      DISABLE_LICENSE_CHECK: ${VIBE_MYBOOKS_DISABLE_LICENSE_CHECK:-1}
+    volumes:
+      - vibe-mybooks-uploads:/data/uploads
+      - vibe-mybooks-backups:/data/backups
+    depends_on:
+      vibe-mybooks-api:
+        condition: service_started
+    healthcheck:
+      # Same TCP-probe pattern as docker-compose.prod.yml — the
+      # vibe-mybooks-api image (which the worker reuses) ships busybox
+      # netcat but no redis-cli, so a port probe is the lightest
+      # signal that the worker can reach Redis. Real liveness is the
+      # heartbeat key the worker writes (see utils/worker-heartbeat.ts);
+      # the api's /api/v1/health surfaces it as workers.ok.
+      #
+      # REDIS_URL parsing: extract host:port via shell builtins. Falls
+      # back to the appliance's typical service name if anything goes
+      # wrong with the parse.
+      test: ["CMD-SHELL", "nc -z $(echo $${REDIS_URL:-redis://redis:6379} | sed -E 's|^[^/]+//([^:/]+)(:([0-9]+))?.*|\\1 \\3|;s| $$| 6379|') 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    mem_limit: ${VIBE_MYBOOKS_WORKER_MEM_LIMIT:-512m}
+    mem_reservation: 128m
+    logging: *default-logging
+
+networks:
+  # The appliance creates this network before bringing up its compose
+  # stack. Declared `external: true` so this overlay never tries to
+  # create it — that responsibility belongs to the appliance.
+  vibe_net:
+    external: true
+
+volumes:
+  # Named volumes with the vibe-mybooks- prefix. The appliance's
+  # backup tooling identifies app-scoped volumes by prefix; keeping
+  # the names stable lets operators upgrade the app without losing
+  # uploaded receipts or generated PDFs.
+  vibe-mybooks-uploads:
+  vibe-mybooks-backups:

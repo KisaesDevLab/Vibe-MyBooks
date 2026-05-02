@@ -1,0 +1,71 @@
+{
+  "$comment": "vibe-mybooks-compatibility-addendum §3.11 — appliance manifest. Keep in sync with docker-compose.appliance.yml. The appliance reads this file to know how to compose Vibe MyBooks alongside its sibling apps.",
+  "schemaVersion": 1,
+  "slug": "vibe-mybooks",
+  "displayName": "Vibe MyBooks",
+  "description": "Self-hosted bookkeeping with magic-link client portal",
+  "logo": "mybooks.svg",
+  "userFacing": true,
+  "image": {
+    "api": "ghcr.io/kisaesdevlab/vibe-mybooks-api",
+    "web": "ghcr.io/kisaesdevlab/vibe-mybooks-web",
+    "worker": "ghcr.io/kisaesdevlab/vibe-mybooks-worker",
+    "defaultTag": "latest"
+  },
+  "ports": {
+    "api": 3001,
+    "web": 5173
+  },
+  "subdomains": [
+    {
+      "name": "mybooks",
+      "target": "vibe-mybooks-web:5173",
+      "audience": "default",
+      "emergencyPort": 5171
+    }
+  ],
+  "depends": ["postgres", "redis"],
+  "publicUrlEnvVar": "PUBLIC_URL",
+  "websocket": false,
+  "env": {
+    "$comment": "ALLOWED_ORIGIN in the addendum's template maps to CORS_ORIGIN in this repo (the canonical name in packages/api/src/config/env.ts). The manifest reflects reality.",
+    "required": [
+      { "name": "JWT_SECRET", "generate": "hex32" },
+      { "name": "ENCRYPTION_KEY", "generate": "hex32" },
+      { "name": "PLAID_ENCRYPTION_KEY", "generate": "hex32" },
+      { "name": "DATABASE_URL", "from": "shared-postgres-url", "database": "vibe_mybooks_db", "user": "vibemybooks" },
+      { "name": "REDIS_URL", "from": "shared-redis-url", "namespace": "mybooks" },
+      { "name": "CORS_ORIGIN", "from": "subdomain-url" },
+      { "name": "PUBLIC_URL", "from": "subdomain-url" }
+    ],
+    "optional": [
+      { "name": "MIGRATIONS_AUTO", "default": "false", "doc": "Appliance runs migrations as a one-shot before api starts; api refuses to start with pending migrations." },
+      { "name": "COOKIE_SECURE", "default": "true", "doc": "Always-HTTPS in multi-app mode. Force off (=false/0) for the emergency-access proxy at port 5171." },
+      { "name": "COOKIE_PATH", "default": "/", "doc": "Set to /mybooks for multi-app mode so cookies don't leak into sibling apps on the same origin." },
+      { "name": "EXPECT_WORKER", "default": "true", "doc": "When true, /api/v1/health workers sub-check fails if no worker heartbeat in last 30s. Disable for api-only deployments." },
+      { "name": "DISABLE_LICENSE_CHECK", "default": "1", "doc": "Appliance ships with license check disabled until the operator pastes a key via the appliance admin console (vibe-mybooks-compatibility-addendum §3.8 footnote)." },
+      { "name": "LICENSE_TOKEN", "secret": true, "doc": "RS256 JWT issued by licensing.kisaes.com. Required when DISABLE_LICENSE_CHECK=0." },
+      { "name": "LICENSE_PUBLIC_KEY", "secret": true, "doc": "PEM-format RSA public key matching the issuer that signed LICENSE_TOKEN." },
+      { "name": "ANTHROPIC_API_KEY", "secret": true, "doc": "Claude API key for AI receipt OCR / categorization features." },
+      { "name": "WEBAUTHN_RP_ID", "doc": "Passkey RP identifier — defaults to URL(PUBLIC_URL).hostname. Set explicitly when sibling apps share the same hostname and you want passkey isolation." },
+      { "name": "LOG_LEVEL", "default": "info" }
+    ]
+  },
+  "database": { "name": "vibe_mybooks_db", "user": "vibemybooks" },
+  "firstLogin": {
+    "type": "self-register-first-user-becomes-admin",
+    "url": "/register",
+    "note": "First registered user becomes the firm admin. Send the URL to the firm owner."
+  },
+  "health": "/api/v1/health",
+  "ping": "/api/v1/ping",
+  "migrations": {
+    "command": ["npx", "tsx", "packages/api/src/migrate.ts"],
+    "image": "api",
+    "autoEnvVar": "MIGRATIONS_AUTO"
+  },
+  "backup": {
+    "volumes": ["vibe-mybooks-uploads", "vibe-mybooks-backups"],
+    "databases": ["vibe_mybooks_db"]
+  }
+}

@@ -198,6 +198,22 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 # Open http://localhost:5173 to register
 ```
 
+## Deploying as part of Vibe Appliance
+
+Vibe MyBooks ships in two modes from the same set of GHCR images:
+
+- **Standalone** (default): run `scripts/install.sh` on a single host — bundles its own Postgres + Redis, publishes ports, intended for firms that only run Vibe MyBooks. This is the path documented in [Quick Start](#quick-start-manual) above.
+- **Appliance**: composed alongside the other Vibe products (Vibe Connect, Vibe TB, Vibe Payroll Time) by the [Vibe-Appliance](https://github.com/KisaesDevLab/vibe-appliance) repo behind a shared Caddy ingress at `https://<host>/mybooks/`. Postgres and Redis are shared instances on the appliance's `vibe_net` network; no ports are published from this app — Caddy fronts everything.
+
+The appliance integration is driven by two files in this repo:
+
+- `docker-compose.appliance.yml` — overlay the appliance's parent compose includes. Three services (`vibe-mybooks-api`, `vibe-mybooks-web`, `vibe-mybooks-worker`) plus a one-shot `migrate` container. Volumes are named with the `vibe-mybooks-` prefix so the appliance's backup tooling can identify them.
+- `.appliance/manifest.json` — declarative description of how to configure this app (env vars, health/ping paths, image refs, default tag, migration command). The appliance reads this to wire up env templates and generate ingress routes.
+
+The two files together let the appliance integrate Vibe MyBooks with no further code changes here — bumping the image tag in the appliance's env file is enough to deploy a new version.
+
+For details on the design (one image, two modes; configuration over forks; emergency-access HTTP at port 5171; license offline-grace), see [`Build Plans/vibe-mybooks-compatibility-addendum.md`](./Build%20Plans/vibe-mybooks-compatibility-addendum.md).
+
 ## Development Setup
 
 ```bash
