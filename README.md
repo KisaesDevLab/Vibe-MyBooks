@@ -212,7 +212,7 @@ The appliance integration is driven by two files in this repo:
 
 The two files together let the appliance integrate Vibe MyBooks with no further code changes here — bumping the image tag in the appliance's env file is enough to deploy a new version.
 
-> **Before upgrading the appliance image tag, snapshot the database.** A failed migration in a new image's `migrate` step can leave the schema in a partial-upgrade state that requires manual recovery. The appliance's backup tooling owns the database snapshot; trigger one via the appliance admin UI before each upgrade.
+> **Before upgrading the appliance image tag, snapshot the database.** A failed migration in a new image's `migrate` step can leave the schema in a partial-upgrade state that requires manual recovery. The appliance's backup tooling owns the database snapshot; trigger one via the appliance admin UI before each upgrade. **To roll back if a migration fails:** revert the image tag (`VIBE_MYBOOKS_TAG=<previous-version>` in the appliance env) and restore the pre-upgrade snapshot via the appliance admin UI. The api will refuse to start with `DATABASE_AHEAD` until the schema matches the deployed code, surfacing the recovery state on `/api/diagnostic`.
 
 For details on the design (one image, two modes; configuration over forks; emergency-access HTTP at port 5171; license offline-grace), see [`Build Plans/vibe-mybooks-compatibility-addendum.md`](./Build%20Plans/vibe-mybooks-compatibility-addendum.md).
 
