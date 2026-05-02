@@ -35,6 +35,15 @@ RUN npm run build --workspace=@kis-books/web
 
 # ── Stage 2: serve ────────────────────────────────────────────────
 FROM nginx:1.27-alpine
+
+# OCI image labels — see packages/api/Dockerfile for rationale.
+LABEL org.opencontainers.image.source="https://github.com/KisaesDevLab/Vibe-MyBooks" \
+      org.opencontainers.image.url="https://github.com/KisaesDevLab/Vibe-MyBooks" \
+      org.opencontainers.image.title="Vibe MyBooks Web" \
+      org.opencontainers.image.description="Vibe MyBooks SPA served via nginx (built Vite bundle)" \
+      org.opencontainers.image.vendor="Kisaes LLC" \
+      org.opencontainers.image.licenses="PolyForm-Internal-Use-1.0.0"
+
 # SPA fallback: unknown paths fall through to index.html so client-side
 # routing works on refresh. /api and /oauth are proxied to the API
 # service (docker-compose service name: `api`).

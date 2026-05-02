@@ -39,6 +39,18 @@ RUN npm run build --workspace=@kis-books/web
 
 # Stage 3: Runtime
 FROM node:20-alpine AS runtime
+
+# OCI image labels for the combined-build image (root Dockerfile is not
+# used by CI — see packages/api/Dockerfile and packages/web/Dockerfile
+# for the published images — but keep labels here for parity if someone
+# `docker build`s this Dockerfile directly).
+LABEL org.opencontainers.image.source="https://github.com/KisaesDevLab/Vibe-MyBooks" \
+      org.opencontainers.image.url="https://github.com/KisaesDevLab/Vibe-MyBooks" \
+      org.opencontainers.image.title="Vibe MyBooks (combined)" \
+      org.opencontainers.image.description="Vibe MyBooks combined API + Web image (legacy single-image build)" \
+      org.opencontainers.image.vendor="Kisaes LLC" \
+      org.opencontainers.image.licenses="PolyForm-Internal-Use-1.0.0"
+
 WORKDIR /app
 
 # Chromium for Puppeteer (PDF generation: invoices, checks, reports).

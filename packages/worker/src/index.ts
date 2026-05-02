@@ -34,6 +34,7 @@ import { startPortalRecurringScheduler, stopPortalRecurringScheduler } from '../
 import { startPortalReminderScheduler, stopPortalReminderScheduler } from '../../api/src/services/portal-reminder-scheduler.service.js';
 import { startRecurringDocRequestScheduler, stopRecurringDocRequestScheduler } from '../../api/src/services/recurring-doc-request-scheduler.service.js';
 import { pool } from '../../api/src/db/index.js';
+import { startHeartbeat, closeWorkerHeartbeatClients } from '../../api/src/utils/worker-heartbeat.js';
 
 const startedAt = new Date().toISOString();
 console.log(`[Worker] Vibe MyBooks worker starting at ${startedAt}`);
@@ -83,6 +84,13 @@ const heartbeat = setInterval(() => {
   console.log(`[Worker] Heartbeat ${new Date().toISOString()}`);
 }, 15 * 60 * 1000);
 
+// vibe-mybooks-compatibility-addendum §3.6 — Redis-side heartbeat
+// readable by the API's /health endpoint. Tighter cadence (15s) so
+// /health can declare "workers ok" or "workers stale" without
+// waiting for the 15-min log line.
+const redisHeartbeat = startHeartbeat();
+console.log(`[Worker] Redis heartbeat started (workerId=${redisHeartbeat.workerId})`);
+
 // Graceful shutdown — same shape as the API's handler. The in-process
 // schedulers use setInterval/setTimeout, which Node's built-in pool
 // unref doesn't clear, so we explicitly stop the heartbeat and flush
@@ -94,6 +102,11 @@ const shutdown = async (signal: string) => {
   shuttingDown = true;
   console.log(`[Worker] ${signal} received — shutting down`);
   clearInterval(heartbeat);
+  // Stop the Redis heartbeat first so /health on a parallel api
+  // container reflects the worker going away within the next probe
+  // (rather than waiting 30s for TTL).
+  await redisHeartbeat.stop().catch((err) => console.error('[Worker] redis heartbeat stop error:', err));
+  await closeWorkerHeartbeatClients().catch(() => undefined);
   stopCloudflaredAlerter();
   stopBackupVerifier();
   stopCheckScheduler();
