@@ -1,5 +1,5 @@
 {
-  "$comment": "vibe-mybooks-compatibility-addendum §3.11 — appliance manifest. Keep in sync with docker-compose.appliance.yml. The appliance reads this file to know how to compose Vibe MyBooks alongside its sibling apps.",
+  "$comment": "vibe-mybooks-compatibility-addendum §3.11 — appliance manifest. Keep in sync with docker-compose.appliance.yml. The appliance reads this file to know how to compose Vibe MyBooks alongside its sibling apps. Schema authority: console/manifest.schema.json in the (forthcoming) Vibe-Appliance repo.",
   "schemaVersion": 1,
   "slug": "vibe-mybooks",
   "displayName": "Vibe MyBooks",
@@ -10,6 +10,7 @@
     "api": "ghcr.io/kisaesdevlab/vibe-mybooks-api",
     "web": "ghcr.io/kisaesdevlab/vibe-mybooks-web",
     "worker": "ghcr.io/kisaesdevlab/vibe-mybooks-worker",
+    "$comment": "defaultTag is `latest` for ergonomics — the appliance admin UI offers a tag picker. Production deployments should pin to a specific minor (e.g. 1.4) so a rolling :latest doesn't surface a breaking schema change mid-deploy.",
     "defaultTag": "latest"
   },
   "ports": {
@@ -35,7 +36,7 @@
       { "name": "PLAID_ENCRYPTION_KEY", "generate": "hex32" },
       { "name": "DATABASE_URL", "from": "shared-postgres-url", "database": "vibe_mybooks_db", "user": "vibemybooks" },
       { "name": "REDIS_URL", "from": "shared-redis-url", "namespace": "mybooks" },
-      { "name": "CORS_ORIGIN", "from": "subdomain-url" },
+      { "name": "CORS_ORIGIN", "from": "subdomain-url", "aliases": ["ALLOWED_ORIGIN"] },
       { "name": "PUBLIC_URL", "from": "subdomain-url" }
     ],
     "optional": [
@@ -43,19 +44,32 @@
       { "name": "COOKIE_SECURE", "default": "true", "doc": "Always-HTTPS in multi-app mode. Force off (=false/0) for the emergency-access proxy at port 5171." },
       { "name": "COOKIE_PATH", "default": "/", "doc": "Set to /mybooks for multi-app mode so cookies don't leak into sibling apps on the same origin." },
       { "name": "EXPECT_WORKER", "default": "true", "doc": "When true, /api/v1/health workers sub-check fails if no worker heartbeat in last 30s. Disable for api-only deployments." },
+      { "name": "TRUST_PROXY", "default": "1", "doc": "Express trust-proxy setting. Required behind Caddy so req.ip / req.protocol see the real client and don't break IP allowlists." },
+      { "name": "SMTP_HOST", "doc": "SMTP server for password resets, magic links, portal invitations, and reminder emails. Optional in env.ts but practically required in the appliance." },
+      { "name": "SMTP_PORT", "default": "587" },
+      { "name": "SMTP_USER" },
+      { "name": "SMTP_PASS", "secret": true },
+      { "name": "SMTP_FROM", "default": "noreply@example.com" },
       { "name": "DISABLE_LICENSE_CHECK", "default": "1", "doc": "Appliance ships with license check disabled until the operator pastes a key via the appliance admin console (vibe-mybooks-compatibility-addendum §3.8 footnote)." },
       { "name": "LICENSE_TOKEN", "secret": true, "doc": "RS256 JWT issued by licensing.kisaes.com. Required when DISABLE_LICENSE_CHECK=0." },
       { "name": "LICENSE_PUBLIC_KEY", "secret": true, "doc": "PEM-format RSA public key matching the issuer that signed LICENSE_TOKEN." },
       { "name": "ANTHROPIC_API_KEY", "secret": true, "doc": "Claude API key for AI receipt OCR / categorization features." },
       { "name": "WEBAUTHN_RP_ID", "doc": "Passkey RP identifier — defaults to URL(PUBLIC_URL).hostname. Set explicitly when sibling apps share the same hostname and you want passkey isolation." },
-      { "name": "LOG_LEVEL", "default": "info" }
+      { "name": "LOG_LEVEL", "default": "info" },
+      { "name": "JWT_ACCESS_EXPIRY", "default": "15m", "doc": "Short-lived staff access-token TTL. Tighter values (e.g. 5m) increase forced-refresh frequency but reduce the impact of a stolen token." },
+      { "name": "JWT_REFRESH_EXPIRY", "default": "7d" },
+      { "name": "JWT_ADMIN_MAX_AGE", "default": "30m", "doc": "Admin-route session-age cap; super-admin who walks away from the appliance must re-login before the admin panel accepts the next click." }
     ]
   },
-  "database": { "name": "vibe_mybooks_db", "user": "vibemybooks" },
+  "database": {
+    "$comment": "The appliance provisions this Postgres role/database (distinct from the standalone `kisbooks` default — single-tenant appliances may share a Postgres cluster across apps).",
+    "name": "vibe_mybooks_db",
+    "user": "vibemybooks"
+  },
   "firstLogin": {
     "type": "self-register-first-user-becomes-admin",
     "url": "/register",
-    "note": "First registered user becomes the firm admin. Send the URL to the firm owner."
+    "note": "First registered user becomes the super-admin (and acts as the primary firm admin on a single-firm appliance). Send the registration URL to the operator who will own the appliance."
   },
   "health": "/api/v1/health",
   "ping": "/api/v1/ping",
@@ -65,7 +79,9 @@
     "autoEnvVar": "MIGRATIONS_AUTO"
   },
   "backup": {
-    "volumes": ["vibe-mybooks-uploads", "vibe-mybooks-backups"],
-    "databases": ["vibe_mybooks_db"]
+    "$comment": "volumes = named Docker volumes for file-based backup; databases = Postgres database names for pg_dump. The appliance backs up both. `vibe-mybooks-backups` was deliberately removed from the volumes list — running an in-app backup writer alongside the appliance's own backup tooling produces double-encrypted redundant snapshots.",
+    "volumes": ["vibe-mybooks-uploads"],
+    "databases": ["vibe_mybooks_db"],
+    "persistent": true
   }
 }

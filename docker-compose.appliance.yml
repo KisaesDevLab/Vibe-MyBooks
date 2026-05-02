@@ -13,12 +13,19 @@
 #   appliance-shared services managed by the parent compose.
 # - No published ports. Caddy at the appliance ingress fronts every
 #   service via vibe_net; only Caddy publishes 80/443.
-# - MIGRATIONS_AUTO=false. The appliance runs migrations as an
-#   explicit one-shot container before bringing up the api. See
-#   `migrate` service below — operators run `docker compose -f
-#   docker-compose.appliance.yml run --rm migrate` before `up -d`.
-# - Volumes use `vibe-mybooks-` prefixed names so the appliance's
-#   backup tooling (Duplicati) can identify them deterministically.
+# - MIGRATIONS_AUTO=false. The appliance runs migrations as an explicit
+#   one-shot via the `migrate` service. With
+#   `depends_on.migrate.condition: service_completed_successfully`,
+#   `docker compose up -d` runs migrate automatically before starting
+#   the api — operators don't need a separate manual step. To inspect
+#   migration logs in isolation, run
+#   `docker compose -f docker-compose.appliance.yml run --rm migrate`
+#   first; otherwise the standard `up -d` flow is sufficient.
+# - No `/data/backups` volume. The appliance's backup tooling
+#   (Duplicati) snapshots the shared volumes and the Postgres database
+#   directly — running an in-app backup writer would just produce
+#   already-encrypted blobs that the appliance then re-snapshots.
+# - Volumes use `vibe-mybooks-` prefixed names for backup-tool discovery.
 #
 # All environment values come in via VIBE_MYBOOKS_* keys so the
 # appliance parent compose reads its own env file and injects them
@@ -40,12 +47,57 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
+# Anchor for the env vars every long-running service needs. Centralized
+# so a missing var is a single edit, not a three-place mistake. The
+# `migrate` service uses a slimmer set (DATABASE_URL only).
+x-app-env: &app-env
+  DATABASE_URL: ${VIBE_MYBOOKS_DATABASE_URL:?VIBE_MYBOOKS_DATABASE_URL must be set}
+  REDIS_URL: ${VIBE_MYBOOKS_REDIS_URL:?VIBE_MYBOOKS_REDIS_URL must be set}
+  JWT_SECRET: ${VIBE_MYBOOKS_JWT_SECRET:?VIBE_MYBOOKS_JWT_SECRET must be set (64 hex chars — `openssl rand -hex 32`)}
+  ENCRYPTION_KEY: ${VIBE_MYBOOKS_ENCRYPTION_KEY:?VIBE_MYBOOKS_ENCRYPTION_KEY must be set (64 hex chars — `openssl rand -hex 32`)}
+  PLAID_ENCRYPTION_KEY: ${VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY:?VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY must be set (64 hex chars — `openssl rand -hex 32`)}
+  CORS_ORIGIN: ${VIBE_MYBOOKS_CORS_ORIGIN:?VIBE_MYBOOKS_CORS_ORIGIN must be set}
+  PUBLIC_URL: ${VIBE_MYBOOKS_PUBLIC_URL:?VIBE_MYBOOKS_PUBLIC_URL must be set}
+  NODE_ENV: production
+  # Behind a Caddy reverse proxy: Express must trust forwarded headers
+  # so req.ip / req.protocol / staff-IP-allowlist see the real client.
+  # Default `1` (trust the immediate proxy hop). Operators chaining
+  # multiple proxies override with a hop count or CIDR list.
+  TRUST_PROXY: ${VIBE_MYBOOKS_TRUST_PROXY:-1}
+  # Appliance-mode knobs — see vibe-mybooks-compatibility-addendum.
+  MIGRATIONS_AUTO: "false"
+  COOKIE_PATH: ${VIBE_MYBOOKS_COOKIE_PATH:-/}
+  COOKIE_SECURE: ${VIBE_MYBOOKS_COOKIE_SECURE:-true}
+  EXPECT_WORKER: "true"
+  LOG_LEVEL: ${VIBE_MYBOOKS_LOG_LEVEL:-info}
+  # Licensing — defaults to disabled so the appliance ships in a
+  # working state until the operator pastes a key. See addendum
+  # §3.8 footnote.
+  DISABLE_LICENSE_CHECK: ${VIBE_MYBOOKS_DISABLE_LICENSE_CHECK:-1}
+  LICENSE_TOKEN: ${VIBE_MYBOOKS_LICENSE_TOKEN:-}
+  LICENSE_PUBLIC_KEY: ${VIBE_MYBOOKS_LICENSE_PUBLIC_KEY:-}
+  # Email — required for password reset, magic links, portal
+  # invitations, and reminders sent by the worker. Optional in
+  # env.ts (so dev/CI can run without SMTP), but practically
+  # required in the appliance.
+  SMTP_HOST: ${VIBE_MYBOOKS_SMTP_HOST:-}
+  SMTP_PORT: ${VIBE_MYBOOKS_SMTP_PORT:-587}
+  SMTP_USER: ${VIBE_MYBOOKS_SMTP_USER:-}
+  SMTP_PASS: ${VIBE_MYBOOKS_SMTP_PASS:-}
+  SMTP_FROM: ${VIBE_MYBOOKS_SMTP_FROM:-noreply@example.com}
+  # Passkey RP id. Defaults to URL(PUBLIC_URL).hostname when unset.
+  # Set explicitly when sibling Vibe apps share the same hostname
+  # and you want passkey scopes isolated per app.
+  WEBAUTHN_RP_ID: ${VIBE_MYBOOKS_WEBAUTHN_RP_ID:-}
+  # AI providers — optional; appliance can wire these up later.
+  ANTHROPIC_API_KEY: ${VIBE_MYBOOKS_ANTHROPIC_API_KEY:-}
+
 services:
-  # One-shot migration runner. Invoked before `up -d` so any failure
-  # is visible to the operator (rather than silently looping in the
-  # api container under restart: unless-stopped). Bypasses env.ts
-  # validation by reading DATABASE_URL directly — matches CI's
-  # migrate step.
+  # One-shot migration runner. depends_on:service_completed_successfully
+  # in the api service makes `up -d` invoke this automatically before
+  # the api starts. Bypasses env.ts validation (only DATABASE_URL is
+  # needed for migrations) so secret-generation and migration are
+  # decoupled.
   migrate:
     image: ghcr.io/kisaesdevlab/vibe-mybooks-api:${VIBE_MYBOOKS_TAG:-latest}
     pull_policy: missing
@@ -62,31 +114,9 @@ services:
     restart: unless-stopped
     networks: [vibe_net]
     environment:
-      DATABASE_URL: ${VIBE_MYBOOKS_DATABASE_URL:?VIBE_MYBOOKS_DATABASE_URL must be set}
-      REDIS_URL: ${VIBE_MYBOOKS_REDIS_URL:?VIBE_MYBOOKS_REDIS_URL must be set}
-      JWT_SECRET: ${VIBE_MYBOOKS_JWT_SECRET:?VIBE_MYBOOKS_JWT_SECRET must be set (64 hex chars — `openssl rand -hex 32`)}
-      ENCRYPTION_KEY: ${VIBE_MYBOOKS_ENCRYPTION_KEY:?VIBE_MYBOOKS_ENCRYPTION_KEY must be set (64 hex chars — `openssl rand -hex 32`)}
-      PLAID_ENCRYPTION_KEY: ${VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY:?VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY must be set (64 hex chars — `openssl rand -hex 32`)}
-      CORS_ORIGIN: ${VIBE_MYBOOKS_CORS_ORIGIN:?VIBE_MYBOOKS_CORS_ORIGIN must be set}
-      PUBLIC_URL: ${VIBE_MYBOOKS_PUBLIC_URL:?VIBE_MYBOOKS_PUBLIC_URL must be set}
-      NODE_ENV: production
-      # Appliance-mode knobs — see vibe-mybooks-compatibility-addendum.
-      MIGRATIONS_AUTO: "false"
-      COOKIE_PATH: ${VIBE_MYBOOKS_COOKIE_PATH:-/}
-      COOKIE_SECURE: ${VIBE_MYBOOKS_COOKIE_SECURE:-true}
-      EXPECT_WORKER: "true"
-      LOG_LEVEL: ${VIBE_MYBOOKS_LOG_LEVEL:-info}
-      # Licensing — defaults to disabled so the appliance ships in a
-      # working state until the operator pastes a key. See addendum
-      # §3.8 footnote.
-      DISABLE_LICENSE_CHECK: ${VIBE_MYBOOKS_DISABLE_LICENSE_CHECK:-1}
-      LICENSE_TOKEN: ${VIBE_MYBOOKS_LICENSE_TOKEN:-}
-      LICENSE_PUBLIC_KEY: ${VIBE_MYBOOKS_LICENSE_PUBLIC_KEY:-}
-      # AI providers — optional; appliance can wire these up later.
-      ANTHROPIC_API_KEY: ${VIBE_MYBOOKS_ANTHROPIC_API_KEY:-}
+      <<: *app-env
     volumes:
       - vibe-mybooks-uploads:/data/uploads
-      - vibe-mybooks-backups:/data/backups
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -116,6 +146,7 @@ services:
     depends_on:
       - vibe-mybooks-api
     mem_limit: ${VIBE_MYBOOKS_WEB_MEM_LIMIT:-128m}
+    mem_reservation: 32m
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://localhost:5173/ > /dev/null || exit 1"]
       interval: 30s
@@ -130,39 +161,37 @@ services:
     # is an alias of api's digest; pulling either gets the identical
     # image. Using `-worker` here makes `docker ps` output more
     # legible for operators.
+    #
+    # The worker is a peer of the api, not a downstream — both connect
+    # directly to db + redis. No depends_on relationship between them;
+    # they boot in parallel. (Migrations are gated separately via the
+    # one-shot `migrate` service.)
     image: ghcr.io/kisaesdevlab/vibe-mybooks-worker:${VIBE_MYBOOKS_TAG:-latest}
     pull_policy: missing
     restart: unless-stopped
     command: ["npx", "tsx", "packages/worker/src/index.ts"]
     networks: [vibe_net]
     environment:
-      DATABASE_URL: ${VIBE_MYBOOKS_DATABASE_URL:?VIBE_MYBOOKS_DATABASE_URL must be set}
-      REDIS_URL: ${VIBE_MYBOOKS_REDIS_URL:?VIBE_MYBOOKS_REDIS_URL must be set}
-      ENCRYPTION_KEY: ${VIBE_MYBOOKS_ENCRYPTION_KEY:?VIBE_MYBOOKS_ENCRYPTION_KEY must be set}
-      PLAID_ENCRYPTION_KEY: ${VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY:?VIBE_MYBOOKS_PLAID_ENCRYPTION_KEY must be set}
-      JWT_SECRET: ${VIBE_MYBOOKS_JWT_SECRET:?VIBE_MYBOOKS_JWT_SECRET must be set}
-      NODE_ENV: production
-      MIGRATIONS_AUTO: "false"
-      LOG_LEVEL: ${VIBE_MYBOOKS_LOG_LEVEL:-info}
-      DISABLE_LICENSE_CHECK: ${VIBE_MYBOOKS_DISABLE_LICENSE_CHECK:-1}
+      <<: *app-env
     volumes:
       - vibe-mybooks-uploads:/data/uploads
-      - vibe-mybooks-backups:/data/backups
     depends_on:
-      vibe-mybooks-api:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
-      # Same TCP-probe pattern as docker-compose.prod.yml — the
-      # vibe-mybooks-api image (which the worker reuses) ships busybox
-      # netcat but no redis-cli, so a port probe is the lightest
-      # signal that the worker can reach Redis. Real liveness is the
-      # heartbeat key the worker writes (see utils/worker-heartbeat.ts);
-      # the api's /api/v1/health surfaces it as workers.ok.
-      #
-      # REDIS_URL parsing: extract host:port via shell builtins. Falls
-      # back to the appliance's typical service name if anything goes
-      # wrong with the parse.
-      test: ["CMD-SHELL", "nc -z $(echo $${REDIS_URL:-redis://redis:6379} | sed -E 's|^[^/]+//([^:/]+)(:([0-9]+))?.*|\\1 \\3|;s| $$| 6379|') 2>/dev/null || exit 1"]
+      # Use the api image's bundled node + ioredis to PING Redis.
+      # Robust against every REDIS_URL form (auth, tls, db number) —
+      # ioredis parses the same URL the worker code does, so a
+      # successful PING here proves the worker can authenticate. The
+      # earlier sed-based shell parser broke on `rediss://user:pass@host`.
+      # Real worker liveness still rides on the heartbeat key the
+      # worker writes (utils/worker-heartbeat.ts); this healthcheck
+      # is the cheapest cross-check that flips the container to
+      # Unhealthy when restart is the right answer.
+      test: [
+        "CMD-SHELL",
+        "node -e \"const u=process.env.REDIS_URL||'redis://redis:6379';const{default:Redis}=require('ioredis');const r=new Redis(u,{lazyConnect:true,connectTimeout:2000,maxRetriesPerRequest:0});r.connect().then(()=>r.ping()).then(p=>{r.disconnect();process.exit(p==='PONG'?0:1)}).catch(()=>{r.disconnect();process.exit(1)})\""
+      ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -172,16 +201,20 @@ services:
     logging: *default-logging
 
 networks:
-  # The appliance creates this network before bringing up its compose
-  # stack. Declared `external: true` so this overlay never tries to
-  # create it — that responsibility belongs to the appliance.
+  # External network — the appliance creates and owns it. The default
+  # name is `vibe_net` to match the addendum's reference; operators
+  # whose appliance uses a different network name (e.g. `vibe_ingress`)
+  # override via VIBE_NETWORK_NAME without forking this overlay.
   vibe_net:
     external: true
+    name: ${VIBE_NETWORK_NAME:-vibe_net}
 
 volumes:
-  # Named volumes with the vibe-mybooks- prefix. The appliance's
-  # backup tooling identifies app-scoped volumes by prefix; keeping
-  # the names stable lets operators upgrade the app without losing
-  # uploaded receipts or generated PDFs.
+  # Named volumes with the vibe-mybooks- prefix. `name:` makes the
+  # actual Docker volume name deterministic (otherwise Compose
+  # prepends the project name, breaking backup-tool discovery
+  # whenever the parent compose's project name changes). The
+  # appliance's Duplicati snapshots this volume by exact name — see
+  # `.appliance/manifest.json` `backup.volumes`.
   vibe-mybooks-uploads:
-  vibe-mybooks-backups:
+    name: vibe-mybooks-uploads
