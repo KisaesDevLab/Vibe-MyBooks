@@ -1,5 +1,5 @@
 # Stage 1: Build shared + API
-FROM node:20-alpine AS api-build
+FROM node:24-alpine AS api-build
 WORKDIR /app
 # Skip Puppeteer's bundled Chromium download during npm install — this
 # image never runs Puppeteer in the build stage, and the bundled binary
@@ -15,7 +15,7 @@ RUN npm run build --workspace=@kis-books/shared
 RUN npm run build --workspace=@kis-books/api
 
 # Stage 2: Build web
-FROM node:20-alpine AS web-build
+FROM node:24-alpine AS web-build
 WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 # VITE_BASE_URL is baked into the web bundle at build time — Vite
@@ -38,7 +38,7 @@ RUN npm run build --workspace=@kis-books/shared
 RUN npm run build --workspace=@kis-books/web
 
 # Stage 3: Runtime
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 
 # OCI image labels for the combined-build image (root Dockerfile is not
 # used by CI — see packages/api/Dockerfile and packages/web/Dockerfile

@@ -7,7 +7,7 @@
 # serve the SPA directly. Both paths produce the same built artifact.
 
 # ── Stage 1: build ────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 # Subpath deployment is now a runtime concern — the bundle bakes in the
