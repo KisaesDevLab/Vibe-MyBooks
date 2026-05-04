@@ -13,6 +13,20 @@ import { TfaVerifyStep, type TfaVerifiedPayload } from './TfaVerifyStep';
 import { TurnstileWidget } from '../../components/auth/TurnstileWidget';
 import { AlertCircle, Fingerprint, Mail, KeyRound } from 'lucide-react';
 
+// Subpath-aware API bases — mirrors apiClient (../../api/client) and
+// FirstRunSetupWizard. Vite injects `import.meta.env.BASE_URL` from the
+// runtime sentinel `/__VIBE_BASE_PATH__/` (substituted by the web
+// container's docker-entrypoint.d/40-base-path.sh hook before nginx
+// starts). Single-app boots BASE_URL=`/`, multi-app appliance boots
+// BASE_URL=`/mybooks/` (or `/vibe-mybooks/`), so these become
+// `/api/v1` / `/api/setup` or `/mybooks/api/v1` / `/mybooks/api/setup`
+// without a rebuild. Without this, every fetch on this page targets an
+// absolute `/api/...` that the multi-app Caddy ingress doesn't route —
+// the user lands on /login, every auth call 404s into the appliance
+// console, and the auto-redirect to /first-run-setup never fires.
+const API_V1 = `${import.meta.env.BASE_URL}api/v1`;
+const SETUP_API = `${import.meta.env.BASE_URL}api/setup`;
+
 // ─── Error helpers ────────────────────────────────────────────
 //
 // The login flow has four fetch calls (methods lookup, password login,
@@ -126,7 +140,7 @@ export function LoginPage() {
   // credentials that don't exist, gets "Invalid email or password", and has
   // no indication that they needed to run through setup first.
   useEffect(() => {
-    fetch('/api/setup/status')
+    fetch(`${SETUP_API}/status`)
       .then((r) => r.json())
       .then((status) => {
         if (status && status.setupComplete === false && status.hasAdminUser === false) {
@@ -142,7 +156,7 @@ export function LoginPage() {
   // Fetch available login methods on mount. Failures are silent — we just
   // fall back to the password-only form rather than blocking the page.
   useEffect(() => {
-    fetch('/api/v1/auth/methods')
+    fetch(`${API_V1}/auth/methods`)
       .then((r) => (r.ok ? r.json() : null))
       .then((m) => { if (m) setMethods(m); })
       .catch(() => {});
@@ -159,7 +173,7 @@ export function LoginPage() {
   const handleEmailBlur = () => {
     const trimmed = email.trim();
     if (trimmed) {
-      fetch(`/api/v1/auth/methods?email=${encodeURIComponent(trimmed)}`)
+      fetch(`${API_V1}/auth/methods?email=${encodeURIComponent(trimmed)}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((m) => { if (m) setMethods(m); })
         .catch(() => {});
@@ -187,7 +201,7 @@ export function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/v1/auth/login', {
+      const res = await fetch(`${API_V1}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail, password, turnstileToken: turnstileToken ?? '' }),
@@ -234,7 +248,7 @@ export function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const optRes = await fetch('/api/v1/auth/passkeys/login/options', {
+      const optRes = await fetch(`${API_V1}/auth/passkeys/login/options`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() || undefined }),
@@ -252,7 +266,7 @@ export function LoginPage() {
 
       const authResp = await startAuthentication({ optionsJSON: options });
 
-      const verifyRes = await fetch('/api/v1/auth/passkeys/login/verify', {
+      const verifyRes = await fetch(`${API_V1}/auth/passkeys/login/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(authResp),
@@ -304,7 +318,7 @@ export function LoginPage() {
     setMagicLinkLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/v1/auth/magic-link/send', {
+      const res = await fetch(`${API_V1}/auth/magic-link/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail }),

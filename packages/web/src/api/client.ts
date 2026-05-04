@@ -8,7 +8,13 @@
 // so concatenation produces '/api/v1' or '/mb/api/v1' without a double
 // slash. When the appliance's front nginx strips the `/mb/` prefix, the
 // backend still receives `/api/v1/…` and routing is unaffected.
-const API_BASE = `${import.meta.env.BASE_URL}api/v1`;
+//
+// Exported so callers that issue raw `fetch()` calls (multipart uploads,
+// SSE/streaming endpoints, anything outside the JSON happy path that
+// apiClient covers) can build their URLs against the same base. Without
+// this, hooks using bare `fetch('/api/v1/...')` ship absolute paths and
+// 404 in multi-app appliance installs (BASE_URL=`/mybooks/`).
+export const API_BASE = `${import.meta.env.BASE_URL}api/v1`;
 
 // What the web actually handles. The refresh token lives in an HttpOnly
 // cookie now, so this side of the wire only ever sees the access token.

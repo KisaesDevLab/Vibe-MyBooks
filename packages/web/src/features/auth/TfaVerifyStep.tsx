@@ -7,6 +7,9 @@ import type { User } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { Shield, Mail, Smartphone, Key } from 'lucide-react';
 
+// Subpath-aware API base — see LoginPage.tsx for the full rationale.
+const API_V1 = `${import.meta.env.BASE_URL}api/v1`;
+
 export interface TfaVerifiedPayload {
   user: User;
   tokens: { accessToken: string };
@@ -122,7 +125,7 @@ export function TfaVerifyStep({ tfaToken, availableMethods, preferredMethod, pho
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/v1/auth/tfa/verify-recovery', {
+      const res = await fetch(`${API_V1}/auth/tfa/verify-recovery`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tfaToken}` },
         body: JSON.stringify({ code: recoveryCode }),

@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { BankConnection, BankFeedItem, BankFeedFilters, Reconciliation } from '@kis-books/shared';
-import { apiClient } from '../client';
+import { apiClient, API_BASE } from '../client';
 
 export function useBankConnections() {
   return useQuery({
@@ -155,7 +155,7 @@ export function useImportBankFile() {
       formData.append('file', input.file);
       formData.append('accountId', input.accountId);
       if (input.mapping) formData.append('mapping', JSON.stringify(input.mapping));
-      const res = await fetch('/api/v1/banking/feed/import', {
+      const res = await fetch(`${API_BASE}/banking/feed/import`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
         body: formData,

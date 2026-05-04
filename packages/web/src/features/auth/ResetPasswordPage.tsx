@@ -8,6 +8,11 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 
+// Subpath-aware API base — see LoginPage.tsx for the full rationale.
+// Multi-app appliance installs run with BASE_URL=`/mybooks/`, and an
+// absolute `/api/v1/...` fetch never reaches the api in that mode.
+const API_V1 = `${import.meta.env.BASE_URL}api/v1`;
+
 export function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
@@ -27,7 +32,7 @@ export function ResetPasswordPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/v1/auth/reset-password', {
+      const res = await fetch(`${API_V1}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, newPassword: password }),
