@@ -13,7 +13,7 @@ import type {
   PayrollSessionFilters,
   PayrollAccountMappingEntry,
 } from '@kis-books/shared';
-import { apiClient } from '../client';
+import { apiClient, API_BASE } from '../client';
 
 // ── Sessions ──
 
@@ -83,7 +83,7 @@ export function usePayrollUpload() {
       if (data.checkDate) formData.append('checkDate', data.checkDate);
 
       const token = localStorage.getItem('accessToken');
-      const res = await fetch('/api/v1/payroll-import/upload', {
+      const res = await fetch(`${API_BASE}/payroll-import/upload`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,

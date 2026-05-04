@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Account, CreateAccountInput, UpdateAccountInput, AccountFilters } from '@kis-books/shared';
-import { apiClient } from '../client';
+import { apiClient, API_BASE } from '../client';
 
 export function useAccounts(filters?: AccountFilters) {
   const params = new URLSearchParams();
@@ -77,7 +77,7 @@ export function useMergeAccounts() {
 export function useExportAccounts() {
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/accounts/export', {
+      const res = await fetch(`${API_BASE}/accounts/export`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
       });
       if (!res.ok) throw new Error('Export failed');

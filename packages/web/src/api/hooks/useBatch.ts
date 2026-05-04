@@ -3,7 +3,7 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../client';
+import { apiClient, API_BASE } from '../client';
 
 interface BatchRow {
   rowNumber: number;
@@ -66,7 +66,7 @@ export function useParseCsv() {
       const formData = new FormData();
       formData.append('file', input.file);
       formData.append('txn_type', input.txnType);
-      const res = await fetch('/api/v1/batch/parse-csv', {
+      const res = await fetch(`${API_BASE}/batch/parse-csv`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
         body: formData,

@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Item, CreateItemInput, UpdateItemInput } from '@kis-books/shared';
-import { apiClient } from '../client';
+import { apiClient, API_BASE } from '../client';
 
 export interface ItemFilters {
   isActive?: boolean;
@@ -71,7 +71,7 @@ export function useDeactivateItem() {
 export function useExportItems() {
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/items/export', {
+      const res = await fetch(`${API_BASE}/items/export`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
       });
       if (!res.ok) throw new Error('Export failed');

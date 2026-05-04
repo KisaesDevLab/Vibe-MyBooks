@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Company, UpdateCompanyInput, CompanySettings } from '@kis-books/shared';
-import { apiClient } from '../client';
+import { apiClient, API_BASE } from '../client';
 
 export function useCompany() {
   return useQuery({
@@ -31,7 +31,7 @@ export function useUploadLogo() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('logo', file);
-      const res = await fetch('/api/v1/company/logo', {
+      const res = await fetch(`${API_BASE}/company/logo`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('accessToken')}`,

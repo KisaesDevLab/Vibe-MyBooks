@@ -4,6 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { BUSINESS_TYPE_OPTIONS, type CoaTemplateOption } from '@kis-books/shared';
+import { API_BASE } from '../client';
 
 /**
  * Fetches the live list of business-type/COA-template options from the
@@ -22,7 +23,7 @@ export function useCoaTemplateOptions(): CoaTemplateOption[] {
   const { data } = useQuery({
     queryKey: ['coa-template-options'],
     queryFn: async () => {
-      const res = await fetch('/api/v1/coa-templates/options');
+      const res = await fetch(`${API_BASE}/coa-templates/options`);
       if (!res.ok) throw new Error('Failed to load template options');
       const body = (await res.json()) as { options: CoaTemplateOption[] };
       return body.options;
