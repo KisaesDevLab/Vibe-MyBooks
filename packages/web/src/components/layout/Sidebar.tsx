@@ -57,6 +57,11 @@ interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
+  // When true the item is hidden from readonly users. Default false
+  // (visible to everyone). Used by GL-write features like Bulk Import
+  // so a readonly account doesn't see a link that would just redirect
+  // back to '/' on click.
+  requiresWrite?: boolean;
 }
 
 interface NavGroup {
@@ -80,7 +85,6 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/tunnel', label: 'Cloudflare Tunnel', icon: Cloud },
   { to: '/admin/ip-allowlist', label: 'Staff IP Allowlist', icon: ShieldAlert },
   { to: '/admin/feature-flags', label: 'Feature Flags', icon: Flag },
-  { to: '/admin/import', label: 'Bulk Import', icon: Upload },
   { to: '/admin/system', label: 'System Settings', icon: Wrench },
 ];
 
@@ -98,6 +102,11 @@ const navGroups: NavGroup[] = [
       { to: '/transactions/batch', label: 'Batch Entry', icon: Grid3X3 },
       { to: '/recurring', label: 'Recurring', icon: Repeat },
       { to: '/duplicates', label: 'Duplicates', icon: Copy },
+      // Bulk historical-data import (CoA / contacts / TB / GL from
+      // Accounting Power or QuickBooks Online). Visible to any
+      // non-readonly staff — see StaffWriteRoute. Moved here from the
+      // Admin section because the gate is no longer super-admin only.
+      { to: '/imports', label: 'Bulk Import', icon: Upload, requiresWrite: true },
     ],
   },
   {
@@ -404,14 +413,20 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               {expanded && (
                 <>
                   {group.label === 'Transactions' && <NewTransactionButton />}
-                  {group.items.map((item) => (
-                    <SidebarLink
-                      key={item.to}
-                      item={item}
-                      end={item.to === '/' || item.to === '/settings'}
-                      onClick={onNavigate}
-                    />
-                  ))}
+                  {group.items
+                    // requiresWrite items hide from readonly accounts —
+                    // the StaffWriteRoute gate would redirect them away
+                    // anyway, but seeing a link that won't work is worse
+                    // UX than not seeing it at all.
+                    .filter((item) => !(item.requiresWrite && userRole === 'readonly'))
+                    .map((item) => (
+                      <SidebarLink
+                        key={item.to}
+                        item={item}
+                        end={item.to === '/' || item.to === '/settings'}
+                        onClick={onNavigate}
+                      />
+                    ))}
                 </>
               )}
               {/* Practice group sits between Reporting and Manage
