@@ -173,6 +173,7 @@ const TenantDetailPage = lazyNamed(() => import('./features/admin/TenantDetailPa
 const UserListPage = lazyNamed(() => import('./features/admin/UserListPage'), 'UserListPage');
 const GlobalBankRulesPage = lazyNamed(() => import('./features/admin/GlobalBankRulesPage'), 'GlobalBankRulesPage');
 const TfaConfigPage = lazyNamed(() => import('./features/admin/TfaConfigPage'), 'TfaConfigPage');
+const BulkImportPage = lazyNamed(() => import('./features/admin/BulkImportPage'), 'BulkImportPage');
 const InstallationSecurityPage = lazyNamed(() => import('./features/admin/InstallationSecurityPage'), 'InstallationSecurityPage');
 const PlaidConfigPage = lazyNamed(() => import('./features/admin/PlaidConfigPage'), 'PlaidConfigPage');
 const PlaidConnectionsMonitorPage = lazyNamed(() => import('./features/admin/PlaidConnectionsMonitorPage'), 'PlaidConnectionsMonitorPage');
@@ -412,6 +413,8 @@ export function App() {
             <Route path="/settings/connected-apps" element={<ConnectedAppsPage />} />
             <Route path="/settings/storage" element={<StorageSettingsPage />} />
             <Route path="/admin/tfa" element={<AdminRoute><TfaConfigPage /></AdminRoute>} />
+            <Route path="/admin/import" element={<AdminRoute><BulkImportPage /></AdminRoute>} />
+            <Route path="/admin/import/:sessionId" element={<AdminRoute><BulkImportPage /></AdminRoute>} />
             <Route path="/admin/security" element={<AdminRoute><InstallationSecurityPage /></AdminRoute>} />
             <Route path="/admin/plaid" element={<AdminRoute><PlaidConfigPage /></AdminRoute>} />
             <Route path="/admin/plaid/connections" element={<AdminRoute><PlaidConnectionsMonitorPage /></AdminRoute>} />

@@ -59,6 +59,12 @@ export function TransactionListPage() {
   const statusFilter = (searchParams.get('status') || '') as TxnStatus | '';
   const accountFilter = searchParams.get('account') || '';
   const contactFilter = searchParams.get('contact') || '';
+  // Bulk-import success links pass `?source=accounting_power_import`
+  // (or qbo / trial_balance) so the operator lands on the rows just
+  // posted instead of the unfiltered list. Threaded straight through
+  // to useTransactions, which forwards to /transactions?source=... —
+  // ledger.listTransactions filters on transactions.source, indexed.
+  const sourceFilter = searchParams.get('source') || '';
   const startDate = searchParams.get('from') || '';
   const endDate = searchParams.get('to') || '';
   // ADR 0XX §5.2 — list filter is header-level: "show transactions
@@ -115,6 +121,7 @@ export function TransactionListPage() {
     status: statusFilter || undefined,
     accountId: accountFilter || undefined,
     contactId: contactFilter || undefined,
+    source: sourceFilter || undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     tagId: tagFilter || undefined,

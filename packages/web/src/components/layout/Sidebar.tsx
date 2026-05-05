@@ -80,6 +80,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/tunnel', label: 'Cloudflare Tunnel', icon: Cloud },
   { to: '/admin/ip-allowlist', label: 'Staff IP Allowlist', icon: ShieldAlert },
   { to: '/admin/feature-flags', label: 'Feature Flags', icon: Flag },
+  { to: '/admin/import', label: 'Bulk Import', icon: Upload },
   { to: '/admin/system', label: 'System Settings', icon: Wrench },
 ];
 
