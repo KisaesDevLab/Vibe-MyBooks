@@ -58,8 +58,8 @@ const SOURCE_OPTIONS: { value: SourceSystem; label: string }[] = [
 export function BulkImportPage() {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId?: string }>();
-  if (sessionId) return <SessionView id={sessionId} onClose={() => navigate('/admin/import')} />;
-  return <UploadForm onCreated={(id) => navigate(`/admin/import/${id}`)} />;
+  if (sessionId) return <SessionView id={sessionId} onClose={() => navigate('/imports')} />;
+  return <UploadForm onCreated={(id) => navigate(`/imports/${id}`)} />;
 }
 
 // ── Friendly error mapping ────────────────────────────────────────

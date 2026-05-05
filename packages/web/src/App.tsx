@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { AdminRoute } from './components/layout/AdminRoute';
+import { StaffWriteRoute } from './components/layout/StaffWriteRoute';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
 // Eager-load only what the cold-start login path actually paints on
@@ -173,6 +174,10 @@ const TenantDetailPage = lazyNamed(() => import('./features/admin/TenantDetailPa
 const UserListPage = lazyNamed(() => import('./features/admin/UserListPage'), 'UserListPage');
 const GlobalBankRulesPage = lazyNamed(() => import('./features/admin/GlobalBankRulesPage'), 'GlobalBankRulesPage');
 const TfaConfigPage = lazyNamed(() => import('./features/admin/TfaConfigPage'), 'TfaConfigPage');
+// Bulk import lives under /imports (not /admin/import) because it's
+// a staff-write feature, not a super-admin one. Keeping the file
+// path under features/admin for now to avoid churn — the path is
+// historical, the gate isn't.
 const BulkImportPage = lazyNamed(() => import('./features/admin/BulkImportPage'), 'BulkImportPage');
 const InstallationSecurityPage = lazyNamed(() => import('./features/admin/InstallationSecurityPage'), 'InstallationSecurityPage');
 const PlaidConfigPage = lazyNamed(() => import('./features/admin/PlaidConfigPage'), 'PlaidConfigPage');
@@ -413,8 +418,8 @@ export function App() {
             <Route path="/settings/connected-apps" element={<ConnectedAppsPage />} />
             <Route path="/settings/storage" element={<StorageSettingsPage />} />
             <Route path="/admin/tfa" element={<AdminRoute><TfaConfigPage /></AdminRoute>} />
-            <Route path="/admin/import" element={<AdminRoute><BulkImportPage /></AdminRoute>} />
-            <Route path="/admin/import/:sessionId" element={<AdminRoute><BulkImportPage /></AdminRoute>} />
+            <Route path="/imports" element={<StaffWriteRoute><BulkImportPage /></StaffWriteRoute>} />
+            <Route path="/imports/:sessionId" element={<StaffWriteRoute><BulkImportPage /></StaffWriteRoute>} />
             <Route path="/admin/security" element={<AdminRoute><InstallationSecurityPage /></AdminRoute>} />
             <Route path="/admin/plaid" element={<AdminRoute><PlaidConfigPage /></AdminRoute>} />
             <Route path="/admin/plaid/connections" element={<AdminRoute><PlaidConnectionsMonitorPage /></AdminRoute>} />
