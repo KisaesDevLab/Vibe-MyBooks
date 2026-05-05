@@ -331,6 +331,7 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
   const { data, isLoading, error, refetch } = useImportSession(id);
   const commit = useCommitImport();
   const remove = useDeleteImport();
+  const [showAllErrors, setShowAllErrors] = useState(false);
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
 
@@ -426,7 +427,10 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
         )}
       </div>
 
-      {/* Validation errors */}
+      {/* Validation errors — capped by default to keep the DOM small for
+          files that produced thousands of errors (a 5,000-error file
+          rendered all at once was sluggish to scroll). Operator can
+          expand to see the full set when they need it. */}
       {validationErrors.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
           <h2 className="text-sm font-semibold text-red-800 mb-2 flex items-center gap-2">
@@ -434,12 +438,23 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
             {validationErrors.length} validation error{validationErrors.length === 1 ? '' : 's'}
           </h2>
           <ul className="space-y-1 text-xs text-red-700 max-h-96 overflow-y-auto pr-2">
-            {validationErrors.map((err, i) => (
+            {(showAllErrors ? validationErrors : validationErrors.slice(0, 100)).map((err, i) => (
               <li key={i}>
                 <strong>Row {err.rowNumber || '?'}</strong> [{err.code}] {err.message}
               </li>
             ))}
           </ul>
+          {validationErrors.length > 100 && (
+            <button
+              type="button"
+              className="mt-2 text-xs underline text-red-800"
+              onClick={() => setShowAllErrors((s) => !s)}
+            >
+              {showAllErrors
+                ? `Hide all (showing ${validationErrors.length})`
+                : `Show all ${validationErrors.length} errors`}
+            </button>
+          )}
         </div>
       )}
 
@@ -470,9 +485,10 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
         </div>
       )}
 
-      {/* Failed-commit summary — partial progress + error details */}
+      {/* Failed-commit summary — partial progress + error details. Red
+          (not amber) because this is a hard failure, not a warning. */}
       {isFailed && session.commitResult && (
-        <div className="bg-amber-50 border border-amber-200 rounded-md p-4 space-y-1 text-sm text-amber-800">
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 space-y-1 text-sm text-red-700">
           <div className="flex items-center gap-2 font-semibold">
             <AlertCircle className="h-4 w-4" /> Commit failed
           </div>
@@ -500,7 +516,13 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
         </div>
       )}
 
-      {commit.error && (
+      {/* When the session has been moved to 'failed' the failure summary
+          block above already explains what happened with persisted detail.
+          Showing commit.error here too would render the same message twice
+          (once amber-now-red summary, once red toast). Suppress the toast
+          when isFailed; otherwise show it for transient errors that didn't
+          flip the session into 'failed'. */}
+      {commit.error && !isFailed && (
         <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
           <AlertCircle className="h-4 w-4 mt-0.5" />
           <span>{describeError(commit.error)}</span>
@@ -645,7 +667,12 @@ function GlPreviewTable({ entries }: { entries: CanonicalGlEntry[] }) {
       <tbody>
         {entries.flatMap((e, ei) =>
           e.lines.map((line, li) => (
-            <tr key={`${ei}-${li}`} className={li === 0 ? '' : 'opacity-80'}>
+            // Continuation rows get a slight bg-shade rather than
+            // opacity-80 so the cell text keeps full WCAG contrast —
+            // opacity drops the text-color contrast below AA on light
+            // grey backgrounds. The shading still groups the lines
+            // visually under their JE header row.
+            <tr key={`${ei}-${li}`} className={li === 0 ? '' : 'bg-gray-50/60'}>
               <td className={TD}>{li === 0 ? e.date : ''}</td>
               <td className={TD}>
                 {li === 0 ? `${e.sourceCode}${e.isVoidReversal ? ' (void)' : ''}` : ''}

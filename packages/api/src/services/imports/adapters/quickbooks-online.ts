@@ -219,13 +219,20 @@ export async function parseContacts(
   // QBO labels the name column "Customer" or "Vendor" depending on the
   // export. Look for either; the kind argument tells us which file the
   // operator said they were uploading.
+  //
+  // The contacts XLSX has a "Customer Contact List" / "Vendor Contact
+  // List" title row before the real header. A naive findHeaderRow search
+  // for just 'customer' would match the title row first (since it
+  // contains the substring), then we'd treat its sole cell as the header
+  // and extract zero rows. Anchor on a multi-token signature that only
+  // appears together on the real header to skip past the title.
   const nameLabel = kind === 'customer' ? 'customer' : 'vendor';
-  const headerRowIdx = findHeaderRow(sheet.rows, [nameLabel]);
+  const headerRowIdx = findHeaderRow(sheet.rows, [nameLabel, 'phone', 'email']);
   if (headerRowIdx === -1) {
     errors.push({
       rowNumber: 0,
       code: 'IMPORT_HEADER_NOT_FOUND',
-      message: `Could not find a "${nameLabel}" column. Did you upload the right file?`,
+      message: `Could not find a "${nameLabel}" header row with the expected columns. Did you upload the right file?`,
     });
     return { rows, errors };
   }

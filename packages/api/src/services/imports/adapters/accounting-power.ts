@@ -96,6 +96,21 @@ export function parseCoa(buf: Buffer): { rows: CanonicalCoaRow[]; errors: Import
   const iCategory = colIdx('Category');
   const iSubAcct = colIdx('SubAccount Of');
 
+  // requireHeader above already verified the columns are present by
+  // name, but a defensive double-check on the resolved indices avoids
+  // silent zero-row imports if the header validation logic changes
+  // out from under us. The required-presence check is exact-match here
+  // (vs. requireHeader's substring), so it's the more authoritative
+  // signal.
+  if (iAcct === -1 || iDesc === -1 || iType === -1) {
+    errors.push({
+      rowNumber: 1,
+      code: 'IMPORT_HEADER_NOT_FOUND',
+      message: 'Required CoA columns missing: Account, Description, Type.',
+    });
+    return { rows, errors };
+  }
+
   for (let i = 1; i < grid.length; i++) {
     const r = grid[i]!;
     const rowNumber = i + 1; // 1-indexed source row

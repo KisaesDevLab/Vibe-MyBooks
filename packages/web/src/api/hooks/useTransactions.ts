@@ -12,6 +12,7 @@ export function useTransactions(filters?: TransactionFilters) {
   if (filters?.status) params.set('status', filters.status);
   if (filters?.contactId) params.set('contactId', filters.contactId);
   if (filters?.accountId) params.set('accountId', filters.accountId);
+  if (filters?.source) params.set('source', filters.source);
   if (filters?.startDate) params.set('startDate', filters.startDate);
   if (filters?.endDate) params.set('endDate', filters.endDate);
   if (filters?.search) params.set('search', filters.search);

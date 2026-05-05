@@ -9,13 +9,14 @@
 // debits-equal-credits / scope checks / lock-date enforcement.
 
 import * as crypto from 'crypto';
-import { and, eq, desc } from 'drizzle-orm';
+import { and, eq, desc, isNull, or, like } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
   importSessions,
   accounts,
   contacts,
   transactions,
+  companies,
 } from '../../db/schema/index.js';
 import {
   IMPORT_SOURCE_TAGS,
@@ -323,16 +324,17 @@ export async function createSession(input: CreateSessionInput): Promise<{
   // we run DB validation against it.
   enforceRowCap(input.kind, parsed.rowCount);
 
+  const reportDate = parsed.reportDate ?? input.options.tbReportDate ?? null;
+
   // DB-aware validation augments the adapter's parse-time errors.
   const dbErrors = await validateAgainstDb(
     input.tenantId,
     input.companyId,
     input.kind,
     parsed.parsed,
+    reportDate,
   );
   const allErrors = [...parsed.errors, ...dbErrors];
-
-  const reportDate = parsed.reportDate ?? input.options.tbReportDate ?? null;
 
   const [inserted] = await db
     .insert(importSessions)
@@ -369,13 +371,28 @@ async function validateAgainstDb(
   companyId: string,
   kind: ImportKind,
   parsedAny: unknown,
+  reportDate: string | null,
 ): Promise<ImportValidationError[]> {
   if (kind === 'coa') return validateCoa(tenantId, parsedAny as CanonicalCoaRow[]);
   if (kind === 'contacts') return validateContacts(parsedAny as CanonicalContactRow[]);
-  if (kind === 'trial_balance')
-    return validateTrialBalance(tenantId, companyId, parsedAny as CanonicalTrialBalanceRow[]);
-  if (kind === 'gl_transactions')
-    return validateGl(tenantId, parsedAny as CanonicalGlEntry[]);
+  if (kind === 'trial_balance') {
+    const errs = await validateTrialBalance(tenantId, companyId, parsedAny as CanonicalTrialBalanceRow[]);
+    // Pre-flight lock-date against the operator-supplied report date.
+    if (reportDate) {
+      errs.push(...(await checkLockDate(tenantId, companyId, [reportDate])));
+    }
+    return errs;
+  }
+  if (kind === 'gl_transactions') {
+    const entries = parsedAny as CanonicalGlEntry[];
+    const errs = await validateGl(tenantId, companyId, entries);
+    // Pre-flight lock-date against every distinct entry date — stops
+    // the operator burning time on a preview when commit is certain to
+    // fail at the ledger layer.
+    const dates = Array.from(new Set(entries.map((e) => e.date)));
+    errs.push(...(await checkLockDate(tenantId, companyId, dates)));
+    return errs;
+  }
   return [];
 }
 
@@ -438,13 +455,25 @@ function validateContacts(rows: CanonicalContactRow[]): ImportValidationError[] 
 
 async function validateTrialBalance(
   tenantId: string,
-  _companyId: string,
+  companyId: string,
   rows: CanonicalTrialBalanceRow[],
 ): Promise<ImportValidationError[]> {
   const errors: ImportValidationError[] = [];
   let totalDebit = new Decimal(0);
   let totalCredit = new Decimal(0);
-  const acctRows = await db.select().from(accounts).where(eq(accounts.tenantId, tenantId));
+  // Scope to this company's CoA *plus* any tenant-wide accounts
+  // (companyId IS NULL — what the legacy template seeder produces).
+  // Without the per-company filter, a TB uploaded against company B
+  // could resolve to an account that lives only in company A's books.
+  const acctRows = await db
+    .select()
+    .from(accounts)
+    .where(
+      and(
+        eq(accounts.tenantId, tenantId),
+        or(eq(accounts.companyId, companyId), isNull(accounts.companyId)),
+      ),
+    );
   const byNum = new Map<string, (typeof acctRows)[number]>();
   const byName = new Map<string, (typeof acctRows)[number]>();
   for (const a of acctRows) {
@@ -476,12 +505,52 @@ async function validateTrialBalance(
   return errors;
 }
 
+/**
+ * Lock-date pre-flight. ledger.postTransaction enforces this at commit
+ * time (and that's the security boundary), but surfacing it during
+ * validation gives the operator the diagnostic before they spend time
+ * walking through the preview. Returns errors keyed to rowNumber 0 so
+ * they show as a file-level issue rather than mis-attributed to a row.
+ */
+async function checkLockDate(
+  tenantId: string,
+  companyId: string,
+  dates: string[],
+): Promise<ImportValidationError[]> {
+  if (dates.length === 0) return [];
+  const [company] = await db
+    .select({ lockDate: companies.lockDate })
+    .from(companies)
+    .where(and(eq(companies.tenantId, tenantId), eq(companies.id, companyId)));
+  const lockDate = company?.lockDate;
+  if (!lockDate) return [];
+  const offending = dates.filter((d) => d <= lockDate);
+  if (offending.length === 0) return [];
+  const sample = offending.slice(0, 3).join(', ');
+  return [{
+    rowNumber: 0,
+    code: 'IMPORT_LOCKED_PERIOD',
+    message: `One or more entries fall on or before the company's lock date ${lockDate} (${sample}${offending.length > 3 ? `, +${offending.length - 3} more` : ''}). Adjust the lock date in Settings or change the JE date.`,
+  }];
+}
+
 async function validateGl(
   tenantId: string,
+  companyId: string,
   entries: CanonicalGlEntry[],
 ): Promise<ImportValidationError[]> {
   const errors: ImportValidationError[] = [];
-  const acctRows = await db.select().from(accounts).where(eq(accounts.tenantId, tenantId));
+  // See validateTrialBalance — scope to this company's CoA plus any
+  // tenant-wide template accounts.
+  const acctRows = await db
+    .select()
+    .from(accounts)
+    .where(
+      and(
+        eq(accounts.tenantId, tenantId),
+        or(eq(accounts.companyId, companyId), isNull(accounts.companyId)),
+      ),
+    );
   const byNum = new Map<string, (typeof acctRows)[number]>();
   const byName = new Map<string, (typeof acctRows)[number]>();
   for (const a of acctRows) {
@@ -627,6 +696,7 @@ export async function commitSession(
     companyId,
     row.kind as ImportKind,
     row.parsedRows,
+    row.reportDate,
   );
 
   if (dbErrors.length > 0 && !options.dryRun) {
@@ -648,10 +718,22 @@ export async function commitSession(
     };
   }
 
-  await db
+  // Atomic status transition: only the request that flips
+  // 'uploaded' → 'committing' is allowed to run the commit body. A
+  // second concurrent /commit call sees status != 'uploaded' and
+  // bails. Without this guard two parallel commits could both pass
+  // the in-memory isTerminal check above and double-post every JE.
+  const claim = await db
     .update(importSessions)
     .set({ status: 'committing', updatedAt: new Date() })
-    .where(eq(importSessions.id, id));
+    .where(and(eq(importSessions.id, id), eq(importSessions.status, 'uploaded')))
+    .returning({ id: importSessions.id });
+  if (claim.length === 0) {
+    throw AppError.conflict(
+      'Another commit for this session is already in progress.',
+      'IMPORT_COMMIT_IN_PROGRESS',
+    );
+  }
 
   let result: ImportCommitResult;
   try {
@@ -893,8 +975,18 @@ async function commitTrialBalance(
     );
   }
 
-  // Resolve account names/numbers to ids.
-  const acctRows = await db.select().from(accounts).where(eq(accounts.tenantId, tenantId));
+  // Resolve account names/numbers to ids — scoped to this company's
+  // CoA plus tenant-wide template accounts. Same scope rule as
+  // validateTrialBalance.
+  const acctRows = await db
+    .select()
+    .from(accounts)
+    .where(
+      and(
+        eq(accounts.tenantId, tenantId),
+        or(eq(accounts.companyId, companyId), isNull(accounts.companyId)),
+      ),
+    );
   const byNum = new Map<string, string>();
   const byName = new Map<string, string>();
   for (const a of acctRows) {
@@ -959,16 +1051,35 @@ async function commitGl(
   // sessionId, which broke idempotency on re-upload because each upload
   // created a fresh session id. Switching to fileHash keeps re-upload
   // safe without giving up the upload-time same-bytes guard.
+  //
+  // Prefix-scope the dedup query to this file's sourceId space (the
+  // fileHash prefix). Without this, a tenant with a long import history
+  // would pull every previously-imported sourceId on every commit — for
+  // a tenant that's done dozens of imports across years that's a slow
+  // O(N) scan over the full transactions table for no benefit.
   const existing = await db
     .select({ sourceId: transactions.sourceId })
     .from(transactions)
     .where(
-      and(eq(transactions.tenantId, tenantId), eq(transactions.source, sourceTag)),
+      and(
+        eq(transactions.tenantId, tenantId),
+        eq(transactions.source, sourceTag),
+        like(transactions.sourceId, `${fileHash}:%`),
+      ),
     );
   const seenSourceIds = new Set(existing.map((e) => e.sourceId).filter(Boolean) as string[]);
 
-  // Build accountId lookup once.
-  const acctRows = await db.select().from(accounts).where(eq(accounts.tenantId, tenantId));
+  // Build accountId lookup once — scoped to this company's CoA plus
+  // tenant-wide template accounts (companyId IS NULL).
+  const acctRows = await db
+    .select()
+    .from(accounts)
+    .where(
+      and(
+        eq(accounts.tenantId, tenantId),
+        or(eq(accounts.companyId, companyId), isNull(accounts.companyId)),
+      ),
+    );
   const byNum = new Map<string, string>();
   const byName = new Map<string, string>();
   for (const a of acctRows) {

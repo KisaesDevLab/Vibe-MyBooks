@@ -83,7 +83,16 @@ const upload = multer({
     if (allowedExt) {
       cb(null, true);
     } else {
-      cb(new Error(`File type not allowed: ${file.originalname}. Accepted: .csv, .xlsx, .xls, .tsv`));
+      // Throw an AppError so error-handler.ts emits a structured
+      // 400 with code IMPORT_INVALID_FORMAT instead of a generic 500
+      // (multer wraps a plain Error and rethrows; our handler needs
+      // the AppError shape to map status + code).
+      cb(
+        AppError.badRequest(
+          `File type not allowed: ${file.originalname}. Accepted: .csv, .xlsx, .xls, .tsv`,
+          'IMPORT_INVALID_FORMAT',
+        ),
+      );
     }
   },
 });

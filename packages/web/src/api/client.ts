@@ -65,7 +65,7 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
-async function refreshAccessToken(): Promise<AuthTokens | null> {
+export async function refreshAccessToken(): Promise<AuthTokens | null> {
   const res = await fetch(`${API_BASE}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
