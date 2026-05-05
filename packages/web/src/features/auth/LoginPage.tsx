@@ -103,6 +103,11 @@ interface AuthMethods {
   loginMethods: { password: boolean; magicLink: boolean; passkey: boolean };
   userHasPasskeys?: boolean;
   userPreferredMethod?: string;
+  // When false, super-admin has disabled public sign-up — hide the
+  // "Don't have an account? Sign up" affordance. Server enforces too.
+  // Optional + default-true so older API builds (or a transient
+  // capabilities fetch failure) don't flip the link off accidentally.
+  registrationEnabled?: boolean;
 }
 
 export function LoginPage() {
@@ -460,7 +465,13 @@ export function LoginPage() {
 
         <div className="text-center text-sm text-gray-500 space-y-1">
           <p><Link to="/forgot-password" className="text-primary-600 hover:text-primary-500">Forgot your password?</Link></p>
-          <p>Don't have an account? <Link to="/register" className="text-primary-600 hover:text-primary-500">Sign up</Link></p>
+          {/* `registrationEnabled` defaults to undefined while methods load
+              and after a fetch failure — treat anything-not-explicitly-false
+              as enabled so a slow or degraded /auth/methods fetch doesn't
+              flicker the link off. */}
+          {methods?.registrationEnabled !== false && (
+            <p>Don't have an account? <Link to="/register" className="text-primary-600 hover:text-primary-500">Sign up</Link></p>
+          )}
         </div>
       </div>
     </AuthLayout>

@@ -27,6 +27,30 @@ export function TfaConfigPage() {
     queryFn: () => fetch('/api/v1/auth/methods').then((r) => r.json()),
   });
 
+  // Separate query for the public sign-up toggle. Lives in
+  // system_settings (not tfa_config) so it has its own
+  // GET/PUT /admin/registration-config pair on the API side; we keep
+  // it visually adjacent to the other auth toggles on this page rather
+  // than splintering the admin nav into one-checkbox pages.
+  const { data: registrationCfg } = useQuery<{ registrationEnabled: boolean }>({
+    queryKey: ['admin', 'registration-config'],
+    queryFn: () => apiClient<{ registrationEnabled: boolean }>('/admin/registration-config'),
+  });
+
+  const updateRegistration = useMutation({
+    mutationFn: (enabled: boolean) =>
+      apiClient('/admin/registration-config', {
+        method: 'PUT',
+        body: JSON.stringify({ registrationEnabled: enabled }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'registration-config'] });
+      // /auth/methods exposes registrationEnabled too; refresh so other
+      // open admin tabs reflect the change immediately.
+      queryClient.invalidateQueries({ queryKey: ['auth-methods'] });
+    },
+  });
+
   const [form, setForm] = useState({
     isEnabled: false,
     allowedMethods: ['email', 'totp'] as string[],
@@ -203,6 +227,34 @@ export function TfaConfigPage() {
             SMS is enabled but no provider is configured. Go to <a href="/admin/system" className="underline font-medium">System Settings</a> to set up Twilio or TextLinkSMS.
           </div>
         )}
+
+        {/* Public sign-up — lives in system_settings.registration_enabled
+            and saves immediately on toggle (no batching with the rest of
+            the form, since this is a different endpoint and the operator
+            expects a single click to take effect). */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-800">Public Sign-up</h2>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox"
+              checked={registrationCfg?.registrationEnabled ?? true}
+              onChange={(e) => updateRegistration.mutate(e.target.checked)}
+              disabled={updateRegistration.isPending || !registrationCfg}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4" />
+            <div>
+              <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                Allow new accounts via the sign-up form
+                <span className={`inline-block h-2 w-2 rounded-full ${
+                  (registrationCfg?.registrationEnabled ?? true) ? 'bg-green-500' : 'bg-gray-300'
+                }`} />
+              </span>
+              <p className="text-xs text-gray-500">
+                When off, the &quot;Don&apos;t have an account? Sign up&quot; link is hidden on the
+                sign-in page and POST /api/v1/auth/register returns 403. Existing
+                users can still sign in. The first-run setup wizard is unaffected.
+              </p>
+            </div>
+          </label>
+        </div>
 
         {/* Passwordless Methods */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">

@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { useRegister } from '../../api/hooks/useAuth';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 import { TurnstileWidget } from '../../components/auth/TurnstileWidget';
+import { API_BASE } from '../../api/client';
 
 export function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -21,6 +22,27 @@ export function RegisterPage() {
   const businessTypeOptions = useCoaTemplateOptions();
   const register = useRegister();
   const navigate = useNavigate();
+
+  // If a super-admin has disabled public sign-up, bounce direct
+  // /register hits to the login page rather than rendering a form whose
+  // submit will 403. Server-side enforcement still happens in
+  // POST /api/v1/auth/register; this is just the UX layer.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/auth/methods`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((m) => {
+        if (cancelled || !m) return;
+        if (m.registrationEnabled === false) {
+          navigate('/login', { replace: true });
+        }
+      })
+      .catch(() => {
+        // Silent fail — the user can still attempt submit; the server
+        // will return REGISTRATION_DISABLED if they shouldn't be here.
+      });
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
