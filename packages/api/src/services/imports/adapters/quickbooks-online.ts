@@ -59,6 +59,12 @@ async function loadSheet(buf: Buffer, sheetName?: string): Promise<SheetGrid | n
  * Find the row index whose stringified cells contain every required
  * label (case-insensitive substring). Returns -1 when no row matches —
  * the caller should surface that as IMPORT_HEADER_NOT_FOUND.
+ *
+ * NOTE: this uses substring match because QBO header rows often have
+ * the exact label as the cell value but with leading whitespace or a
+ * "*" annotation. For *column lookup* (after the header row is found)
+ * use `colIdx()` below which is exact-match — substring matching at
+ * lookup time risks "type" picking "detail type".
  */
 function findHeaderRow(rows: SheetGrid['rows'], required: readonly string[]): number {
   const lowered = required.map((s) => s.toLowerCase());
@@ -67,6 +73,25 @@ function findHeaderRow(rows: SheetGrid['rows'], required: readonly string[]): nu
     if (lowered.every((needle) => cells.some((c) => c.includes(needle)))) return i;
   }
   return -1;
+}
+
+/**
+ * Exact-equals (whitespace- and case-tolerant) column index lookup for
+ * use *after* findHeaderRow has located the header. Returns -1 if not
+ * found. Use this for any column whose semantics matter — Date, Type,
+ * Account, Debit, Credit — to avoid the "type matches detail type"
+ * substring collision.
+ */
+function colIdx(header: string[], label: string): number {
+  const target = label.trim().toLowerCase();
+  return header.findIndex((h) => (h ?? '').trim().toLowerCase() === target);
+}
+
+/** Substring fallback — for fuzzy-matched optional columns (Email, Phone, …)
+ *  where no two QBO column labels collide on the substring. */
+function colIdxFuzzy(header: string[], label: string): number {
+  const target = label.trim().toLowerCase();
+  return header.findIndex((h) => (h ?? '').trim().toLowerCase().includes(target));
 }
 
 function cellToString(c: unknown): string {
@@ -126,12 +151,13 @@ export async function parseCoa(
     });
     return { rows, errors };
   }
-  const header = (sheet.rows[headerRowIdx] ?? []).map((c) => cellToString(c).toLowerCase());
-  const idx = (label: string) => header.findIndex((h) => h.includes(label.toLowerCase()));
-  const iName = idx('full name');
-  const iType = idx('type');
-  const iDetail = idx('detail type');
-  const iDesc = idx('description');
+  const header = (sheet.rows[headerRowIdx] ?? []).map((c) => cellToString(c));
+  const iName = colIdx(header, 'full name');
+  // Exact match — 'detail type' contains 'type' so the looser fallback
+  // would resolve iType to iDetail and silently mis-bucket every account.
+  const iType = colIdx(header, 'type');
+  const iDetail = colIdx(header, 'detail type');
+  const iDesc = colIdx(header, 'description');
 
   for (let i = headerRowIdx + 1; i < sheet.rows.length; i++) {
     const r = sheet.rows[i] ?? [];
@@ -203,18 +229,17 @@ export async function parseContacts(
     });
     return { rows, errors };
   }
-  const header = (sheet.rows[headerRowIdx] ?? []).map((c) => cellToString(c).toLowerCase());
-  const idx = (label: string) => header.findIndex((h) => h === label.toLowerCase());
-  // findHeaderRow's substring match was generous — pin the exact column
-  // so we don't accidentally pick "Customer Name" when the file has
-  // both "Customer" and a fluffier label.
-  const iName = idx(nameLabel) !== -1 ? idx(nameLabel) : header.findIndex((h) => h.includes(nameLabel));
-  const iEmail = header.findIndex((h) => h.includes('email'));
-  const iPhone = header.findIndex((h) => h.includes('phone'));
-  const iFull = header.findIndex((h) => h.includes('full name'));
-  const iBilling = header.findIndex((h) => h.includes('billing'));
-  const iShipping = header.findIndex((h) => h.includes('shipping'));
-  const iAddress = iBilling === -1 ? header.findIndex((h) => h.includes('address')) : -1;
+  const header = (sheet.rows[headerRowIdx] ?? []).map((c) => cellToString(c));
+  // Exact match for the name column — falls back to fuzzy ("Customer
+  // Name") only if QBO's exact label isn't there. Other columns are
+  // unique enough on the substring that fuzzy is safe.
+  const iName = colIdx(header, nameLabel) !== -1 ? colIdx(header, nameLabel) : colIdxFuzzy(header, nameLabel);
+  const iEmail = colIdxFuzzy(header, 'email');
+  const iPhone = colIdxFuzzy(header, 'phone');
+  const iFull = colIdxFuzzy(header, 'full name');
+  const iBilling = colIdxFuzzy(header, 'billing');
+  const iShipping = colIdxFuzzy(header, 'shipping');
+  const iAddress = iBilling === -1 ? colIdxFuzzy(header, 'address') : -1;
 
   for (let i = headerRowIdx + 1; i < sheet.rows.length; i++) {
     const r = sheet.rows[i] ?? [];
@@ -284,14 +309,15 @@ export async function parseTrialBalance(
     });
     return { rows, errors, reportDate };
   }
-  const header = (sheet.rows[headerRowIdx] ?? []).map((c) => cellToString(c).toLowerCase());
-  const iDeb = header.findIndex((h) => h === 'debit' || h.includes('debit'));
-  const iCred = header.findIndex((h) => h === 'credit' || h.includes('credit'));
+  const header = (sheet.rows[headerRowIdx] ?? []).map((c) => cellToString(c));
+  const iDeb = colIdx(header, 'debit');
+  const iCred = colIdx(header, 'credit');
   // Account-name column is usually the FIRST non-blank column to the
   // left of Debit. Walk back until we hit something with a header value.
   let iAcct = -1;
   for (let c = iDeb - 1; c >= 0; c--) {
-    if (header[c] && header[c]!.trim() !== '') {
+    const cell = (header[c] ?? '').trim();
+    if (cell !== '') {
       iAcct = c;
       break;
     }
@@ -354,16 +380,20 @@ export async function parseGl(
     });
     return { entries, errors };
   }
-  const header = (sheet.rows[headerRowIdx] ?? []).map((c) => cellToString(c).toLowerCase());
-  const find = (label: string) => header.findIndex((h) => h.includes(label.toLowerCase()));
-  const iDate = find('date');
-  const iType = find('transaction type');
-  const iNum = find('num');
-  const iName = find('name');
-  const iMemo = find('memo');
-  const iAcct = find('account');
-  const iDeb = find('debit');
-  const iCred = find('credit');
+  const header = (sheet.rows[headerRowIdx] ?? []).map((c) => cellToString(c));
+  // Use exact-match (colIdx) for everything — substring match would
+  // pick "Account" inside "Transaction Type" and re-bucket cells.
+  const iDate = colIdx(header, 'date');
+  const iType = colIdx(header, 'transaction type');
+  const iNum = colIdx(header, 'num');
+  const iName = colIdx(header, 'name');
+  // Memo column in QBO exports is "Memo/Description". Accept either.
+  const iMemo = colIdx(header, 'memo/description') !== -1
+    ? colIdx(header, 'memo/description')
+    : colIdx(header, 'memo');
+  const iAcct = colIdx(header, 'account');
+  const iDeb = colIdx(header, 'debit');
+  const iCred = colIdx(header, 'credit');
 
   // State-machine: walk rows after header. Buffer the current JE in
   // `current`. A row with both Date and Type starts a new JE (closing

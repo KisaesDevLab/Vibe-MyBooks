@@ -18,9 +18,9 @@
 // aren't in the CoA), so the operator can do the steps in any order
 // without bricking themselves.
 
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Upload, AlertCircle, CheckCircle, FileText } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Upload, AlertCircle, CheckCircle, FileText, ArrowLeft } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import {
@@ -28,13 +28,19 @@ import {
   useImportSession,
   useCommitImport,
   useDeleteImport,
+  ImportApiError,
 } from '../../api/hooks/useImports';
 import type {
+  CanonicalCoaRow,
+  CanonicalContactRow,
+  CanonicalGlEntry,
+  CanonicalTrialBalanceRow,
+  ContactKind,
   ImportKind,
+  ImportSession,
   ImportUploadOptions,
   SourceSystem,
   TbColumnChoice,
-  ContactKind,
 } from '@kis-books/shared';
 
 const KIND_OPTIONS: { value: ImportKind; label: string }[] = [
@@ -56,12 +62,71 @@ export function BulkImportPage() {
   return <UploadForm onCreated={(id) => navigate(`/admin/import/${id}`)} />;
 }
 
+// ── Friendly error mapping ────────────────────────────────────────
+
+/**
+ * Translate an ImportApiError (or any Error) into operator-readable
+ * copy. Known error codes get specific guidance; everything else falls
+ * back to the API message verbatim.
+ */
+function describeError(err: unknown): string {
+  if (!err) return '';
+  if (err instanceof ImportApiError) {
+    switch (err.code) {
+      case 'IMPORT_UNKNOWN_ACCOUNT': {
+        const detailsObj = (err.details ?? {}) as Record<string, unknown>;
+        const acctKey = detailsObj['accountKey'];
+        const acctList = detailsObj['accounts'];
+        const acct =
+          typeof acctKey === 'string'
+            ? acctKey
+            : Array.isArray(acctList)
+              ? (acctList as string[]).join(', ')
+              : undefined;
+        return acct
+          ? `Unknown account "${acct}". Add it to the company's Chart of Accounts (or correct the source CSV) and re-upload.`
+          : 'A journal line references an account that isn\'t in this company\'s Chart of Accounts. Import the CoA first or fix the source file.';
+      }
+      case 'IMPORT_JE_UNBALANCED':
+        return 'A journal entry doesn\'t balance — total debits ≠ total credits. Open the source file and fix the offending entry, then re-upload.';
+      case 'IMPORT_TB_DUPLICATE':
+        return 'An opening journal entry for this date is already on the books. Delete or void the existing one first if you want to re-import.';
+      case 'IMPORT_SESSION_ACTIVE':
+        return 'Another import session for this exact file is already in progress on this company. Open it and either commit or delete it before retrying.';
+      case 'IMPORT_HEADER_NOT_FOUND':
+        return 'Could not find the expected column headers in the file. Make sure you picked the right Source system and Import kind for this file.';
+      case 'IMPORT_INVALID_FORMAT':
+        return 'The file content doesn\'t match its extension (e.g., a renamed binary). Export a fresh CSV or XLSX from your source system.';
+      case 'IMPORT_BAD_DATE':
+        return 'A date couldn\'t be parsed. Accounting Power trial-balance imports require an explicit Report date you supply at upload time.';
+      case 'IMPORT_UNKNOWN_TYPE':
+        return 'An account Type value wasn\'t recognized. Check the source file\'s Type column.';
+      case 'IMPORT_HAS_ERRORS':
+        return 'There are validation errors that must be cleared before this session can be committed. Review the errors below and re-upload a corrected file.';
+      case 'IMPORT_ROW_LIMIT_EXCEEDED':
+        return err.message; // server message includes the cap + count, already operator-friendly
+      case 'IMPORT_TB_COLUMN_REQUIRED':
+        return 'Pick a Balance column (Beginning or Adjusted) before uploading an Accounting Power trial balance.';
+      case 'IMPORT_CONTACT_KIND_REQUIRED':
+        return 'Pick a Contact kind (Customers or Vendors) before uploading the file.';
+      case 'IMPORT_TERMINAL':
+        return 'This session has already been committed, failed, or cancelled. Start a new upload.';
+      case 'IMPORT_POST_FAILED':
+        return err.message;
+      default:
+        return err.message;
+    }
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
 // ── Upload form ───────────────────────────────────────────────────
 
 function UploadForm({ onCreated }: { onCreated: (sessionId: string) => void }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [kind, setKind] = useState<ImportKind>('coa');
-  const [sourceSystem, setSourceSystem] = useState<SourceSystem>('quickbooks_online');
+  const [sourceSystem, setSourceSystem] = useState<SourceSystem>('accounting_power');
   const [contactKind, setContactKind] = useState<ContactKind>('customer');
   const [tbColumn, setTbColumn] = useState<TbColumnChoice>('beginning');
   const [tbReportDate, setTbReportDate] = useState<string>(defaultPriorYearEnd());
@@ -78,8 +143,16 @@ function UploadForm({ onCreated }: { onCreated: (sessionId: string) => void }) {
       options.tbColumn = tbColumn;
       options.tbReportDate = tbReportDate;
     }
-    const result = await upload.mutateAsync({ file, kind, sourceSystem, options });
-    onCreated(result.session.id);
+    try {
+      const result = await upload.mutateAsync({ file, kind, sourceSystem, options });
+      onCreated(result.session.id);
+    } catch {
+      // Clear the file input on rejection so the operator can re-pick a
+      // corrected file without first manually clearing the selection.
+      // useMutation already populates upload.error for rendering.
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   // QBO doesn't ship contacts as separate Customers/Vendors files in
@@ -228,6 +301,7 @@ function UploadForm({ onCreated }: { onCreated: (sessionId: string) => void }) {
         <label className="block">
           <span className="text-sm font-medium text-gray-700">File</span>
           <input
+            ref={fileInputRef}
             type="file"
             accept=".csv,.xlsx,.xls,.tsv"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
@@ -239,7 +313,7 @@ function UploadForm({ onCreated }: { onCreated: (sessionId: string) => void }) {
         {upload.error && (
           <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
             <AlertCircle className="h-4 w-4 mt-0.5" />
-            <span>{(upload.error as Error).message}</span>
+            <span>{describeError(upload.error)}</span>
           </div>
         )}
 
@@ -259,16 +333,42 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
   const remove = useDeleteImport();
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
-  if (error) return <div className="p-6 text-red-700">{(error as Error).message}</div>;
+
+  // Recoverable error state — give the operator a way out instead of
+  // stranding them on a half-rendered page.
+  if (error) {
+    const isMissing = error.status === 404;
+    return (
+      <div className="p-6 max-w-2xl space-y-4">
+        <Button variant="secondary" onClick={onClose}>
+          <ArrowLeft className="h-4 w-4 mr-1 inline" />
+          Back to Bulk Import
+        </Button>
+        <div className="flex items-start gap-2 p-4 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          <span>
+            {isMissing
+              ? 'This import session no longer exists. It may have been deleted, or the URL is wrong.'
+              : describeError(error)}
+          </span>
+        </div>
+      </div>
+    );
+  }
   if (!data) return null;
 
   const { session, preview, validationErrors } = data;
   const isCommitted = session.status === 'committed';
-  const canCommit = !isCommitted && validationErrors.length === 0;
+  const isFailed = session.status === 'failed';
+  const canCommit = !isCommitted && !isFailed && validationErrors.length === 0;
 
   const handleCommit = async () => {
-    await commit.mutateAsync({ id });
-    refetch();
+    try {
+      await commit.mutateAsync({ id });
+    } catch {
+      // surfaced via commit.error
+    }
+    await refetch();
   };
 
   const handleDelete = async () => {
@@ -291,7 +391,7 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
               className={
                 isCommitted
                   ? 'text-green-700'
-                  : session.status === 'failed'
+                  : isFailed
                     ? 'text-red-700'
                     : 'text-gray-700'
               }
@@ -333,47 +433,63 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
             <AlertCircle className="h-4 w-4" />
             {validationErrors.length} validation error{validationErrors.length === 1 ? '' : 's'}
           </h2>
-          <ul className="space-y-1 text-xs text-red-700 max-h-64 overflow-y-auto">
-            {validationErrors.slice(0, 100).map((err, i) => (
+          <ul className="space-y-1 text-xs text-red-700 max-h-96 overflow-y-auto pr-2">
+            {validationErrors.map((err, i) => (
               <li key={i}>
                 <strong>Row {err.rowNumber || '?'}</strong> [{err.code}] {err.message}
               </li>
             ))}
-            {validationErrors.length > 100 && (
-              <li className="italic">…and {validationErrors.length - 100} more.</li>
-            )}
           </ul>
         </div>
       )}
 
-      {/* Sample rows preview */}
+      {/* Sample rows preview — kind-specific tables */}
       {preview.sampleRows.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-          <h2 className="text-sm font-semibold text-gray-800 px-4 py-3 border-b">First {preview.sampleRows.length} parsed rows</h2>
-          <pre className="text-xs text-gray-700 px-4 py-3 max-h-96 overflow-auto">
-            {JSON.stringify(preview.sampleRows.slice(0, 50), null, 2)}
-          </pre>
-        </div>
+        <PreviewTable kind={session.kind} sampleRows={preview.sampleRows} />
       )}
 
       {/* Commit result */}
       {isCommitted && session.commitResult && (
-        <div className="bg-green-50 border border-green-200 rounded-md p-4 space-y-1 text-sm text-green-800">
+        <div className="bg-green-50 border border-green-200 rounded-md p-4 space-y-2 text-sm text-green-800">
           <div className="flex items-center gap-2 font-semibold">
             <CheckCircle className="h-4 w-4" /> Committed
           </div>
-          <div>Created: {session.commitResult.created ?? 0}</div>
-          {session.commitResult.skipped !== undefined && (
-            <div>Skipped (already existed): {session.commitResult.skipped}</div>
+          <div className="space-y-1">
+            <div>Created: {session.commitResult.created ?? 0}</div>
+            {session.commitResult.skipped !== undefined && (
+              <div>Skipped (already existed): {session.commitResult.skipped}</div>
+            )}
+            {session.commitResult.updated !== undefined && session.commitResult.updated > 0 && (
+              <div>Updated: {session.commitResult.updated}</div>
+            )}
+            {session.commitResult.voidsReversed !== undefined && session.commitResult.voidsReversed > 0 && (
+              <div>Void reversals posted: {session.commitResult.voidsReversed}</div>
+            )}
+          </div>
+          <SuccessLink session={session} />
+        </div>
+      )}
+
+      {/* Failed-commit summary — partial progress + error details */}
+      {isFailed && session.commitResult && (
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-4 space-y-1 text-sm text-amber-800">
+          <div className="flex items-center gap-2 font-semibold">
+            <AlertCircle className="h-4 w-4" /> Commit failed
+          </div>
+          {session.commitResult.created !== undefined && session.commitResult.created > 0 && (
+            <div>{session.commitResult.created} entries had already posted before the failure.</div>
           )}
-          {session.commitResult.voidsReversed ? (
-            <div>Void reversals posted: {session.commitResult.voidsReversed}</div>
-          ) : null}
+          {session.commitResult.failedAtIndex !== undefined && (
+            <div>Failed at entry index {session.commitResult.failedAtIndex}.</div>
+          )}
+          {session.commitResult.error && (
+            <div className="font-mono text-xs">{session.commitResult.error}</div>
+          )}
         </div>
       )}
 
       {/* Actions */}
-      {!isCommitted && (
+      {!isCommitted && !isFailed && (
         <div className="flex gap-3">
           <Button onClick={handleCommit} loading={commit.isPending} disabled={!canCommit}>
             Commit
@@ -387,7 +503,7 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
       {commit.error && (
         <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
           <AlertCircle className="h-4 w-4 mt-0.5" />
-          <span>{(commit.error as Error).message}</span>
+          <span>{describeError(commit.error)}</span>
         </div>
       )}
     </div>
@@ -409,6 +525,170 @@ function SummaryStat({
       <div className={`text-xl font-semibold ${tone === 'red' ? 'text-red-700' : 'text-gray-900'}`}>
         {value}
       </div>
+    </div>
+  );
+}
+
+// ── Per-kind preview tables ───────────────────────────────────────
+
+function PreviewTable({ kind, sampleRows }: { kind: ImportKind; sampleRows: unknown[] }) {
+  if (sampleRows.length === 0) return null;
+  const tableEl = (() => {
+    if (kind === 'coa') return <CoaPreviewTable rows={sampleRows as CanonicalCoaRow[]} />;
+    if (kind === 'contacts') return <ContactsPreviewTable rows={sampleRows as CanonicalContactRow[]} />;
+    if (kind === 'trial_balance') return <TbPreviewTable rows={sampleRows as CanonicalTrialBalanceRow[]} />;
+    if (kind === 'gl_transactions') return <GlPreviewTable entries={sampleRows as CanonicalGlEntry[]} />;
+    return null;
+  })();
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <h2 className="text-sm font-semibold text-gray-800 px-4 py-3 border-b">
+        First {sampleRows.length} parsed rows
+      </h2>
+      <div className="max-h-96 overflow-auto">{tableEl}</div>
+    </div>
+  );
+}
+
+const TH = 'text-left px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-50 sticky top-0';
+const TD = 'px-3 py-1.5 text-sm text-gray-800 border-t border-gray-100';
+
+function CoaPreviewTable({ rows }: { rows: CanonicalCoaRow[] }) {
+  return (
+    <table className="w-full text-sm">
+      <thead><tr>
+        <th className={TH}>Row</th>
+        <th className={TH}>Account #</th>
+        <th className={TH}>Name</th>
+        <th className={TH}>Type</th>
+        <th className={TH}>Detail</th>
+        <th className={TH}>Parent</th>
+      </tr></thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i}>
+            <td className={TD}>{r.rowNumber}</td>
+            <td className={TD}>{r.accountNumber ?? '—'}</td>
+            <td className={TD}>{r.name}</td>
+            <td className={TD}>{r.accountType}</td>
+            <td className={TD}>{r.detailType ?? '—'}</td>
+            <td className={TD}>{r.parentNumber ?? r.parentName ?? '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ContactsPreviewTable({ rows }: { rows: CanonicalContactRow[] }) {
+  return (
+    <table className="w-full text-sm">
+      <thead><tr>
+        <th className={TH}>Row</th>
+        <th className={TH}>Display name</th>
+        <th className={TH}>Kind</th>
+        <th className={TH}>Email</th>
+        <th className={TH}>Phone</th>
+      </tr></thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i}>
+            <td className={TD}>{r.rowNumber}</td>
+            <td className={TD}>{r.displayName}</td>
+            <td className={TD}>{r.contactType}</td>
+            <td className={TD}>{r.email ?? '—'}</td>
+            <td className={TD}>{r.phone ?? '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function TbPreviewTable({ rows }: { rows: CanonicalTrialBalanceRow[] }) {
+  return (
+    <table className="w-full text-sm">
+      <thead><tr>
+        <th className={TH}>Row</th>
+        <th className={TH}>Account #</th>
+        <th className={TH}>Account name</th>
+        <th className={`${TH} text-right`}>Debit</th>
+        <th className={`${TH} text-right`}>Credit</th>
+      </tr></thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i}>
+            <td className={TD}>{r.rowNumber}</td>
+            <td className={TD}>{r.accountNumber ?? '—'}</td>
+            <td className={TD}>{r.accountName ?? '—'}</td>
+            <td className={`${TD} text-right tabular-nums`}>{r.debit ?? ''}</td>
+            <td className={`${TD} text-right tabular-nums`}>{r.credit ?? ''}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function GlPreviewTable({ entries }: { entries: CanonicalGlEntry[] }) {
+  return (
+    <table className="w-full text-sm">
+      <thead><tr>
+        <th className={TH}>Date</th>
+        <th className={TH}>Type</th>
+        <th className={TH}>Ref</th>
+        <th className={TH}>Account</th>
+        <th className={`${TH} text-right`}>Debit</th>
+        <th className={`${TH} text-right`}>Credit</th>
+        <th className={TH}>Memo</th>
+      </tr></thead>
+      <tbody>
+        {entries.flatMap((e, ei) =>
+          e.lines.map((line, li) => (
+            <tr key={`${ei}-${li}`} className={li === 0 ? '' : 'opacity-80'}>
+              <td className={TD}>{li === 0 ? e.date : ''}</td>
+              <td className={TD}>
+                {li === 0 ? `${e.sourceCode}${e.isVoidReversal ? ' (void)' : ''}` : ''}
+              </td>
+              <td className={TD}>{li === 0 ? (e.reference ?? '') : ''}</td>
+              <td className={TD}>{line.accountNumber ?? line.accountName ?? '—'}</td>
+              <td className={`${TD} text-right tabular-nums`}>{line.debit !== '0' ? line.debit : ''}</td>
+              <td className={`${TD} text-right tabular-nums`}>{line.credit !== '0' ? line.credit : ''}</td>
+              <td className={TD}>{li === 0 ? (e.memo ?? '') : ''}</td>
+            </tr>
+          )),
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+// ── Success link ──────────────────────────────────────────────────
+
+function SuccessLink({ session }: { session: ImportSession }) {
+  let target: string | null = null;
+  let label = '';
+  if (session.kind === 'coa') {
+    target = '/accounts';
+    label = 'View Chart of Accounts';
+  } else if (session.kind === 'contacts') {
+    target = '/contacts';
+    label = 'View Contacts';
+  } else if (session.kind === 'trial_balance') {
+    target = '/transactions?source=trial_balance_import';
+    label = 'View opening journal entry';
+  } else if (session.kind === 'gl_transactions') {
+    const sourceTag =
+      session.sourceSystem === 'accounting_power' ? 'accounting_power_import' : 'quickbooks_online_import';
+    target = `/transactions?source=${sourceTag}`;
+    label = 'View imported transactions';
+  }
+  if (!target) return null;
+  return (
+    <div className="pt-2">
+      <Link to={target} className="inline-flex items-center text-sm font-medium text-green-800 underline">
+        {label} →
+      </Link>
     </div>
   );
 }

@@ -23,6 +23,56 @@ import {
 import { AppError } from '../utils/errors.js';
 import * as importsService from '../services/imports/imports.service.js';
 
+// Magic-byte signatures we either require (xlsx/xls) or actively reject
+// (executables). Mirrors payroll-import.routes.ts so the bulk-import
+// surface enforces the same defense — without this, a renamed
+// `evil.exe → data.csv` is accepted by the extension-only filter and
+// the parser hands binary back to the operator with a confusing error.
+const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // xlsx is a zip
+const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0]); // xls
+const PE_MAGIC = Buffer.from([0x4d, 0x5a]);              // Windows exe / DLL
+const ELF_MAGIC = Buffer.from([0x7f, 0x45, 0x4c, 0x46]);
+const MACHO_MAGICS = [
+  Buffer.from([0xfe, 0xed, 0xfa, 0xce]),
+  Buffer.from([0xfe, 0xed, 0xfa, 0xcf]),
+  Buffer.from([0xcf, 0xfa, 0xed, 0xfe]),
+  Buffer.from([0xca, 0xfe, 0xba, 0xbe]),
+];
+
+function startsWith(buf: Buffer, magic: Buffer): boolean {
+  return buf.length >= magic.length && buf.subarray(0, magic.length).equals(magic);
+}
+
+function verifyImportContent(file: Express.Multer.File): void {
+  const buf = file.buffer;
+  const name = file.originalname.toLowerCase();
+  const reject = () => {
+    throw AppError.badRequest(
+      'Uploaded file content does not match its declared type.',
+      'IMPORT_INVALID_FORMAT',
+    );
+  };
+  if (name.endsWith('.xlsx')) {
+    if (!startsWith(buf, ZIP_MAGIC)) reject();
+    return;
+  }
+  if (name.endsWith('.xls')) {
+    if (!startsWith(buf, OLE_MAGIC)) reject();
+    return;
+  }
+  // .csv / .tsv — text formats with no fixed magic. Reject anything
+  // that's obviously a binary executable or archive.
+  if (
+    startsWith(buf, ZIP_MAGIC) ||
+    startsWith(buf, OLE_MAGIC) ||
+    startsWith(buf, PE_MAGIC) ||
+    startsWith(buf, ELF_MAGIC) ||
+    MACHO_MAGICS.some((m) => startsWith(buf, m))
+  ) {
+    reject();
+  }
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
@@ -51,6 +101,8 @@ importsRouter.use(companyContext);
 // errors discovered at parse time.
 importsRouter.post('/upload', upload.single('file'), async (req, res) => {
   if (!req.file) throw AppError.badRequest('No file uploaded.', 'IMPORT_NO_FILE');
+  // Magic-byte check before we hand bytes to a CSV / XLSX parser.
+  verifyImportContent(req.file);
 
   const kind = importKindSchema.parse(req.body['kind']);
   const sourceSystem = sourceSystemSchema.parse(req.body['sourceSystem']);

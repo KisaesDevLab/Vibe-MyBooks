@@ -266,14 +266,40 @@ describe('Imports Service', () => {
         userId,
         again.session.id,
       );
-      // Different sessionId → different sourceId prefix → "duplicates"
-      // here means same canonical JE shape. Our sourceId scheme uses
-      // sessionId, so re-uploads from a *fresh* session intentionally
-      // re-post (sessionId differs). The dup-upload guard at upload time
-      // catches the same-bytes case via fileHash. Asserting created is
-      // either 2 (re-posts) or 0 (already existed) lets either policy
-      // pass without a brittle assertion.
-      expect([0, 2]).toContain(againCommit.result.created);
+      // sourceId is keyed on the file hash (not sessionId), so a
+      // second upload of the same bytes generates the same sourceIds.
+      // Every entry should be deduped against the rows posted by the
+      // first commit, leaving zero new transactions.
+      expect(againCommit.result.created).toBe(0);
+      expect(againCommit.result.skipped).toBe(2);
+      const txnCount = await db.select().from(transactions).where(eq(transactions.tenantId, tenantId));
+      expect(txnCount.length).toBe(2); // unchanged from the first commit
+    });
+
+    it('does not classify lines with the substring "void" in unrelated memos as reversals', async () => {
+      // The earlier `\bvoid(ed)?\b` regex would have flagged the second
+      // line below as a reversal because the memo contains "Voided".
+      // The tightened regex requires the memo to be *only* "void"/
+      // "voided"/"check voided" (with optional whitespace), so an
+      // explanatory memo that includes the word doesn't trigger.
+      const csvFalsePositive = `Journal, Date, Reference, Description, Account, Account Name, Debit Amount, Credit Amount, Memo, Department, Updated by
+"GJ","02/01/2025","ADJ-1","Reclass","6000","Office expense",50.0000,0.0000,"Voided invoice from 2023 was the source","","u1"
+"GJ","02/01/2025","ADJ-1","Reclass","1000","Cash",0.0000,50.0000,"Voided invoice from 2023 was the source","","u1"
+`;
+      await db.insert(accounts).values([
+        { tenantId, companyId, accountNumber: '1000', name: 'Cash', accountType: 'asset' },
+        { tenantId, companyId, accountNumber: '6000', name: 'Office expense', accountType: 'expense' },
+      ]);
+      const out = await importsService.createSession({
+        tenantId, companyId, userId,
+        file: fileFromText('fp.csv', csvFalsePositive),
+        kind: 'gl_transactions',
+        sourceSystem: 'accounting_power',
+        options: {},
+      });
+      // Single JE (no split into original + reversal).
+      expect(out.preview.jeGroupCount).toBe(1);
+      expect(out.preview.voidEntryCount).toBe(0);
     });
   });
 
@@ -423,6 +449,241 @@ describe('Imports Service', () => {
       const txns = await db.select().from(transactions).where(eq(transactions.tenantId, tenantId));
       expect(txns.length).toBe(2);
       expect(txns.map((t) => t.txnDate).sort()).toEqual(['2025-01-02', '2025-01-03']);
+    });
+  });
+
+  // ── Error-path coverage ────────────────────────────────────────
+
+  describe('error paths', () => {
+    it('refuses GL commit when an account number is missing from the CoA', async () => {
+      // CoA seeded with Cash but NOT 9999.
+      await db.insert(accounts).values([
+        { tenantId, companyId, accountNumber: '1000', name: 'Cash', accountType: 'asset' },
+      ]);
+      const csv = `Journal, Date, Reference, Description, Account, Account Name, Debit Amount, Credit Amount, Memo, Department, Updated by
+"CD","01/02/2025","X1","Vendor","9999","Unknown",10.0000,0.0000,"","","u"
+"CD","01/02/2025","X1","Vendor","1000","Cash",0.0000,10.0000,"","","u"
+`;
+      const out = await importsService.createSession({
+        tenantId, companyId, userId,
+        file: fileFromText('gl.csv', csv),
+        kind: 'gl_transactions',
+        sourceSystem: 'accounting_power',
+        options: {},
+      });
+      // The unknown-account error should be flagged at validation time,
+      // and committing should be refused via IMPORT_HAS_ERRORS.
+      expect(out.session.errorCount).toBeGreaterThan(0);
+      expect(out.validationErrors.some((e) => e.code === 'IMPORT_UNKNOWN_ACCOUNT')).toBe(true);
+      await expect(
+        importsService.commitSession(tenantId, companyId, userId, out.session.id),
+      ).rejects.toMatchObject({ code: 'IMPORT_HAS_ERRORS' });
+    });
+
+    it('flags unbalanced JE with IMPORT_JE_UNBALANCED', async () => {
+      await db.insert(accounts).values([
+        { tenantId, companyId, accountNumber: '1000', name: 'Cash', accountType: 'asset' },
+        { tenantId, companyId, accountNumber: '4000', name: 'Sales', accountType: 'revenue' },
+      ]);
+      const csv = `Journal, Date, Reference, Description, Account, Account Name, Debit Amount, Credit Amount, Memo, Department, Updated by
+"GJ","01/02/2025","B1","Bad","1000","Cash",100.0000,0.0000,"","","u"
+"GJ","01/02/2025","B1","Bad","4000","Sales",0.0000,99.0000,"","","u"
+`;
+      const out = await importsService.createSession({
+        tenantId, companyId, userId,
+        file: fileFromText('gl.csv', csv),
+        kind: 'gl_transactions',
+        sourceSystem: 'accounting_power',
+        options: {},
+      });
+      expect(out.validationErrors.some((e) => e.code === 'IMPORT_JE_UNBALANCED')).toBe(true);
+    });
+
+    it('rejects an upload with a missing header (IMPORT_HEADER_NOT_FOUND)', async () => {
+      const garbage = `random text\nthis is not a CoA\n`;
+      const out = await importsService.createSession({
+        tenantId, companyId, userId,
+        file: fileFromText('garbage.csv', garbage),
+        kind: 'coa',
+        sourceSystem: 'accounting_power',
+        options: {},
+      });
+      expect(out.validationErrors.some((e) => e.code === 'IMPORT_HEADER_NOT_FOUND')).toBe(true);
+    });
+
+    it('rejects AP TB upload without tbColumn or tbReportDate', async () => {
+      // Missing options.tbColumn.
+      await expect(
+        importsService.createSession({
+          tenantId, companyId, userId,
+          file: fileFromText('tb.csv', 'Account Code,Type,Description,Beginning Balance\n'),
+          kind: 'trial_balance',
+          sourceSystem: 'accounting_power',
+          options: {},
+        }),
+      ).rejects.toMatchObject({ code: 'IMPORT_TB_COLUMN_REQUIRED' });
+    });
+  });
+
+  // ── Cross-tenant isolation ─────────────────────────────────────
+
+  describe('cross-tenant scoping', () => {
+    it('does not leak a session from tenant A when fetched as tenant B', async () => {
+      // Create a session under the bootstrapped (tenant A, company A).
+      await db.insert(accounts).values([
+        { tenantId, companyId, accountNumber: '1000', name: 'Cash', accountType: 'asset' },
+      ]);
+      const apCsv = `Account, Description, Type, Class, Category, SubAccount Of
+"1000","Cash","A","CA","",""
+`;
+      const a = await importsService.createSession({
+        tenantId, companyId, userId,
+        file: fileFromText('a-coa.csv', apCsv),
+        kind: 'coa',
+        sourceSystem: 'accounting_power',
+        options: {},
+      });
+
+      // Spin up a second tenant + company.
+      const [tenantB] = await db
+        .insert(tenants)
+        .values({ name: 'Other tenant', slug: 'other-tenant-' + Date.now() })
+        .returning();
+      const companyB = await createCompanyForTenant(tenantB!.id, 'Other Co');
+
+      // getSession with tenant B + company B + tenant A's session id → null.
+      const cross = await importsService.getSession(tenantB!.id, companyB!.id, a.session.id);
+      expect(cross).toBeNull();
+
+      // Commit attempt across tenants → notFound.
+      await expect(
+        importsService.commitSession(tenantB!.id, companyB!.id, userId, a.session.id),
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+  });
+
+  // ── AP CoA parent linking ──────────────────────────────────────
+
+  describe('AP CoA parent linking', () => {
+    it('links sub-accounts via SubAccount Of', async () => {
+      const csv = `Account, Description, Type, Class, Category, SubAccount Of
+"1000","Cash","A","CA","",""
+"1010","Cash - Petty","A","CA","","1000"
+"1020","Cash - Operating","A","CA","","1000"
+`;
+      const out = await importsService.createSession({
+        tenantId, companyId, userId,
+        file: fileFromText('coa.csv', csv),
+        kind: 'coa',
+        sourceSystem: 'accounting_power',
+        options: {},
+      });
+      await importsService.commitSession(tenantId, companyId, userId, out.session.id);
+
+      const all = await db.select().from(accounts).where(eq(accounts.tenantId, tenantId));
+      const parent = all.find((a) => a.accountNumber === '1000')!;
+      const child1 = all.find((a) => a.accountNumber === '1010')!;
+      const child2 = all.find((a) => a.accountNumber === '1020')!;
+      expect(child1.parentId).toBe(parent.id);
+      expect(child2.parentId).toBe(parent.id);
+      expect(parent.parentId).toBeNull();
+    });
+  });
+
+  // ── AP TB column + signed-balance behavior ─────────────────────
+
+  describe('AP TB signed-balance handling', () => {
+    it('posts negative balance as a credit, not a debit', async () => {
+      await db.insert(accounts).values([
+        { tenantId, companyId, accountNumber: '1000', name: 'Cash', accountType: 'asset' },
+        { tenantId, companyId, accountNumber: '2000', name: 'AP', accountType: 'liability' },
+      ]);
+      const csv = `Account Code, Type, Description, Beginning Balance, Transactions Debit, Transactions Credit, Unadjusted Balance, Adjustments Debit, Adjustments Credit, Adjusted Balance, Income Statements Debit, Income Statements Credit, Balance Sheets Debit, Balance Sheets Credit, Tickmark, Notes
+"1000","A","Cash","500.00","0.00","0.00","500.00","0.00","0.00","500.00","0.00","0.00","500.00","0.00","",""
+"2000","L","AP","-500.00","0.00","0.00","-500.00","0.00","0.00","-500.00","0.00","0.00","0.00","500.00","",""
+`;
+      const out = await importsService.createSession({
+        tenantId, companyId, userId,
+        file: fileFromText('tb.csv', csv),
+        kind: 'trial_balance',
+        sourceSystem: 'accounting_power',
+        options: { tbColumn: 'beginning', tbReportDate: '2025-01-01' },
+      });
+      await importsService.commitSession(tenantId, companyId, userId, out.session.id);
+
+      const txns = await db.select().from(transactions).where(eq(transactions.tenantId, tenantId));
+      expect(txns.length).toBe(1);
+      const lines = await db
+        .select()
+        .from(journalLines)
+        .where(eq(journalLines.transactionId, txns[0]!.id));
+      // Walk the lines via account ids; assert amounts.
+      const acctRows = await db.select().from(accounts).where(eq(accounts.tenantId, tenantId));
+      const cashId = acctRows.find((a) => a.accountNumber === '1000')!.id;
+      const apId = acctRows.find((a) => a.accountNumber === '2000')!.id;
+      const cashLine = lines.find((l) => l.accountId === cashId)!;
+      const apLine = lines.find((l) => l.accountId === apId)!;
+      // Cash (1000) had +500 → debit; AP (2000) had -500 → credit (abs).
+      expect(parseFloat(cashLine.debit)).toBeCloseTo(500.0, 2);
+      expect(parseFloat(cashLine.credit)).toBe(0);
+      expect(parseFloat(apLine.credit)).toBeCloseTo(500.0, 2);
+      expect(parseFloat(apLine.debit)).toBe(0);
+    });
+  });
+
+  // ── QBO Vendor contacts ────────────────────────────────────────
+
+  describe('QBO vendor contacts', () => {
+    it('imports a Vendor sheet when contactKind=vendor', async () => {
+      const file = await xlsxFromGrid('vendors.xlsx', 'Vendor Contact List', [
+        ['Test Co'],
+        ['Vendor Contact List'],
+        [],
+        [],
+        [null, 'Vendor', 'Phone Numbers', 'Email', 'Full Name', 'Address', 'Account #'],
+        [null, 'Acme Supplies', null, null, 'Acme Supplies LLC', '1 Main St', null],
+        [null, 'Beta Subs', null, null, null, null, null],
+      ]);
+      const out = await importsService.createSession({
+        tenantId, companyId, userId,
+        file,
+        kind: 'contacts',
+        sourceSystem: 'quickbooks_online',
+        options: { contactKind: 'vendor' },
+      });
+      const result = await importsService.commitSession(tenantId, companyId, userId, out.session.id);
+      expect(result.result.created).toBe(2);
+
+      const all = await db.select().from(contacts).where(eq(contacts.tenantId, tenantId));
+      expect(all.every((c) => c.contactType === 'vendor')).toBe(true);
+    });
+  });
+
+  // ── CoA updateExistingCoa option ──────────────────────────────
+
+  describe('CoA updateExistingCoa', () => {
+    it('overwrites name/detailType when the option is set', async () => {
+      // Pre-existing account with old name.
+      await db.insert(accounts).values([
+        { tenantId, companyId, accountNumber: '1000', name: 'Old Name', accountType: 'asset', detailType: 'Old detail' },
+      ]);
+      const csv = `Account, Description, Type, Class, Category, SubAccount Of
+"1000","Cash - Updated","A","CA","Cash",""
+`;
+      const out = await importsService.createSession({
+        tenantId, companyId, userId,
+        file: fileFromText('coa.csv', csv),
+        kind: 'coa',
+        sourceSystem: 'accounting_power',
+        options: { updateExistingCoa: true },
+      });
+      const r = await importsService.commitSession(tenantId, companyId, userId, out.session.id);
+      expect(r.result.created).toBe(0);
+      expect(r.result.updated).toBe(1);
+
+      const acct = (await db.select().from(accounts).where(eq(accounts.tenantId, tenantId)))[0]!;
+      expect(acct.name).toBe('Cash - Updated');
+      expect(acct.detailType).toBe('CA / Cash');
     });
   });
 });

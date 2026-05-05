@@ -147,10 +147,19 @@ export interface ImportUploadOptions {
 export interface ImportCommitResult {
   created?: number;
   skipped?: number;
+  /** CoA only — distinct from `skipped` because we may have updated a row that
+   *  already existed (when options.updateExistingCoa is true) rather than
+   *  creating a new one. */
+  updated?: number;
   /** GL only — non-zero when the file contained inline-void groups. */
   voidsReversed?: number;
-  /** Set when commit threw partway; the operator UI surfaces this verbatim. */
+  /** Set when commit threw partway. The UI surfaces this verbatim;
+   *  combined with `created` it tells the operator how much landed before
+   *  the failure so they can decide whether to roll back manually or
+   *  re-upload after fixing the offending row. */
   error?: string;
+  /** When commit threw mid-loop, the entry index that errored (GL only). */
+  failedAtIndex?: number;
   /** Per-row errors blocking commit (for /commit dry-run). */
   blockingErrors?: ImportValidationError[];
 }

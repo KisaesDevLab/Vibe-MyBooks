@@ -52,6 +52,59 @@ function isTerminal(s: string): boolean {
   return TERMINAL_STATUSES.includes(s as ImportStatus);
 }
 
+/**
+ * Hard upper bound on rows / JE entries an import can carry. We cap on
+ * the parsed-canonical size, not the raw file, so a CSV with lots of
+ * preamble/garbage doesn't waste memory keeping the rejected rows.
+ *
+ * 50,000 was chosen because:
+ *   - the largest realistic GL export the appliance has been asked to
+ *     ingest is ~3,000 entries (one calendar year of one entity);
+ *     50× headroom covers 50-year history + multi-entity rolls-up;
+ *   - parsedRows JSONB at 50K entries × ~250 bytes/entry ≈ 12 MB,
+ *     which is still comfortably below Postgres jsonb's 1 GB limit
+ *     and our pg row-size watermark;
+ *   - a hostile upload at this ceiling holds ~25 MB peak per request
+ *     (file buffer + parsed array), so K concurrent uploads are bounded.
+ */
+const MAX_ROWS_PER_KIND: Record<ImportKind, number> = {
+  coa: 5_000,
+  contacts: 10_000,
+  trial_balance: 5_000,
+  gl_transactions: 50_000,
+};
+
+function enforceRowCap(kind: ImportKind, count: number): void {
+  const cap = MAX_ROWS_PER_KIND[kind];
+  if (count > cap) {
+    throw AppError.unprocessableEntity(
+      `Import has ${count} rows, exceeding the per-file cap of ${cap} for ${kind}. Split the file and upload in chunks.`,
+      'IMPORT_ROW_LIMIT_EXCEEDED',
+      { count, cap, kind },
+    );
+  }
+}
+
+/**
+ * Convert any Decimal / Date instance lurking in canonical rows into a
+ * JSON-safe scalar BEFORE we hand the structure to drizzle for JSONB
+ * storage or to res.json() for the wire. The adapters return strings
+ * already; this is a defensive belt-and-braces step that catches future
+ * bugs where someone forgets to .toFixed() a Decimal.
+ */
+function jsonSafe<T>(value: T): T {
+  if (value === null || value === undefined) return value;
+  if (value instanceof Date) return (value as unknown as Date).toISOString() as unknown as T;
+  if (value instanceof Decimal) return (value as unknown as Decimal).toFixed(4) as unknown as T;
+  if (Array.isArray(value)) return value.map((v) => jsonSafe(v)) as unknown as T;
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = jsonSafe(v);
+    return out as unknown as T;
+  }
+  return value;
+}
+
 interface SessionRowDb {
   id: string;
   tenantId: string;
@@ -266,6 +319,10 @@ export async function createSession(input: CreateSessionInput): Promise<{
     );
   }
 
+  // Reject anything that would overflow our memory / JSONB budget BEFORE
+  // we run DB validation against it.
+  enforceRowCap(input.kind, parsed.rowCount);
+
   // DB-aware validation augments the adapter's parse-time errors.
   const dbErrors = await validateAgainstDb(
     input.tenantId,
@@ -289,8 +346,11 @@ export async function createSession(input: CreateSessionInput): Promise<{
       fileHash,
       rowCount: parsed.rowCount,
       errorCount: allErrors.length,
-      parsedRows: parsed.parsed as never,
-      validationErrors: allErrors as never,
+      // jsonSafe scrubs any stray Decimal/Date instances so the JSONB
+      // round-trip is byte-for-byte equivalent and res.json() never
+      // throws on `[object Object]` tokens.
+      parsedRows: jsonSafe(parsed.parsed) as never,
+      validationErrors: jsonSafe(allErrors) as never,
       options: input.options as never,
       reportDate,
       createdBy: input.userId,
@@ -574,8 +634,7 @@ export async function commitSession(
       .update(importSessions)
       .set({ validationErrors: dbErrors as never, errorCount: dbErrors.length, updatedAt: new Date() })
       .where(eq(importSessions.id, id));
-    throw new AppError(
-      409,
+    throw AppError.conflict(
       `Cannot commit — ${dbErrors.length} validation error(s) outstanding.`,
       'IMPORT_HAS_ERRORS',
       { errors: dbErrors.slice(0, 25) },
@@ -625,7 +684,7 @@ export async function commitSession(
         tenantId,
         companyId,
         userId,
-        row.id,
+        row.fileHash,
         row.sourceSystem as SourceSystem,
         row.parsedRows as CanonicalGlEntry[],
       );
@@ -634,11 +693,22 @@ export async function commitSession(
     }
   } catch (e) {
     const errMessage = e instanceof Error ? e.message : String(e);
+    // commitGl mid-loop failures throw AppError with details
+    // {createdSoFar, failedAtIndex} so the partial progress can be
+    // surfaced. For other failures (e.g. parser-level, DB connection)
+    // we just record the message; created stays 0.
+    const details = (e instanceof AppError ? e.details : undefined) as
+      | { createdSoFar?: number; failedAtIndex?: number }
+      | undefined;
     await db
       .update(importSessions)
       .set({
         status: 'failed',
-        commitResult: { error: errMessage } as never,
+        commitResult: {
+          error: errMessage,
+          created: details?.createdSoFar ?? 0,
+          failedAtIndex: details?.failedAtIndex,
+        } as never,
         updatedAt: new Date(),
       })
       .where(eq(importSessions.id, id));
@@ -671,6 +741,7 @@ async function commitCoa(
 ): Promise<ImportCommitResult> {
   let created = 0;
   let skipped = 0;
+  let updated = 0;
 
   // Pass 1 — insert with parentId=null. The unique index
   // idx_accounts_tenant_number causes onConflictDoNothing to skip
@@ -693,22 +764,24 @@ async function commitCoa(
       .returning({ id: accounts.id });
     if (insertResult.length > 0) {
       created++;
+    } else if (options.updateExistingCoa && r.accountNumber) {
+      // Existing account, operator opted into overwrite — count as updated.
+      await db
+        .update(accounts)
+        .set({
+          name: r.name,
+          accountType: r.accountType,
+          detailType: r.detailType ?? null,
+          description: r.description ?? null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(accounts.tenantId, tenantId), eq(accounts.accountNumber, r.accountNumber)),
+        );
+      updated++;
     } else {
+      // Existing account, operator did not opt in — leave alone.
       skipped++;
-      if (options.updateExistingCoa && r.accountNumber) {
-        await db
-          .update(accounts)
-          .set({
-            name: r.name,
-            accountType: r.accountType,
-            detailType: r.detailType ?? null,
-            description: r.description ?? null,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(eq(accounts.tenantId, tenantId), eq(accounts.accountNumber, r.accountNumber)),
-          );
-      }
     }
   }
 
@@ -735,7 +808,7 @@ async function commitCoa(
       .where(and(eq(accounts.id, childId), eq(accounts.tenantId, tenantId)));
   }
 
-  return { created, skipped };
+  return { created, skipped, updated };
 }
 
 async function commitContacts(
@@ -746,7 +819,11 @@ async function commitContacts(
   let created = 0;
   let skipped = 0;
   // No unique index on contacts so dedup programmatically: existing
-  // (tenant, contact_type, lower(display_name)) → skip.
+  // (tenant, contact_type, lower-trimmed(display_name)) → skip.
+  // Normalize once, key once, so a CSV with both "Acme Corp" and
+  // "ACME CORP" (or with stray surrounding whitespace) collapses to a
+  // single insert instead of one-skipped-one-inserted.
+  const normalize = (s: string) => s.trim().toLowerCase();
   const existing = await db
     .select({
       contactType: contacts.contactType,
@@ -756,11 +833,11 @@ async function commitContacts(
     .where(eq(contacts.tenantId, tenantId));
   const seen = new Set<string>();
   for (const e of existing) {
-    seen.add(`${e.contactType}:${e.displayName.toLowerCase()}`);
+    seen.add(`${e.contactType}:${normalize(e.displayName)}`);
   }
 
   for (const r of rows) {
-    const key = `${r.contactType}:${r.displayName.toLowerCase()}`;
+    const key = `${r.contactType}:${normalize(r.displayName)}`;
     if (seen.has(key)) {
       skipped++;
       continue;
@@ -770,7 +847,7 @@ async function commitContacts(
       tenantId,
       companyId,
       contactType: r.contactType,
-      displayName: r.displayName,
+      displayName: r.displayName.trim(),
       email: r.email ?? null,
       phone: r.phone ?? null,
       billingLine1: r.billingAddress ? r.billingAddress.split('\n')[0] : null,
@@ -809,8 +886,7 @@ async function commitTrialBalance(
       ),
     );
   if (existingTb.length > 0) {
-    throw new AppError(
-      409,
+    throw AppError.conflict(
       `An opening JE for ${reportDate}${tbColumn ? ` (${tbColumn})` : ''} has already been imported on this company.`,
       'IMPORT_TB_DUPLICATE',
       { existingTransactionId: existingTb[0]!.id },
@@ -831,8 +907,7 @@ async function commitTrialBalance(
       (r.accountNumber && byNum.get(r.accountNumber)) ||
       (r.accountName && byName.get(r.accountName.toLowerCase()));
     if (!id) {
-      throw new AppError(
-        422,
+      throw AppError.unprocessableEntity(
         `Account "${r.accountNumber ?? r.accountName ?? '?'}" not found.`,
         'IMPORT_UNKNOWN_ACCOUNT',
       );
@@ -866,7 +941,7 @@ async function commitGl(
   tenantId: string,
   companyId: string,
   userId: string,
-  sessionId: string,
+  fileHash: string,
   sourceSystem: SourceSystem,
   entries: CanonicalGlEntry[],
 ): Promise<ImportCommitResult> {
@@ -877,9 +952,13 @@ async function commitGl(
   const sourceTag =
     sourceSystem === 'accounting_power' ? IMPORT_SOURCE_TAGS.AP_GL : IMPORT_SOURCE_TAGS.QBO_GL;
 
-  // Pre-fetch existing sourceIds for this session+source so re-commit
-  // is idempotent. The id format below carries enough specificity to
-  // distinguish the original from the void half of the same JE bucket.
+  // sourceId is keyed on fileHash + entry-index + void-variant. This means
+  // re-uploading the SAME bytes (even after the prior session was cancelled
+  // or the operator just hit Upload twice) yields the SAME sourceIds and
+  // the existing dedup catches every entry. Earlier code keyed on
+  // sessionId, which broke idempotency on re-upload because each upload
+  // created a fresh session id. Switching to fileHash keeps re-upload
+  // safe without giving up the upload-time same-bytes guard.
   const existing = await db
     .select({ sourceId: transactions.sourceId })
     .from(transactions)
@@ -900,7 +979,7 @@ async function commitGl(
   for (let idx = 0; idx < entries.length; idx++) {
     const e = entries[idx]!;
     const variant = e.isVoidReversal ? 'V' : 'O';
-    const sourceId = `${sessionId}:${idx}:${variant}`;
+    const sourceId = `${fileHash}:${idx}:${variant}`;
     if (seenSourceIds.has(sourceId)) {
       skipped++;
       continue;
@@ -912,10 +991,13 @@ async function commitGl(
         (line.accountNumber && byNum.get(line.accountNumber)) ||
         (line.accountName && byName.get(line.accountName.toLowerCase()));
       if (!id) {
-        throw new AppError(
-          422,
+        // Mid-loop failure. Throw an AppError carrying `created` so far
+        // so commitSession's catch block can persist partial progress
+        // into commit_result and the operator UI can surface it.
+        throw AppError.unprocessableEntity(
           `JE on ${e.date} references unknown account "${line.accountNumber ?? line.accountName ?? '?'}"`,
           'IMPORT_UNKNOWN_ACCOUNT',
+          { createdSoFar: created, failedAtIndex: idx, accountKey: line.accountNumber ?? line.accountName },
         );
       }
       lines.push({
@@ -928,20 +1010,30 @@ async function commitGl(
     const memoPrefix = e.isVoidReversal ? `[VOID-${e.sourceCode}]` : `[${e.sourceCode}]`;
     const memo = `${memoPrefix} ${e.memo ?? e.name ?? ''}`.trim();
 
-    await postTransaction(
-      tenantId,
-      {
-        txnType: 'journal_entry',
-        txnDate: e.date,
-        txnNumber: e.reference,
-        memo,
-        source: sourceTag,
-        sourceId,
-        lines,
-      },
-      userId,
-      companyId,
-    );
+    try {
+      await postTransaction(
+        tenantId,
+        {
+          txnType: 'journal_entry',
+          txnDate: e.date,
+          txnNumber: e.reference,
+          memo,
+          source: sourceTag,
+          sourceId,
+          lines,
+        },
+        userId,
+        companyId,
+      );
+    } catch (err) {
+      // Re-throw with progress context so commitSession persists what landed.
+      const msg = err instanceof Error ? err.message : String(err);
+      throw AppError.unprocessableEntity(
+        `Failed posting JE at row ${e.rowNumber} (${e.date} ${e.reference ?? ''}): ${msg}`,
+        err instanceof AppError ? (err.code ?? 'IMPORT_POST_FAILED') : 'IMPORT_POST_FAILED',
+        { createdSoFar: created, failedAtIndex: idx, originalError: msg },
+      );
+    }
     created++;
     if (e.isVoidReversal) voidsReversed++;
   }

@@ -82,15 +82,29 @@ export function parseCoa(buf: Buffer): { rows: CanonicalCoaRow[]; errors: Import
     return { rows, errors };
   }
 
+  // Resolve every column by name rather than position so a future AP
+  // export-format change (added column, reordering) doesn't silently
+  // shift Type into the wrong slot. Exact-equals match (case- and
+  // whitespace-insensitive) avoids substring collisions like 'Type'
+  // matching 'Detail type' which `.includes()` would do.
+  const colIdx = (label: string) =>
+    header.findIndex((c) => c.trim().toLowerCase() === label.toLowerCase());
+  const iAcct = colIdx('Account');
+  const iDesc = colIdx('Description');
+  const iType = colIdx('Type');
+  const iClass = colIdx('Class');
+  const iCategory = colIdx('Category');
+  const iSubAcct = colIdx('SubAccount Of');
+
   for (let i = 1; i < grid.length; i++) {
     const r = grid[i]!;
     const rowNumber = i + 1; // 1-indexed source row
-    const accountNumber = (r[0] ?? '').trim();
-    const name = (r[1] ?? '').trim();
-    const typeLetter = (r[2] ?? '').trim().toUpperCase();
-    const cls = (r[3] ?? '').trim();
-    const category = (r[4] ?? '').trim();
-    const parentNumber = (r[5] ?? '').trim();
+    const accountNumber = (r[iAcct] ?? '').trim();
+    const name = (r[iDesc] ?? '').trim();
+    const typeLetter = (r[iType] ?? '').trim().toUpperCase();
+    const cls = iClass !== -1 ? (r[iClass] ?? '').trim() : '';
+    const category = iCategory !== -1 ? (r[iCategory] ?? '').trim() : '';
+    const parentNumber = iSubAcct !== -1 ? (r[iSubAcct] ?? '').trim() : '';
 
     if (!accountNumber || !name) continue; // skip blank rows
     const accountType = AP_TYPE_LETTER_MAP[typeLetter];
@@ -203,7 +217,14 @@ interface RawGlLine {
   memo: string;
 }
 
-const VOID_MEMO_RE = /\bvoid(ed)?\b/i;
+// Anchored, exact-token match for AP's inline-void marker. Matches the
+// canonical "Check Voided" / "Voided" / "Void" memos AP generates
+// without falsely splitting unrelated lines whose memo happens to
+// contain "void" (e.g. "Voided invoice cleared in 2023" — that's a
+// description of past activity, NOT a reversal). The earlier loose
+// `/\bvoid(ed)?\b/i` flagged those false positives and would have
+// reordered debit/credit on legitimate JEs.
+const VOID_MEMO_RE = /^\s*(check\s+)?(voided?)\s*$/i;
 
 /**
  * Group AP GL lines into journal entries. Lines that share
