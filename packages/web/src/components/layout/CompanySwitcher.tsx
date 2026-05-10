@@ -188,7 +188,9 @@ export function CompanySwitcher() {
       // assign() always navigates (no same-URL no-op), the unique
       // query string defeats SW cache, and full navigation drops
       // every in-memory closure including any beforeunload prompts.
-      const targetUrl = `${window.location.origin}/?_switch=${Date.now()}`;
+      // BASE_URL (not `/`) — appliance mounts the SPA under a subpath and
+      // hardcoding root lands on the host's landing page.
+      const targetUrl = `${window.location.origin}${import.meta.env.BASE_URL}?_switch=${Date.now()}`;
       // Suppress any beforeunload prompt the current page may have
       // wired up — they're for "unsaved work" dialogs that don't
       // apply when the user is intentionally switching firms.
