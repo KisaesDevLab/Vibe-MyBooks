@@ -78,6 +78,7 @@ export const aiMocks = () => ({
   useAcceptCompanyAiDisclosure: passthroughMutation,
   useRevokeCompanyAiConsent: passthroughMutation,
   useSetCompanyAiTasks: passthroughMutation,
+  useAiDiagnostics: passthroughQuery({ systemEnabled: false, rows: [] }),
 });
 
 export const apMocks = () => ({

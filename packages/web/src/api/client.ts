@@ -124,10 +124,43 @@ export async function apiClient<T>(
   }
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: { message: 'Request failed' } }));
-    throw new Error(error.error?.message || 'Request failed');
+    const body = await res.json().catch(() => ({ error: { message: 'Request failed' } }));
+    throw new ApiError(
+      body?.error?.message || 'Request failed',
+      body?.error?.code,
+      body?.error?.details,
+      res.status,
+    );
   }
 
   if (res.status === 204) return undefined as T;
   return res.json();
+}
+
+/**
+ * Error thrown by `apiClient` when the server responds non-2xx. Carries
+ * the structured `{ message, code, details? }` payload from the server's
+ * error envelope (see packages/api/src/middleware/error-handler.ts) so
+ * React Query `onError` handlers can render toast messages keyed on
+ * `code` instead of brittle string matching on `message`.
+ *
+ * `isApiError(err)` is the runtime narrow most callers want — checking
+ * `err instanceof ApiError` works inside this bundle but breaks across
+ * HMR boundaries when Vite reloads this module and the previously-thrown
+ * error's prototype no longer matches.
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public code?: string,
+    public details?: unknown,
+    public status?: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export function isApiError(err: unknown): err is ApiError {
+  return !!err && typeof err === 'object' && (err as any).name === 'ApiError';
 }

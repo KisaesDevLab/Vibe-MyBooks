@@ -7,11 +7,13 @@ import { todayLocalISO } from '../../utils/date';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { DEFAULT_BS_LABELS, type BSSectionLabels } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
+import { ReportFooter } from './ReportFooter';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 interface BSRow {
@@ -23,6 +25,8 @@ interface BSRow {
 
 interface BSStandardData {
   asOfDate: string;
+  labels?: BSSectionLabels;
+  footer?: string;
   assets: BSRow[];
   liabilities: BSRow[];
   equity: BSRow[];
@@ -47,6 +51,8 @@ interface BSComparativeRow {
 
 interface BSComparativeData {
   columns: BSComparativeColumn[];
+  labels?: BSSectionLabels;
+  footer?: string;
   assets: BSComparativeRow[];
   liabilities: BSComparativeRow[];
   equity: BSComparativeRow[];
@@ -132,6 +138,7 @@ export function BalanceSheetReport() {
 
 function StandardView({ data }: { data: BSStandardData }) {
   const navigate = useNavigate();
+  const L = data.labels ?? DEFAULT_BS_LABELS;
 
   const DrillAmount = ({ accountId, amount }: { accountId: string | null | undefined; amount: number }) => {
     const href = bsDrillUrl(accountId, data.asOfDate);
@@ -165,13 +172,14 @@ function StandardView({ data }: { data: BSStandardData }) {
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
-      <Section title="Assets" items={data.assets} total={data.totalAssets} />
-      <Section title="Liabilities" items={data.liabilities} total={data.totalLiabilities} />
-      <Section title="Equity" items={data.equity} total={data.totalEquity} />
+      <Section title={L.assets} items={data.assets} total={data.totalAssets} />
+      <Section title={L.liabilities} items={data.liabilities} total={data.totalLiabilities} />
+      <Section title={L.equity} items={data.equity} total={data.totalEquity} />
       <div className="flex justify-between py-2 font-bold text-lg border-t-2">
-        <span>Total Liabilities & Equity</span>
+        <span>{L.totalLiabilitiesAndEquity}</span>
         <span className="font-mono">{fmt(data.totalLiabilitiesAndEquity)}</span>
       </div>
+      <ReportFooter text={data.footer} />
     </div>
   );
 }
@@ -180,6 +188,7 @@ function ComparativeView({ data }: { data: BSComparativeData }) {
   const navigate = useNavigate();
   const columns: BSComparativeColumn[] = data.columns;
   const isVarianceCol = (col: BSComparativeColumn) => col.type === 'variance' || col.type === 'percent_variance';
+  const L = data.labels ?? DEFAULT_BS_LABELS;
 
   function CellValue({ value, col }: { value: number | null; col: BSComparativeColumn }) {
     if (col.type === 'percent_variance') {
@@ -233,24 +242,27 @@ function ComparativeView({ data }: { data: BSComparativeData }) {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="text-left px-3 py-2.5 font-medium text-gray-600 min-w-[200px]">Account</th>
-            {columns.map((col, i) => (
-              <th key={i} className={`text-right px-3 py-2.5 font-medium text-gray-600 min-w-[110px] ${isVarianceCol(col) ? 'bg-gray-100' : ''}`}>
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <SectionTable title="Assets" items={data.assets} totals={data.totalAssets} />
-          <SectionTable title="Liabilities" items={data.liabilities} totals={data.totalLiabilities} />
-          <SectionTable title="Equity" items={data.equity} totals={data.totalEquity} />
-        </tbody>
-      </table>
+    <div>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              <th className="text-left px-3 py-2.5 font-medium text-gray-600 min-w-[200px]">Account</th>
+              {columns.map((col, i) => (
+                <th key={i} className={`text-right px-3 py-2.5 font-medium text-gray-600 min-w-[110px] ${isVarianceCol(col) ? 'bg-gray-100' : ''}`}>
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <SectionTable title={L.assets} items={data.assets} totals={data.totalAssets} />
+            <SectionTable title={L.liabilities} items={data.liabilities} totals={data.totalLiabilities} />
+            <SectionTable title={L.equity} items={data.equity} totals={data.totalEquity} />
+          </tbody>
+        </table>
+      </div>
+      <ReportFooter text={data.footer} />
     </div>
   );
 }

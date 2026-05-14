@@ -22,6 +22,7 @@ interface PLStandardData {
   startDate: string;
   endDate: string;
   labels?: PLSectionLabels;
+  footer?: string;
   revenue: PLRow[];
   totalRevenue: number;
   cogs?: PLRow[];
@@ -57,6 +58,7 @@ interface PLComparativeData {
   startDate: string;
   endDate: string;
   labels?: PLSectionLabels;
+  footer?: string;
   columns: PLComparativeColumn[];
   rows: PLComparativeRow[];
   totalRevenue: number[];
@@ -73,6 +75,7 @@ import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
+import { ReportFooter } from './ReportFooter';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 // QuickZoom: build the /transactions URL that filters to a given account
@@ -203,6 +206,7 @@ function StandardView({ data }: { data: PLStandardData }) {
         <span>{L.netIncome}</span>
         <span className={`font-mono ${data.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(data.netIncome)}</span>
       </div>
+      <ReportFooter text={data.footer} />
     </div>
   );
 }
@@ -313,57 +317,60 @@ function ComparativeView({ data }: { data: PLComparativeData }) {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="text-left px-3 py-2.5 font-medium text-gray-600 min-w-[200px]">Account</th>
-            {columns.map((col, i) => (
-              <th key={i} className={`text-right px-3 py-2.5 font-medium text-gray-600 min-w-[110px] ${isVarianceCol(col) ? 'bg-gray-100' : ''}`}>
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <SectionHeader label={L.revenue} />
-          <AccountRows rows={revenueRows} />
-          <TotalRow label={`Total ${L.revenue}`} values={data.totalRevenue} />
+    <div>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              <th className="text-left px-3 py-2.5 font-medium text-gray-600 min-w-[200px]">Account</th>
+              {columns.map((col, i) => (
+                <th key={i} className={`text-right px-3 py-2.5 font-medium text-gray-600 min-w-[110px] ${isVarianceCol(col) ? 'bg-gray-100' : ''}`}>
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <SectionHeader label={L.revenue} />
+            <AccountRows rows={revenueRows} />
+            <TotalRow label={`Total ${L.revenue}`} values={data.totalRevenue} />
 
-          {hasCogs && (
-            <>
-              <SectionHeader label={L.cogs} />
-              <AccountRows rows={cogsRows} />
-              <TotalRow label={`Total ${L.cogs}`} values={data.totalCogs} />
-              <TotalRow label={L.grossProfit} values={grossProfit!} />
-            </>
-          )}
+            {hasCogs && (
+              <>
+                <SectionHeader label={L.cogs} />
+                <AccountRows rows={cogsRows} />
+                <TotalRow label={`Total ${L.cogs}`} values={data.totalCogs} />
+                <TotalRow label={L.grossProfit} values={grossProfit!} />
+              </>
+            )}
 
-          <SectionHeader label={L.expenses} />
-          <AccountRows rows={expenseRows} />
-          <TotalRow label={`Total ${L.expenses}`} values={data.totalExpenses} />
+            <SectionHeader label={L.expenses} />
+            <AccountRows rows={expenseRows} />
+            <TotalRow label={`Total ${L.expenses}`} values={data.totalExpenses} />
 
-          {showOperatingIncome && <TotalRow label={L.operatingIncome} values={operatingIncome!} />}
+            {showOperatingIncome && <TotalRow label={L.operatingIncome} values={operatingIncome!} />}
 
-          {hasOtherRev && (
-            <>
-              <SectionHeader label={L.otherRevenue} />
-              <AccountRows rows={otherRevRows} />
-              <TotalRow label={`Total ${L.otherRevenue}`} values={data.totalOtherRevenue ?? []} />
-            </>
-          )}
+            {hasOtherRev && (
+              <>
+                <SectionHeader label={L.otherRevenue} />
+                <AccountRows rows={otherRevRows} />
+                <TotalRow label={`Total ${L.otherRevenue}`} values={data.totalOtherRevenue ?? []} />
+              </>
+            )}
 
-          {hasOtherExp && (
-            <>
-              <SectionHeader label={L.otherExpenses} />
-              <AccountRows rows={otherExpRows} />
-              <TotalRow label={`Total ${L.otherExpenses}`} values={data.totalOtherExpenses ?? []} />
-            </>
-          )}
+            {hasOtherExp && (
+              <>
+                <SectionHeader label={L.otherExpenses} />
+                <AccountRows rows={otherExpRows} />
+                <TotalRow label={`Total ${L.otherExpenses}`} values={data.totalOtherExpenses ?? []} />
+              </>
+            )}
 
-          <TotalRow label={L.netIncome} values={data.netIncome} bold />
-        </tbody>
-      </table>
+            <TotalRow label={L.netIncome} values={data.netIncome} bold />
+          </tbody>
+        </table>
+      </div>
+      <ReportFooter text={data.footer} />
     </div>
   );
 }

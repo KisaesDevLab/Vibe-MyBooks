@@ -10,6 +10,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { AdminRoute } from './components/layout/AdminRoute';
 import { StaffWriteRoute } from './components/layout/StaffWriteRoute';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { ToastProvider } from './components/ui/Toaster';
 
 // Eager-load only what the cold-start login path actually paints on
 // first render. Everything else — including the less-trafficked auth
@@ -90,6 +91,7 @@ const OpeningBalancesPage = lazyNamed(() => import('./features/settings/OpeningB
 const PreferencesPage = lazyNamed(() => import('./features/settings/PreferencesPage'), 'PreferencesPage');
 const EmailSettingsPage = lazyNamed(() => import('./features/settings/EmailSettingsPage'), 'EmailSettingsPage');
 const CompanyAiSettingsPage = lazyNamed(() => import('./features/settings/CompanyAiSettingsPage'), 'CompanyAiSettingsPage');
+const AiDiagnosticsPage = lazyNamed(() => import('./features/settings/AiDiagnosticsPage'), 'AiDiagnosticsPage');
 const ReportLabelsPage = lazyNamed(() => import('./features/settings/ReportLabelsPage'), 'ReportLabelsPage');
 const TeamPage = lazyNamed(() => import('./features/settings/TeamPage'), 'TeamPage');
 const ApiKeysPage = lazyNamed(() => import('./features/settings/ApiKeysPage'), 'ApiKeysPage');
@@ -162,6 +164,7 @@ const BudgetVsActualsPage = lazyNamed(() => import('./features/budgets/BudgetVsA
 const ReportsPage = lazyNamed(() => import('./features/reports/ReportsPage'), 'ReportsPage');
 const ProfitAndLossReport = lazyNamed(() => import('./features/reports/ProfitAndLossReport'), 'ProfitAndLossReport');
 const BalanceSheetReport = lazyNamed(() => import('./features/reports/BalanceSheetReport'), 'BalanceSheetReport');
+const CashFlowReport = lazyNamed(() => import('./features/reports/CashFlowReport'), 'CashFlowReport');
 const GeneralLedgerReport = lazyNamed(() => import('./features/reports/GeneralLedgerReport'), 'GeneralLedgerReport');
 const GenericReport = lazyNamed(() => import('./features/reports/GenericReport'), 'GenericReport');
 const BudgetVsActualReport = lazyNamed(() => import('./features/reports/BudgetVsActualReport'), 'BudgetVsActualReport');
@@ -251,6 +254,7 @@ function LoadingFallback() {
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ToastProvider>
       <DiagnosticRouter>
       <CompanyProvider>
       {/* Vite's `base` option populates import.meta.env.BASE_URL with a
@@ -365,7 +369,7 @@ export function App() {
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/reports/profit-loss" element={<ProfitAndLossReport />} />
             <Route path="/reports/balance-sheet" element={<BalanceSheetReport />} />
-            <Route path="/reports/cash-flow" element={<GenericReport title="Cash Flow Statement" endpoint="cash-flow" columns={[{key:'operatingActivities',label:'Operating',align:'right',format:'money'},{key:'netChange',label:'Net Change',align:'right',format:'money'}]} dataKey="__single" useTagFilter />} />
+            <Route path="/reports/cash-flow" element={<CashFlowReport />} />
             <Route path="/reports/ar-aging-summary" element={<GenericReport title="AR Aging Summary" endpoint="ar-aging-summary" useDateRange={false} useAsOfDate useTagFilter columns={[{key:'customer_name',label:'Customer'},{key:'bucket',label:'Bucket'},{key:'balance',label:'Amount',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} dataKey="details" />} />
             <Route path="/reports/ar-aging-detail" element={<GenericReport title="AR Aging Detail" endpoint="ar-aging-detail" useDateRange={false} useAsOfDate useTagFilter columns={[{key:'txn_number',label:'Invoice',drillDown:drillToTxn('id')},{key:'customer_name',label:'Customer'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'balance',label:'Balance',align:'right',format:'money'}]} dataKey="details" />} />
             <Route path="/reports/customer-balance-summary" element={<GenericReport title="Customer Balance Summary" endpoint="customer-balance-summary" useDateRange={false} useTagFilter columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
@@ -410,6 +414,7 @@ export function App() {
             <Route path="/settings/preferences" element={<PreferencesPage />} />
             <Route path="/settings/email" element={<EmailSettingsPage />} />
             <Route path="/settings/ai" element={<CompanyAiSettingsPage />} />
+            <Route path="/settings/ai/diagnostics" element={<AiDiagnosticsPage />} />
             <Route path="/settings/report-labels" element={<ReportLabelsPage />} />
             <Route path="/settings/online-payments" element={<StripeSettingsPage />} />
             <Route path="/settings/team" element={<TeamPage />} />
@@ -482,6 +487,7 @@ export function App() {
       </BrowserRouter>
       </CompanyProvider>
       </DiagnosticRouter>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

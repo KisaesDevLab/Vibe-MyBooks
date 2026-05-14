@@ -13,7 +13,33 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Brain, CheckCircle, AlertTriangle, XCircle, ShieldCheck, Lock } from 'lucide-react';
+
+interface SelfTestRow {
+  task: string;
+  provider: string | null;
+  success: boolean;
+  error?: string;
+  modelInfo?: string;
+  latencyMs: number | null;
+  skipped?: boolean;
+  skipReason?: string;
+}
+
+type TestResult = { ok: boolean; msg: string };
+
+// Maps `form` keys whose change should invalidate a cached test result
+// to the provider keys it covers. A single useEffect below iterates this
+// and clears any matching badges when the related fields change.
+const PROVIDER_FIELD_DEPS: Array<{ fields: ReadonlyArray<string>; providers: ReadonlyArray<string> }> = [
+  { fields: ['anthropicApiKey'], providers: ['anthropic'] },
+  { fields: ['openaiApiKey'], providers: ['openai'] },
+  { fields: ['geminiApiKey'], providers: ['gemini'] },
+  { fields: ['ollamaBaseUrl'], providers: ['ollama'] },
+  { fields: ['glmOcrApiKey', 'glmOcrBaseUrl'], providers: ['glm_ocr_cloud', 'glm_ocr_local'] },
+  { fields: ['openaiCompatApiKey', 'openaiCompatBaseUrl', 'openaiCompatModel'], providers: ['openai_compat'] },
+];
 
 const PROVIDERS = [
   { key: 'anthropic', label: 'Anthropic (Claude)', models: ['claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001'] },
@@ -83,7 +109,7 @@ export function AiConfigPage() {
     cloudVisionEnabled: false,
   });
   const [saved, setSaved] = useState(false);
-  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; msg: string }>>({});
+  const [testResults, setTestResults] = useState<Record<string, TestResult | undefined>>({});
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [showDisclosure, setShowDisclosure] = useState(false);
   const [permissiveAckOpen, setPermissiveAckOpen] = useState(false);
@@ -121,6 +147,68 @@ export function AiConfigPage() {
       setTestResults((r) => ({ ...r, [provider]: { ok: result.success, msg: result.modelInfo || result.error || '' } }));
     } catch (e) {
       setTestResults((r) => ({ ...r, [provider]: { ok: false, msg: e instanceof Error ? e.message : 'Test failed' } }));
+    }
+  };
+
+  // Drop any cached test badge for providers whose editable fields
+  // changed — otherwise admins see a green badge over a key they just
+  // edited, or a red badge for a config they already fixed.
+  useEffect(() => {
+    setTestResults((r) => {
+      let next: Record<string, TestResult | undefined> | null = null;
+      for (const { providers } of PROVIDER_FIELD_DEPS) {
+        for (const p of providers) {
+          if (r[p] !== undefined) {
+            if (!next) next = { ...r };
+            next[p] = undefined;
+          }
+        }
+      }
+      return next ?? r;
+    });
+    // The deps array is the flattened union of every field that should
+    // invalidate any badge. Ordered for stable identity across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    form.anthropicApiKey, form.openaiApiKey, form.geminiApiKey,
+    form.ollamaBaseUrl,
+    form.glmOcrApiKey, form.glmOcrBaseUrl,
+    form.openaiCompatApiKey, form.openaiCompatBaseUrl, form.openaiCompatModel,
+  ]);
+
+  const [selfTest, setSelfTest] = useState<{ rows: SelfTestRow[]; runAt: string } | null>(null);
+  const [selfTestRunning, setSelfTestRunning] = useState(false);
+  const [selfTestError, setSelfTestError] = useState<string | null>(null);
+
+  const doSave = () => {
+    updateConfig.mutate(form as unknown as Parameters<typeof updateConfig.mutate>[0]);
+    setSaved(true);
+  };
+  const failingProviders = [form.categorizationProvider, form.ocrProvider]
+    .filter(Boolean)
+    .filter((p) => testResults[p] && !testResults[p]!.ok);
+  const [confirmFailingOpen, setConfirmFailingOpen] = useState(false);
+  const handleSaveClick = () => {
+    if (failingProviders.length > 0) {
+      setConfirmFailingOpen(true);
+      return;
+    }
+    doSave();
+  };
+  const runSelfTest = async () => {
+    setSelfTestRunning(true);
+    setSelfTestError(null);
+    try {
+      const result = await apiClient<{ rows: SelfTestRow[]; runAt: string }>(
+        '/ai/admin/test-all',
+        { method: 'POST', body: JSON.stringify({}) },
+      );
+      setSelfTest(result);
+    } catch (e) {
+      setSelfTest(null);
+      setSelfTestError(e instanceof Error ? e.message : 'Self-test failed');
+    } finally {
+      setSelfTestRunning(false);
     }
   };
 
@@ -163,6 +251,64 @@ export function AiConfigPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Read-only matrix that pings every task's configured provider so
+            admins can sanity-check the whole system in one click. */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Self-test</h2>
+              <p className="text-xs text-gray-500">Pings every task's configured provider with a minimal request. Use after editing keys to confirm the system is healthy end-to-end.</p>
+            </div>
+            <Button size="sm" variant="secondary" onClick={runSelfTest} loading={selfTestRunning}>
+              Run self-test
+            </Button>
+          </div>
+          {selfTestError && (
+            <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800 flex items-start gap-2">
+              <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <span>Self-test failed: {selfTestError}</span>
+            </div>
+          )}
+          {selfTest && (
+            <div className="border border-gray-200 rounded overflow-x-auto">
+              <table className="w-full text-xs">
+                <caption className="sr-only">AI self-test results — task, provider, status, latency</caption>
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Task</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Provider</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Status</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-600">Latency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selfTest.rows.map((row, i) => (
+                    <tr key={i} className="border-t border-gray-100">
+                      <td className="px-3 py-1.5 text-gray-700">{row.task}</td>
+                      <td className="px-3 py-1.5 text-gray-600">{row.provider || <span className="text-gray-400 italic">(not configured)</span>}</td>
+                      <td className="px-3 py-1.5">
+                        {row.skipped ? (
+                          <span className="inline-flex items-center gap-1 text-gray-400"><AlertTriangle className="h-3 w-3" /> Skipped</span>
+                        ) : row.success ? (
+                          <span className="inline-flex items-center gap-1 text-green-600"><CheckCircle className="h-3 w-3" /> OK{row.modelInfo ? ` — ${row.modelInfo}` : ''}</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-red-600"><XCircle className="h-3 w-3" /> {row.error || 'Failed'}</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-right text-gray-500 font-mono">
+                        {row.latencyMs !== null ? `${row.latencyMs}ms` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="px-3 py-2 text-xs text-gray-400 border-t border-gray-100">
+                Last run {new Date(selfTest.runAt).toLocaleTimeString()}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Master Switch */}
@@ -292,6 +438,7 @@ export function AiConfigPage() {
                   <Button variant="secondary" size="sm" onClick={() => handleTest(p.key)}>Test</Button>
                 </div>
               </div>
+              <LastVerifiedLine provider={p.key} history={data?.providerTestHistory} inSession={testResults[p.key]} />
               {p.hasKey && (
                 // Send { field: null } directly — the backend treats null as
                 // explicit clear. Skip the React Query mutation to avoid
@@ -532,17 +679,24 @@ export function AiConfigPage() {
         </div>
 
         {updateConfig.error && <p className="text-sm text-red-600">{updateConfig.error.message}</p>}
-        <Button onClick={() => {
-          // The form state uses plain strings for provider names because the
-          // <select> widens to string. The API type narrows these to the
-          // AiProviderName union, so cast at the mutation boundary — the
-          // server still validates the value against the allowed set.
-          updateConfig.mutate(form as unknown as Parameters<typeof updateConfig.mutate>[0]);
-          setSaved(true);
-        }} loading={updateConfig.isPending}>
+        <Button onClick={handleSaveClick} loading={updateConfig.isPending}>
           Save Configuration
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmFailingOpen && failingProviders.length > 0}
+        title="Save with failing providers?"
+        message={`One or more providers you've selected failed their connection test: ${failingProviders.join(', ')}. Save anyway?`}
+        confirmLabel="Save anyway"
+        cancelLabel="Re-test first"
+        variant="danger"
+        onConfirm={() => {
+          setConfirmFailingOpen(false);
+          doSave();
+        }}
+        onCancel={() => setConfirmFailingOpen(false)}
+      />
 
       {showDisclosure && disclosure && (
         <DisclosureModal
@@ -562,6 +716,50 @@ export function AiConfigPage() {
       )}
     </div>
   );
+}
+
+/**
+ * Renders the "Last verified <relative time>" line under each provider
+ * card. Prefers the in-session `testResults` entry (the admin just
+ * clicked Test) and falls back to the persisted `providerTestHistory`
+ * for prior sessions. Returns null when nothing is known so the layout
+ * doesn't get a stray empty line.
+ */
+function LastVerifiedLine({
+  provider, history, inSession,
+}: {
+  provider: string;
+  history?: Record<string, { verifiedAt: string; success: boolean; modelInfo?: string; error?: string }>;
+  inSession?: { ok: boolean; msg: string };
+}) {
+  // In-session result takes precedence — it's always "just now".
+  if (inSession) return null;
+  const record = history?.[provider];
+  if (!record) return null;
+  const ago = relativeTime(record.verifiedAt);
+  return (
+    <p className={`text-xs ${record.success ? 'text-gray-500' : 'text-red-600'}`}>
+      Last verified {ago} — {record.success
+        ? (record.modelInfo || 'OK')
+        : (record.error || 'failed')}
+    </p>
+  );
+}
+
+// Compact "Nm ago / Nh ago / Nd ago" formatter. Keeps the UI calm —
+// "yesterday at 3:42 PM" is too much for a status line.
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return iso;
+  const diffMs = Date.now() - then;
+  const sec = Math.max(0, Math.round(diffMs / 1000));
+  if (sec < 60) return 'just now';
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 48) return `${hr}h ago`;
+  const days = Math.round(hr / 24);
+  return `${days}d ago`;
 }
 
 function DisclosureModal({ text, accepted, onClose, onAccept, saving }: {

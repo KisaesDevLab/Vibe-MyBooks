@@ -5,6 +5,7 @@
 // Re-export all report pages
 export { ProfitAndLossReport } from './ProfitAndLossReport';
 export { BalanceSheetReport } from './BalanceSheetReport';
+export { CashFlowReport } from './CashFlowReport';
 
 // Generic report wrapper pages
 export { GenericReport } from './GenericReport';

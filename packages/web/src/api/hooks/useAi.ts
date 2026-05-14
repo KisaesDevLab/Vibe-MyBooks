@@ -3,7 +3,55 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../client';
+import { apiClient, isApiError } from '../client';
+import { useToast } from '../../components/ui/Toaster';
+
+// Human-readable label per task — used as the lead-in for AI error
+// toasts. Keeps the call sites terse and the toast surface uniform
+// across categorization, OCR, statement parsing, and document
+// classification.
+type AiTaskLabel = 'AI categorization' | 'Receipt OCR' | 'Bill OCR' | 'Statement parsing' | 'Document classification';
+
+const PROVIDER_FAILED_MSG = 'Every configured AI provider failed. Check the test buttons in System Settings → AI.';
+const CONSENT_REQUIRED_MSG = 'Consent required — accept the AI disclosure on your company before this task can run.';
+const BUDGET_EXCEEDED_MSG = 'Monthly AI budget exceeded. Raise the limit in System Settings → AI.';
+const AI_DISABLED_MSG = 'AI is currently disabled for this workspace.';
+
+// Translate a server-supplied error `code` into a user-facing reason.
+// Unrecognised codes fall through to the verbatim server message.
+const REASON_BY_CODE: Record<string, string> = {
+  ai_disabled_globally: 'AI processing is disabled by an administrator.',
+  ai_no_provider_configured: 'No provider is configured for this task. An administrator must pick one.',
+  ai_consent_required: CONSENT_REQUIRED_MSG,
+  consent_missing: CONSENT_REQUIRED_MSG,
+  ai_budget_exceeded: BUDGET_EXCEEDED_MSG,
+  AI_BUDGET_EXCEEDED: BUDGET_EXCEEDED_MSG,
+  ai_parse_failed: 'The AI returned non-JSON. Try again, or pick a different provider in System Settings → AI.',
+  ai_all_providers_failed: PROVIDER_FAILED_MSG,
+  ai_provider_failed: PROVIDER_FAILED_MSG,
+  ai_categorization_failed: PROVIDER_FAILED_MSG,
+  AI_RATE_LIMIT: 'Too many AI requests in a short window. Slow down and retry.',
+  AI_DISABLED: AI_DISABLED_MSG,
+  CHAT_DISABLED: AI_DISABLED_MSG,
+};
+
+function reasonForCode(code: string | undefined, fallback: string): string {
+  return (code && REASON_BY_CODE[code]) || fallback;
+}
+
+/** Shared onError factory for AI mutations. Always surfaces a toast with
+ *  the resolved reason as the headline and the raw `code` as the small
+ *  monospace detail line so support tickets can include it verbatim. */
+function useAiErrorToast(label: AiTaskLabel) {
+  const toast = useToast();
+  return (err: unknown) => {
+    const code = isApiError(err) ? err.code : undefined;
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    toast.error(`${label} failed — ${reasonForCode(code, rawMessage)}`, {
+      detail: code,
+    });
+  };
+}
 
 // ─── Admin config ────────────────────────────────────────────────
 //
@@ -29,7 +77,19 @@ export type AiProviderName =
 export type PiiProtectionLevel = 'strict' | 'standard' | 'permissive';
 export type ChatDataAccessLevel = 'none' | 'contextual' | 'full';
 
+/** Per-provider memo of the most recent /admin/test/:provider result.
+ *  Lets the admin UI render "Last verified <relative time>" next to
+ *  each provider card without re-pinging the upstream on every load. */
+export interface ProviderTestRecord {
+  verifiedAt: string;
+  success: boolean;
+  modelInfo?: string;
+  error?: string;
+}
+
 export interface AiConfigDto {
+  /** Persisted test results keyed by provider name. */
+  providerTestHistory: Record<string, ProviderTestRecord>;
   isEnabled: boolean;
   categorizationProvider: AiProviderName | null;
   categorizationModel: string | null;
@@ -137,6 +197,29 @@ export function useAiStatus() {
   });
 }
 
+// Per-task, per-provider readiness view for company owners. Pulled from
+// the cached `provider_test_history` (no upstream calls), so the page
+// is safe to surface to non-admin users.
+export interface AiDiagnosticsRow {
+  task: 'categorization' | 'ocr' | 'document_classification' | 'chat';
+  provider: string | null;
+  status: 'configured' | 'not_configured' | 'untested' | 'ok' | 'failed';
+  lastVerifiedAt?: string;
+  modelInfo?: string;
+  error?: string;
+}
+export interface AiDiagnosticsDto {
+  systemEnabled: boolean;
+  rows: AiDiagnosticsRow[];
+}
+export function useAiDiagnostics() {
+  return useQuery({
+    queryKey: ['ai', 'diagnostics'],
+    queryFn: () => apiClient<AiDiagnosticsDto>('/ai/diagnostics'),
+    staleTime: 30_000,
+  });
+}
+
 export function useUpdateAiConfig() {
   const qc = useQueryClient();
   return useMutation({
@@ -154,25 +237,38 @@ export interface TestProviderResult {
 }
 
 export function useTestAiProvider() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (provider: AiProviderName | string) =>
       apiClient<TestProviderResult>(`/ai/admin/test/${provider}`, { method: 'POST' }),
+    // Persist the result to provider_test_history server-side, then
+    // invalidate the diagnostics + config queries so the non-admin
+    // /settings/ai/diagnostics page and the admin's "Last verified …"
+    // line both reflect the fresh result without a manual refresh.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ai', 'config'] });
+      qc.invalidateQueries({ queryKey: ['ai', 'diagnostics'] });
+    },
   });
 }
 
 export function useAiCategorize() {
   const qc = useQueryClient();
+  const onError = useAiErrorToast('AI categorization');
   return useMutation({
     mutationFn: (feedItemId: string) => apiClient('/ai/categorize', { method: 'POST', body: JSON.stringify({ feedItemId }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-feed'] }),
+    onError,
   });
 }
 
 export function useAiBatchCategorize() {
   const qc = useQueryClient();
+  const onError = useAiErrorToast('AI categorization');
   return useMutation({
     mutationFn: (feedItemIds: string[]) => apiClient('/ai/categorize/batch', { method: 'POST', body: JSON.stringify({ feedItemIds }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-feed'] }),
+    onError,
   });
 }
 
@@ -183,12 +279,20 @@ export interface OcrReceiptResult {
   tax?: string;
   confidence?: number | null;
   qualityWarnings?: string[];
+  /** 'ok' when fields were extracted; 'ocr_only' when only `rawText`
+   *  is available (GLM-OCR ran without a downstream text LLM). The
+   *  ReceiptCaptureModal renders `rawText` in a textarea so the user can
+   *  still complete the expense manually. */
+  status?: 'ok' | 'ocr_only';
+  rawText?: string;
 }
 
 export function useAiOcrReceipt() {
+  const onError = useAiErrorToast('Receipt OCR');
   return useMutation({
     mutationFn: (attachmentId: string) =>
       apiClient<OcrReceiptResult>('/ai/ocr/receipt', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
+    onError,
   });
 }
 
@@ -211,9 +315,11 @@ export interface ParsedStatement {
 }
 
 export function useAiParseStatement() {
+  const onError = useAiErrorToast('Statement parsing');
   return useMutation({
     mutationFn: (attachmentId: string) =>
       apiClient<ParsedStatement>('/ai/parse/statement', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
+    onError,
   });
 }
 
@@ -224,9 +330,11 @@ export interface ClassifiedDocument {
 }
 
 export function useAiClassify() {
+  const onError = useAiErrorToast('Document classification');
   return useMutation({
     mutationFn: (attachmentId: string) =>
       apiClient<ClassifiedDocument>('/ai/classify', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
+    onError,
   });
 }
 

@@ -26,6 +26,11 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
   const [qualityWarnings, setQualityWarnings] = useState<string[]>([]);
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
+  // Populated only when the GLM-OCR pipeline ran without a downstream
+  // text structurer — we still have OCR'd text but no structured
+  // vendor/total/date. Renders as a read-only textarea so the user can
+  // copy values into the form fields manually.
+  const [rawOcrText, setRawOcrText] = useState<string | null>(null);
   const [expenseAccountId, setExpenseAccountId] = useState('');
   const [payFromAccountId, setPayFromAccountId] = useState('');
   const queryClient = useQueryClient();
@@ -62,9 +67,20 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
         });
         setOcrConfidence(result.confidence ?? null);
         setQualityWarnings(Array.isArray(result.qualityWarnings) ? result.qualityWarnings : []);
+        // GLM-OCR ran without a text structurer: backend returns
+        // `status: 'ocr_only'` + raw OCR text. Surface the text so the
+        // user can fill the form manually instead of seeing empty fields.
+        if (result.status === 'ocr_only' && result.rawText) {
+          setRawOcrText(result.rawText);
+        } else {
+          setRawOcrText(null);
+        }
       } catch {
-        // OCR failed — show empty form for manual entry
+        // OCR failed — useAiOcrReceipt's onError toast already explained
+        // why. Open an empty form so the user can still create the
+        // expense manually instead of being stuck on a broken modal.
         setOcrResult({ vendor: '', date: todayLocalISO(), total: '', tax: '0' });
+        setRawOcrText(null);
       } finally {
         setOcrProcessing(false);
       }
@@ -140,20 +156,49 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
                 </div>
               )}
 
+              {/* GLM-OCR ran but no text LLM is configured to structure
+                  its output into vendor/date/total. Show the raw OCR
+                  text so the user can copy values into the form below. */}
+              {rawOcrText && !ocrProcessing && (
+                <div className="space-y-2 border-t pt-4 bg-amber-50 -mx-2 px-2 py-3 rounded">
+                  <p className="text-sm font-medium text-amber-900 flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4" />
+                    OCR text only — no text LLM configured
+                  </p>
+                  <p className="text-xs text-amber-800">
+                    Your OCR provider extracted the text below but no text LLM is set up to
+                    structure it. Pick a text model in System Settings → AI → Tasks
+                    (categorization provider) to enable auto-fill, or copy values into the form
+                    manually.
+                  </p>
+                  <textarea
+                    readOnly
+                    value={rawOcrText}
+                    rows={6}
+                    className="w-full text-xs font-mono bg-white border border-amber-200 rounded px-2 py-1.5"
+                  />
+                </div>
+              )}
+
               {ocrResult && !ocrProcessing && (
                 <div className="space-y-3 border-t pt-4">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
                       <Sparkles className="h-4 w-4 text-primary-500" />
-                      Receipt Details {ocrConfidence && ocrConfidence > 0 ? '(AI extracted)' : '(manual entry)'}
+                      {rawOcrText
+                        ? 'Manual entry — copy from OCR text above'
+                        : `Receipt Details ${ocrConfidence && ocrConfidence > 0 ? '(AI extracted)' : '(manual entry)'}`}
                     </p>
-                    {ocrConfidence && ocrConfidence > 0 && (
+                    {ocrConfidence && ocrConfidence > 0 && !rawOcrText && (
                       <span className={`text-xs px-2 py-0.5 rounded-full ${ocrConfidence >= 0.8 && !qualityWarnings.includes('tesseract_local_ocr') ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                         {Math.round(ocrConfidence * 100)}% confidence
                       </span>
                     )}
                   </div>
-                  <OcrQualityNotice warnings={qualityWarnings} />
+                  {/* In OCR-only mode the user is filling fields manually
+                      from the raw text above, so the quality-notice for
+                      structured extraction is irrelevant. */}
+                  {!rawOcrText && <OcrQualityNotice warnings={qualityWarnings} />}
                   <Input label="Vendor" value={ocrResult.vendor} onChange={(e) => setOcrResult({ ...ocrResult, vendor: e.target.value })} />
                   <DatePicker label="Date" value={ocrResult.date} onChange={(e) => setOcrResult({ ...ocrResult, date: e.target.value })} />
                   <MoneyInput label="Total" value={ocrResult.total} onChange={(v) => setOcrResult({ ...ocrResult, total: v })} />

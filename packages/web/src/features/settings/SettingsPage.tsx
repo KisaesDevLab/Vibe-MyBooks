@@ -56,10 +56,16 @@ const settingsCards = [
     description: 'Review and consent to AI-assisted categorization, receipt OCR, and statement parsing',
   },
   {
+    to: '/settings/ai/diagnostics',
+    icon: Brain,
+    title: 'AI Diagnostics',
+    description: 'Check which AI tasks are working for your workspace and when each was last verified',
+  },
+  {
     to: '/settings/report-labels',
     icon: FileText,
     title: 'Report Headings',
-    description: 'Customize Profit & Loss section headings for the view, CSV, and PDF',
+    description: 'Customize section headings for P&L, Balance Sheet, and Cash Flow — plus an optional report footer',
   },
   {
     to: '/settings/online-payments',
