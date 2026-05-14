@@ -13,6 +13,8 @@ const ACTIONS = ['', 'connect', 'disconnect', 'reauth', 'serve_enable', 'serve_d
 export function AuditTable() {
   const [action, setAction] = useState('');
   const [page, setPage] = useState(1);
+  const [csvError, setCsvError] = useState('');
+  const [downloading, setDownloading] = useState(false);
   const limit = 25;
   const { data, isLoading, error } = useTailscaleAudit({
     action: action || undefined,
@@ -23,20 +25,31 @@ export function AuditTable() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
   const downloadCsv = async () => {
-    const token = getAccessToken();
-    const params = new URLSearchParams();
-    if (action) params.set('action', action);
-    const res = await fetch(`/api/v1/admin/tailscale/audit/export?${params}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'tailscale-audit.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    setCsvError('');
+    setDownloading(true);
+    try {
+      const token = getAccessToken();
+      const params = new URLSearchParams();
+      if (action) params.set('action', action);
+      const res = await fetch(`/api/v1/admin/tailscale/audit/export?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        throw new Error(errBody?.error?.message || `Export failed (HTTP ${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'tailscale-audit.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setCsvError(err instanceof Error ? err.message : 'Failed to export CSV');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -62,11 +75,16 @@ export function AuditTable() {
               </option>
             ))}
           </select>
-          <Button variant="secondary" size="sm" onClick={downloadCsv}>
+          <Button variant="secondary" size="sm" onClick={downloadCsv} loading={downloading}>
             <Download className="h-4 w-4 mr-1" /> CSV
           </Button>
         </div>
       </div>
+      {csvError && (
+        <div className="px-6 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100">
+          {csvError}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="p-6 text-sm text-gray-500 text-center">Loading…</div>

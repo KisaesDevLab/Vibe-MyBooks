@@ -126,9 +126,14 @@ export function RemoteBackupSettingsPage() {
           port: Number(sftpPort),
           username: sftpUser,
           password: sftpPassword || undefined,
-          remote_path: sftpPath,
+          // Backend schema uses camelCase `remotePath`. Sending the
+          // snake_case form would be rejected by the strict Zod schema
+          // with a silent 400 — same SMS-bug pattern.
+          remotePath: sftpPath,
         };
       } else if (destination === 'webdav') {
+        // webdav schema defaults `remotePath` to '/' — omitting it is
+        // fine. SFTP requires it explicitly above.
         body['webdav'] = {
           url: webdavUrl,
           username: webdavUser,
@@ -157,7 +162,7 @@ export function RemoteBackupSettingsPage() {
     mutationFn: () => {
       const body: Record<string, unknown> = { destination };
       if (destination === 'sftp') {
-        body['sftp'] = { host: sftpHost, port: Number(sftpPort), username: sftpUser, password: sftpPassword, remote_path: sftpPath };
+        body['sftp'] = { host: sftpHost, port: Number(sftpPort), username: sftpUser, password: sftpPassword, remotePath: sftpPath };
       } else if (destination === 'webdav') {
         body['webdav'] = { url: webdavUrl, username: webdavUser, password: webdavPassword };
       } else {

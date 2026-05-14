@@ -16,7 +16,7 @@ export function ArticlePage() {
     queryKey: ['knowledge', 'article', id],
     queryFn: async () => {
       const res = await apiClient<{ article: { title: string; category: string; body: string } }>(`/knowledge/${id}`);
-      return res.article;
+      return res?.article ?? null;
     },
     retry: false,
   });

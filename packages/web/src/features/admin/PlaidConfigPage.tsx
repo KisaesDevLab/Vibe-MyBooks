@@ -43,8 +43,16 @@ export function PlaidConfigPage() {
 
   const updateConfig = useMutation({
     mutationFn: (input: typeof form) => apiClient('/admin/plaid/config', { method: 'PUT', body: JSON.stringify(input) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin', 'plaid-config'] }); setSaved(true); setTimeout(() => setSaved(false), 3000); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin', 'plaid-config'] }); setSaved(true); },
   });
+
+  // Clear the "saved" pill 3s after it appears. useEffect-driven so the
+  // cleanup function fires on unmount.
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(false), 3000);
+    return () => clearTimeout(t);
+  }, [saved]);
 
   const testConn = useMutation({
     mutationFn: () => apiClient<{ success: boolean; message: string }>('/admin/plaid/test', { method: 'POST' }),
@@ -106,14 +114,59 @@ export function PlaidConfigPage() {
         {/* Credentials */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">API Credentials</h2>
-          <Input label="Client ID" value={form.clientId} onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}
-            placeholder={data?.hasClientId ? '••••••••••• (configured)' : 'Enter Plaid Client ID'} />
-          <Input label="Sandbox Secret" type="password" value={form.secretSandbox}
-            onChange={(e) => setForm((f) => ({ ...f, secretSandbox: e.target.value }))}
-            placeholder={data?.hasSandboxSecret ? '••••••••••• (configured)' : 'Enter Sandbox Secret'} />
-          <Input label="Production Secret" type="password" value={form.secretProduction}
-            onChange={(e) => setForm((f) => ({ ...f, secretProduction: e.target.value }))}
-            placeholder={data?.hasProductionSecret ? '���•••••••••• (configured)' : 'Enter Production Secret'} />
+          <div className="space-y-1">
+            <Input label="Client ID" value={form.clientId} onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}
+              placeholder={data?.hasClientId ? '••••••••••• (configured)' : 'Enter Plaid Client ID'} />
+            {data?.hasClientId && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Clear stored Plaid Client ID?')) return;
+                  await apiClient('/admin/plaid/config', { method: 'PUT', body: JSON.stringify({ clientId: null }) });
+                  queryClient.invalidateQueries({ queryKey: ['admin', 'plaid-config'] });
+                }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Clear stored Client ID
+              </button>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Input label="Sandbox Secret" type="password" value={form.secretSandbox}
+              onChange={(e) => setForm((f) => ({ ...f, secretSandbox: e.target.value }))}
+              placeholder={data?.hasSandboxSecret ? '••••••••••• (configured)' : 'Enter Sandbox Secret'} />
+            {data?.hasSandboxSecret && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Clear stored Sandbox Secret?')) return;
+                  await apiClient('/admin/plaid/config', { method: 'PUT', body: JSON.stringify({ secretSandbox: null }) });
+                  queryClient.invalidateQueries({ queryKey: ['admin', 'plaid-config'] });
+                }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Clear stored Sandbox Secret
+              </button>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Input label="Production Secret" type="password" value={form.secretProduction}
+              onChange={(e) => setForm((f) => ({ ...f, secretProduction: e.target.value }))}
+              placeholder={data?.hasProductionSecret ? '••••••••••• (configured)' : 'Enter Production Secret'} />
+            {data?.hasProductionSecret && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Clear stored Production Secret?')) return;
+                  await apiClient('/admin/plaid/config', { method: 'PUT', body: JSON.stringify({ secretProduction: null }) });
+                  queryClient.invalidateQueries({ queryKey: ['admin', 'plaid-config'] });
+                }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Clear stored Production Secret
+              </button>
+            )}
+          </div>
           <div className="flex gap-3">
             <Button variant="secondary" size="sm" onClick={() => { setTestResult(null); testConn.mutate(); }} loading={testConn.isPending}>
               Test Connection

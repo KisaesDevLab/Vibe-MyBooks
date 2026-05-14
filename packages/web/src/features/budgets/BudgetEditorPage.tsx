@@ -45,6 +45,7 @@ export function BudgetEditorPage() {
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [lines, setLines] = useState<Record<string, Record<MonthKey, string>>>({});
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const [hideZero, setHideZero] = useState(false);
   const [entryMode, setEntryMode] = useState<'annual' | 'monthly'>('annual');
   const [showSetupModal, setShowSetupModal] = useState(false);
@@ -263,6 +264,8 @@ export function BudgetEditorPage() {
     setShowSetupModal(false);
     const bid = newBudgetId || activeBudgetId;
     if (!bid) return;
+    setSuccessMsg('');
+    setErrorMsg('');
     try {
       await apiClient(`/budgets/${bid}/fill-from-actuals`, { method: 'POST' });
       await apiClient(`/budgets/${bid}/adjust-by-percent`, {
@@ -272,8 +275,8 @@ export function BudgetEditorPage() {
       refetchLines();
       setSuccessMsg(`Filled from actuals with ${setupGrowthPct}% growth`);
       setTimeout(() => setSuccessMsg(''), 3000);
-    } catch {
-      setSuccessMsg('');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to fill budget from actuals');
     }
   };
 
@@ -516,6 +519,7 @@ export function BudgetEditorPage() {
       {createBudget.error && <p className="text-sm text-red-600 mb-4">{createBudget.error.message}</p>}
       {saveLines.error && <p className="text-sm text-red-600 mb-4">{saveLines.error.message}</p>}
       {successMsg && <p className="text-sm text-green-600 mb-4">{successMsg}</p>}
+      {errorMsg && <p className="text-sm text-red-600 mb-4">{errorMsg}</p>}
 
       {/* Budget Grid */}
       {activeBudgetId ? (

@@ -19,6 +19,13 @@ export function PayrollImportPage() {
   const [step, setStep] = useState<Step>('upload');
   const [sessionId, setSessionId] = useState<string>('');
   const [importMode, setImportMode] = useState<string>('');
+  // The payroll upload response is a thick, evolving shape (session +
+  // detected format + preview + provider hints + warnings + sample
+  // rows). Typing it fully would require a Zod schema across both
+  // sides; for now `any` matches the rest of the payroll-import code's
+  // approach. Audit follow-up: tighten via shared Zod when the payroll
+  // pipeline stabilizes.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [uploadResult, setUploadResult] = useState<any>(null);
 
   const uploadMutation = usePayrollUpload();

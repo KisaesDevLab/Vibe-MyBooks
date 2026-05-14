@@ -292,6 +292,25 @@ export function AiConfigPage() {
                   <Button variant="secondary" size="sm" onClick={() => handleTest(p.key)}>Test</Button>
                 </div>
               </div>
+              {p.hasKey && (
+                // Send { field: null } directly — the backend treats null as
+                // explicit clear. Skip the React Query mutation to avoid
+                // submitting the rest of the form (which has separate edits).
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm(`Clear stored ${p.label}?`)) return;
+                    await apiClient('/ai/admin/config', {
+                      method: 'PUT',
+                      body: JSON.stringify({ [p.field]: null }),
+                    });
+                    queryClient.invalidateQueries({ queryKey: ['ai', 'admin', 'config'] });
+                  }}
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Clear stored key
+                </button>
+              )}
               {testResults[p.key] && (
                 <p className={`text-xs ${testResults[p.key]!.ok ? 'text-green-600' : 'text-red-600'}`}>
                   {testResults[p.key]!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
@@ -331,6 +350,19 @@ export function AiConfigPage() {
                   disabled={!form.glmOcrApiKey && !data?.hasGlmOcrKey}>Test</Button>
               </div>
             </div>
+            {data?.hasGlmOcrKey && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Clear stored GLM-OCR API Key?')) return;
+                  await apiClient('/ai/admin/config', { method: 'PUT', body: JSON.stringify({ glmOcrApiKey: null }) });
+                  queryClient.invalidateQueries({ queryKey: ['ai', 'admin', 'config'] });
+                }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Clear stored key
+              </button>
+            )}
             {testResults['glm_ocr_cloud'] && (
               <p className={`text-xs ${testResults['glm_ocr_cloud']!.ok ? 'text-green-600' : 'text-red-600'}`}>
                 {testResults['glm_ocr_cloud']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
@@ -384,6 +416,19 @@ export function AiConfigPage() {
             <Input label="OpenAI-compat API Key (optional)" type="password" value={form.openaiCompatApiKey}
               onChange={(e) => setForm((f) => ({ ...f, openaiCompatApiKey: e.target.value }))}
               placeholder={data?.hasOpenaiCompatKey ? '••••••••••• (configured)' : 'Leave blank if the server is open'} />
+            {data?.hasOpenaiCompatKey && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Clear stored OpenAI-compat API Key?')) return;
+                  await apiClient('/ai/admin/config', { method: 'PUT', body: JSON.stringify({ openaiCompatApiKey: null }) });
+                  queryClient.invalidateQueries({ queryKey: ['ai', 'admin', 'config'] });
+                }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Clear stored key
+              </button>
+            )}
             {testResults['openai_compat'] && (
               <p className={`text-xs ${testResults['openai_compat']!.ok ? 'text-green-600' : 'text-red-600'}`}>
                 {testResults['openai_compat']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
@@ -494,7 +539,6 @@ export function AiConfigPage() {
           // server still validates the value against the allowed set.
           updateConfig.mutate(form as unknown as Parameters<typeof updateConfig.mutate>[0]);
           setSaved(true);
-          setTimeout(() => setSaved(false), 3000);
         }} loading={updateConfig.isPending}>
           Save Configuration
         </Button>
@@ -787,9 +831,16 @@ function ChatSettingsSection() {
       queryClient.invalidateQueries({ queryKey: ['chat', 'admin', 'config'] });
       queryClient.invalidateQueries({ queryKey: ['chat', 'status'] });
       setSavedNote(true);
-      setTimeout(() => setSavedNote(false), 3000);
     },
   });
+
+  // Clear the "saved" pill 3s after it appears — useEffect-driven for
+  // unmount safety.
+  useEffect(() => {
+    if (!savedNote) return;
+    const t = setTimeout(() => setSavedNote(false), 3000);
+    return () => clearTimeout(t);
+  }, [savedNote]);
 
   const regenMutation = useMutation({
     mutationFn: () => apiClient('/chat/admin/regenerate-knowledge', { method: 'POST' }),

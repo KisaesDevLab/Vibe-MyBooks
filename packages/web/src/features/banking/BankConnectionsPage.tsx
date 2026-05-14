@@ -72,8 +72,8 @@ function ActivityLog({ itemId }: { itemId: string }) {
 
 export function BankConnectionsPage() {
   const navigate = useNavigate();
-  const { data: legacyData, isLoading: legacyLoading } = useBankConnections();
-  const { data: plaidData, isLoading: plaidLoading, refetch } = usePlaidItems();
+  const { data: legacyData, isLoading: legacyLoading, isError: legacyError, refetch: refetchLegacy } = useBankConnections();
+  const { data: plaidData, isLoading: plaidLoading, isError: plaidError, refetch } = usePlaidItems();
   const disconnect = useDisconnectBank();
   const exchangeToken = useExchangeToken();
   const syncItem = useSyncPlaidItem();
@@ -116,6 +116,17 @@ export function BankConnectionsPage() {
   }, [exchangeToken]);
 
   if (legacyLoading || plaidLoading) return <LoadingSpinner className="py-12" />;
+  // Both queries are surfaced independently so an admin can tell which
+  // half of the page is broken — Plaid being down shouldn't hide legacy
+  // CSV connections and vice versa.
+  if (legacyError && plaidError) {
+    return (
+      <div className="bg-white rounded-lg border p-12 text-center">
+        <p className="text-red-600 mb-4">Failed to load bank connections.</p>
+        <Button variant="secondary" onClick={() => { refetchLegacy(); refetch(); }}>Retry</Button>
+      </div>
+    );
+  }
   const legacyConnections = legacyData?.connections || [];
   const plaidItems = plaidData?.items || [];
   const needsAttention = plaidItems.filter((i) => ['login_required', 'pending_disconnect', 'error'].includes(i.itemStatus));
@@ -255,7 +266,23 @@ export function BankConnectionsPage() {
         </div>
       )}
 
-      {plaidItems.length === 0 && legacyConnections.length === 0 && (
+      {/* Partial-failure notice: one query failed, the other rendered.
+          Surface the failure so an admin doesn't mistake a Plaid outage
+          for "no connections". */}
+      {plaidError && !legacyError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          Plaid connections couldn't be loaded. File imports below are still shown.
+          <button onClick={() => refetch()} className="ml-2 underline font-medium">Retry Plaid</button>
+        </div>
+      )}
+      {legacyError && !plaidError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          File-import connections couldn't be loaded. Plaid connections above are still shown.
+          <button onClick={() => refetchLegacy()} className="ml-2 underline font-medium">Retry imports</button>
+        </div>
+      )}
+
+      {plaidItems.length === 0 && legacyConnections.length === 0 && !plaidError && !legacyError && (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-500">
           <Landmark className="h-12 w-12 mx-auto mb-4 text-gray-300" />
           <p className="mb-2">No bank connections yet.</p>

@@ -25,8 +25,8 @@ export function useCoaTemplateOptions(): CoaTemplateOption[] {
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/coa-templates/options`);
       if (!res.ok) throw new Error('Failed to load template options');
-      const body = (await res.json()) as { options: CoaTemplateOption[] };
-      return body.options;
+      const body = (await res.json()) as { options?: CoaTemplateOption[] };
+      return body?.options ?? [];
     },
     staleTime: 5 * 60 * 1000,
     retry: false,

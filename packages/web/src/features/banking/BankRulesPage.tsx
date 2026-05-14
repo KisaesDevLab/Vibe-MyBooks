@@ -135,7 +135,7 @@ export function BankRulesPage() {
     queryKey: ['bank-rules', 'global'],
     queryFn: async () => {
       const res = await apiClient<{ rules: BankRule[] }>('/bank-rules/global/list');
-      return res.rules;
+      return res?.rules ?? [];
     },
   });
 

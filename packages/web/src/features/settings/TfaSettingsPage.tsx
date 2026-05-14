@@ -45,9 +45,22 @@ export function TfaSettingsPage() {
   const [smsStep, setSmsStep] = useState<'phone' | 'verify'>('phone');
   const [qrDataUrl, setQrDataUrl] = useState('');
 
+  // Shape mirrors what /users/me/tfa/status returns. Optional everywhere
+  // because the response varies based on system + user state (TFA off
+  // system-wide → most fields absent, etc.).
+  interface TfaStatus {
+    systemEnabled?: boolean;
+    userEnabled?: boolean;
+    methods?: string[];
+    allowedMethods?: string[];
+    preferredMethod?: string;
+    phoneMasked?: string | null;
+    recoveryCodesRemaining?: number;
+    trustDeviceEnabled?: boolean;
+  }
   const { data: status, isLoading } = useQuery({
     queryKey: ['tfa', 'status'],
-    queryFn: () => apiClient<any>('/users/me/tfa/status'),
+    queryFn: () => apiClient<TfaStatus>('/users/me/tfa/status'),
   });
 
   const enableTfa = useMutation({

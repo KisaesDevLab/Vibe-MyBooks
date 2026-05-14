@@ -195,7 +195,7 @@ const PayrollHistoryPage = lazyNamed(() => import('./features/payroll/PayrollHis
 const KnowledgeBasePage = lazyNamed(() => import('./features/help/KnowledgeBasePage'), 'KnowledgeBasePage');
 const ArticlePage = lazyNamed(() => import('./features/help/ArticlePage'), 'ArticlePage');
 
-// ─── Practice (Phase 1 placeholders + Phase 2 Close Review) ─────
+// ─── Practice Management ─────────────────────────────────────
 const PracticeLayout = lazyNamed(() => import('./features/practice/PracticeLayout'), 'PracticeLayout');
 const CloseReviewPage = lazyNamed(() => import('./features/practice/close-review/CloseReviewPage'), 'CloseReviewPage');
 const PracticeSettingsPage = lazyNamed(() => import('./features/practice/settings/PracticeSettingsPage'), 'PracticeSettingsPage');
@@ -435,10 +435,10 @@ export function App() {
             <Route path="/help" element={<KnowledgeBasePage />} />
             <Route path="/help/:id" element={<ArticlePage />} />
             {/* Practice Management — VIBE_MYBOOKS_PRACTICE_BUILD_PLAN.
-                Each route wraps its placeholder in PracticeLayout
-                with the owning feature flag + minimum role. The
-                layout handles client-user redirect, role gate, and
-                flag gate so routes don't repeat the logic. */}
+                Each route wraps its page in PracticeLayout with the
+                owning feature flag + minimum role. The layout handles
+                client-user redirect, role gate, and flag gate so
+                routes don't repeat the logic. */}
             <Route path="/practice" element={<Navigate to="/practice/close-review" replace />} />
             <Route path="/practice/close-review" element={
               <PracticeLayout flag="CLOSE_REVIEW_V1" minRole="bookkeeper"><CloseReviewPage /></PracticeLayout>

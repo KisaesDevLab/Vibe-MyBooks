@@ -5,7 +5,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Landmark, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react';
+import { Landmark, CheckCircle, AlertTriangle, XCircle, Clock, AlertCircle } from 'lucide-react';
 
 interface PlaidStats {
   totalItems: number;
@@ -52,17 +52,17 @@ const statusBadge = (status: string) => {
 };
 
 export function PlaidConnectionsMonitorPage() {
-  const { data: stats } = useQuery({
+  const { data: stats, isError: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['admin', 'plaid-stats'],
     queryFn: () => apiClient<PlaidStats>('/admin/plaid/stats'),
   });
 
-  const { data: connData, isLoading } = useQuery({
+  const { data: connData, isLoading, isError: connError, refetch: refetchConn } = useQuery({
     queryKey: ['admin', 'plaid-connections'],
     queryFn: () => apiClient<{ connections: PlaidConnectionRow[] }>('/admin/plaid/connections'),
   });
 
-  const { data: logData } = useQuery({
+  const { data: logData, isError: logError, refetch: refetchLog } = useQuery({
     queryKey: ['admin', 'plaid-webhook-log'],
     queryFn: () => apiClient<{ logs: PlaidWebhookLog[] }>('/admin/plaid/webhook-log'),
   });
@@ -75,7 +75,13 @@ export function PlaidConnectionsMonitorPage() {
       </div>
 
       {/* Summary Cards */}
-      {stats && (
+      {statsError ? (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          Failed to load Plaid stats.
+          <button onClick={() => refetchStats()} className="ml-2 underline font-medium">Retry</button>
+        </div>
+      ) : stats ? (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
             { label: 'Total Connections', value: stats.totalItems },
@@ -90,14 +96,20 @@ export function PlaidConnectionsMonitorPage() {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       {/* Connections Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-800">Connections</h2>
         </div>
-        {isLoading ? <LoadingSpinner className="py-8" /> : (
+        {isLoading ? <LoadingSpinner className="py-8" /> : connError ? (
+          <div className="flex items-center gap-2 p-4 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            Failed to load connections.
+            <button onClick={() => refetchConn()} className="ml-2 underline font-medium">Retry</button>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
@@ -135,6 +147,13 @@ export function PlaidConnectionsMonitorPage() {
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-800">Webhook Log (Last 100)</h2>
         </div>
+        {logError ? (
+          <div className="flex items-center gap-2 p-4 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            Failed to load webhook log.
+            <button onClick={() => refetchLog()} className="ml-2 underline font-medium">Retry</button>
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
@@ -160,6 +179,7 @@ export function PlaidConnectionsMonitorPage() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   );

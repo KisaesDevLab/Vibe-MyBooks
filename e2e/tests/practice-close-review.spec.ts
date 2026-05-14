@@ -1,3 +1,6 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
 import { test, expect } from '@playwright/test';
 
 // E2E smoke for the Phase 2 Close Review API surface.
@@ -19,7 +22,7 @@ test.describe.serial('Practice Close Review — API smoke', () => {
     const res = await request.post(`${API}/auth/register`, {
       data: {
         email: uniqueEmail,
-        password: 'TestPass123!',
+        password: 'Vmb-Qa-Zk9mPx7tQvLp3F-Test',
         displayName: 'Practice E2E',
         companyName: 'Practice E2E Corp',
       },
@@ -114,7 +117,7 @@ test.describe.serial('Practice Bucket 1 — match-actions smoke', () => {
     const reg = await request.post(`${API}/auth/register`, {
       data: {
         email,
-        password: 'TestPass123!',
+        password: 'Vmb-Qa-Zk9mPx7tQvLp3F-Test',
         displayName: 'Match E2E',
         companyName: 'Match E2E Corp',
       },

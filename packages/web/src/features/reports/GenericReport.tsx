@@ -51,6 +51,12 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
   if (scope === 'consolidated') params.set('scope', 'consolidated');
   if (useTagFilter && tagId) params.set('tag_id', tagId);
 
+  // Reports return wildly different shapes per endpoint (P&L vs balance-
+  // sheet vs trial-balance vs general-ledger), each with arbitrarily-
+  // nested sections + lines. Per-endpoint Zod schemas would let us
+  // narrow this — left for a follow-up. For now `any` is pragmatic
+  // since ReportShell does its own runtime shape handling.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['reports', endpoint, startDate, endDate, asOfDate, extraParams, activeCompanyId, scope, tagId],
     queryFn: () => apiClient<any>(`/reports/${endpoint}?${params.toString()}`),

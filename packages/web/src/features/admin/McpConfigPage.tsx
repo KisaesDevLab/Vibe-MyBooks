@@ -8,7 +8,7 @@ import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Plug, CheckCircle } from 'lucide-react';
+import { Plug, CheckCircle, AlertCircle } from 'lucide-react';
 
 export function McpConfigPage() {
   const queryClient = useQueryClient();
@@ -23,6 +23,8 @@ export function McpConfigPage() {
     maxKeyLifetimeDays: '',
   });
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Load config
   const { data: configData, isLoading } = useQuery({
@@ -68,15 +70,37 @@ export function McpConfigPage() {
   });
 
   const handleSave = async () => {
-    await fetch('/api/v1/admin/mcp/config', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
-      body: JSON.stringify({ ...form, maxKeyLifetimeDays: form.maxKeyLifetimeDays ? parseInt(form.maxKeyLifetimeDays) : null }),
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-    queryClient.invalidateQueries({ queryKey: ['admin', 'mcp-config'] });
+    setSaving(true);
+    setSaveError('');
+    setSaved(false);
+    try {
+      const res = await fetch('/api/v1/admin/mcp/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+        body: JSON.stringify({ ...form, maxKeyLifetimeDays: form.maxKeyLifetimeDays ? parseInt(form.maxKeyLifetimeDays) : null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error?.message || `Failed to save (HTTP ${res.status})`);
+      }
+      setSaved(true);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'mcp-config'] });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save configuration');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  // Clear the "saved" pill 3s after it appears. Driven by a useEffect
+  // so the cleanup function fires on unmount and we never setState on
+  // a stale component (the previous direct-in-handler setTimeout had no
+  // such guard — fine in practice but warns under React strict mode).
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(false), 3000);
+    return () => clearTimeout(t);
+  }, [saved]);
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
 
@@ -90,6 +114,11 @@ export function McpConfigPage() {
       {saved && (
         <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 max-w-2xl">
           <CheckCircle className="h-4 w-4" /> Configuration saved
+        </div>
+      )}
+      {saveError && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 max-w-2xl">
+          <AlertCircle className="h-4 w-4" /> {saveError}
         </div>
       )}
 
@@ -147,7 +176,7 @@ export function McpConfigPage() {
           </label>
         </div>
 
-        <Button onClick={handleSave}>Save Configuration</Button>
+        <Button onClick={handleSave} loading={saving}>Save Configuration</Button>
 
         {/* Request Log */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">

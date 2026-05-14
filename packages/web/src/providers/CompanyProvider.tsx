@@ -41,6 +41,27 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/v1/company/list', {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      // 401/403 from /list almost always means the stored X-Company-Id is
+      // stale (different tenant, DB rebuilt, company deleted). Without
+      // recovery, the sidebar would be stuck on "Select Company" forever
+      // because the reconciliation block below never runs. Drop the local
+      // id so the next render — and any in-flight apiClient calls — stop
+      // sending the bad header. The 401 path may also indicate an expired
+      // token, but apiClient handles refresh elsewhere; clearing here is
+      // still safe (worst case, the next /list call re-populates).
+      if (res.status === 401 || res.status === 403) {
+        if (localStorage.getItem(STORAGE_KEY)) {
+          localStorage.removeItem(STORAGE_KEY);
+          setActiveCompanyIdState(null);
+          queryClient.removeQueries();
+        }
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[CompanyProvider] /company/list returned ${res.status}; cleared stale activeCompanyId.`,
+        );
+        return;
+      }
       if (!res.ok) return;
       const data = await res.json();
       const list: CompanySummary[] = data.companies || [];

@@ -193,10 +193,17 @@ export function BankFeedPage() {
     if (!item.suggestedAccountId) return;
     categorize.mutate({ id: item.id, accountId: item.suggestedAccountId, contactId: item.suggestedContactId || undefined }, {
       onSuccess: () => {
+        // Fire-and-forget AI-learning telemetry. The user's categorization
+        // already succeeded above; this only records the "accepted" signal
+        // for model feedback. Failure here is non-blocking, but log it so
+        // a regression on the telemetry endpoint is debuggable.
         apiClient('/ai/categorize/accept', {
           method: 'POST',
           body: JSON.stringify({ feedItemId: item.id, accountId: item.suggestedAccountId, contactId: item.suggestedContactId, accepted: true, modified: false }),
-        }).catch(() => {});
+        }).catch((err) => {
+          // eslint-disable-next-line no-console
+          console.warn('[BankFeedPage] AI-accept telemetry failed:', err);
+        });
       },
     });
   };
@@ -256,11 +263,15 @@ export function BankFeedPage() {
             </div>
           )}
           <div className="relative flex-1 min-w-[180px] max-w-xs">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
-            <Search className="absolute left-3 bottom-2.5 h-4 w-4 text-gray-400" />
-            <input placeholder="Search name, memo..." value={search}
+            <label htmlFor="bank-feed-search" className="block text-xs font-medium text-gray-500 mb-1">Search</label>
+            <Search aria-hidden="true" className="absolute left-3 bottom-2.5 h-4 w-4 text-gray-400" />
+            <input
+              id="bank-feed-search"
+              placeholder="Search name, memo..."
+              value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm" />
+              className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">From</label>

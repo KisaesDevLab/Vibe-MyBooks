@@ -15,10 +15,16 @@ export function AppShell() {
   return (
     <ChatProvider>
     <div className="flex min-h-screen bg-gray-50">
-      {/* Mobile overlay */}
+      {/* Mobile overlay — clickable backdrop closes the sidebar.
+          Native <button> gives free keyboard support (Enter/Space)
+          plus correct focus-ring behavior so the close action is
+          reachable without a mouse. aria-label communicates intent
+          to screen readers. */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden cursor-default"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -37,10 +43,13 @@ export function AppShell() {
         {/* Mobile header with hamburger */}
         <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 lg:hidden">
           <button
+            type="button"
+            aria-label="Open menu"
+            aria-expanded={sidebarOpen}
             onClick={() => setSidebarOpen(true)}
             className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
           <span className="text-sm font-semibold text-gray-900">Vibe MyBooks</span>
         </div>

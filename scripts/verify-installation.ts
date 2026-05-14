@@ -1,3 +1,6 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
 #!/usr/bin/env node
 /**
  * Diagnostic CLI that prints the full installation integrity state.

@@ -15,6 +15,7 @@ interface SmtpSettings {
   smtpPass: string;
   smtpFrom: string;
   configured: boolean;
+  passwordConfigured?: boolean;
 }
 
 export function EmailSettingsPage() {
@@ -28,6 +29,7 @@ export function EmailSettingsPage() {
 
   const [loading, setLoading] = useState(true);
   const [showSmtpPass, setShowSmtpPass] = useState(false);
+  const [passwordConfigured, setPasswordConfigured] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testError, setTestError] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -41,9 +43,12 @@ export function EmailSettingsPage() {
           smtpHost: data.smtpHost || '',
           smtpPort: String(data.smtpPort || 587),
           smtpUser: data.smtpUser || '',
-          smtpPass: data.smtpPass || '',
+          // GET scrubs the password — never round-trips it back. Leaving
+          // the field blank on save = keep the stored value.
+          smtpPass: '',
           smtpFrom: data.smtpFrom || '',
         });
+        setPasswordConfigured(!!data.passwordConfigured);
       } catch {
         // defaults are fine
       } finally {
@@ -92,7 +97,9 @@ export function EmailSettingsPage() {
           smtpHost: form.smtpHost,
           smtpPort: Number(form.smtpPort),
           smtpUser: form.smtpUser,
-          smtpPass: form.smtpPass,
+          // Omit when blank — backend treats absent smtpPass as
+          // "keep the existing one". Sending '' would wipe it.
+          ...(form.smtpPass ? { smtpPass: form.smtpPass } : {}),
           smtpFrom: form.smtpFrom,
         }),
       });
@@ -147,6 +154,7 @@ export function EmailSettingsPage() {
                 type={showSmtpPass ? 'text' : 'password'}
                 value={form.smtpPass}
                 onChange={set('smtpPass')}
+                placeholder="Leave blank to keep existing password"
                 className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
               <button
@@ -157,6 +165,28 @@ export function EmailSettingsPage() {
                 {showSmtpPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {passwordConfigured && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Clear stored SMTP password?')) return;
+                  await apiClient('/company/smtp', {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                      smtpHost: form.smtpHost,
+                      smtpPort: Number(form.smtpPort),
+                      smtpUser: form.smtpUser,
+                      smtpPass: null,
+                      smtpFrom: form.smtpFrom,
+                    }),
+                  });
+                  setPasswordConfigured(false);
+                }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Clear stored password
+              </button>
+            )}
           </div>
           <Input label="From Address" value={form.smtpFrom} onChange={set('smtpFrom')} type="email" placeholder="noreply@yourcompany.com" />
 

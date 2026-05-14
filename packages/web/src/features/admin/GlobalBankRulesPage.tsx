@@ -99,7 +99,7 @@ export function GlobalBankRulesPage() {
     queryKey: ['admin', 'bank-rule-submissions'],
     queryFn: async () => {
       const res = await apiClient<{ submissions: BankRuleSubmission[] }>('/admin/bank-rule-submissions?status=pending');
-      return res.submissions;
+      return res?.submissions ?? [];
     },
   });
 

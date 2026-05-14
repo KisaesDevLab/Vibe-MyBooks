@@ -34,10 +34,22 @@ export function MagicLinkVerifyPage() {
 
     fetch(`/api/v1/auth/magic-link/verify?token=${encodeURIComponent(token)}`)
       .then(async (res) => {
-        const data = await res.json();
+        // Catch malformed responses (e.g., HTML error page) so the user
+        // sees something useful instead of "unexpected token < in JSON".
+        const data = await res.json().catch(() => null);
         if (!res.ok) {
           setStatus('error');
-          setError(data.error?.message || 'Invalid or expired login link.');
+          setError(
+            data?.error?.message
+              || (res.status === 410 ? 'This login link has expired or already been used.'
+              : res.status >= 500 ? 'Server error while verifying login link. Please try again.'
+              : 'Invalid login link.'),
+          );
+          return;
+        }
+        if (!data) {
+          setStatus('error');
+          setError('Server returned an unexpected response. Please try again.');
           return;
         }
         // Magic link verified — now need 2FA
@@ -48,9 +60,19 @@ export function MagicLinkVerifyPage() {
         setEmailMasked(data.emailMasked);
         setStatus('tfa');
       })
-      .catch(() => {
+      .catch((err) => {
+        // Network failure — distinguish from a server-side error so the
+        // user knows whether to check their connection or wait/retry.
+        // eslint-disable-next-line no-console
+        console.error('[MagicLinkVerifyPage] verify failed:', err);
         setStatus('error');
-        setError('Failed to verify login link.');
+        setError(
+          err instanceof TypeError
+            ? 'Could not reach the server. Check your connection and try again.'
+            : err instanceof Error && err.message
+              ? err.message
+              : 'Failed to verify login link.',
+        );
       });
   }, [token]);
 

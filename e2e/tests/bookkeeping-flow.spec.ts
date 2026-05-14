@@ -1,3 +1,6 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// You may not distribute this software. See LICENSE for terms.
 import { test, expect } from '@playwright/test';
 
 const API = 'http://localhost:3001/api/v1';
@@ -8,7 +11,7 @@ test.describe.serial('Vibe MyBooks E2E Flow', () => {
 
   test('1. Register new account', async ({ request }) => {
     const res = await request.post(`${API}/auth/register`, {
-      data: { email: uniqueEmail, password: 'TestPass123!', displayName: 'E2E User', companyName: 'E2E Corp' },
+      data: { email: uniqueEmail, password: 'Vmb-Qa-Zk9mPx7tQvLp3F-Test', displayName: 'E2E User', companyName: 'E2E Corp' },
     });
     expect(res.ok()).toBeTruthy();
     const body = await res.json();

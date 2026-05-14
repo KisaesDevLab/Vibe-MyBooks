@@ -54,9 +54,14 @@ export function PortalLayout() {
     // 18.1 — register the service worker once when the portal layout
     // first mounts. SW registration only succeeds on HTTPS or
     // localhost; on plain HTTP it throws and we silently ignore.
+    // BASE_URL prefix matters for appliance subpath installs: when the
+    // SPA is mounted at /mybooks/, the SW lives at /mybooks/portal-sw.js
+    // with scope /mybooks/portal/ — hardcoding the root paths breaks
+    // registration on those installs.
     if ('serviceWorker' in navigator) {
+      const base = import.meta.env.BASE_URL;
       navigator.serviceWorker
-        .register('/portal-sw.js', { scope: '/portal/' })
+        .register(`${base}portal-sw.js`, { scope: `${base}portal/` })
         .catch(() => {
           // expected on HTTP origins — not a hard failure
         });
@@ -95,7 +100,21 @@ export function PortalLayout() {
   }, []);
 
   const logout = async () => {
-    await fetch('/api/portal/auth/logout', { method: 'POST', credentials: 'include' });
+    // Best-effort server logout — if it fails we still clear local state
+    // and navigate to login, because trapping the user on an authenticated
+    // page when their session might be invalid is worse than a stranded
+    // server-side session (which will expire on its own). Log so the
+    // failure is debuggable without surfacing it as a user-facing error.
+    try {
+      const res = await fetch('/api/portal/auth/logout', { method: 'POST', credentials: 'include' });
+      if (!res.ok) {
+        // eslint-disable-next-line no-console
+        console.warn(`[PortalLayout] logout returned ${res.status}; clearing local state anyway.`);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[PortalLayout] logout request failed; clearing local state anyway:', err);
+    }
     sessionStorage.removeItem(ME_KEY);
     localStorage.removeItem(ACTIVE_COMPANY_KEY);
     navigate('/portal/login', { replace: true });
@@ -127,18 +146,33 @@ export function PortalLayout() {
           </span>
           <button
             onClick={async () => {
-              await fetch('/api/v1/practice/portal/preview/end', {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${localStorage.getItem('accessToken') ?? ''}`,
-                },
-                body: JSON.stringify({ previewSessionId: me.preview!.previewSessionId }),
-              });
+              // Best-effort cleanup of the server-side preview session. If
+              // it fails we still close/redirect — the preview cookie's
+              // TTL bounds the worst-case exposure, and keeping the staff
+              // user stuck in preview mode is a worse UX failure.
+              try {
+                const res = await fetch('/api/v1/practice/portal/preview/end', {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('accessToken') ?? ''}`,
+                  },
+                  body: JSON.stringify({ previewSessionId: me.preview!.previewSessionId }),
+                });
+                if (!res.ok) {
+                  // eslint-disable-next-line no-console
+                  console.warn(`[PortalLayout] preview/end returned ${res.status}.`);
+                }
+              } catch (err) {
+                // eslint-disable-next-line no-console
+                console.warn('[PortalLayout] preview/end request failed:', err);
+              }
               window.close();
               // If the tab can't close itself (no opener), redirect to admin.
-              window.location.href = '/practice/client-portal';
+              // BASE_URL prefix preserves correctness on appliance subpath
+              // mounts (the SPA at /mybooks/ resolves /mybooks/practice/...).
+              window.location.href = `${import.meta.env.BASE_URL}practice/client-portal`;
             }}
             className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-xs font-semibold"
           >

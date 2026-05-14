@@ -38,7 +38,7 @@ export function FeatureFlagsPage() {
   const queryClient = useQueryClient();
   const [tenantId, setTenantId] = useState<string>('');
 
-  const { data: tenantOptions } = useQuery({
+  const { data: tenantOptions, isError: tenantsError, refetch: refetchTenants } = useQuery({
     queryKey: ['admin', 'tenants-for-flags'],
     queryFn: async () => {
       const res = await apiClient<{ tenants: TenantOption[] }>('/admin/tenants');
@@ -46,7 +46,7 @@ export function FeatureFlagsPage() {
     },
   });
 
-  const { data: flagsResp, isLoading } = useQuery({
+  const { data: flagsResp, isLoading, isError: flagsError, refetch: refetchFlags } = useQuery({
     queryKey: ['admin', 'feature-flags', tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
@@ -76,6 +76,13 @@ export function FeatureFlagsPage() {
         Toggle Practice Management features per tenant. Flags default ON for newly-created tenants and OFF for tenants that existed before the Practice foundation shipped.
       </p>
 
+      {tenantsError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          Failed to load tenant list.
+          <button onClick={() => refetchTenants()} className="ml-2 underline font-medium">Retry</button>
+        </div>
+      )}
+
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="tenant-select">
           Tenant
@@ -94,6 +101,13 @@ export function FeatureFlagsPage() {
       </div>
 
       {tenantId && isLoading && <LoadingSpinner className="py-12" />}
+
+      {tenantId && flagsError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          Failed to load feature flags for this tenant.
+          <button onClick={() => refetchFlags()} className="ml-2 underline font-medium">Retry</button>
+        </div>
+      )}
 
       {tenantId && flagsResp && (
         <div className="space-y-2">

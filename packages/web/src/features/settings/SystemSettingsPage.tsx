@@ -22,7 +22,14 @@ export function SystemSettingsPage() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [showSmtpPass, setShowSmtpPass] = useState(false);
+  // "Configured" flags from the GET endpoints — drive the Clear buttons
+  // next to each credential field without ever round-tripping secrets.
+  const [smtpPasswordConfigured, setSmtpPasswordConfigured] = useState(false);
+  const [hasSmsTwilioAccountSid, setHasSmsTwilioAccountSid] = useState(false);
+  const [hasSmsTwilioAuthToken, setHasSmsTwilioAuthToken] = useState(false);
+  const [hasSmsTextlinkApiKey, setHasSmsTextlinkApiKey] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -38,7 +45,8 @@ export function SystemSettingsPage() {
     smsTextlinkApiKey: '',
     smsTextlinkServiceName: '',
   });
-  const [smsSaveStatus, setSmsSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [smsSaveStatus, setSmsSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [smsSaveError, setSmsSaveError] = useState('');
   const [smsTestPhone, setSmsTestPhone] = useState('');
   const [smsTestResult, setSmsTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
@@ -77,6 +85,12 @@ export function SystemSettingsPage() {
 
   useEffect(() => {
     (async () => {
+      const errors: string[] = [];
+
+      // Each section's load is independent — wrap individually so one
+      // backend hiccup doesn't blank out the whole form. Surface the
+      // failed sections in a banner so the admin knows what they're
+      // editing against (defaults vs. stored values).
       try {
         const res = await fetch('/api/v1/admin/settings', { headers: authHeaders });
         if (res.ok) {
@@ -92,8 +106,15 @@ export function SystemSettingsPage() {
             smtpUser: data.smtpUser || '',
             smtpFrom: data.smtpFrom || '',
           }));
+          setSmtpPasswordConfigured(!!data.smtpPasswordConfigured);
+        } else {
+          errors.push(`SMTP / application settings (HTTP ${res.status})`);
         }
-        // Load backup remote config
+      } catch (err) {
+        errors.push(`SMTP / application settings (${err instanceof Error ? err.message : 'network error'})`);
+      }
+
+      try {
         const backupRes = await fetch('/api/v1/admin/backup/remote-config', { headers: authHeaders });
         if (backupRes.ok) {
           const bd = await backupRes.json();
@@ -117,9 +138,14 @@ export function SystemSettingsPage() {
             oauthFolderId: pc.folder_id || 'root',
             hasAccessToken: !!pc.hasAccessToken,
           }));
+        } else {
+          errors.push(`Backup remote config (HTTP ${backupRes.status})`);
         }
+      } catch (err) {
+        errors.push(`Backup remote config (${err instanceof Error ? err.message : 'network error'})`);
+      }
 
-        // Also load SMS provider config
+      try {
         const tfaRes = await fetch('/api/v1/admin/tfa/config', { headers: authHeaders });
         if (tfaRes.ok) {
           const tfaData = await tfaRes.json();
@@ -127,12 +153,18 @@ export function SystemSettingsPage() {
             ...f,
             smsProvider: tfaData.smsProvider || '',
           }));
+          setHasSmsTwilioAccountSid(!!tfaData.hasSmsTwilioAccountSid);
+          setHasSmsTwilioAuthToken(!!tfaData.hasSmsTwilioAuthToken);
+          setHasSmsTextlinkApiKey(!!tfaData.hasSmsTextlinkApiKey);
+        } else {
+          errors.push(`SMS provider config (HTTP ${tfaRes.status})`);
         }
-      } catch {
-        // defaults are fine
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        errors.push(`SMS provider config (${err instanceof Error ? err.message : 'network error'})`);
       }
+
+      setLoadErrors(errors);
+      setLoading(false);
     })();
   }, []);
 
@@ -144,16 +176,39 @@ export function SystemSettingsPage() {
 
   const handleSaveSms = async () => {
     setSmsSaveStatus('saving');
+    setSmsSaveError('');
     try {
-      await fetch('/api/v1/admin/tfa/config', {
+      // Strip blank credential fields before sending. The GET endpoint
+      // never round-trips secrets (only the provider name), so the form
+      // is empty for credentials on every page load. Sending '' would
+      // hit the service's `if (x !== undefined)` guard and wipe the
+      // stored value. Omit instead = "keep what's saved". Non-secret
+      // fields (smsProvider, smsTwilioFromNumber, smsTextlinkServiceName)
+      // are always sent so they can be cleared.
+      const SECRET_FIELDS = new Set([
+        'smsTwilioAccountSid',
+        'smsTwilioAuthToken',
+        'smsTextlinkApiKey',
+      ]);
+      const payload: Record<string, string> = {};
+      for (const [k, v] of Object.entries(smsForm)) {
+        if (SECRET_FIELDS.has(k) && v === '') continue;
+        payload[k] = v;
+      }
+      const res = await fetch('/api/v1/admin/tfa/config', {
         method: 'PUT',
         headers: authHeaders,
-        body: JSON.stringify(smsForm),
+        body: JSON.stringify(payload),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error?.message || `Failed to save (HTTP ${res.status})`);
+      }
       setSmsSaveStatus('saved');
       setTimeout(() => setSmsSaveStatus('idle'), 3000);
-    } catch {
-      setSmsSaveStatus('idle');
+    } catch (err) {
+      setSmsSaveStatus('error');
+      setSmsSaveError(err instanceof Error ? err.message : 'Failed to save SMS settings');
     }
   };
 
@@ -283,7 +338,10 @@ export function SystemSettingsPage() {
     setSaveStatus('saving');
     setSaveError('');
     try {
-      // Save SMTP settings
+      // Save SMTP settings. Omit smtpPass when blank: the GET endpoint
+      // doesn't return the stored password (so the field is empty on every
+      // page load), and sending '' would overwrite the saved password.
+      // Backend treats absent smtpPass as "no change".
       const smtpRes = await fetch('/api/v1/admin/settings/smtp', {
         method: 'PUT',
         headers: authHeaders,
@@ -291,7 +349,7 @@ export function SystemSettingsPage() {
           smtpHost: form.smtpHost,
           smtpPort: Number(form.smtpPort),
           smtpUser: form.smtpUser,
-          smtpPass: form.smtpPass,
+          ...(form.smtpPass ? { smtpPass: form.smtpPass } : {}),
           smtpFrom: form.smtpFrom,
         }),
       });
@@ -331,6 +389,21 @@ export function SystemSettingsPage() {
       <h1 className="text-2xl font-bold text-gray-900 mb-2">System Settings</h1>
       <p className="text-sm text-gray-500 mb-6">Global settings that apply across all companies.</p>
 
+      {loadErrors.length > 0 && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 max-w-2xl">
+          <p className="font-medium">Some sections couldn't be loaded — you'll be editing against defaults:</p>
+          <ul className="list-disc list-inside mt-1">
+            {loadErrors.map((e) => <li key={e}>{e}</li>)}
+          </ul>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 underline font-medium"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {saveStatus === 'saved' && (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2 max-w-2xl">
           <CheckCircle className="h-4 w-4" /> Settings saved
@@ -363,6 +436,7 @@ export function SystemSettingsPage() {
                 type={showSmtpPass ? 'text' : 'password'}
                 value={form.smtpPass}
                 onChange={set('smtpPass')}
+                placeholder="Leave blank to keep existing password"
                 className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
               <button type="button" onClick={() => setShowSmtpPass(!showSmtpPass)}
@@ -370,6 +444,29 @@ export function SystemSettingsPage() {
                 {showSmtpPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {smtpPasswordConfigured && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Clear stored SMTP password?')) return;
+                  await fetch('/api/v1/admin/settings/smtp', {
+                    method: 'PUT',
+                    headers: authHeaders,
+                    body: JSON.stringify({
+                      smtpHost: form.smtpHost,
+                      smtpPort: Number(form.smtpPort),
+                      smtpUser: form.smtpUser,
+                      smtpPass: null,
+                      smtpFrom: form.smtpFrom,
+                    }),
+                  });
+                  setSmtpPasswordConfigured(false);
+                }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Clear stored password
+              </button>
+            )}
           </div>
           <Input label="From Address" value={form.smtpFrom} onChange={set('smtpFrom')} type="email" placeholder="noreply@example.com" />
 
@@ -420,13 +517,35 @@ export function SystemSettingsPage() {
 
           {smsForm.smsProvider === 'twilio' && (
             <div className="space-y-3 border-t border-gray-100 pt-4">
-              <Input label="Account SID" value={smsForm.smsTwilioAccountSid} onChange={setSms('smsTwilioAccountSid')}
-                placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+              <div className="space-y-1">
+                <Input label="Account SID" value={smsForm.smsTwilioAccountSid} onChange={setSms('smsTwilioAccountSid')}
+                  placeholder="Leave blank to keep existing" />
+                {hasSmsTwilioAccountSid && (
+                  <button type="button" onClick={async () => {
+                    if (!confirm('Clear stored Twilio Account SID?')) return;
+                    await fetch('/api/v1/admin/tfa/config', {
+                      method: 'PUT', headers: authHeaders,
+                      body: JSON.stringify({ smsTwilioAccountSid: null }),
+                    });
+                    setHasSmsTwilioAccountSid(false);
+                  }} className="text-xs text-red-600 hover:underline">Clear stored Account SID</button>
+                )}
+              </div>
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-700">Auth Token</label>
                 <input type="password" value={smsForm.smsTwilioAuthToken} onChange={setSms('smsTwilioAuthToken')}
-                  placeholder="Enter Twilio auth token"
+                  placeholder="Leave blank to keep existing"
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                {hasSmsTwilioAuthToken && (
+                  <button type="button" onClick={async () => {
+                    if (!confirm('Clear stored Twilio Auth Token?')) return;
+                    await fetch('/api/v1/admin/tfa/config', {
+                      method: 'PUT', headers: authHeaders,
+                      body: JSON.stringify({ smsTwilioAuthToken: null }),
+                    });
+                    setHasSmsTwilioAuthToken(false);
+                  }} className="text-xs text-red-600 hover:underline">Clear stored Auth Token</button>
+                )}
               </div>
               <Input label="From Number (E.164)" value={smsForm.smsTwilioFromNumber} onChange={setSms('smsTwilioFromNumber')}
                 placeholder="+1XXXXXXXXXX" />
@@ -438,8 +557,18 @@ export function SystemSettingsPage() {
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-700">API Key</label>
                 <input type="password" value={smsForm.smsTextlinkApiKey} onChange={setSms('smsTextlinkApiKey')}
-                  placeholder="Enter TextLinkSMS API key"
+                  placeholder="Leave blank to keep existing"
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                {hasSmsTextlinkApiKey && (
+                  <button type="button" onClick={async () => {
+                    if (!confirm('Clear stored TextLinkSMS API Key?')) return;
+                    await fetch('/api/v1/admin/tfa/config', {
+                      method: 'PUT', headers: authHeaders,
+                      body: JSON.stringify({ smsTextlinkApiKey: null }),
+                    });
+                    setHasSmsTextlinkApiKey(false);
+                  }} className="text-xs text-red-600 hover:underline">Clear stored API Key</button>
+                )}
               </div>
               <Input label="Service Name" value={smsForm.smsTextlinkServiceName} onChange={setSms('smsTextlinkServiceName')}
                 placeholder="Vibe MyBooks" />
@@ -473,6 +602,9 @@ export function SystemSettingsPage() {
               <span className="flex items-center gap-1 text-sm text-green-600">
                 <CheckCircle className="h-4 w-4" /> Saved
               </span>
+            )}
+            {smsSaveStatus === 'error' && (
+              <span className="text-sm text-red-600">{smsSaveError}</span>
             )}
           </div>
 

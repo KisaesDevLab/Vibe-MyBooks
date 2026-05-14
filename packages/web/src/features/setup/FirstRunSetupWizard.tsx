@@ -410,7 +410,14 @@ export function FirstRunSetupWizard() {
     (async () => {
       try {
         const res = await fetch(`${SETUP_API}/db-defaults`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          // Log so a wizard that can't fetch its DB defaults is debuggable.
+          // The user keeps the useState fallback values — they may need to
+          // edit them by hand, which is the correct degraded behavior.
+          // eslint-disable-next-line no-console
+          console.warn(`[FirstRunSetupWizard] /db-defaults returned ${res.status}; using fallback values.`);
+          return;
+        }
         const data = (await res.json()) as {
           host?: string;
           port?: number;
@@ -434,8 +441,12 @@ export function FirstRunSetupWizard() {
         }));
         setDbDefaultsSource(data.source || 'unknown');
         setDbPasswordAutoDetected(!!data.passwordAutoDetected);
-      } catch {
-        // Ignore — defaults already populated from useState initializer.
+      } catch (err) {
+        // Network/parse failure — defaults already populated from useState
+        // initializer, but log so the failure is visible during install
+        // troubleshooting.
+        // eslint-disable-next-line no-console
+        console.warn('[FirstRunSetupWizard] /db-defaults fetch failed; using fallback values:', err);
       }
 
       // Generate security keys up front so the Review step just shows

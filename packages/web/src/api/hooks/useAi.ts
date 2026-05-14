@@ -328,7 +328,7 @@ export interface TenantConsentStatusDto {
 export function useAiConsentStatus() {
   return useQuery({
     queryKey: ['ai', 'consent'],
-    queryFn: () => apiClient<TenantConsentStatusDto>('/ai/consent'),
+    queryFn: async () => (await apiClient<TenantConsentStatusDto>('/ai/consent')) ?? null,
     staleTime: 60_000,
   });
 }

@@ -85,8 +85,17 @@ export function TfaConfigPage() {
 
   const updateConfig = useMutation({
     mutationFn: (input: typeof form) => apiClient('/admin/tfa/config', { method: 'PUT', body: JSON.stringify(input) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin', 'tfa-config'] }); setSaved(true); setTimeout(() => setSaved(false), 3000); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin', 'tfa-config'] }); setSaved(true); },
   });
+
+  // Clear the "saved" pill 3s after it appears. useEffect-driven so the
+  // cleanup function fires on unmount and we don't setState on a stale
+  // component (the prior in-callback setTimeout had no such guard).
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(false), 3000);
+    return () => clearTimeout(t);
+  }, [saved]);
 
   const toggleMethod = (method: string) => {
     setForm((f) => ({
