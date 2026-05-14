@@ -22,7 +22,7 @@ test.describe.serial('Practice Close Review — API smoke', () => {
     const res = await request.post(`${API}/auth/register`, {
       data: {
         email: uniqueEmail,
-        password: 'Vmb-Qa-Zk9mPx7tQvLp3F-Test',
+        password: 'vibe-mybooks-e2e-test-passphrase-2026',
         displayName: 'Practice E2E',
         companyName: 'Practice E2E Corp',
       },
@@ -117,7 +117,7 @@ test.describe.serial('Practice Bucket 1 — match-actions smoke', () => {
     const reg = await request.post(`${API}/auth/register`, {
       data: {
         email,
-        password: 'Vmb-Qa-Zk9mPx7tQvLp3F-Test',
+        password: 'vibe-mybooks-e2e-test-passphrase-2026',
         displayName: 'Match E2E',
         companyName: 'Match E2E Corp',
       },

@@ -26,7 +26,7 @@ let companyId = '';
 test.describe.serial('AI consent — tenant-side flow', () => {
   test('register a tenant user', async ({ request }) => {
     const res = await request.post(`${API}/auth/register`, {
-      data: { email: uniqueEmail, password: 'Vmb-Qa-Zk9mPx7tQvLp3F-Test', displayName: 'AI E2E', companyName: 'AI E2E Corp' },
+      data: { email: uniqueEmail, password: 'vibe-mybooks-e2e-test-passphrase-2026', displayName: 'AI E2E', companyName: 'AI E2E Corp' },
     });
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
@@ -93,7 +93,7 @@ test.describe.serial('AI consent — tenant-side flow', () => {
     // belongs to the authenticated tenant before proceeding.
     const otherReq = await pwRequest.newContext();
     const otherReg = await otherReq.post(`${API}/auth/register`, {
-      data: { email: `other-${Date.now()}@test.com`, password: 'Vmb-Qa-Zk9mPx7tQvLp3F-Test', displayName: 'Other', companyName: 'Other Co' },
+      data: { email: `other-${Date.now()}@test.com`, password: 'vibe-mybooks-e2e-test-passphrase-2026', displayName: 'Other', companyName: 'Other Co' },
     });
     const otherBody = await otherReg.json();
     const otherToken = otherBody.tokens.accessToken;
