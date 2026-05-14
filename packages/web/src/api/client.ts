@@ -162,5 +162,5 @@ export class ApiError extends Error {
 }
 
 export function isApiError(err: unknown): err is ApiError {
-  return !!err && typeof err === 'object' && (err as any).name === 'ApiError';
+  return !!err && typeof err === 'object' && (err as { name?: unknown }).name === 'ApiError';
 }
