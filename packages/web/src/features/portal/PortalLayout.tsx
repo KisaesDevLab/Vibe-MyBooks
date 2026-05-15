@@ -5,6 +5,7 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
+import { PortalFirmSwitcher, type LinkedContact } from './PortalFirmSwitcher';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 9.5 — portal UI shell.
 // Mobile-first, separate visual identity from the firm app.
@@ -42,6 +43,22 @@ async function fetchPortalMe(): Promise<PortalMe | null> {
   return res.json();
 }
 
+// PORTAL_IDENTITY_LINKING_V1 — returns the list of sibling firm
+// contacts the current identity can switch to. Server returns
+// { contacts: [] } when the session isn't identity-linked or the
+// flag is off; the layout uses that to hide the switcher entirely.
+async function fetchLinkedContacts(): Promise<LinkedContact[]> {
+  const res = await fetch('/api/portal/auth/linked-contacts', { credentials: 'include' });
+  if (res.status === 401) return [];
+  if (!res.ok) {
+    // eslint-disable-next-line no-console
+    console.warn(`[PortalLayout] linked-contacts returned ${res.status}; switcher will stay hidden.`);
+    return [];
+  }
+  const body = (await res.json()) as { contacts?: LinkedContact[] };
+  return body.contacts ?? [];
+}
+
 export function PortalLayout() {
   const navigate = useNavigate();
   const [me, setMe] = useState<PortalMe | null>(null);
@@ -49,6 +66,9 @@ export function PortalLayout() {
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(
     () => localStorage.getItem(ACTIVE_COMPANY_KEY),
   );
+  // PORTAL_IDENTITY_LINKING_V1 — empty when the session is unlinked
+  // or the flag is off. Switcher renders only with >1 entries.
+  const [linkedContacts, setLinkedContacts] = useState<LinkedContact[]>([]);
 
   useEffect(() => {
     // 18.1 — register the service worker once when the portal layout
@@ -67,6 +87,17 @@ export function PortalLayout() {
         });
     }
     let cancelled = false;
+    // Fire /me and /linked-contacts in parallel — they're independent
+    // and the layout doesn't need /linked-contacts to render initial
+    // content (the switcher only shows after both resolve).
+    fetchLinkedContacts()
+      .then((list) => {
+        if (!cancelled) setLinkedContacts(list);
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[PortalLayout] linked-contacts fetch failed:', err);
+      });
     fetchPortalMe()
       .then((data) => {
         if (cancelled) return;
@@ -186,6 +217,12 @@ export function PortalLayout() {
             <span className="font-semibold text-base text-gray-900">Client Portal</span>
           </Link>
           <div className="flex items-center gap-3">
+            {linkedContacts.length > 1 && !me.preview && (
+              <PortalFirmSwitcher
+                linkedContacts={linkedContacts}
+                activeContactId={me.contact.id}
+              />
+            )}
             {me.contact.companies.length > 1 ? (
               <select
                 value={activeCompanyId ?? ''}
