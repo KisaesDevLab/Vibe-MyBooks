@@ -4,7 +4,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getAccessToken, TOKEN_CHANGE_EVENT } from '../api/client';
+import { apiClient, getAccessToken, isApiError, TOKEN_CHANGE_EVENT } from '../api/client';
 import { setActiveCurrency } from '../utils/money';
 
 interface CompanySummary {
@@ -38,32 +38,28 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     if (!token) return;
 
     try {
-      const res = await fetch('/api/v1/company/list', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      // 401/403 from /list almost always means the stored X-Company-Id is
-      // stale (different tenant, DB rebuilt, company deleted). Without
-      // recovery, the sidebar would be stuck on "Select Company" forever
-      // because the reconciliation block below never runs. Drop the local
-      // id so the next render — and any in-flight apiClient calls — stop
-      // sending the bad header. The 401 path may also indicate an expired
-      // token, but apiClient handles refresh elsewhere; clearing here is
-      // still safe (worst case, the next /list call re-populates).
-      if (res.status === 401 || res.status === 403) {
-        if (localStorage.getItem(STORAGE_KEY)) {
-          localStorage.removeItem(STORAGE_KEY);
-          setActiveCompanyIdState(null);
-          queryClient.removeQueries();
-        }
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[CompanyProvider] /company/list returned ${res.status}; cleared stale activeCompanyId.`,
-        );
-        return;
-      }
-      if (!res.ok) return;
-      const data = await res.json();
+      // Route through apiClient (not raw fetch) so this request inherits
+      // the same plumbing every other endpoint uses:
+      //
+      //  - API_BASE prefix — works under subpath deployments (e.g. the
+      //    appliance mounted at `/mb/`). A bare `/api/v1/...` 404s there.
+      //  - Automatic 401 refresh+retry — without this, an expired access
+      //    token caused the raw fetch to 401, the sidebar's
+      //    "Select Company" became sticky for the whole session, and
+      //    apiClient-based calls (dashboard, etc.) silently refreshed
+      //    around it. That divergence is the bug behind every
+      //    intermittent "switcher won't update" report.
+      //  - Structured ApiError on non-2xx, so failure modes are
+      //    surfaced in the console with the server's actual message
+      //    instead of being silently swallowed.
+      //
+      // Important: we deliberately do NOT add this request to the
+      // companyContext middleware's protected set on the server (see
+      // company.routes.ts §`/list registered BEFORE companyContext`),
+      // because /list is what *recovers* from a bad X-Company-Id. The
+      // header is still sent by apiClient, but the server ignores it for
+      // /list.
+      const data = await apiClient<{ companies: CompanySummary[] }>('/company/list');
       const list: CompanySummary[] = data.companies || [];
       setCompanies(list);
 
@@ -90,8 +86,30 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
           setActiveCompanyIdState(null);
         }
       }
-    } catch {
-      // Ignore errors during initial load
+    } catch (err) {
+      // 401/403 from /list almost always means the stored X-Company-Id is
+      // stale (different tenant, DB rebuilt, company deleted, or the
+      // refresh-token flow itself failed and apiClient gave up). Drop the
+      // local id so the next render — and any in-flight apiClient calls —
+      // stop sending the bad header.
+      if (isApiError(err) && (err.status === 401 || err.status === 403)) {
+        if (localStorage.getItem(STORAGE_KEY)) {
+          localStorage.removeItem(STORAGE_KEY);
+          setActiveCompanyIdState(null);
+          queryClient.removeQueries();
+        }
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[CompanyProvider] /company/list returned ${err.status}; cleared stale activeCompanyId.`,
+        );
+        return;
+      }
+      // Network errors, JSON parse failures, 5xx, etc. The previous
+      // version silently swallowed these, which is exactly why the
+      // sidebar's "Select Company" was so hard to diagnose — there was
+      // no signal anywhere that the underlying request had even failed.
+      // eslint-disable-next-line no-console
+      console.error('[CompanyProvider] /company/list failed:', err);
     }
   }, [queryClient]);
 
