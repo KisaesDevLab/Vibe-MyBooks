@@ -33,6 +33,7 @@ import { startCheckScheduler, stopCheckScheduler } from '../../api/src/services/
 import { startPortalRecurringScheduler, stopPortalRecurringScheduler } from '../../api/src/services/portal-recurring-scheduler.service.js';
 import { startPortalReminderScheduler, stopPortalReminderScheduler } from '../../api/src/services/portal-reminder-scheduler.service.js';
 import { startRecurringDocRequestScheduler, stopRecurringDocRequestScheduler } from '../../api/src/services/recurring-doc-request-scheduler.service.js';
+import { startAiRetentionScheduler, stopAiRetentionScheduler } from '../../api/src/services/ai-retention.service.js';
 import { pool } from '../../api/src/db/index.js';
 import { startHeartbeat, closeWorkerHeartbeatClients } from '../../api/src/utils/worker-heartbeat.js';
 import { env } from '../../api/src/config/env.js';
@@ -60,7 +61,8 @@ try {
   startPortalRecurringScheduler();
   startPortalReminderScheduler();
   startRecurringDocRequestScheduler();
-  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, review-checks-scheduler, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler');
+  startAiRetentionScheduler();
+  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, review-checks-scheduler, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler, ai-retention-scheduler');
 
   // Document-extraction BullMQ workers (gated per-appliance). Only started
   // when the feature is enabled so a deployment that doesn't use local
@@ -147,6 +149,7 @@ const shutdown = async (signal: string) => {
   stopPortalRecurringScheduler();
   stopPortalReminderScheduler();
   stopRecurringDocRequestScheduler();
+  stopAiRetentionScheduler();
   const forceExit = setTimeout(() => {
     console.error('[Worker] shutdown deadline exceeded — forcing exit');
     process.exit(1);
