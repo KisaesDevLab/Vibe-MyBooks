@@ -64,6 +64,7 @@ export const aiMocks = () => ({
   useAiStatus: passthroughQuery({ isEnabled: false }),
   useUpdateAiConfig: passthroughMutation,
   useTestAiProvider: passthroughMutation,
+  useTestAiFunction: passthroughMutation,
   useAiCategorize: passthroughMutation,
   useAiBatchCategorize: passthroughMutation,
   useAiOcrReceipt: passthroughMutation,
