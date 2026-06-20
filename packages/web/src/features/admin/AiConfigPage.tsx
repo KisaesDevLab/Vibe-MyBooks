@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import {
   useAiConfig, useUpdateAiConfig, useTestAiProvider, useTestAiFunction,
-  useSystemAiDisclosure, useAcceptSystemAiDisclosure,
+  useSystemAiDisclosure, useAcceptSystemAiDisclosure, useAiPromptTaskTypes,
 } from '../../api/hooks/useAi';
 import type { TaskOption, TaskOptions, AiFunctionKey, TestFunctionResult } from '../../api/hooks/useAi';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -77,7 +77,6 @@ function normalizeTaskOption(opt: TaskOption | undefined): TaskOption | null {
     timeoutMs: opt.timeoutMs ?? null,
     fallbackChain: opt.fallbackChain && opt.fallbackChain.length > 0 ? opt.fallbackChain : null,
     threshold: opt.threshold ?? null,
-    promptOverride: opt.promptOverride && opt.promptOverride.trim() !== '' ? opt.promptOverride : null,
     piiLevel: opt.piiLevel ?? null,
   };
   // Only include boolean overrides when explicitly set (a checkbox the
@@ -668,8 +667,8 @@ export function AiConfigPage() {
         {/* Per-function Task Settings — one collapsible card per AI
             function. Each lets the admin override that function's
             TaskOption (token ceiling, thinking, timeout, temperature,
-            confidence threshold, fallback chain, auto-trigger, enable,
-            prompt). Empty inputs mean "use the built-in default". */}
+            confidence threshold, fallback chain, auto-trigger, enable).
+            Empty inputs mean "use the built-in default". */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-800">Task Settings</h2>
@@ -951,17 +950,6 @@ function TaskSettingsCard({
             </label>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Prompt override</label>
-            <textarea
-              rows={3}
-              value={opt.promptOverride ?? ''}
-              onChange={(e) => patch({ promptOverride: e.target.value === '' ? null : e.target.value })}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono"
-              placeholder="Leave blank to use the default prompt"
-            />
-          </div>
-
           <div className="border-t border-gray-100 pt-3 space-y-2">
             <Button size="sm" variant="secondary" onClick={runTest} loading={testFn.isPending}>
               Test this function
@@ -1157,6 +1145,10 @@ function PromptEditorSection() {
     queryKey: ['ai', 'prompts'],
     queryFn: () => apiClient<{ prompts: AiPromptTemplate[] }>('/ai/admin/prompts'),
   });
+  // Known customizable functions for the taskType dropdown. Falls back to
+  // the prior default ('categorize') when the list hasn't loaded yet.
+  const { data: taskTypesData } = useAiPromptTaskTypes();
+  const taskTypes = taskTypesData?.taskTypes ?? [];
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<AiPromptTemplate | null>(null);
   const [newPrompt, setNewPrompt] = useState(false);
@@ -1173,6 +1165,10 @@ function PromptEditorSection() {
 
   return (
     <div className="space-y-3">
+      <p className="text-xs text-gray-500">
+        Leave a function without a custom prompt to use its built-in default. A saved
+        prompt here overrides the built-in system prompt for that function.
+      </p>
       {prompts.filter((p) => p.isActive).map((p) => (
         <div key={p.id} className="border border-gray-200 rounded-lg p-3">
           <div className="flex items-center justify-between mb-1">
@@ -1188,13 +1184,19 @@ function PromptEditorSection() {
       {(editing || newPrompt) && (
         <div className="border border-primary-200 rounded-lg p-4 bg-primary-50/30 space-y-3">
           {!editing && (
-            <select value={form.taskType} onChange={(e) => setForm((f) => ({ ...f, taskType: e.target.value }))}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-              <option value="categorize">Categorize</option>
-              <option value="ocr_receipt">Receipt OCR</option>
-              <option value="ocr_statement">Statement Parsing</option>
-              <option value="classify_document">Document Classification</option>
-            </select>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Function</label>
+              <select value={form.taskType} onChange={(e) => setForm((f) => ({ ...f, taskType: e.target.value }))}
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                {taskTypes.length === 0 ? (
+                  <option value={form.taskType}>{form.taskType}</option>
+                ) : (
+                  taskTypes.map((t) => (
+                    <option key={t.taskType} value={t.taskType}>{t.label}</option>
+                  ))
+                )}
+              </select>
+            </div>
           )}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">System Prompt</label>

@@ -421,6 +421,27 @@ export function useAiPrompts() {
   });
 }
 
+// The set of AI functions whose built-in system prompt can be overridden
+// via a custom template. Shape from GET /ai/admin/prompts/task-types.
+export interface AiPromptTaskType {
+  taskType: string;
+  label: string;
+}
+
+export interface AiPromptTaskTypesDto {
+  taskTypes: AiPromptTaskType[];
+}
+
+export function useAiPromptTaskTypes() {
+  return useQuery({
+    queryKey: ['ai', 'prompt-task-types'],
+    queryFn: () => apiClient<AiPromptTaskTypesDto>('/ai/admin/prompts/task-types'),
+    // The list is static per build; cache aggressively to avoid refetching
+    // on every open of the prompt editor.
+    staleTime: 5 * 60_000,
+  });
+}
+
 // ─── AI Disclosure / Consent (AI_PII_PROTECTION_ADDENDUM) ────────
 
 export interface SystemDisclosureDto {

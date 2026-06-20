@@ -72,6 +72,7 @@ export const aiMocks = () => ({
   useAiClassify: passthroughMutation,
   useAiUsage: passthroughQuery({ rows: [] }),
   useAiPrompts: passthroughQuery({ prompts: [] }),
+  useAiPromptTaskTypes: passthroughQuery({ taskTypes: [] }),
   useSystemAiDisclosure: passthroughQuery(null),
   useAcceptSystemAiDisclosure: passthroughMutation,
   useAiConsentStatus: passthroughQuery(null),
