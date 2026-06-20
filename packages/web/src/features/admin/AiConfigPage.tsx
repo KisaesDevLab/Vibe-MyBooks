@@ -38,7 +38,6 @@ const PROVIDER_FIELD_DEPS: Array<{ fields: ReadonlyArray<string>; providers: Rea
   { fields: ['openaiApiKey'], providers: ['openai'] },
   { fields: ['geminiApiKey'], providers: ['gemini'] },
   { fields: ['ollamaBaseUrl'], providers: ['ollama'] },
-  { fields: ['glmOcrApiKey', 'glmOcrBaseUrl'], providers: ['glm_ocr_cloud', 'glm_ocr_local'] },
   { fields: ['openaiCompatApiKey', 'openaiCompatBaseUrl', 'openaiCompatModel'], providers: ['openai_compat'] },
 ];
 
@@ -47,8 +46,6 @@ const PROVIDERS = [
   { key: 'openai', label: 'OpenAI (GPT)', models: ['gpt-4o', 'gpt-4o-mini'] },
   { key: 'gemini', label: 'Google (Gemini)', models: ['gemini-2.5-flash', 'gemini-2.5-pro'] },
   { key: 'ollama', label: 'Ollama (Self-Hosted)', models: [] },
-  { key: 'glm_ocr_cloud', label: 'GLM-OCR (Cloud)', models: ['glm-ocr'] },
-  { key: 'glm_ocr_local', label: 'GLM-OCR (Local/Ollama)', models: ['glm-ocr'] },
   // Generic OpenAI-compatible endpoint (Ollama /v1, llama.cpp server, LM
   // Studio, vLLM, or any cloud proxy that speaks the OpenAI chat API).
   // Model name is free-form and configured in the credentials section.
@@ -112,8 +109,6 @@ export function AiConfigPage() {
     openaiApiKey: string;
     geminiApiKey: string;
     ollamaBaseUrl: string;
-    glmOcrApiKey: string;
-    glmOcrBaseUrl: string;
     openaiCompatBaseUrl: string;
     openaiCompatModel: string;
     openaiCompatApiKey: string;
@@ -136,8 +131,6 @@ export function AiConfigPage() {
     openaiApiKey: '',
     geminiApiKey: '',
     ollamaBaseUrl: '',
-    glmOcrApiKey: '',
-    glmOcrBaseUrl: 'http://vibe-glm-ocr:8090',
     openaiCompatBaseUrl: '',
     openaiCompatModel: '',
     openaiCompatApiKey: '',
@@ -171,7 +164,6 @@ export function AiConfigPage() {
         ocrProvider: data.ocrProvider || '',
         ocrModel: data.ocrModel || '',
         ollamaBaseUrl: data.ollamaBaseUrl || '',
-        glmOcrBaseUrl: data.glmOcrBaseUrl || 'http://vibe-glm-ocr:8090',
         openaiCompatBaseUrl: data.openaiCompatBaseUrl || '',
         openaiCompatModel: data.openaiCompatModel || '',
         autoCategorizeOnImport: data.autoCategorizeOnImport,
@@ -217,7 +209,6 @@ export function AiConfigPage() {
   }, [
     form.anthropicApiKey, form.openaiApiKey, form.geminiApiKey,
     form.ollamaBaseUrl,
-    form.glmOcrApiKey, form.glmOcrBaseUrl,
     form.openaiCompatApiKey, form.openaiCompatBaseUrl, form.openaiCompatModel,
   ]);
 
@@ -391,7 +382,7 @@ export function AiConfigPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">PII Protection Level</label>
             <div className="space-y-2">
               {[
-                { key: 'strict', label: 'Strict (recommended)', desc: 'Images never leave your server. All cloud AI calls receive sanitized text only. Requires GLM-OCR or Tesseract for local document processing.' },
+                { key: 'strict', label: 'Strict (recommended)', desc: 'Images never leave your server. All cloud AI calls receive sanitized text only. Requires local OCR (Tesseract) for document processing.' },
                 { key: 'standard', label: 'Standard', desc: 'Sanitized text only, with softer redaction on low-risk documents (receipts).' },
                 { key: 'permissive', label: 'Permissive (use with caution)', desc: 'Cloud vision may be enabled as a fallback when local OCR is insufficient. Requires a separate acknowledgment below.' },
               ].map((opt) => (
@@ -427,16 +418,6 @@ export function AiConfigPage() {
             </label>
           </div>
 
-          {!form.ollamaBaseUrl && !data?.hasGlmOcrKey && !form.glmOcrBaseUrl && (
-            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <AlertTriangle className="h-4 w-4 text-blue-700 mt-0.5 flex-shrink-0" />
-              <div className="text-xs text-blue-900">
-                <p className="font-medium">GLM-OCR (self-hosted) is not configured.</p>
-                <p className="mt-0.5">For best accuracy and privacy on scanned documents, configure GLM-OCR locally. Without it, scanned bank statements fall back to Tesseract (lower accuracy) or block entirely under Strict mode.</p>
-              </div>
-            </div>
-          )}
-
           {/* Per-provider data policy links — required by the addendum
               so the admin can open each provider's policy before
               accepting on behalf of the installation. Self-hosted
@@ -459,14 +440,6 @@ export function AiConfigPage() {
               <li className="flex items-center justify-between gap-3">
                 <span>Ollama (self-hosted)</span>
                 <span className="text-green-700">Data stays on your server</span>
-              </li>
-              <li className="flex items-center justify-between gap-3">
-                <span>GLM-OCR (local)</span>
-                <span className="text-green-700">Data stays on your server</span>
-              </li>
-              <li className="flex items-center justify-between gap-3">
-                <span>GLM-OCR Cloud (Z.AI)</span>
-                <a href="https://z.ai/about" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">Provider site &rarr;</a>
               </li>
             </ul>
           </div>
@@ -535,57 +508,6 @@ export function AiConfigPage() {
               <p className={`text-xs ${testResults['ollama']!.ok ? 'text-green-600' : 'text-red-600'}`}>
                 {testResults['ollama']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
                 {testResults['ollama']!.msg}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 min-w-0">
-                <Input label="GLM-OCR API Key" type="password" value={form.glmOcrApiKey}
-                  onChange={(e) => setForm((f) => ({ ...f, glmOcrApiKey: e.target.value }))}
-                  placeholder={data?.hasGlmOcrKey ? '••••••••••• (configured)' : 'Enter GLM-OCR API Key'} />
-              </div>
-              <div className="pt-5">
-                <Button variant="secondary" size="sm" onClick={() => handleTest('glm_ocr_cloud')}
-                  disabled={!form.glmOcrApiKey && !data?.hasGlmOcrKey}>Test</Button>
-              </div>
-            </div>
-            {data?.hasGlmOcrKey && (
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!confirm('Clear stored GLM-OCR API Key?')) return;
-                  await apiClient('/ai/admin/config', { method: 'PUT', body: JSON.stringify({ glmOcrApiKey: null }) });
-                  queryClient.invalidateQueries({ queryKey: ['ai', 'admin', 'config'] });
-                }}
-                className="text-xs text-red-600 hover:underline"
-              >
-                Clear stored key
-              </button>
-            )}
-            {testResults['glm_ocr_cloud'] && (
-              <p className={`text-xs ${testResults['glm_ocr_cloud']!.ok ? 'text-green-600' : 'text-red-600'}`}>
-                {testResults['glm_ocr_cloud']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
-                {testResults['glm_ocr_cloud']!.msg}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 min-w-0">
-                <Input label="GLM-OCR Base URL (local)" value={form.glmOcrBaseUrl}
-                  onChange={(e) => setForm((f) => ({ ...f, glmOcrBaseUrl: e.target.value }))}
-                  placeholder="http://vibe-glm-ocr:8090" />
-              </div>
-              <div className="pt-5">
-                <Button variant="secondary" size="sm" onClick={() => handleTest('glm_ocr_local')}
-                  disabled={!form.glmOcrBaseUrl && !data?.glmOcrBaseUrl}>Test</Button>
-              </div>
-            </div>
-            {testResults['glm_ocr_local'] && (
-              <p className={`text-xs ${testResults['glm_ocr_local']!.ok ? 'text-green-600' : 'text-red-600'}`}>
-                {testResults['glm_ocr_local']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
-                {testResults['glm_ocr_local']!.msg}
               </p>
             )}
           </div>
@@ -1071,7 +993,7 @@ function PermissiveAckModal({ onCancel, onConfirm }: { onCancel: () => void; onC
           <h2 className="text-lg font-semibold text-gray-900">Enable cloud vision?</h2>
         </div>
         <div className="p-5 text-sm text-gray-700 space-y-3">
-          <p>When enabled, Vibe MyBooks may send document images (receipts, bank statements, invoices) to your configured cloud AI provider when local OCR (GLM-OCR, Tesseract) cannot adequately process them.</p>
+          <p>When enabled, Vibe MyBooks may send document images (receipts, bank statements, invoices) to your configured cloud AI provider when local OCR (Tesseract) cannot adequately process them.</p>
           <p className="text-gray-600">Cloud providers (Anthropic, OpenAI, Google) may process and temporarily store these images per their data policies. Bank statements and tax documents may contain account numbers, names, addresses, and other sensitive information.</p>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />

@@ -67,11 +67,6 @@ export type AiProviderName =
   | 'openai'
   | 'gemini'
   | 'ollama'
-  // GLM-OCR has two flavours: cloud (z.ai hosted) and local (Vibe-GLM-OCR
-  // appliance / llama.cpp server). They're registered as separate
-  // providers on the server and each has its own credentials check.
-  | 'glm_ocr_cloud'
-  | 'glm_ocr_local'
   // Any server that exposes the OpenAI-compatible `/v1/chat/completions`
   // endpoint — Ollama's /v1 interface, llama.cpp's built-in server, LM
   // Studio, vLLM, etc. Configured via openaiCompatBaseUrl /
@@ -105,8 +100,6 @@ export interface AiConfigDto {
   hasOpenaiKey: boolean;
   hasGeminiKey: boolean;
   ollamaBaseUrl: string | null;
-  hasGlmOcrKey: boolean;
-  glmOcrBaseUrl: string | null;
   openaiCompatBaseUrl: string | null;
   openaiCompatModel: string | null;
   hasOpenaiCompatKey: boolean;
@@ -155,8 +148,6 @@ export interface UpdateAiConfigInput {
   openaiApiKey?: string | null;
   geminiApiKey?: string | null;
   ollamaBaseUrl?: string | null;
-  glmOcrApiKey?: string | null;
-  glmOcrBaseUrl?: string | null;
   openaiCompatApiKey?: string | null;
   openaiCompatBaseUrl?: string | null;
   openaiCompatModel?: string | null;
@@ -317,7 +308,7 @@ export interface OcrReceiptResult {
   confidence?: number | null;
   qualityWarnings?: string[];
   /** 'ok' when fields were extracted; 'ocr_only' when only `rawText`
-   *  is available (GLM-OCR ran without a downstream text LLM). The
+   *  is available (OCR ran without a downstream text LLM). The
    *  ReceiptCaptureModal renders `rawText` in a textarea so the user can
    *  still complete the expense manually. */
   status?: 'ok' | 'ocr_only';

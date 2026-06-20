@@ -197,32 +197,6 @@ services:
     mem_limit: ${TS_MEM_LIMIT:-128m}
     logging: *default-logging
 
-  # GLM-OCR sidecar — same shape as the dev compose, gated behind
-  # --profile glm-ocr. Operators activate locally hosted OCR by
-  # bringing this up and pointing the API's GLM-OCR base URL at
-  # http://glm-ocr:8090 in the admin UI. The model cache lives in
-  # /var/lib/vibe/mybooks/glm-ocr-models so an appliance reboot
-  # does not re-download multi-GB GGUF weights.
-  glm-ocr:
-    image: ${GLM_OCR_IMAGE:-ghcr.io/kisaesdevlab/vibe-glm-ocr:latest}
-    pull_policy: missing
-    restart: unless-stopped
-    profiles: ["glm-ocr"]
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://localhost:8090/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      # First boot on a fresh `/var/lib/vibe/mybooks/glm-ocr-models`
-      # volume pulls multi-GB GGUF weights and mmap-loads them —
-      # 60s is too tight. Configurable via GLM_OCR_START_PERIOD.
-      start_period: ${GLM_OCR_START_PERIOD:-180s}
-    mem_limit: ${GLM_OCR_MEM_LIMIT:-4g}
-    mem_reservation: 1g
-    volumes:
-      - /var/lib/vibe/mybooks/glm-ocr-models:/models
-    logging: *default-logging
-
   # Cloudflare Tunnel sidecar — gated behind --profile tunnel. Same
   # customer-owned-token model as the dev compose; never bundles
   # Kisaes credentials. Opt in via `docker compose --profile tunnel up`.

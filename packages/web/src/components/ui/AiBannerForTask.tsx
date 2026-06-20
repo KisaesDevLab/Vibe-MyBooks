@@ -26,7 +26,7 @@ export function AiBannerForTask({ task }: { task: AiTaskKey }) {
       ? status.documentClassificationProvider || status.categorizationProvider
       : status.ocrProvider || status.categorizationProvider;
 
-  const selfHosted = providerName === 'ollama' || providerName === 'glm_ocr_local';
+  const selfHosted = providerName === 'ollama';
 
   return (
     <AiDisclosureBadge
@@ -44,8 +44,6 @@ function labelForProvider(p: string | null | undefined): string | null {
     case 'openai': return 'OpenAI';
     case 'gemini': return 'Gemini';
     case 'ollama': return 'Ollama (local)';
-    case 'glm_ocr_local': return 'GLM-OCR (local)';
-    case 'glm_ocr_cloud': return 'GLM-OCR Cloud';
     default: return p;
   }
 }

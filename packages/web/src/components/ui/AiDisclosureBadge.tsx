@@ -145,7 +145,7 @@ export function AiDisclosureBadge({
           {qualityWarnings && qualityWarnings.length > 0 && (
             <div className="mt-3 text-xs bg-amber-50 border border-amber-200 rounded p-2 text-amber-900">
               {qualityWarnings.includes('tesseract_local_ocr') && (
-                <p>Local Tesseract OCR was used. For better accuracy on scanned documents, ask your administrator to enable GLM-OCR.</p>
+                <p>Local Tesseract OCR was used. For better accuracy on scanned documents, ask your administrator to configure a cloud OCR provider.</p>
               )}
               {qualityWarnings.includes('cloud_vision_used') && (
                 <p>Cloud vision was used because local OCR was insufficient. The raw document image was sent to the cloud provider.</p>

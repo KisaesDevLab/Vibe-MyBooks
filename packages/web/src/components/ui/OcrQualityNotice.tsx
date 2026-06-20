@@ -31,7 +31,7 @@ export function OcrQualityNotice({ warnings }: { warnings: string[] | undefined 
       <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900">
         <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
         <div>
-          Processed with local Tesseract OCR. Some values may be inaccurate — double-check the vendor, amounts, and dates before saving. For better accuracy, ask your administrator to configure GLM-OCR.
+          Processed with local Tesseract OCR. Some values may be inaccurate — double-check the vendor, amounts, and dates before saving. For better accuracy, ask your administrator to configure a cloud OCR provider.
         </div>
       </div>
     );

@@ -26,10 +26,10 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
   const [qualityWarnings, setQualityWarnings] = useState<string[]>([]);
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
-  // Populated only when the GLM-OCR pipeline ran without a downstream
-  // text structurer — we still have OCR'd text but no structured
-  // vendor/total/date. Renders as a read-only textarea so the user can
-  // copy values into the form fields manually.
+  // Populated only when OCR ran without a downstream text structurer —
+  // we still have OCR'd text but no structured vendor/total/date.
+  // Renders as a read-only textarea so the user can copy values into the
+  // form fields manually.
   const [rawOcrText, setRawOcrText] = useState<string | null>(null);
   const [expenseAccountId, setExpenseAccountId] = useState('');
   const [payFromAccountId, setPayFromAccountId] = useState('');
@@ -67,7 +67,7 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
         });
         setOcrConfidence(result.confidence ?? null);
         setQualityWarnings(Array.isArray(result.qualityWarnings) ? result.qualityWarnings : []);
-        // GLM-OCR ran without a text structurer: backend returns
+        // OCR ran without a text structurer: backend returns
         // `status: 'ocr_only'` + raw OCR text. Surface the text so the
         // user can fill the form manually instead of seeing empty fields.
         if (result.status === 'ocr_only' && result.rawText) {
@@ -156,7 +156,7 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
                 </div>
               )}
 
-              {/* GLM-OCR ran but no text LLM is configured to structure
+              {/* OCR ran but no text LLM is configured to structure
                   its output into vendor/date/total. Show the raw OCR
                   text so the user can copy values into the form below. */}
               {rawOcrText && !ocrProcessing && (

@@ -9,7 +9,7 @@
 # - No `db` / `redis` services. The appliance provides them at the
 #   shared `vibe_net` network. DATABASE_URL / REDIS_URL point at the
 #   shared instances via service-name DNS.
-# - No `tailscale` / `cloudflared` / `glm-ocr` sidecars. Those become
+# - No `tailscale` / `cloudflared` sidecars. Those become
 #   appliance-shared services managed by the parent compose.
 # - No published ports. Caddy at the appliance ingress fronts every
 #   service via vibe_net; only Caddy publishes 80/443.
