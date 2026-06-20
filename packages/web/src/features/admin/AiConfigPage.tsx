@@ -6,9 +6,10 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import {
-  useAiConfig, useUpdateAiConfig, useTestAiProvider,
+  useAiConfig, useUpdateAiConfig, useTestAiProvider, useTestAiFunction,
   useSystemAiDisclosure, useAcceptSystemAiDisclosure,
 } from '../../api/hooks/useAi';
+import type { TaskOption, TaskOptions, AiFunctionKey, TestFunctionResult } from '../../api/hooks/useAi';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -53,6 +54,47 @@ const PROVIDERS = [
   // Model name is free-form and configured in the credentials section.
   { key: 'openai_compat', label: 'OpenAI-compatible (custom)', models: [] },
 ];
+
+// The four configurable AI functions ("tasks"). `showThreshold` gates the
+// Confidence threshold control — chat has no confidence concept.
+const TASK_FUNCTIONS: ReadonlyArray<{ key: AiFunctionKey; label: string; showThreshold: boolean }> = [
+  { key: 'categorization', label: 'Categorization', showThreshold: true },
+  { key: 'ocr', label: 'OCR', showThreshold: true },
+  { key: 'document_classification', label: 'Document Classification', showThreshold: true },
+  { key: 'chat', label: 'Chat', showThreshold: false },
+];
+
+// Coerce a per-function override draft into a clean payload: blank/unset
+// numeric and text inputs become `null` (= "use the built-in default")
+// rather than 0 or "". Booleans and selected enums pass through as-is.
+// Returns null for a function with no overrides so it can be dropped.
+function normalizeTaskOption(opt: TaskOption | undefined): TaskOption | null {
+  if (!opt) return null;
+  const normalized: TaskOption = {
+    maxTokens: opt.maxTokens ?? null,
+    temperature: opt.temperature ?? null,
+    thinking: opt.thinking ?? null,
+    timeoutMs: opt.timeoutMs ?? null,
+    fallbackChain: opt.fallbackChain && opt.fallbackChain.length > 0 ? opt.fallbackChain : null,
+    threshold: opt.threshold ?? null,
+    promptOverride: opt.promptOverride && opt.promptOverride.trim() !== '' ? opt.promptOverride : null,
+    piiLevel: opt.piiLevel ?? null,
+  };
+  // Only include boolean overrides when explicitly set (a checkbox the
+  // admin actually toggled) so we don't clobber the default with false.
+  if (opt.enabled !== undefined && opt.enabled !== null) normalized.enabled = opt.enabled;
+  if (opt.autoTrigger !== undefined && opt.autoTrigger !== null) normalized.autoTrigger = opt.autoTrigger;
+  return normalized;
+}
+
+function normalizeTaskOptions(opts: TaskOptions): TaskOptions {
+  const out: TaskOptions = {};
+  for (const fn of TASK_FUNCTIONS) {
+    const n = normalizeTaskOption(opts[fn.key]);
+    if (n) out[fn.key] = n;
+  }
+  return out;
+}
 
 export function AiConfigPage() {
   const queryClient = useQueryClient();
@@ -109,6 +151,9 @@ export function AiConfigPage() {
     cloudVisionEnabled: false,
   });
   const [saved, setSaved] = useState(false);
+  // Per-function ("task") override drafts, keyed by AiFunctionKey. Edited
+  // by the Task Settings section below; merged into the save payload.
+  const [taskOptions, setTaskOptions] = useState<TaskOptions>({});
   const [testResults, setTestResults] = useState<Record<string, TestResult | undefined>>({});
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [showDisclosure, setShowDisclosure] = useState(false);
@@ -138,6 +183,7 @@ export function AiConfigPage() {
         piiProtectionLevel: (data.piiProtectionLevel || 'strict') as PiiLevel,
         cloudVisionEnabled: !!data.cloudVisionEnabled,
       }));
+      setTaskOptions(data.taskOptions || {});
     }
   }, [data]);
 
@@ -181,7 +227,15 @@ export function AiConfigPage() {
   const [selfTestError, setSelfTestError] = useState<string | null>(null);
 
   const doSave = () => {
-    updateConfig.mutate(form as unknown as Parameters<typeof updateConfig.mutate>[0]);
+    // Merge the per-function override drafts into the form payload. The
+    // server deep-merges taskOptions, and each TaskOption field is built
+    // so blank inputs are null/omitted (see normalizeTaskOptions) to
+    // preserve "use the built-in default" semantics.
+    const payload = {
+      ...form,
+      taskOptions: normalizeTaskOptions(taskOptions),
+    };
+    updateConfig.mutate(payload as unknown as Parameters<typeof updateConfig.mutate>[0]);
     setSaved(true);
   };
   const failingProviders = [form.categorizationProvider, form.ocrProvider]
@@ -611,6 +665,28 @@ export function AiConfigPage() {
           ))}
         </div>
 
+        {/* Per-function Task Settings — one collapsible card per AI
+            function. Each lets the admin override that function's
+            TaskOption (token ceiling, thinking, timeout, temperature,
+            confidence threshold, fallback chain, auto-trigger, enable,
+            prompt). Empty inputs mean "use the built-in default". */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">Task Settings</h2>
+            <p className="text-xs text-gray-500 mt-1">Per-function overrides. Leave a field blank to use the built-in default — only changed values are sent.</p>
+          </div>
+          {TASK_FUNCTIONS.map((fn) => (
+            <TaskSettingsCard
+              key={fn.key}
+              fnKey={fn.key}
+              label={fn.label}
+              showThreshold={fn.showThreshold}
+              value={taskOptions[fn.key]}
+              onChange={(next) => setTaskOptions((prev) => ({ ...prev, [fn.key]: next }))}
+            />
+          ))}
+        </div>
+
         {/* Settings */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">Settings</h2>
@@ -713,6 +789,209 @@ export function AiConfigPage() {
           onCancel={() => setPermissiveAckOpen(false)}
           onConfirm={() => { setForm((f) => ({ ...f, cloudVisionEnabled: true })); setPermissiveAckOpen(false); }}
         />
+      )}
+    </div>
+  );
+}
+
+// ─── Per-function Task Settings card ─────────────────────────────
+//
+// One collapsible card per AI function. Edits the function's TaskOption
+// override draft (lifted to AiConfigPage state). Number/text fields use
+// empty-string-as-"unset": the control writes `null` to the draft when
+// cleared, so normalizeTaskOptions sends null (= built-in default) on
+// save. The "Test this function" button runs a real end-to-end
+// completion and renders the actual provider error on failure.
+
+// String<->number helpers so a blank input maps to a null override.
+function numToStr(v: number | null | undefined): string {
+  return v === null || v === undefined ? '' : String(v);
+}
+function strToNum(v: string): number | null {
+  if (v.trim() === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function TaskSettingsCard({
+  fnKey, label, showThreshold, value, onChange,
+}: {
+  fnKey: AiFunctionKey;
+  label: string;
+  showThreshold: boolean;
+  value: TaskOption | undefined;
+  onChange: (next: TaskOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const testFn = useTestAiFunction();
+  const [testResult, setTestResult] = useState<TestFunctionResult | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+
+  const opt: TaskOption = value ?? {};
+  const patch = (changes: Partial<TaskOption>) => onChange({ ...opt, ...changes });
+
+  // Fallback chain is edited as a comma-separated list of provider keys.
+  const fallbackText = (opt.fallbackChain ?? []).join(', ');
+
+  const runTest = async () => {
+    setTestError(null);
+    setTestResult(null);
+    try {
+      const result = await testFn.mutateAsync(fnKey);
+      setTestResult(result);
+    } catch (e) {
+      setTestError(e instanceof Error ? e.message : 'Test failed');
+    }
+  };
+
+  return (
+    <div className="border border-gray-200 rounded-lg">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="text-sm font-medium text-gray-800">{label}</span>
+        <span className="text-xs text-gray-400">{open ? 'Hide' : 'Edit'}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Max tokens"
+              type="number"
+              min="1"
+              value={numToStr(opt.maxTokens)}
+              onChange={(e) => patch({ maxTokens: strToNum(e.target.value) })}
+              placeholder="Default"
+            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Thinking</label>
+              <select
+                value={opt.thinking ?? ''}
+                onChange={(e) => patch({ thinking: e.target.value === '' ? null : (e.target.value as 'on' | 'off') })}
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">Default</option>
+                <option value="on">On</option>
+                <option value="off">Off</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Thinking on/off is applied for self-hosted providers (Ollama uses think=false). For cloud providers it currently has no effect.
+              </p>
+            </div>
+            <Input
+              label="Timeout (ms)"
+              type="number"
+              min="1"
+              value={numToStr(opt.timeoutMs)}
+              onChange={(e) => patch({ timeoutMs: strToNum(e.target.value) })}
+              placeholder="Default 60000"
+            />
+            <Input
+              label="Temperature"
+              type="number"
+              step="0.1"
+              min="0"
+              value={numToStr(opt.temperature)}
+              onChange={(e) => patch({ temperature: strToNum(e.target.value) })}
+              placeholder="Default"
+            />
+            {showThreshold && (
+              <Input
+                label="Confidence threshold"
+                type="number"
+                step="0.05"
+                min="0"
+                max="1"
+                value={numToStr(opt.threshold)}
+                onChange={(e) => patch({ threshold: strToNum(e.target.value) })}
+                placeholder="Default"
+              />
+            )}
+          </div>
+
+          <div>
+            <Input
+              label="Fallback chain (provider keys, comma-separated)"
+              value={fallbackText}
+              onChange={(e) => {
+                const chain = e.target.value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                patch({ fallbackChain: chain.length > 0 ? chain : null });
+              }}
+              placeholder="Leave blank to use the global chain"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Valid keys: {PROVIDERS.map((p) => p.key).join(', ')}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={opt.enabled ?? true}
+                onChange={(e) => patch({ enabled: e.target.checked })}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+              />
+              <span className="text-sm text-gray-700">Enable this function</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={opt.autoTrigger ?? false}
+                onChange={(e) => patch({ autoTrigger: e.target.checked })}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+              />
+              <span className="text-sm text-gray-700">Auto-trigger</span>
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Prompt override</label>
+            <textarea
+              rows={3}
+              value={opt.promptOverride ?? ''}
+              onChange={(e) => patch({ promptOverride: e.target.value === '' ? null : e.target.value })}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono"
+              placeholder="Leave blank to use the default prompt"
+            />
+          </div>
+
+          <div className="border-t border-gray-100 pt-3 space-y-2">
+            <Button size="sm" variant="secondary" onClick={runTest} loading={testFn.isPending}>
+              Test this function
+            </Button>
+            {testResult && (
+              testResult.success ? (
+                <p className="text-xs text-green-600 flex items-start gap-1">
+                  <CheckCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                  <span>
+                    OK{testResult.provider ? ` via ${testResult.provider}` : ''}
+                    {testResult.modelInfo ? ` — ${testResult.modelInfo}` : ''} ({testResult.durationMs}ms)
+                  </span>
+                </p>
+              ) : (
+                <p className="text-xs text-red-600 flex items-start gap-1">
+                  <XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                  <span className="break-words">
+                    {testResult.provider ? `${testResult.provider}: ` : ''}{testResult.error || 'Failed'} ({testResult.durationMs}ms)
+                  </span>
+                </p>
+              )
+            )}
+            {testError && (
+              <p className="text-xs text-red-600 flex items-start gap-1">
+                <XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                <span className="break-words">{testError}</span>
+              </p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -3,8 +3,11 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { TaskOption, TaskOptions, AiFunctionKey } from '@kis-books/shared';
 import { apiClient, isApiError } from '../client';
 import { useToast } from '../../components/ui/Toaster';
+
+export type { TaskOption, TaskOptions, AiFunctionKey };
 
 // Human-readable label per task — used as the lead-in for AI error
 // toasts. Keeps the call sites terse and the toast surface uniform
@@ -120,6 +123,10 @@ export interface AiConfigDto {
   chatDataAccessLevel: ChatDataAccessLevel;
   piiProtectionLevel: PiiProtectionLevel;
   cloudVisionEnabled: boolean;
+  /** Per-function ("task") settings overlay, keyed by AI function.
+   *  Each field is a nullable OVERRIDE — null/absent means "use the
+   *  built-in default". Stored server-side in ai_config.task_options. */
+  taskOptions: TaskOptions;
   adminDisclosureAcceptedAt: string | null;
   adminDisclosureAcceptedBy: string | null;
   disclosureVersion: number;
@@ -161,6 +168,10 @@ export interface UpdateAiConfigInput {
   monthlyBudgetLimit?: number | null;
   piiProtectionLevel?: PiiProtectionLevel;
   cloudVisionEnabled?: boolean;
+  // Per-function overrides; deep-merged server-side. Send only the
+  // changed function/keys. Blank inputs should be sent as null (or
+  // omitted) to preserve "use the built-in default" semantics.
+  taskOptions?: TaskOptions;
 }
 
 export function useAiConfig() {
@@ -245,6 +256,32 @@ export function useTestAiProvider() {
     // invalidate the diagnostics + config queries so the non-admin
     // /settings/ai/diagnostics page and the admin's "Last verified …"
     // line both reflect the fresh result without a manual refresh.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ai', 'config'] });
+      qc.invalidateQueries({ queryKey: ['ai', 'diagnostics'] });
+    },
+  });
+}
+
+// Shape from POST /ai/admin/test-function/:fn — runs a REAL end-to-end
+// completion for the given function (unlike test/:provider which only
+// checks reachability). `error` surfaces the actual per-provider failure
+// detail so the admin can see why a function isn't working.
+export interface TestFunctionResult {
+  success: boolean;
+  provider: string | null;
+  error?: string;
+  modelInfo?: string;
+  durationMs: number;
+}
+
+export function useTestAiFunction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fn: AiFunctionKey) =>
+      apiClient<TestFunctionResult>(`/ai/admin/test-function/${fn}`, { method: 'POST' }),
+    // Mirror useTestAiProvider: the server records the result, so refresh
+    // the config + diagnostics views to reflect the fresh outcome.
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ai', 'config'] });
       qc.invalidateQueries({ queryKey: ['ai', 'diagnostics'] });
