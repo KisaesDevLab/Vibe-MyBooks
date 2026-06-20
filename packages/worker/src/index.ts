@@ -35,9 +35,20 @@ import { startPortalReminderScheduler, stopPortalReminderScheduler } from '../..
 import { startRecurringDocRequestScheduler, stopRecurringDocRequestScheduler } from '../../api/src/services/recurring-doc-request-scheduler.service.js';
 import { pool } from '../../api/src/db/index.js';
 import { startHeartbeat, closeWorkerHeartbeatClients } from '../../api/src/utils/worker-heartbeat.js';
+import { env } from '../../api/src/config/env.js';
+import { startDocRenderWorker } from './processors/doc-render.processor.js';
+import { startDocExtractWorker } from './processors/doc-extract.processor.js';
+import { checkPdftoppmAvailable } from '../../api/src/services/extraction/pdf-render.service.js';
+import { healthCheck as extractionHealthCheck } from '../../api/src/services/extraction/qwen-client.service.js';
+import type { Worker } from 'bullmq';
 
 const startedAt = new Date().toISOString();
 console.log(`[Worker] Vibe MyBooks worker starting at ${startedAt}`);
+
+// Handles for the document-extraction BullMQ workers (when enabled), closed
+// on graceful shutdown so their Redis connections drain cleanly.
+let docRenderWorker: Worker | null = null;
+let docExtractWorker: Worker | null = null;
 
 try {
   startBackupScheduler();
@@ -50,6 +61,23 @@ try {
   startPortalReminderScheduler();
   startRecurringDocRequestScheduler();
   console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, review-checks-scheduler, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler');
+
+  // Document-extraction BullMQ workers (gated per-appliance). Only started
+  // when the feature is enabled so a deployment that doesn't use local
+  // document extraction opens no extra Redis connections.
+  if (env.DOCUMENT_EXTRACTION_V1) {
+    docRenderWorker = startDocRenderWorker();
+    docExtractWorker = startDocExtractWorker();
+    console.log('[Worker] Document-extraction workers registered: doc-render, doc-extract');
+    // Boot-time health probes so a missing poppler / unloaded model is
+    // visible immediately rather than on the first upload. Best-effort.
+    void checkPdftoppmAvailable().then((s) =>
+      console.log(`[Worker] pdftoppm ${s.available ? `available (${s.version ?? 'ok'})` : `UNAVAILABLE: ${s.error ?? 'unknown'}`}`),
+    );
+    void extractionHealthCheck().then((h) =>
+      console.log(`[Worker] extraction model ${h.ok ? `reachable (${h.modelTag})` : `UNREACHABLE: ${h.error ?? 'unknown'}`}`),
+    ).catch(() => undefined);
+  }
 
   // One-shot chunked tag backfill sweep. Runs in the background so
   // worker startup isn't gated on it — the advisory lock ensures no
@@ -107,6 +135,12 @@ const shutdown = async (signal: string) => {
   // (rather than waiting 30s for TTL).
   await redisHeartbeat.stop().catch((err) => console.error('[Worker] redis heartbeat stop error:', err));
   await closeWorkerHeartbeatClients().catch(() => undefined);
+  // Close the document-extraction BullMQ workers first so in-flight jobs
+  // finish and their Redis connections drain before the pool closes.
+  await Promise.all([
+    docRenderWorker?.close().catch((err) => console.error('[Worker] doc-render close error:', err)),
+    docExtractWorker?.close().catch((err) => console.error('[Worker] doc-extract close error:', err)),
+  ]);
   stopCloudflaredAlerter();
   stopBackupVerifier();
   stopCheckScheduler();

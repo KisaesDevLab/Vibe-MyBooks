@@ -25,7 +25,6 @@ vi.mock('../../api/client', async () => {
 import { BankConnectionsPage } from './BankConnectionsPage';
 import { BankFeedPage } from './BankFeedPage';
 import { BankDepositPage } from './BankDepositPage';
-import { BankRulesPage } from './BankRulesPage';
 import { ReconciliationPage } from './ReconciliationPage';
 import { ReconciliationHistoryPage } from './ReconciliationHistoryPage';
 import { StatementUploadPage } from './StatementUploadPage';
@@ -35,7 +34,6 @@ describe('banking pages', () => {
     ['BankConnectionsPage', BankConnectionsPage],
     ['BankFeedPage', BankFeedPage],
     ['BankDepositPage', BankDepositPage],
-    ['BankRulesPage', BankRulesPage],
     ['ReconciliationPage', ReconciliationPage],
     ['ReconciliationHistoryPage', ReconciliationHistoryPage],
     ['StatementUploadPage', StatementUploadPage],

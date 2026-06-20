@@ -14,13 +14,14 @@ interface DepositPayload extends Record<string, unknown> {
   txnDate: string;
   depositToAccountId: string;
   memo: string;
-  lines: Array<{ accountId: string; amount: string; description: string; tagId?: string | null }>;
+  lines: Array<{ accountId: string; amount: string; description: string; tagId?: string | null; contactId?: string | null }>;
   draftAttachmentId?: string;
 }
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
+import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
@@ -36,11 +37,13 @@ interface DepositLine {
   amount: string;
   description: string;
   tagId: string | null;
+  // Per-line payee ("Received From"). Null when none.
+  contactId: string | null;
   userHasTouchedTag: boolean;
 }
 
 function emptyLine(): DepositLine {
-  return { accountId: '', amount: '', description: '', tagId: null, userHasTouchedTag: false };
+  return { accountId: '', amount: '', description: '', tagId: null, contactId: null, userHasTouchedTag: false };
 }
 
 export function DepositForm() {
@@ -76,6 +79,7 @@ export function DepositForm() {
           amount: parseFloat(l.credit).toString(),
           description: l.description || '',
           tagId: l.tagId ?? null,
+          contactId: l.contactId ?? null,
           userHasTouchedTag: l.tagId != null,
         })));
       }
@@ -85,6 +89,9 @@ export function DepositForm() {
 
   const updateLine = (i: number, field: 'accountId' | 'amount' | 'description', value: string) =>
     setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
+
+  const updateLineContact = (i: number, contactId: string) =>
+    setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, contactId: contactId || null } : l));
 
   const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
     setLines((prev) =>
@@ -112,6 +119,7 @@ export function DepositForm() {
         amount: l.amount,
         description: l.description,
         tagId: l.tagId,
+        contactId: l.contactId,
       })),
     };
 
@@ -139,6 +147,7 @@ export function DepositForm() {
           <h2 className="text-sm font-medium text-gray-700 mb-3">Deposit Lines</h2>
           {lines.map((line, i) => (
             <div key={i} className="flex flex-wrap gap-3 mb-2 pb-2 sm:pb-0 border-b sm:border-b-0 border-gray-100 last:border-b-0">
+              <div className="w-full sm:flex-1 sm:min-w-[180px]"><ContactSelector value={line.contactId || ''} onChange={(v) => updateLineContact(i, v)} compact /></div>
               <div className="w-full sm:flex-1 sm:min-w-[216px]"><AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} /></div>
               <div className="w-full sm:w-44"><MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} /></div>
               <div className="w-full sm:flex-1 sm:min-w-[160px]">

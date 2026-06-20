@@ -2,10 +2,10 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import type { TxnType, TxnStatus } from '@kis-books/shared';
-import { useTransactions } from '../../api/hooks/useTransactions';
+import type { TxnType, TxnStatus, BulkUpdateTransactionsInput } from '@kis-books/shared';
+import { useTransactions, useBulkUpdateTransactions } from '../../api/hooks/useTransactions';
 import { useAccounts } from '../../api/hooks/useAccounts';
 import { useContacts } from '../../api/hooks/useContacts';
 import { useTags } from '../../api/hooks/useTags';
@@ -83,6 +83,50 @@ export function TransactionListPage() {
   const [search, setSearch] = useState(urlSearch);
   const [showNewMenu, setShowNewMenu] = useState(false);
   const debouncedSearch = useDebounce(search, 400);
+
+  // Multi-select + bulk-edit state. Selection is a Set of txn ids; the bulk
+  // toolbar appears whenever at least one row is selected.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkCategoryId, setBulkCategoryId] = useState('');
+  const [bulkContactId, setBulkContactId] = useState('');
+  const [bulkTagId, setBulkTagId] = useState('');
+  const bulkUpdate = useBulkUpdateTransactions();
+
+  const toggleSelected = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setBulkCategoryId('');
+    setBulkContactId('');
+    setBulkTagId('');
+    bulkUpdate.reset();
+  };
+  const applyBulk = () => {
+    const input: BulkUpdateTransactionsInput = { txnIds: Array.from(selectedIds) };
+    if (bulkCategoryId) input.setCategoryAccountId = bulkCategoryId;
+    if (bulkContactId) input.setPayeeContactId = bulkContactId;
+    if (bulkTagId) input.setTagId = bulkTagId;
+    if (
+      input.setCategoryAccountId === undefined &&
+      input.setPayeeContactId === undefined &&
+      input.setTagId === undefined
+    ) {
+      return;
+    }
+    bulkUpdate.mutate(input, {
+      onSuccess: () => {
+        setSelectedIds(new Set());
+        setBulkCategoryId('');
+        setBulkContactId('');
+        setBulkTagId('');
+      },
+    });
+  };
 
   const updateParam = (key: string, value: string, opts: { resetOffset?: boolean } = {}) => {
     setSearchParams(
@@ -162,6 +206,21 @@ export function TransactionListPage() {
   if (isError && !data) return <ErrorMessage onRetry={() => refetch()} />;
 
   const txns = data?.data || [];
+
+  // Select-all toggles only the rows on the current page.
+  const allOnPageSelected = txns.length > 0 && txns.every((t) => selectedIds.has(t.id));
+  const toggleAllOnPage = () =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) txns.forEach((t) => next.delete(t.id));
+      else txns.forEach((t) => next.add(t.id));
+      return next;
+    });
+  // Category accounts (P&L) for the bulk "Set Category" dropdown — the same
+  // income/expense set the backend treats as a transaction's category.
+  const categoryAccounts = accountsList.filter((a) =>
+    ['revenue', 'other_revenue', 'cogs', 'expense', 'other_expense'].includes(a.accountType),
+  );
 
   const newTxnOptions = [
     { label: 'Journal Entry', path: '/transactions/new/journal-entry' },
@@ -311,6 +370,59 @@ export function TransactionListPage() {
           </button>
         </div>
       )}
+      {/* Bulk-edit toolbar — visible while rows are selected. */}
+      {selectedIds.size > 0 && (
+        <div className="mb-4 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 flex flex-wrap items-end gap-3">
+          <span className="text-sm font-medium text-primary-900 pb-2">{selectedIds.size} selected</span>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Set Category</label>
+            <select value={bulkCategoryId} onChange={(e) => setBulkCategoryId(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[200px]">
+              <option value="">— No change —</option>
+              {categoryAccounts.map((a) => (
+                <option key={a.id} value={a.id}>{a.accountNumber ? `${a.accountNumber} - ` : ''}{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Set Payee</label>
+            <select value={bulkContactId} onChange={(e) => setBulkContactId(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[200px]">
+              <option value="">— No change —</option>
+              {contactsList.map((c) => (
+                <option key={c.id} value={c.id}>{c.displayName}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Set Tag</label>
+            <select value={bulkTagId} onChange={(e) => setBulkTagId(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[200px]">
+              <option value="">— No change —</option>
+              {tagsList.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+          <Button size="sm" onClick={applyBulk} loading={bulkUpdate.isPending}
+            disabled={!bulkCategoryId && !bulkContactId && !bulkTagId}>Apply</Button>
+          <button onClick={clearSelection} className="text-sm text-gray-500 hover:text-gray-700 pb-2">Clear</button>
+          {bulkUpdate.error && <span className="text-sm text-red-600 pb-2">{bulkUpdate.error.message}</span>}
+        </div>
+      )}
+      {bulkUpdate.isSuccess && bulkUpdate.data && (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800 flex items-center justify-between">
+          <span>
+            Updated {bulkUpdate.data.updated} transaction{bulkUpdate.data.updated === 1 ? '' : 's'}.
+            {bulkUpdate.data.skipped.length > 0
+              ? ` ${bulkUpdate.data.skipped.length} skipped (splits, void, locked, or reconciled).`
+              : ''}
+          </span>
+          <button onClick={() => bulkUpdate.reset()} className="text-green-600 hover:text-green-900">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       {txns.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-500">
           No transactions found.{hasFilters ? ' Try adjusting your filters.' : ' Create your first transaction.'}
@@ -320,11 +432,16 @@ export function TransactionListPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 w-8">
+                  <input type="checkbox" checked={allOnPageSelected} onChange={toggleAllOnPage}
+                    aria-label="Select all on page" className="rounded border-gray-300" />
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">No.</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payee / Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Memo</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tag</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -334,6 +451,10 @@ export function TransactionListPage() {
               {txns.map((txn) => (
                 <tr key={txn.id} className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => navigate(`/transactions/${txn.id}`, { state: { returnTo } })}>
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedIds.has(txn.id)} onChange={() => toggleSelected(txn.id)}
+                      aria-label="Select transaction" className="rounded border-gray-300" />
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{txn.txnDate}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                     {txnTypeLabels[txn.txnType] || txn.txnType}
@@ -344,6 +465,16 @@ export function TransactionListPage() {
                   <td className="px-4 py-3 text-sm text-gray-500">{txn.txnNumber || '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-900">{txn.contactName || '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 truncate max-w-[200px]">{txn.memo || '—'}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {(() => {
+                      // The transaction's category = its P&L account(s). One →
+                      // show it; multiple → "— Split —"; none → "—".
+                      const cats = (txn as { lineCategories?: string[] | null }).lineCategories ?? null;
+                      if (!cats || cats.length === 0) return <span className="text-gray-300">—</span>;
+                      if (cats.length === 1) return <span className="text-gray-900">{cats[0]}</span>;
+                      return <span title={cats.join(', ')} className="text-gray-500 cursor-help">— Split —</span>;
+                    })()}
+                  </td>
                   <td className="px-4 py-3 text-sm">
                     {(() => {
                       // ADR 0XX §4.1 rendering: single pill when uniform,

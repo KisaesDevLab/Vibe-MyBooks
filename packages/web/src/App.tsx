@@ -136,7 +136,6 @@ const BankConnectionsPage = lazyNamed(() => import('./features/banking/BankConne
 const BankFeedPage = lazyNamed(() => import('./features/banking/BankFeedPage'), 'BankFeedPage');
 const ReconciliationPage = lazyNamed(() => import('./features/banking/ReconciliationPage'), 'ReconciliationPage');
 const ReconciliationHistoryPage = lazyNamed(() => import('./features/banking/ReconciliationHistoryPage'), 'ReconciliationHistoryPage');
-const BankRulesPage = lazyNamed(() => import('./features/banking/BankRulesPage'), 'BankRulesPage');
 const BankDepositPage = lazyNamed(() => import('./features/banking/BankDepositPage'), 'BankDepositPage');
 const StatementUploadPage = lazyNamed(() => import('./features/banking/StatementUploadPage'), 'StatementUploadPage');
 
@@ -175,7 +174,6 @@ const AdminDashboard = lazyNamed(() => import('./features/admin/AdminDashboard')
 const TenantListPage = lazyNamed(() => import('./features/admin/TenantListPage'), 'TenantListPage');
 const TenantDetailPage = lazyNamed(() => import('./features/admin/TenantDetailPage'), 'TenantDetailPage');
 const UserListPage = lazyNamed(() => import('./features/admin/UserListPage'), 'UserListPage');
-const GlobalBankRulesPage = lazyNamed(() => import('./features/admin/GlobalBankRulesPage'), 'GlobalBankRulesPage');
 const TfaConfigPage = lazyNamed(() => import('./features/admin/TfaConfigPage'), 'TfaConfigPage');
 // Bulk import lives under /imports (not /admin/import) because it's
 // a staff-write feature, not a super-admin one. Keeping the file
@@ -313,7 +311,6 @@ export function App() {
             <Route path="/admin/tenants/:id" element={<AdminRoute><TenantDetailPage /></AdminRoute>} />
             <Route path="/admin/users" element={<AdminRoute><UserListPage /></AdminRoute>} />
             <Route path="/admin/system" element={<AdminRoute><SystemSettingsPage /></AdminRoute>} />
-            <Route path="/admin/bank-rules" element={<AdminRoute><GlobalBankRulesPage /></AdminRoute>} />
             <Route path="/admin/coa-templates" element={<AdminRoute><CoaTemplatesPage /></AdminRoute>} />
             <Route path="/" element={<DashboardPage />} />
             <Route path="/accounts" element={<AccountsListPage />} />
@@ -344,7 +341,7 @@ export function App() {
             <Route path="/banking/statement-upload" element={<StatementUploadPage />} />
             <Route path="/banking/reconcile" element={<ReconciliationPage />} />
             <Route path="/banking/reconciliation-history" element={<ReconciliationHistoryPage />} />
-            <Route path="/banking/rules" element={<BankRulesPage />} />
+            <Route path="/banking/rules" element={<Navigate to="/practice/rules" replace />} />
             <Route path="/duplicates" element={<DuplicateReviewPage />} />
             <Route path="/items" element={<ItemsListPage />} />
             <Route path="/receive-payment" element={<ReceivePaymentPage />} />

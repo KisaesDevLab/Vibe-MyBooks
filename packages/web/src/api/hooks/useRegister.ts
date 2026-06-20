@@ -15,6 +15,8 @@ export interface RegisterLine {
   contactId: string | null;
   accountName: string | null;
   accountId: string | null;
+  categoryName: string | null;
+  categoryAccountId: string | null;
   memo: string | null;
   payment: number | null;
   deposit: number | null;

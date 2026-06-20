@@ -345,4 +345,5 @@ export const transactionsMocks = () => ({
   useUpdateTransaction: passthroughMutation,
   useVoidTransaction: passthroughMutation,
   useDuplicateTransaction: passthroughMutation,
+  useBulkUpdateTransactions: passthroughMutation,
 });

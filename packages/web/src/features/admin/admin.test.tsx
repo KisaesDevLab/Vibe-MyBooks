@@ -39,7 +39,6 @@ import { AdminDashboard } from './AdminDashboard';
 import { TenantListPage } from './TenantListPage';
 import { TenantDetailPage } from './TenantDetailPage';
 import { UserListPage } from './UserListPage';
-import { GlobalBankRulesPage } from './GlobalBankRulesPage';
 import { TfaConfigPage } from './TfaConfigPage';
 import { InstallationSecurityPage } from './InstallationSecurityPage';
 import { PlaidConfigPage } from './PlaidConfigPage';
@@ -55,7 +54,6 @@ describe('admin pages', () => {
     ['TenantListPage', TenantListPage, '/admin/tenants', '/admin/tenants'],
     ['TenantDetailPage', TenantDetailPage, '/admin/tenants/t1', '/admin/tenants/:id'],
     ['UserListPage', UserListPage, '/admin/users', '/admin/users'],
-    ['GlobalBankRulesPage', GlobalBankRulesPage, '/admin/bank-rules', '/admin/bank-rules'],
     ['TfaConfigPage', TfaConfigPage, '/admin/tfa', '/admin/tfa'],
     ['InstallationSecurityPage', InstallationSecurityPage, '/admin/security', '/admin/security'],
     ['PlaidConfigPage', PlaidConfigPage, '/admin/plaid', '/admin/plaid'],

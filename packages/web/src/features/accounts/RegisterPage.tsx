@@ -95,12 +95,12 @@ export function RegisterPage() {
     doc.setTextColor(0);
 
     // Table data
-    const tableHead = [['Date', 'Type', 'Payee', 'Account', 'Memo', paymentLabel, depositLabel, 'Balance']];
+    const tableHead = [['Date', 'Type', 'Payee', 'Category', 'Memo', paymentLabel, depositLabel, 'Balance']];
     const tableBody = lines.map((l) => [
       l.txnDate,
       `${txnTypeLabels[l.txnType] || l.txnType}${l.txnNumber ? ' #' + l.txnNumber : ''}${l.status === 'void' ? ' VOID' : ''}`,
       l.payeeName || '',
-      l.accountName || '',
+      l.categoryName || '',
       l.memo || '',
       l.payment ? fmt(l.payment) : '',
       l.deposit ? fmt(l.deposit) : '',
@@ -256,7 +256,7 @@ export function RegisterPage() {
                 Type {sortBy === 'type' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
               <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-56">Payee</th>
-              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-56">Account</th>
+              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-56">Category</th>
               <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-64">Memo</th>
               <th className="px-2 py-2 text-right font-medium text-gray-500 uppercase w-24" onClick={() => toggleSort('amount')}>
                 {paymentLabel} {sortBy === 'amount' && (sortDir === 'asc' ? '↑' : '↓')}
@@ -290,7 +290,7 @@ export function RegisterPage() {
                   {line.status === 'void' && <span className="ml-1 text-xs text-red-500 font-medium">VOID</span>}
                 </td>
                 <td className="px-2 py-1 text-gray-700 truncate max-w-[220px]" title={line.payeeName || ''}>{line.payeeName || ''}</td>
-                <td className="px-2 py-1 text-gray-500 truncate max-w-[220px]" title={line.accountName || ''}>{line.accountName || ''}</td>
+                <td className="px-2 py-1 text-gray-500 truncate max-w-[220px]" title={line.categoryName || ''}>{line.categoryName || '—'}</td>
                 <td className="px-2 py-1 text-gray-500 truncate max-w-[260px]" title={line.memo || ''}>{line.memo || ''}</td>
                 <td className="px-2 py-1 text-right font-mono text-gray-700">{line.payment ? fmt(line.payment) : ''}</td>
                 <td className="px-2 py-1 text-right font-mono text-gray-700">{line.deposit ? fmt(line.deposit) : ''}</td>

@@ -3,12 +3,13 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useState, useEffect, type FormEvent } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { CheckCircle, Loader2, Eye, EyeOff, Info, Smartphone, Cloud, HardDrive } from 'lucide-react';
 
 export function SystemSettingsPage() {
+  const queryClient = useQueryClient();
   const [form, setForm] = useState({
     backupSchedule: 'none',
     applicationUrl: window.location.origin,
@@ -367,6 +368,11 @@ export function SystemSettingsPage() {
         }),
       });
       if (!appRes.ok) throw new Error('Failed to save application settings');
+
+      // The sidebar reads the app name from the ['me'] query's branding
+      // (staleTime 5m). Invalidate it so the new name shows immediately
+      // instead of looking unsaved until the cache goes stale.
+      queryClient.invalidateQueries({ queryKey: ['me'] });
 
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 3000);

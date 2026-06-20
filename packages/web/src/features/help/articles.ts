@@ -511,16 +511,16 @@ Reconciliation ensures your books match your bank statement.
   },
   {
     id: 'bank-rules',
-    title: 'Setting Up Bank Rules',
+    title: 'Automating Categorization with Rules',
     category: 'Banking',
     summary: 'Automate transaction categorization with rules that match bank feed descriptions.',
     body: `
-## Setting Up Bank Rules
+## Automating Categorization with Rules
 
-Bank rules automatically categorize transactions imported from your bank, saving time on repetitive data entry.
+Rules automatically categorize transactions imported from your bank, saving time on repetitive data entry. Rule authoring now lives under **Practice > Rules**.
 
 ### Creating a Rule
-1. Go to **Bank Rules** in the sidebar
+1. Go to **Practice > Rules**
 2. Click **Add Rule**
 3. Set the **conditions** — match on description, amount, or both
 4. Set the **actions** — assign a category (account), contact, memo, and/or tags
@@ -2023,7 +2023,7 @@ Raw bank descriptions are automatically cleaned to readable names.
 5. **Basic cleaning** — strips bank prefixes, phone numbers, reference codes, URLs, business suffixes, and duplicate words
 
 ### Improving Results
-Create bank rules at **Banking > Bank Rules**:
+Create rules at **Practice > Rules**:
 - Set **Description Contains** to a keyword in the raw bank text
 - Set **Contact Name** to the clean name you want
 

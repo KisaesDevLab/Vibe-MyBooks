@@ -3,7 +3,10 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Transaction, TransactionFilters } from '@kis-books/shared';
+import type {
+  Transaction, TransactionFilters,
+  BulkUpdateTransactionsInput, BulkUpdateTransactionsResult,
+} from '@kis-books/shared';
 import { apiClient } from '../client';
 
 export function useTransactions(filters?: TransactionFilters) {
@@ -12,6 +15,9 @@ export function useTransactions(filters?: TransactionFilters) {
   if (filters?.status) params.set('status', filters.status);
   if (filters?.contactId) params.set('contactId', filters.contactId);
   if (filters?.accountId) params.set('accountId', filters.accountId);
+  // Backend supports a header-level tag filter (any line carries the tag);
+  // it was previously dropped here so the Tag dropdown did nothing.
+  if (filters?.tagId) params.set('tagId', filters.tagId);
   if (filters?.source) params.set('source', filters.source);
   if (filters?.startDate) params.set('startDate', filters.startDate);
   if (filters?.endDate) params.set('endDate', filters.endDate);
@@ -85,5 +91,21 @@ export function useDuplicateTransaction() {
     mutationFn: (id: string) =>
       apiClient(`/transactions/${id}/duplicate`, { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+  });
+}
+
+export function useBulkUpdateTransactions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: BulkUpdateTransactionsInput) =>
+      apiClient<BulkUpdateTransactionsResult>('/transactions/bulk-update', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      // Category moves change denormalised account balances; invalidate both.
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
   });
 }

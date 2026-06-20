@@ -37,6 +37,7 @@ export function useBankFeed(filters?: BankFeedFilters) {
   if (filters?.startDate) params.set('startDate', filters.startDate);
   if (filters?.endDate) params.set('endDate', filters.endDate);
   if (filters?.search) params.set('search', filters.search);
+  if (filters?.actionableOnly) params.set('actionableOnly', 'true');
   if (filters?.limit) params.set('limit', String(filters.limit));
   const qs = params.toString();
   return useQuery({

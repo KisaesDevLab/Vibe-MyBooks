@@ -28,6 +28,7 @@ import {
   Download,
 } from 'lucide-react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { apiClient, API_BASE, getAccessToken } from '../../../api/client';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import { ThemeEditor } from './ThemeEditor';
 import { FormulaBuilder } from './FormulaBuilder';
@@ -58,30 +59,12 @@ interface Instance {
   pdfUrl: string | null;
 }
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('accessToken');
-  const headers: Record<string, string> = {
-    ...(init?.headers as Record<string, string> | undefined),
-    Authorization: `Bearer ${token ?? ''}`,
-  };
-  // Only set Content-Type when there's a body — keeps GET/DELETE clean
-  // and lets the server distinguish "no body" from "empty JSON body."
-  if (init?.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-  }
-  const res = await fetch(`/api/v1${path}`, { ...init, headers });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = (await res.json()) as { error?: { message?: string } };
-      if (body?.error?.message) detail = body.error.message;
-    } catch {
-      // non-JSON response — fall back to status code
-    }
-    throw new Error(detail);
-  }
-  return res.json();
-}
+// Route all this page's JSON calls through the shared api client so they
+// get credentials, the active-company header, and 401 -> refresh -> retry.
+// `apiClient` takes a path relative to /api/v1 and throws an `ApiError`
+// (which extends Error) on non-2xx, so the `e instanceof Error` checks
+// below continue to surface the server's message.
+const api = apiClient;
 
 export function ReportBuilderPage() {
   const { companies, activeCompanyId } = useCompanyContext();
@@ -161,9 +144,13 @@ export function ReportBuilderPage() {
       setError('No PDF on file. Re-publish to generate one.');
       return;
     }
-    const token = localStorage.getItem('accessToken');
-    const res = await fetch(`/api/v1/practice/reports/instances/${i.id}/download`, {
-      headers: { Authorization: `Bearer ${token ?? ''}` },
+    // Binary download — can't go through apiClient (it parses JSON), but we
+    // still build the URL off API_BASE and send credentials so it works in
+    // subpath installs and behind the auth cookie.
+    const token = getAccessToken();
+    const res = await fetch(`${API_BASE}/practice/reports/instances/${i.id}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
     });
     if (!res.ok) {
       setError(`Download failed (${res.status}).`);

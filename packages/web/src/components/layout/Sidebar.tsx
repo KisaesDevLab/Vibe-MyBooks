@@ -73,7 +73,6 @@ const adminNavItems: NavItem[] = [
   { to: '/admin', label: 'Admin Dashboard', icon: ShieldCheck },
   { to: '/admin/tenants', label: 'Tenants', icon: Building2 },
   { to: '/admin/users', label: 'Users', icon: UsersRound },
-  { to: '/admin/bank-rules', label: 'Global Bank Rules', icon: Shield },
   { to: '/admin/coa-templates', label: 'COA Templates', icon: BookOpen },
   { to: '/admin/tfa', label: 'Two-Factor Auth', icon: Shield },
   { to: '/admin/security', label: 'Installation Security', icon: Shield },
@@ -144,7 +143,6 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/banking', label: 'Banking', icon: Landmark },
       { to: '/banking/statement-upload', label: 'Import Statement', icon: FileText },
-      { to: '/banking/rules', label: 'Bank Rules', icon: Shield },
       { to: '/banking/deposit', label: 'Bank Deposit', icon: PiggyBank },
     ],
   },

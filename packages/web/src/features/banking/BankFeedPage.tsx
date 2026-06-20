@@ -49,7 +49,7 @@ interface EditState {
   contactId: string;
 }
 
-type SortKey = 'feedDate' | 'description' | 'status' | 'amount';
+type SortKey = 'feedDate' | 'description' | 'category' | 'status' | 'amount';
 type SortDir = 'asc' | 'desc';
 
 function SortHeader({ label, sortKey, currentSort, currentDir, onSort, align }: {
@@ -84,6 +84,7 @@ export function BankFeedPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [connectionFilter, setConnectionFilter] = useState('');
+  const [actionableOnly, setActionableOnly] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('feedDate');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [matchModalFor, setMatchModalFor] = useState<string | null>(null);
@@ -97,6 +98,7 @@ export function BankFeedPage() {
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     search: debouncedSearch || undefined,
+    actionableOnly: actionableOnly || undefined,
     limit: 200,
   });
   const { data: connectionsData } = useBankConnections();
@@ -133,6 +135,7 @@ export function BankFeedPage() {
       switch (sortKey) {
         case 'feedDate': cmp = a.feedDate.localeCompare(b.feedDate); break;
         case 'description': cmp = (a.description || '').localeCompare(b.description || ''); break;
+        case 'category': cmp = (a.suggestedAccountName || '').localeCompare(b.suggestedAccountName || ''); break;
         case 'status': cmp = (a.status || '').localeCompare(b.status || ''); break;
         case 'amount': cmp = parseFloat(a.amount) - parseFloat(b.amount); break;
       }
@@ -217,7 +220,7 @@ export function BankFeedPage() {
   const pendingWithoutSuggestion = items.filter((i) => i.status === 'pending' && !i.suggestedAccountId).length;
   const pendingCount = items.filter((i) => i.status === 'pending').length;
   const connections = connectionsData?.connections || [];
-  const hasFilters = search || startDate || endDate || connectionFilter;
+  const hasFilters = search || startDate || endDate || connectionFilter || actionableOnly;
 
   return (
     <div>
@@ -291,8 +294,14 @@ export function BankFeedPage() {
               </button>
             ))}
           </div>
+          <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer select-none pb-2">
+            <input type="checkbox" checked={actionableOnly}
+              onChange={(e) => setActionableOnly(e.target.checked)}
+              className="rounded border-gray-300 text-primary-600 h-[15px] w-[15px]" />
+            Hide processed
+          </label>
           {hasFilters && (
-            <button onClick={() => { setSearch(''); setStartDate(''); setEndDate(''); setConnectionFilter(''); }}
+            <button onClick={() => { setSearch(''); setStartDate(''); setEndDate(''); setConnectionFilter(''); setActionableOnly(false); }}
               className="text-xs text-gray-500 hover:text-gray-700 pb-2">Clear</button>
           )}
           {isFetching && <span className="text-xs text-gray-400 pb-2.5">Loading...</span>}
@@ -378,8 +387,9 @@ export function BankFeedPage() {
                 </th>
                 <SortHeader label="Date" sortKey="feedDate" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Name" sortKey="description" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                <SortHeader label="Category" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                <SortHeader label="Category" sortKey="category" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Amount" sortKey="amount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} align="text-right" />
+                <SortHeader label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
@@ -446,13 +456,16 @@ export function BankFeedPage() {
                           <PayrollOverlapBanner feedItemId={item.id} />
                         </div>
                       ) : (
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[item.status] || ''}`}>
-                          {item.status}
-                        </span>
+                        <span className="text-gray-900">{item.suggestedAccountName || '—'}</span>
                       )}
                     </td>
                     <td className={`px-3 py-3 text-sm text-right font-mono font-medium whitespace-nowrap ${amt > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {amt > 0 ? '-' : '+'}${Math.abs(amt).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-3 text-sm">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[item.status] || ''}`}>
+                        {item.status}
+                      </span>
                     </td>
                     <td className="px-3 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
