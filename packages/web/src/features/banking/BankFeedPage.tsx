@@ -426,12 +426,22 @@ export function BankFeedPage() {
                             className="block w-full rounded border border-gray-300 px-2 py-1 text-sm" placeholder="Name" />
                           <ContactSelector value={editState.contactId}
                             onChange={(v) => setEditState((s) => ({ ...s, contactId: v }))} />
+                          {item.payeeNameOnCheck && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                              Payee from check{item.checkNumber ? ` #${item.checkNumber}` : ''}: {item.payeeNameOnCheck}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <div>
                           <p className="text-gray-900 font-medium">{item.description || '—'}</p>
                           {item.originalDescription && item.originalDescription !== item.description && (
                             <p className="text-xs text-gray-400 truncate max-w-[300px]" title={item.originalDescription}>{item.originalDescription}</p>
+                          )}
+                          {item.payeeNameOnCheck && (
+                            <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                              Payee from check{item.checkNumber ? ` #${item.checkNumber}` : ''}: {item.payeeNameOnCheck}
+                            </span>
                           )}
                           {item.suggestedAccountId && item.status === 'pending' && (
                             <p className="text-xs text-primary-600 flex items-center gap-0.5 mt-0.5">

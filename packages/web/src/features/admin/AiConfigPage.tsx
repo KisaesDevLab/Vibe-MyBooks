@@ -41,15 +41,19 @@ const PROVIDER_FIELD_DEPS: Array<{ fields: ReadonlyArray<string>; providers: Rea
   { fields: ['openaiCompatApiKey', 'openaiCompatBaseUrl', 'openaiCompatModel'], providers: ['openai_compat'] },
 ];
 
+// Suggested self-hosted model tags. MiniCPM-V 4.5 is the default
+// image-OCR model; listed first so it's the leading datalist suggestion.
+const OLLAMA_MODEL_SUGGESTIONS = ['minicpm-v4.5:latest', 'qwen3.5:35b-a3b', 'llama3.2'];
+
 const PROVIDERS = [
   { key: 'anthropic', label: 'Anthropic (Claude)', models: ['claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001'] },
   { key: 'openai', label: 'OpenAI (GPT)', models: ['gpt-4o', 'gpt-4o-mini'] },
   { key: 'gemini', label: 'Google (Gemini)', models: ['gemini-2.5-flash', 'gemini-2.5-pro'] },
-  { key: 'ollama', label: 'Ollama (Self-Hosted)', models: [] },
+  { key: 'ollama', label: 'Ollama (Self-Hosted)', models: OLLAMA_MODEL_SUGGESTIONS },
   // Generic OpenAI-compatible endpoint (Ollama /v1, llama.cpp server, LM
   // Studio, vLLM, or any cloud proxy that speaks the OpenAI chat API).
   // Model name is free-form and configured in the credentials section.
-  { key: 'openai_compat', label: 'OpenAI-compatible (custom)', models: [] },
+  { key: 'openai_compat', label: 'OpenAI-compatible (custom)', models: OLLAMA_MODEL_SUGGESTIONS },
 ];
 
 // The four configurable AI functions ("tasks"). `showThreshold` gates the
@@ -561,7 +565,11 @@ export function AiConfigPage() {
             </div>
             <Input label="OpenAI-compat Model" value={form.openaiCompatModel}
               onChange={(e) => setForm((f) => ({ ...f, openaiCompatModel: e.target.value }))}
-              placeholder="e.g. llama3.2, mistral, gpt-oss" />
+              list="openai-compat-model-suggestions"
+              placeholder="e.g. minicpm-v4.5:latest, qwen3.5:35b-a3b" />
+            <datalist id="openai-compat-model-suggestions">
+              {OLLAMA_MODEL_SUGGESTIONS.map((m) => <option key={m} value={m} />)}
+            </datalist>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Endpoint mode</label>
               <select value={form.openaiCompatMode}
@@ -606,11 +614,15 @@ export function AiConfigPage() {
           {[
             { label: 'Categorization', providerField: 'categorizationProvider', modelField: 'categorizationModel' },
             { label: 'OCR / Document Parsing', providerField: 'ocrProvider', modelField: 'ocrModel' },
-          ].map((task) => (
+          ].map((task) => {
+            const selectedProvider = form[task.providerField as keyof AiConfigFormState] as string;
+            const modelSuggestions = PROVIDERS.find((p) => p.key === selectedProvider)?.models ?? [];
+            const modelListId = `task-model-suggestions-${task.modelField}`;
+            return (
             <div key={task.providerField} className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{task.label} Provider</label>
-                <select value={form[task.providerField as keyof AiConfigFormState] as string} onChange={(e) => setForm((f) => ({ ...f, [task.providerField]: e.target.value }))}
+                <select value={selectedProvider} onChange={(e) => setForm((f) => ({ ...f, [task.providerField]: e.target.value }))}
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
                   <option value="">Not configured</option>
                   {PROVIDERS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
@@ -620,10 +632,17 @@ export function AiConfigPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
                 <input className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                   value={form[task.modelField as keyof AiConfigFormState] as string} onChange={(e) => setForm((f) => ({ ...f, [task.modelField]: e.target.value }))}
+                  list={modelSuggestions.length > 0 ? modelListId : undefined}
                   placeholder="e.g., claude-sonnet-4-20250514" />
+                {modelSuggestions.length > 0 && (
+                  <datalist id={modelListId}>
+                    {modelSuggestions.map((m) => <option key={m} value={m} />)}
+                  </datalist>
+                )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Per-function Task Settings — one collapsible card per AI
@@ -1046,12 +1065,18 @@ function ExtractionSettingsCard({
             <option value="no">No</option>
           </select>
         </div>
-        <Input
-          label="Model tag"
-          value={opt.modelTag ?? ''}
-          onChange={(e) => patch({ modelTag: e.target.value })}
-          placeholder="e.g. qwen3.5:35b-a3b"
-        />
+        <div>
+          <Input
+            label="Model tag"
+            value={opt.modelTag ?? ''}
+            onChange={(e) => patch({ modelTag: e.target.value })}
+            list="extraction-model-tag-suggestions"
+            placeholder="e.g. minicpm-v4.5:latest"
+          />
+          <datalist id="extraction-model-tag-suggestions">
+            {OLLAMA_MODEL_SUGGESTIONS.map((m) => <option key={m} value={m} />)}
+          </datalist>
+        </div>
         <Input
           label="Render DPI"
           type="number"
