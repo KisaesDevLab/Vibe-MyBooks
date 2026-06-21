@@ -131,6 +131,7 @@ export function AiConfigPage() {
     openaiCompatBaseUrl: string;
     openaiCompatModel: string;
     openaiCompatApiKey: string;
+    openaiCompatMode: 'auto' | 'native' | 'compat';
     autoCategorizeOnImport: boolean;
     autoOcrOnUpload: boolean;
     categorizationConfidenceThreshold: number;
@@ -153,6 +154,7 @@ export function AiConfigPage() {
     openaiCompatBaseUrl: '',
     openaiCompatModel: '',
     openaiCompatApiKey: '',
+    openaiCompatMode: 'auto',
     autoCategorizeOnImport: true,
     autoOcrOnUpload: true,
     categorizationConfidenceThreshold: 0.7,
@@ -188,6 +190,7 @@ export function AiConfigPage() {
         ollamaBaseUrl: data.ollamaBaseUrl || '',
         openaiCompatBaseUrl: data.openaiCompatBaseUrl || '',
         openaiCompatModel: data.openaiCompatModel || '',
+        openaiCompatMode: data.openaiCompatMode || 'auto',
         autoCategorizeOnImport: data.autoCategorizeOnImport,
         autoOcrOnUpload: data.autoOcrOnUpload,
         categorizationConfidenceThreshold: data.categorizationConfidenceThreshold,
@@ -559,6 +562,19 @@ export function AiConfigPage() {
             <Input label="OpenAI-compat Model" value={form.openaiCompatModel}
               onChange={(e) => setForm((f) => ({ ...f, openaiCompatModel: e.target.value }))}
               placeholder="e.g. llama3.2, mistral, gpt-oss" />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Endpoint mode</label>
+              <select value={form.openaiCompatMode}
+                onChange={(e) => setForm((f) => ({ ...f, openaiCompatMode: e.target.value as 'auto' | 'native' | 'compat' }))}
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="auto">Auto (detect Ollama)</option>
+                <option value="native">Native Ollama (/api/chat)</option>
+                <option value="compat">OpenAI-compatible (/v1)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Ollama (incl. thinking models like Qwen) must use the native method. 'Auto' detects Ollama by its :11434 port. Choose 'OpenAI-compatible' only for vLLM / llama.cpp / LM Studio.
+              </p>
+            </div>
             <Input label="OpenAI-compat API Key (optional)" type="password" value={form.openaiCompatApiKey}
               onChange={(e) => setForm((f) => ({ ...f, openaiCompatApiKey: e.target.value }))}
               placeholder={data?.hasOpenaiCompatKey ? '••••••••••• (configured)' : 'Leave blank if the server is open'} />

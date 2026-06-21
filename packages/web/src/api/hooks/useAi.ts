@@ -102,6 +102,7 @@ export interface AiConfigDto {
   ollamaBaseUrl: string | null;
   openaiCompatBaseUrl: string | null;
   openaiCompatModel: string | null;
+  openaiCompatMode?: 'auto' | 'native' | 'compat';
   hasOpenaiCompatKey: boolean;
   autoCategorizeOnImport: boolean;
   autoOcrOnUpload: boolean;
@@ -156,6 +157,7 @@ export interface UpdateAiConfigInput {
   openaiCompatApiKey?: string | null;
   openaiCompatBaseUrl?: string | null;
   openaiCompatModel?: string | null;
+  openaiCompatMode?: 'auto' | 'native' | 'compat';
   autoCategorizeOnImport?: boolean;
   autoOcrOnUpload?: boolean;
   categorizationConfidenceThreshold?: number;
