@@ -9,7 +9,7 @@ import {
   useAiConfig, useUpdateAiConfig, useTestAiProvider, useTestAiFunction,
   useSystemAiDisclosure, useAcceptSystemAiDisclosure, useAiPromptTaskTypes,
 } from '../../api/hooks/useAi';
-import type { TaskOption, TaskOptions, AiFunctionKey, TestFunctionResult } from '../../api/hooks/useAi';
+import type { TaskOption, TaskOptions, AiFunctionKey, TestFunctionResult, ExtractionOptions } from '../../api/hooks/useAi';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -75,6 +75,7 @@ function normalizeTaskOption(opt: TaskOption | undefined): TaskOption | null {
     fallbackChain: opt.fallbackChain && opt.fallbackChain.length > 0 ? opt.fallbackChain : null,
     threshold: opt.threshold ?? null,
     piiLevel: opt.piiLevel ?? null,
+    numCtx: opt.numCtx ?? null,
   };
   // Only include boolean overrides when explicitly set (a checkbox the
   // admin actually toggled) so we don't clobber the default with false.
@@ -90,6 +91,24 @@ function normalizeTaskOptions(opts: TaskOptions): TaskOptions {
     if (n) out[fn.key] = n;
   }
   return out;
+}
+
+// Coerce the document-extraction draft into a clean payload. Mirrors
+// normalizeTaskOption: blank/unset numeric and text inputs become `null`
+// (= "use the server's environment default") rather than 0 or "".
+// Selects already write null/true/false directly into the draft.
+function normalizeExtractionOptions(opt: ExtractionOptions): ExtractionOptions {
+  const tag = (opt.modelTag ?? '').trim();
+  return {
+    maxTokens: opt.maxTokens ?? null,
+    numCtx: opt.numCtx ?? null,
+    thinking: opt.thinking ?? null,
+    ollamaNative: opt.ollamaNative ?? null,
+    modelTag: tag === '' ? null : tag,
+    renderDpi: opt.renderDpi ?? null,
+    grayscale: opt.grayscale ?? null,
+    confidenceThreshold: opt.confidenceThreshold ?? null,
+  };
 }
 
 export function AiConfigPage() {
@@ -146,6 +165,9 @@ export function AiConfigPage() {
   // Per-function ("task") override drafts, keyed by AiFunctionKey. Edited
   // by the Task Settings section below; merged into the save payload.
   const [taskOptions, setTaskOptions] = useState<TaskOptions>({});
+  // Top-level document-extraction overrides (separate from per-function
+  // taskOptions). Empty/unset fields mean "use the server default".
+  const [extractionOptions, setExtractionOptions] = useState<ExtractionOptions>({});
   const [testResults, setTestResults] = useState<Record<string, TestResult | undefined>>({});
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [showDisclosure, setShowDisclosure] = useState(false);
@@ -175,6 +197,7 @@ export function AiConfigPage() {
         cloudVisionEnabled: !!data.cloudVisionEnabled,
       }));
       setTaskOptions(data.taskOptions || {});
+      setExtractionOptions(data.extractionOptions || {});
     }
   }, [data]);
 
@@ -224,6 +247,7 @@ export function AiConfigPage() {
     const payload = {
       ...form,
       taskOptions: normalizeTaskOptions(taskOptions),
+      extractionOptions: normalizeExtractionOptions(extractionOptions),
     };
     updateConfig.mutate(payload as unknown as Parameters<typeof updateConfig.mutate>[0]);
     setSaved(true);
@@ -608,6 +632,14 @@ export function AiConfigPage() {
           ))}
         </div>
 
+        {/* Document Extraction (DOCUMENT_EXTRACTION_V1) — top-level
+            overrides for the local document-extraction pipeline, separate
+            from the per-function task overrides above. */}
+        <ExtractionSettingsCard
+          value={extractionOptions}
+          onChange={setExtractionOptions}
+        />
+
         {/* Settings */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">Settings</h2>
@@ -819,6 +851,19 @@ function TaskSettingsCard({
               onChange={(e) => patch({ temperature: strToNum(e.target.value) })}
               placeholder="Default"
             />
+            <div>
+              <Input
+                label="Context window (num_ctx)"
+                type="number"
+                min="1"
+                value={numToStr(opt.numCtx)}
+                onChange={(e) => patch({ numCtx: strToNum(e.target.value) })}
+                placeholder="Default"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Ollama context window for this function. Leave blank to use the global default.
+              </p>
+            </div>
             {showThreshold && (
               <Input
                 label="Confidence threshold"
@@ -903,6 +948,125 @@ function TaskSettingsCard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Document Extraction settings card ───────────────────────────
+//
+// Top-level overrides for the local document-extraction pipeline
+// (DOCUMENT_EXTRACTION_V1), edited as a single ExtractionOptions draft
+// lifted to AiConfigPage state. Number/text fields use empty-as-"unset"
+// (null on save); tri-state selects map Default→null, Yes→true, No→false.
+
+// Tri-state boolean <-> select value. '' = use server default (null).
+function boolToSelect(v: boolean | null | undefined): string {
+  if (v === true) return 'yes';
+  if (v === false) return 'no';
+  return '';
+}
+function selectToBool(v: string): boolean | null {
+  if (v === 'yes') return true;
+  if (v === 'no') return false;
+  return null;
+}
+
+function ExtractionSettingsCard({
+  value, onChange,
+}: {
+  value: ExtractionOptions;
+  onChange: (next: ExtractionOptions) => void;
+}) {
+  const opt = value ?? {};
+  const patch = (changes: Partial<ExtractionOptions>) => onChange({ ...opt, ...changes });
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-800">Document Extraction (Ollama/Qwen)</h2>
+        <p className="text-xs text-gray-500 mt-1">
+          These tune the local document-extraction pipeline (DOCUMENT_EXTRACTION_V1). Blank = use the server's environment default.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="Max tokens"
+          type="number"
+          min="1"
+          value={numToStr(opt.maxTokens)}
+          onChange={(e) => patch({ maxTokens: strToNum(e.target.value) })}
+          placeholder="Default"
+        />
+        <Input
+          label="Context window (num_ctx)"
+          type="number"
+          min="1"
+          value={numToStr(opt.numCtx)}
+          onChange={(e) => patch({ numCtx: strToNum(e.target.value) })}
+          placeholder="Default"
+        />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Thinking</label>
+          <select
+            value={opt.thinking ?? ''}
+            onChange={(e) => patch({ thinking: e.target.value === '' ? null : (e.target.value as 'on' | 'off') })}
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Default</option>
+            <option value="on">On</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Use native Ollama endpoint</label>
+          <select
+            value={boolToSelect(opt.ollamaNative)}
+            onChange={(e) => patch({ ollamaNative: selectToBool(e.target.value) })}
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Default</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <Input
+          label="Model tag"
+          value={opt.modelTag ?? ''}
+          onChange={(e) => patch({ modelTag: e.target.value })}
+          placeholder="e.g. qwen3.5:35b-a3b"
+        />
+        <Input
+          label="Render DPI"
+          type="number"
+          min="1"
+          value={numToStr(opt.renderDpi)}
+          onChange={(e) => patch({ renderDpi: strToNum(e.target.value) })}
+          placeholder="200"
+        />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Grayscale render</label>
+          <select
+            value={boolToSelect(opt.grayscale)}
+            onChange={(e) => patch({ grayscale: selectToBool(e.target.value) })}
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Default</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <Input
+          label="Confidence threshold"
+          type="number"
+          step="0.05"
+          min="0"
+          max="1"
+          value={numToStr(opt.confidenceThreshold)}
+          onChange={(e) => patch({ confidenceThreshold: strToNum(e.target.value) })}
+          placeholder="Default"
+        />
+      </div>
     </div>
   );
 }

@@ -3,11 +3,11 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { TaskOption, TaskOptions, AiFunctionKey } from '@kis-books/shared';
+import type { TaskOption, TaskOptions, AiFunctionKey, ExtractionOptions } from '@kis-books/shared';
 import { apiClient, isApiError } from '../client';
 import { useToast } from '../../components/ui/Toaster';
 
-export type { TaskOption, TaskOptions, AiFunctionKey };
+export type { TaskOption, TaskOptions, AiFunctionKey, ExtractionOptions };
 
 // Human-readable label per task — used as the lead-in for AI error
 // toasts. Keeps the call sites terse and the toast surface uniform
@@ -120,6 +120,11 @@ export interface AiConfigDto {
    *  Each field is a nullable OVERRIDE — null/absent means "use the
    *  built-in default". Stored server-side in ai_config.task_options. */
   taskOptions: TaskOptions;
+  /** Top-level overrides for the local document-extraction pipeline
+   *  (DOCUMENT_EXTRACTION_V1). Each field is a nullable OVERRIDE —
+   *  null/absent means "use the server's EXTRACTION_* env default".
+   *  Separate from per-function taskOptions. */
+  extractionOptions: ExtractionOptions;
   adminDisclosureAcceptedAt: string | null;
   adminDisclosureAcceptedBy: string | null;
   disclosureVersion: number;
@@ -163,6 +168,10 @@ export interface UpdateAiConfigInput {
   // changed function/keys. Blank inputs should be sent as null (or
   // omitted) to preserve "use the built-in default" semantics.
   taskOptions?: TaskOptions;
+  // Document-extraction pipeline overrides; shallow-merged server-side.
+  // Blank inputs should be sent as null to preserve "use the server's
+  // environment default" semantics.
+  extractionOptions?: ExtractionOptions;
 }
 
 export function useAiConfig() {
