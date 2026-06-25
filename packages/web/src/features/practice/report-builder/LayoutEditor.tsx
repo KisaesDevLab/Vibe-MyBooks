@@ -77,6 +77,16 @@ function uid() {
   return Math.random().toString(36).slice(2, 11);
 }
 
+// Preserve persisted block ids when present (so text_overrides / notes survive
+// reorders without index drift); otherwise mint fresh ephemeral ids.
+function withBlockIds(incoming: unknown[]): Block[] {
+  return incoming.map((b) => {
+    const obj = b as Record<string, unknown>;
+    const persistedId = typeof obj['id'] === 'string' ? (obj['id'] as string) : null;
+    return { ...(b as object), id: persistedId ?? uid() } as Block;
+  });
+}
+
 interface CatalogEntry {
   key: string;
   name: string;
@@ -87,10 +97,15 @@ interface CatalogEntry {
 
 export function LayoutEditor({
   templateId,
+  instanceId,
   onClose,
   onSaved,
 }: {
-  templateId: string;
+  // Exactly one of templateId / instanceId. templateId edits the reusable
+  // template; instanceId edits ONE draft instance's own layout snapshot
+  // (full block editing, scoped to that report only).
+  templateId?: string;
+  instanceId?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -114,11 +129,33 @@ export function LayoutEditor({
   };
 
   useEffect(() => {
+    const loadCatalog = api<{ kpis: CatalogEntry[] }>('/practice/reports/kpis').catch(() => ({ kpis: [] }));
+
+    if (instanceId) {
+      // Instance mode — edit this draft report's own layout snapshot.
+      Promise.all([
+        api<{ instance: { id: string; layoutSnapshotJsonb: unknown[]; periodStart: string; periodEnd: string } }>(
+          `/practice/reports/instances/${instanceId}`,
+        ),
+        loadCatalog,
+      ])
+        .then(([r, k]) => {
+          const inc = Array.isArray(r.instance.layoutSnapshotJsonb) ? r.instance.layoutSnapshotJsonb : [];
+          setName(`Report layout · ${r.instance.periodStart} → ${r.instance.periodEnd}`);
+          setBlocks(withBlockIds(inc));
+          setCatalog(k.kpis ?? []);
+        })
+        .catch(() => setError('Failed to load report.'))
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    // Template mode (default).
     Promise.all([
       api<{ templates: Array<{ id: string; name: string; layoutJsonb: unknown[] }> }>(
         '/practice/reports/templates',
       ),
-      api<{ kpis: CatalogEntry[] }>('/practice/reports/kpis').catch(() => ({ kpis: [] })),
+      loadCatalog,
     ])
       .then(([t, k]) => {
         const tpl = t.templates.find((tt) => tt.id === templateId);
@@ -128,21 +165,12 @@ export function LayoutEditor({
         }
         setName(tpl.name);
         const incoming = Array.isArray(tpl.layoutJsonb) ? tpl.layoutJsonb : [];
-        // Preserve persisted block ids (added in this revision) when present;
-        // otherwise mint fresh ephemeral ids. Stable ids let text_overrides
-        // and notes survive reorders without index drift.
-        setBlocks(
-          incoming.map((b) => {
-            const obj = b as Record<string, unknown>;
-            const persistedId = typeof obj['id'] === 'string' ? (obj['id'] as string) : null;
-            return { ...(b as object), id: persistedId ?? uid() } as Block;
-          }),
-        );
+        setBlocks(withBlockIds(incoming));
         setCatalog(k.kpis ?? []);
       })
       .catch(() => setError('Failed to load template.'))
       .finally(() => setLoading(false));
-  }, [templateId]);
+  }, [templateId, instanceId]);
 
   // Warn before navigating away with unsaved changes.
   useEffect(() => {
@@ -207,10 +235,17 @@ export function LayoutEditor({
     try {
       // Persist block ids so renderers + override maps survive a reorder.
       // (Earlier revisions stripped these — we now keep them.)
-      await api(`/practice/reports/templates/${templateId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ layout: blocks }),
-      });
+      if (instanceId) {
+        await api(`/practice/reports/instances/${instanceId}/layout`, {
+          method: 'PATCH',
+          body: JSON.stringify({ layout: blocks }),
+        });
+      } else {
+        await api(`/practice/reports/templates/${templateId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ layout: blocks }),
+        });
+      }
       setDirty(false);
       onSaved();
     } catch (e) {

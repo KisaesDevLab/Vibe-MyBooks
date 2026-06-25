@@ -26,6 +26,7 @@ import {
   Trash2,
   Copy,
   Download,
+  AlignJustify,
 } from 'lucide-react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { apiClient, API_BASE, getAccessToken } from '../../../api/client';
@@ -856,6 +857,7 @@ function ReportPreviewModal({
   const [error, setError] = useState<string | null>(null);
   const [computing, setComputing] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [editingLayout, setEditingLayout] = useState(false);
 
   const reload = async () => {
     setError(null);
@@ -941,6 +943,18 @@ function ReportPreviewModal({
     }
   };
 
+  // Full per-instance layout editing — reuse the template LayoutEditor against
+  // this draft instance's own snapshot. Editing here doesn't touch the template.
+  if (editingLayout) {
+    return (
+      <LayoutEditor
+        instanceId={instanceId}
+        onClose={() => setEditingLayout(false)}
+        onSaved={() => { setEditingLayout(false); reload(); }}
+      />
+    );
+  }
+
   const company = instance ? companies.find((c) => c.id === instance.companyId) : null;
   const layout = instance?.layoutSnapshotJsonb ?? [];
   const data = instance?.dataSnapshotJsonb ?? {};
@@ -967,6 +981,15 @@ function ReportPreviewModal({
             </h2>
           </div>
           <div className="flex items-center gap-2">
+            {instance && instance.status !== 'published' && (
+              <button
+                onClick={() => setEditingLayout(true)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:bg-gray-100 px-2 py-1 rounded-md"
+                title="Edit this report's blocks (add / remove / reorder / configure)"
+              >
+                <AlignJustify className="h-3.5 w-3.5" /> Edit layout
+              </button>
+            )}
             {instance && instance.status !== 'published' && (
               <button
                 onClick={compute}
