@@ -29,6 +29,20 @@ interface ParsedTransaction {
   duplicate: boolean;
 }
 
+// A valid RFC-4122 v4 UUID that works in non-secure contexts (HTTP/LAN), where
+// crypto.randomUUID is undefined but crypto.getRandomValues is available.
+function genUuidV4(): string {
+  const c = typeof crypto !== 'undefined' ? crypto : undefined;
+  if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+  const b = new Uint8Array(16);
+  if (c && typeof c.getRandomValues === 'function') c.getRandomValues(b);
+  else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+  b[6] = (b[6]! & 0x0f) | 0x40; // version 4
+  b[8] = (b[8]! & 0x3f) | 0x80; // variant 10
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0'));
+  return `${h.slice(0, 4).join('')}-${h.slice(4, 6).join('')}-${h.slice(6, 8).join('')}-${h.slice(8, 10).join('')}-${h.slice(10, 16).join('')}`;
+}
+
 export function StatementUploadPage() {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
@@ -110,14 +124,11 @@ export function StatementUploadPage() {
       const formData = new FormData();
       formData.append('file', f);
       formData.append('attachableType', 'bank_statement');
-      // crypto.randomUUID is undefined in non-secure contexts (e.g. an
-      // appliance served over plain HTTP on a LAN IP); fall back so the upload
-      // never throws.
-      const uuid =
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
-      formData.append('attachableId', uuid);
+      // attachable_id is a UUID column server-side. crypto.randomUUID is only
+      // available in SECURE contexts (an appliance on plain HTTP / a LAN IP is
+      // not one), but crypto.getRandomValues IS — so build a valid v4 UUID
+      // from it (falling back to Math.random only if even that is missing).
+      formData.append('attachableId', genUuidV4());
       const res = await fetch('/api/v1/attachments', {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
