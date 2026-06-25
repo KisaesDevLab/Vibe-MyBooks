@@ -481,6 +481,27 @@ export async function streamStatementProgress(
   }
 }
 
+/**
+ * Poll the job status endpoint until terminal. Proxy-safe everywhere (plain
+ * JSON GETs), unlike the SSE stream which a reverse proxy or the compression
+ * middleware can buffer — so this is what the UI uses by default.
+ */
+export async function pollStatementProgress(
+  jobId: string,
+  onSnapshot: (s: StatementProgressSnapshot) => void,
+  signal?: AbortSignal,
+  intervalMs = 1200,
+): Promise<void> {
+  for (;;) {
+    if (signal?.aborted) return;
+    const snap = await apiClient<StatementProgressSnapshot>(`/ai/parse/statement/${jobId}/status`);
+    if (signal?.aborted) return;
+    onSnapshot(snap);
+    if (snap.status === 'complete' || snap.status === 'failed' || snap.status === 'cancelled') return;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
+
 function safeMessage(json: string, fallback: string): string {
   try {
     const m = (JSON.parse(json) as { message?: string }).message;

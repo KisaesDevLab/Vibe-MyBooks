@@ -8,7 +8,7 @@ import { useMutation } from '@tanstack/react-query';
 import {
   useAiConfig,
   useStartStatementParse,
-  streamStatementProgress,
+  pollStatementProgress,
   type ParsedStatement,
 } from '../../api/hooks/useAi';
 import { apiClient } from '../../api/client';
@@ -110,7 +110,14 @@ export function StatementUploadPage() {
       const formData = new FormData();
       formData.append('file', f);
       formData.append('attachableType', 'bank_statement');
-      formData.append('attachableId', crypto.randomUUID());
+      // crypto.randomUUID is undefined in non-secure contexts (e.g. an
+      // appliance served over plain HTTP on a LAN IP); fall back so the upload
+      // never throws.
+      const uuid =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+      formData.append('attachableId', uuid);
       const res = await fetch('/api/v1/attachments', {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
@@ -136,14 +143,21 @@ export function StatementUploadPage() {
         progressCtrl.current?.abort();
         progressCtrl.current = ctrl;
         let failure: string | null = null;
-        await streamStatementProgress(jobId, (snap) => {
-          setStage(snap.stage);
-          if (snap.status === 'complete' && snap.result) {
-            applyResult(snap.result);
+        let gotResult = false;
+        await pollStatementProgress(jobId, (snap) => {
+          if (snap.stage) setStage(snap.stage);
+          if (snap.status === 'complete') {
+            if (snap.result) { applyResult(snap.result); gotResult = true; }
+            else failure = 'Parsing finished but returned no transactions.';
           } else if (snap.status === 'failed') {
             failure = snap.error || 'Failed to parse statement.';
           }
         }, ctrl.signal);
+        // Never leave the screen blank: if we didn't get a result or an error,
+        // surface a soft message instead of silently rendering nothing.
+        if (!gotResult && !failure && !ctrl.signal.aborted) {
+          failure = 'Parsing did not return a result. Please try again.';
+        }
         if (failure) setParseError(failure);
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return; // superseded
@@ -152,6 +166,11 @@ export function StatementUploadPage() {
         setParsing(false);
         setStage(null);
       }
+    },
+    onError: (err: unknown) => {
+      setParsing(false);
+      setStage(null);
+      setParseError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
     },
   });
 
@@ -218,13 +237,14 @@ export function StatementUploadPage() {
         </div>
       )}
 
-      {/* Upload Area */}
-      {!file && aiEnabled && (
+      {/* Upload Area — shown whenever we're idle with no results (initial load
+          OR after an error), so the user can always (re)pick a file. */}
+      {aiEnabled && !parsing && !uploadMutation.isPending && transactions.length === 0 && !imported && (
         <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-12 text-center cursor-pointer hover:border-primary-400"
           onClick={() => document.getElementById('statement-input')?.click()}>
           <input id="statement-input" type="file" accept="image/*,.pdf" className="hidden" onChange={handleFileChange} />
           <FileUp className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-600">Upload a bank statement (PDF or image)</p>
+          <p className="text-sm text-gray-600">{file ? 'Upload a different statement' : 'Upload a bank statement (PDF or image)'}</p>
           <p className="text-xs text-gray-400 mt-1">AI will extract all transactions automatically</p>
         </div>
       )}
