@@ -39,6 +39,7 @@ import { startHeartbeat, closeWorkerHeartbeatClients } from '../../api/src/utils
 import { env } from '../../api/src/config/env.js';
 import { startDocRenderWorker } from './processors/doc-render.processor.js';
 import { startDocExtractWorker } from './processors/doc-extract.processor.js';
+import { startStatementParseWorker } from './processors/statement-parse.processor.js';
 import { checkPdftoppmAvailable } from '../../api/src/services/extraction/pdf-render.service.js';
 import { healthCheck as extractionHealthCheck } from '../../api/src/services/extraction/qwen-client.service.js';
 import type { Worker } from 'bullmq';
@@ -50,6 +51,7 @@ console.log(`[Worker] Vibe MyBooks worker starting at ${startedAt}`);
 // on graceful shutdown so their Redis connections drain cleanly.
 let docRenderWorker: Worker | null = null;
 let docExtractWorker: Worker | null = null;
+let statementParseWorker: Worker | null = null;
 
 try {
   startBackupScheduler();
@@ -63,6 +65,18 @@ try {
   startRecurringDocRequestScheduler();
   startAiRetentionScheduler();
   console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, review-checks-scheduler, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler, ai-retention-scheduler');
+
+  // Statement-parse BullMQ worker — always on (statement import is a core
+  // feature). Running the detect→OCR→extract→reconcile pipeline here means it
+  // survives an API restart and is concurrency-capped. The API falls back to
+  // in-process only if it can't reach the queue.
+  statementParseWorker = startStatementParseWorker();
+  console.log('[Worker] Statement-parse worker registered: statement-parse');
+  // The statement pipeline rasterizes scanned PDFs here via pdftoppm — probe at
+  // boot so a missing poppler is visible immediately, not on the first upload.
+  void checkPdftoppmAvailable().then((s) =>
+    console.log(`[Worker] pdftoppm ${s.available ? `available (${s.version ?? 'ok'})` : `UNAVAILABLE: ${s.error ?? 'unknown'}`}`),
+  ).catch(() => undefined);
 
   // Document-extraction BullMQ workers (gated per-appliance). Only started
   // when the feature is enabled so a deployment that doesn't use local
@@ -142,6 +156,7 @@ const shutdown = async (signal: string) => {
   await Promise.all([
     docRenderWorker?.close().catch((err) => console.error('[Worker] doc-render close error:', err)),
     docExtractWorker?.close().catch((err) => console.error('[Worker] doc-extract close error:', err)),
+    statementParseWorker?.close().catch((err) => console.error('[Worker] statement-parse close error:', err)),
   ]);
   stopCloudflaredAlerter();
   stopBackupVerifier();
