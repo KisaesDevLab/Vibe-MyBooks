@@ -2,15 +2,15 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import {
   useAiConfig, useUpdateAiConfig, useTestAiProvider, useTestAiFunction,
   useSystemAiDisclosure, useAcceptSystemAiDisclosure, useAiPromptTaskTypes,
-  useTestGlmOcr,
+  useTestGlmOcr, useProviderModels, useGlmOcrModels,
 } from '../../api/hooks/useAi';
-import type { TaskOption, TaskOptions, AiFunctionKey, TestFunctionResult, ExtractionOptions } from '../../api/hooks/useAi';
+import type { TaskOption, TaskOptions, AiFunctionKey, TestFunctionResult } from '../../api/hooks/useAi';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -57,6 +57,70 @@ const PROVIDERS = [
   { key: 'openai_compat', label: 'OpenAI-compatible (custom)', models: OLLAMA_MODEL_SUGGESTIONS },
 ];
 
+// A model field: a free-text input backed by a datalist of REAL models fetched
+// from the provider (so you can pick from a dropdown or type a custom id). The
+// list is presentational; callers fetch it (useProviderModels / useGlmOcrModels)
+// and pass it in, since hooks can't be called conditionally in a loop.
+function ModelInput({ value, onChange, models, loading, listError, label, placeholder }: {
+  value: string;
+  onChange: (v: string) => void;
+  models: string[];
+  loading?: boolean;
+  listError?: string;
+  label?: string;
+  placeholder?: string;
+}) {
+  const id = useId();
+  return (
+    <div>
+      {label !== undefined && label !== '' && (
+        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      )}
+      <input
+        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        list={models.length > 0 ? id : undefined}
+        placeholder={placeholder}
+      />
+      {models.length > 0 && <datalist id={id}>{models.map((m) => <option key={m} value={m} />)}</datalist>}
+      <p className="text-xs text-gray-400 mt-1">
+        {loading
+          ? 'Loading models…'
+          : models.length > 0
+            ? `${models.length} model${models.length === 1 ? '' : 's'} available — pick or type a custom id`
+            : listError
+              ? 'Could not list models (check provider credentials/URL) — type a model id'
+              : 'Type a model id'}
+      </p>
+    </div>
+  );
+}
+
+// Task Assignment model field: calls the per-provider models hook for THIS
+// row's provider and renders the ModelInput. Separate component so the hook
+// isn't called inside the task .map().
+function TaskModelField({ provider, value, onChange }: {
+  provider: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const { data, isFetching } = useProviderModels(provider || null);
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+      <ModelInput
+        value={value}
+        onChange={onChange}
+        models={data?.models ?? []}
+        loading={isFetching}
+        listError={data?.error}
+        placeholder="pick or type a model id"
+      />
+    </div>
+  );
+}
+
 // The four configurable AI functions ("tasks"). `showThreshold` gates the
 // Confidence threshold control — chat has no confidence concept.
 const TASK_FUNCTIONS: ReadonlyArray<{ key: AiFunctionKey; label: string; showThreshold: boolean }> = [
@@ -96,24 +160,6 @@ function normalizeTaskOptions(opts: TaskOptions): TaskOptions {
     if (n) out[fn.key] = n;
   }
   return out;
-}
-
-// Coerce the document-extraction draft into a clean payload. Mirrors
-// normalizeTaskOption: blank/unset numeric and text inputs become `null`
-// (= "use the server's environment default") rather than 0 or "".
-// Selects already write null/true/false directly into the draft.
-function normalizeExtractionOptions(opt: ExtractionOptions): ExtractionOptions {
-  const tag = (opt.modelTag ?? '').trim();
-  return {
-    maxTokens: opt.maxTokens ?? null,
-    numCtx: opt.numCtx ?? null,
-    thinking: opt.thinking ?? null,
-    ollamaNative: opt.ollamaNative ?? null,
-    modelTag: tag === '' ? null : tag,
-    renderDpi: opt.renderDpi ?? null,
-    grayscale: opt.grayscale ?? null,
-    confidenceThreshold: opt.confidenceThreshold ?? null,
-  };
 }
 
 export function AiConfigPage() {
@@ -197,7 +243,6 @@ export function AiConfigPage() {
   const [taskOptions, setTaskOptions] = useState<TaskOptions>({});
   // Top-level document-extraction overrides (separate from per-function
   // taskOptions). Empty/unset fields mean "use the server default".
-  const [extractionOptions, setExtractionOptions] = useState<ExtractionOptions>({});
   const [testResults, setTestResults] = useState<Record<string, TestResult | undefined>>({});
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [showDisclosure, setShowDisclosure] = useState(false);
@@ -238,7 +283,6 @@ export function AiConfigPage() {
         cloudVisionEnabled: !!data.cloudVisionEnabled,
       }));
       setTaskOptions(data.taskOptions || {});
-      setExtractionOptions(data.extractionOptions || {});
     }
   }, [data]);
 
@@ -289,6 +333,16 @@ export function AiConfigPage() {
   const [selfTestRunning, setSelfTestRunning] = useState(false);
   const [selfTestError, setSelfTestError] = useState<string | null>(null);
 
+  // Model lists for the GLM-OCR engine and the statement-extraction LLM. The
+  // statement extractor resolves to Anthropic (cloud) or the configured local
+  // provider, so list models for whichever is selected.
+  const glmModels = useGlmOcrModels();
+  const stmtModelProvider =
+    form.statementExtractionProvider === 'anthropic'
+      ? 'anthropic'
+      : (form.ocrProvider || form.categorizationProvider || 'openai_compat');
+  const stmtModels = useProviderModels(stmtModelProvider);
+
   const doSave = () => {
     // Merge the per-function override drafts into the form payload. The
     // server deep-merges taskOptions, and each TaskOption field is built
@@ -297,7 +351,6 @@ export function AiConfigPage() {
     const payload = {
       ...form,
       taskOptions: normalizeTaskOptions(taskOptions),
-      extractionOptions: normalizeExtractionOptions(extractionOptions),
     };
     updateConfig.mutate(payload as unknown as Parameters<typeof updateConfig.mutate>[0]);
     setSaved(true);
@@ -680,8 +733,9 @@ export function AiConfigPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Input label="Model" value={form.glmOcrModel}
-                onChange={(e) => setForm((f) => ({ ...f, glmOcrModel: e.target.value }))}
+              <ModelInput label="Model" value={form.glmOcrModel}
+                onChange={(v) => setForm((f) => ({ ...f, glmOcrModel: v }))}
+                models={glmModels.data?.models ?? []} loading={glmModels.isFetching} listError={glmModels.data?.error}
                 placeholder="glm-ocr" />
               <Input label="Prompt" value={form.glmOcrPrompt}
                 onChange={(e) => setForm((f) => ({ ...f, glmOcrPrompt: e.target.value }))}
@@ -741,9 +795,10 @@ export function AiConfigPage() {
                   <option value="local">Local LLM (self-hosted)</option>
                   <option value="anthropic">Anthropic (cloud)</option>
                 </select>
-                <Input label="" value={form.statementExtractionModel}
-                  onChange={(e) => setForm((f) => ({ ...f, statementExtractionModel: e.target.value }))}
-                  placeholder={form.statementExtractionProvider === 'anthropic' ? 'e.g. claude-sonnet-4-6 (blank = default)' : 'model (blank = OCR/local default)'} />
+                <ModelInput value={form.statementExtractionModel}
+                  onChange={(v) => setForm((f) => ({ ...f, statementExtractionModel: v }))}
+                  models={stmtModels.data?.models ?? []} loading={stmtModels.isFetching} listError={stmtModels.data?.error}
+                  placeholder={form.statementExtractionProvider === 'anthropic' ? 'blank = default' : 'blank = OCR/local default'} />
               </div>
               {form.statementExtractionProvider === 'anthropic' && !data?.hasAnthropicKey && (
                 <p className="text-xs text-amber-600 mt-1">
@@ -763,8 +818,6 @@ export function AiConfigPage() {
             { label: 'OCR / Document Parsing', providerField: 'ocrProvider', modelField: 'ocrModel' },
           ].map((task) => {
             const selectedProvider = form[task.providerField as keyof AiConfigFormState] as string;
-            const modelSuggestions = PROVIDERS.find((p) => p.key === selectedProvider)?.models ?? [];
-            const modelListId = `task-model-suggestions-${task.modelField}`;
             return (
             <div key={task.providerField} className="grid grid-cols-2 gap-3">
               <div>
@@ -775,18 +828,11 @@ export function AiConfigPage() {
                   {PROVIDERS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                <input className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  value={form[task.modelField as keyof AiConfigFormState] as string} onChange={(e) => setForm((f) => ({ ...f, [task.modelField]: e.target.value }))}
-                  list={modelSuggestions.length > 0 ? modelListId : undefined}
-                  placeholder="e.g., claude-sonnet-4-20250514" />
-                {modelSuggestions.length > 0 && (
-                  <datalist id={modelListId}>
-                    {modelSuggestions.map((m) => <option key={m} value={m} />)}
-                  </datalist>
-                )}
-              </div>
+              <TaskModelField
+                provider={selectedProvider}
+                value={form[task.modelField as keyof AiConfigFormState] as string}
+                onChange={(v) => setForm((f) => ({ ...f, [task.modelField]: v }))}
+              />
             </div>
             );
           })}
@@ -813,14 +859,6 @@ export function AiConfigPage() {
             />
           ))}
         </div>
-
-        {/* Document Extraction (DOCUMENT_EXTRACTION_V1) — top-level
-            overrides for the local document-extraction pipeline, separate
-            from the per-function task overrides above. */}
-        <ExtractionSettingsCard
-          value={extractionOptions}
-          onChange={setExtractionOptions}
-        />
 
         {/* Settings */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
@@ -1151,112 +1189,6 @@ function selectToBool(v: string): boolean | null {
   if (v === 'yes') return true;
   if (v === 'no') return false;
   return null;
-}
-
-function ExtractionSettingsCard({
-  value, onChange,
-}: {
-  value: ExtractionOptions;
-  onChange: (next: ExtractionOptions) => void;
-}) {
-  const opt = value ?? {};
-  const patch = (changes: Partial<ExtractionOptions>) => onChange({ ...opt, ...changes });
-
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-800">Document Extraction (Ollama/Qwen)</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          These tune the local document-extraction pipeline (DOCUMENT_EXTRACTION_V1). Blank = use the server's environment default.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Input
-          label="Max tokens"
-          type="number"
-          min="1"
-          value={numToStr(opt.maxTokens)}
-          onChange={(e) => patch({ maxTokens: strToNum(e.target.value) })}
-          placeholder="Default"
-        />
-        <Input
-          label="Context window (num_ctx)"
-          type="number"
-          min="1"
-          value={numToStr(opt.numCtx)}
-          onChange={(e) => patch({ numCtx: strToNum(e.target.value) })}
-          placeholder="Default"
-        />
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Thinking</label>
-          <select
-            value={opt.thinking ?? ''}
-            onChange={(e) => patch({ thinking: e.target.value === '' ? null : (e.target.value as 'on' | 'off') })}
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="">Default</option>
-            <option value="on">On</option>
-            <option value="off">Off</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Use native Ollama endpoint</label>
-          <select
-            value={boolToSelect(opt.ollamaNative)}
-            onChange={(e) => patch({ ollamaNative: selectToBool(e.target.value) })}
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="">Default</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-        </div>
-        <div>
-          <Input
-            label="Model tag"
-            value={opt.modelTag ?? ''}
-            onChange={(e) => patch({ modelTag: e.target.value })}
-            list="extraction-model-tag-suggestions"
-            placeholder="e.g. minicpm-v4.5:latest"
-          />
-          <datalist id="extraction-model-tag-suggestions">
-            {OLLAMA_MODEL_SUGGESTIONS.map((m) => <option key={m} value={m} />)}
-          </datalist>
-        </div>
-        <Input
-          label="Render DPI"
-          type="number"
-          min="1"
-          value={numToStr(opt.renderDpi)}
-          onChange={(e) => patch({ renderDpi: strToNum(e.target.value) })}
-          placeholder="200"
-        />
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Grayscale render</label>
-          <select
-            value={boolToSelect(opt.grayscale)}
-            onChange={(e) => patch({ grayscale: selectToBool(e.target.value) })}
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="">Default</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-        </div>
-        <Input
-          label="Confidence threshold"
-          type="number"
-          step="0.05"
-          min="0"
-          max="1"
-          value={numToStr(opt.confidenceThreshold)}
-          onChange={(e) => patch({ confidenceThreshold: strToNum(e.target.value) })}
-          placeholder="Default"
-        />
-      </div>
-    </div>
-  );
 }
 
 /**

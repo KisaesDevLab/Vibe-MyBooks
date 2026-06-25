@@ -61,6 +61,8 @@ export const accountsMocks = () => ({
 
 export const aiMocks = () => ({
   useAiConfig: passthroughQuery(null),
+  useProviderModels: passthroughQuery({ models: [] }),
+  useGlmOcrModels: passthroughQuery({ models: [] }),
   useAiStatus: passthroughQuery({ isEnabled: false }),
   useUpdateAiConfig: passthroughMutation,
   useTestAiProvider: passthroughMutation,

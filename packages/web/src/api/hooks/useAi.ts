@@ -208,6 +208,33 @@ export function useAiConfig() {
   });
 }
 
+export interface ProviderModels {
+  models: string[];
+  error?: string;
+}
+
+/** Available models for a provider, to populate the model dropdowns. Returns an
+ *  empty list (never throws into the UI) when the provider can't be reached. */
+export function useProviderModels(provider: string | null | undefined) {
+  return useQuery({
+    queryKey: ['ai', 'models', provider],
+    queryFn: () => apiClient<ProviderModels>(`/ai/admin/models/${provider}`),
+    enabled: !!provider,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+/** Models advertised by the configured GLM-OCR llama-server. */
+export function useGlmOcrModels() {
+  return useQuery({
+    queryKey: ['ai', 'glm-ocr-models'],
+    queryFn: () => apiClient<ProviderModels>('/ai/admin/glm-ocr/models'),
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
 /**
  * Feature-availability hook for AI features, safe for ALL authenticated
  * users (unlike useAiConfig which hits the super-admin-only endpoint).
