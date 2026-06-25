@@ -2,7 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useTags, useCreateTag } from '../../api/hooks/useTags';
 import { TAG_COLOR_PALETTE } from '@kis-books/shared';
 import { darkenForText } from '../../utils/color-a11y';
@@ -22,6 +23,34 @@ export function TagSelector({ value, onChange, label, compact }: TagSelectorProp
   const [highlightIndex, setHighlightIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Portal panel: rendered on document.body with fixed positioning so it is
+  // never clipped by a modal/table overflow and always stacks on top.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelPos, setPanelPos] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
+
+  const updatePanelPos = useCallback(() => {
+    const el = dropdownRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const GAP = 4;
+    const spaceBelow = window.innerHeight - r.bottom - GAP - 8;
+    const spaceAbove = r.top - GAP - 8;
+    const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(120, Math.min(208, openUp ? spaceAbove : spaceBelow));
+    setPanelPos({ left: r.left, width: r.width, maxHeight, top: openUp ? r.top - GAP - maxHeight : r.bottom + GAP });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    updatePanelPos();
+    const onScroll = () => updatePanelPos();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [isOpen, updatePanelPos]);
 
   const { data } = useTags({ isActive: true });
   const createTag = useCreateTag();
@@ -39,7 +68,10 @@ export function TagSelector({ value, onChange, label, compact }: TagSelectorProp
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inWrapper = dropdownRef.current?.contains(target) ?? false;
+      const inPanel = panelRef.current?.contains(target) ?? false;
+      if (!inWrapper && !inPanel) {
         setIsOpen(false);
         setSearch('');
       }
@@ -133,9 +165,13 @@ export function TagSelector({ value, onChange, label, compact }: TagSelectorProp
         />
       </div>
 
-      {/* Dropdown */}
-      {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white rounded-lg border border-gray-200 shadow-lg max-h-52 overflow-auto">
+      {/* Dropdown — portal + fixed positioning (never clipped by overflow). */}
+      {isOpen && panelPos && createPortal(
+        <div
+          ref={panelRef}
+          className="fixed z-[1000] bg-white rounded-lg border border-gray-200 shadow-lg overflow-auto"
+          style={{ left: panelPos.left, top: panelPos.top, width: panelPos.width, maxHeight: panelPos.maxHeight }}
+        >
           {filtered.map((tag, idx) => {
             const isSelected = value.includes(tag.id);
             return (
@@ -166,7 +202,8 @@ export function TagSelector({ value, onChange, label, compact }: TagSelectorProp
               <Plus className="h-3 w-3" /> Create "{search}"
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

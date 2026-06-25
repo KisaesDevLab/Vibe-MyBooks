@@ -7,10 +7,13 @@
 // at the transaction header in legacy layouts; this picker is specific
 // to line-level entry where one logical split carries at most one tag.
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useTags } from '../../../api/hooks/useTags';
 import clsx from 'clsx';
 import { ChevronDown, X } from 'lucide-react';
+
+const PANEL_WIDTH = 224; // w-56
 
 export interface LineTagPickerProps {
   /** Current tag id on the line. Null means "untagged" (which is valid). */
@@ -38,8 +41,38 @@ export function LineTagPicker({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // Portal panel (fixed positioning) so the picker isn't clipped by the dense
+  // entry grid's horizontal scroll / table overflow, and stacks above modals.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelPos, setPanelPos] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
   const { data } = useTags({ isActive: true });
   const tags = data?.tags || [];
+
+  const updatePanelPos = useCallback(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const GAP = 4;
+    const spaceBelow = window.innerHeight - r.bottom - GAP - 8;
+    const spaceAbove = r.top - GAP - 8;
+    const openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(140, Math.min(256, openUp ? spaceAbove : spaceBelow));
+    // Clamp horizontally so the fixed-width panel never spills past the viewport.
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - PANEL_WIDTH - 8));
+    setPanelPos({ left, maxHeight, top: openUp ? r.top - GAP - maxHeight : r.bottom + GAP });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    updatePanelPos();
+    const onScroll = () => updatePanelPos();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [isOpen, updatePanelPos]);
 
   const selected = tags.find((t) => t.id === value) || null;
   const filtered = search
@@ -49,7 +82,10 @@ export function LineTagPicker({
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inWrapper = wrapperRef.current?.contains(target) ?? false;
+      const inPanel = panelRef.current?.contains(target) ?? false;
+      if (!inWrapper && !inPanel) {
         setIsOpen(false);
         setSearch('');
       }
@@ -111,10 +147,12 @@ export function LineTagPicker({
         <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 ml-1" />
       </button>
 
-      {isOpen && (
+      {isOpen && panelPos && createPortal(
         <div
+          ref={panelRef}
           role="listbox"
-          className="absolute z-20 mt-1 w-56 max-h-64 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg"
+          className="fixed z-[1000] overflow-auto rounded-md border border-gray-200 bg-white shadow-lg"
+          style={{ left: panelPos.left, top: panelPos.top, width: PANEL_WIDTH, maxHeight: panelPos.maxHeight }}
         >
           <input
             autoFocus
@@ -157,7 +195,8 @@ export function LineTagPicker({
               <span className="truncate">{t.name}</span>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
