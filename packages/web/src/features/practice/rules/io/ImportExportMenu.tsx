@@ -5,6 +5,7 @@
 import { useRef, useState } from 'react';
 import { Download, Upload } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
+import { AnchoredPortal } from '../../../../components/ui/AnchoredPortal';
 import { useExportCsvRules, useExportJsonRules, useImportRules } from '../../../../api/hooks/useRuleImportExport';
 
 // Phase 5b §5.8 — header dropdown for import/export.
@@ -20,6 +21,7 @@ export function ImportExportMenu() {
   const exportCsv = useExportCsvRules();
   const importRules = useImportRules();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const qboBtnRef = useRef<HTMLButtonElement>(null);
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
   const [showQboHelp, setShowQboHelp] = useState(false);
 
@@ -66,20 +68,20 @@ export function ImportExportMenu() {
         Export CSV
       </Button>
       <button
+        ref={qboBtnRef}
         type="button"
         onClick={() => setShowQboHelp((s) => !s)}
         className="text-xs text-gray-500 hover:text-gray-700 underline"
       >
         QBO format?
       </button>
-      {showQboHelp && (
-        <div className="absolute top-full right-0 mt-1 w-72 rounded-lg border border-gray-200 bg-white shadow-lg p-3 z-10 text-xs text-gray-700">
-          QuickBooks Online rule CSV import isn&apos;t supported yet — the QBO export format isn&apos;t formally documented and a hand-mapped importer would silently drop edge cases. Use JSON export from QBO &rarr; manual conversion &rarr; JSON import here.
-        </div>
-      )}
+      <AnchoredPortal anchorRef={qboBtnRef} open={showQboHelp} align="right" width={288} maxHeight={320}
+        className="rounded-lg border border-gray-200 bg-white shadow-lg p-3 text-xs text-gray-700">
+        QuickBooks Online rule CSV import isn&apos;t supported yet — the QBO export format isn&apos;t formally documented and a hand-mapped importer would silently drop edge cases. Use JSON export from QBO &rarr; manual conversion &rarr; JSON import here.
+      </AnchoredPortal>
       {feedback && (
         <div
-          className={`absolute top-full right-0 mt-12 max-w-sm rounded-md border px-3 py-2 text-xs ${
+          className={`absolute top-full right-0 mt-12 max-w-sm z-50 rounded-md border px-3 py-2 text-xs ${
             feedback.kind === 'success'
               ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
               : 'border-rose-200 bg-rose-50 text-rose-700'
