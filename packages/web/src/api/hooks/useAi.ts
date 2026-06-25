@@ -104,6 +104,19 @@ export interface AiConfigDto {
   openaiCompatModel: string | null;
   openaiCompatMode?: 'auto' | 'native' | 'compat';
   hasOpenaiCompatKey: boolean;
+  // GLM-OCR engine (statement-import pipeline). Dedicated llama.cpp OCR server.
+  glmOcrEnabled: boolean;
+  glmOcrBaseUrl: string | null;
+  glmOcrModel: string | null;
+  glmOcrPrompt: string | null;
+  glmOcrTimeoutMs: number | null;
+  glmOcrConcurrency: number | null;
+  glmOcrForceOcr: boolean;
+  glmOcrRenderDpi: number | null;
+  hasGlmOcrKey: boolean;
+  // Stage-2 statement extraction LLM (OCR markdown → JSON).
+  statementExtractionProvider: 'local' | 'anthropic';
+  statementExtractionModel: string | null;
   autoCategorizeOnImport: boolean;
   autoOcrOnUpload: boolean;
   categorizationConfidenceThreshold: number;
@@ -158,6 +171,18 @@ export interface UpdateAiConfigInput {
   openaiCompatBaseUrl?: string | null;
   openaiCompatModel?: string | null;
   openaiCompatMode?: 'auto' | 'native' | 'compat';
+  // GLM-OCR engine. apiKey is write-only (3-state: null clears, blank no-op).
+  glmOcrEnabled?: boolean;
+  glmOcrBaseUrl?: string | null;
+  glmOcrApiKey?: string | null;
+  glmOcrModel?: string | null;
+  glmOcrPrompt?: string | null;
+  glmOcrTimeoutMs?: number | null;
+  glmOcrConcurrency?: number | null;
+  glmOcrForceOcr?: boolean;
+  glmOcrRenderDpi?: number | null;
+  statementExtractionProvider?: 'local' | 'anthropic';
+  statementExtractionModel?: string | null;
   autoCategorizeOnImport?: boolean;
   autoOcrOnUpload?: boolean;
   categorizationConfidenceThreshold?: number;
@@ -265,6 +290,18 @@ export function useTestAiProvider() {
   });
 }
 
+// Test the GLM-OCR statement engine (health probe + 1-page sample OCR).
+export function useTestGlmOcr() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient<TestProviderResult>('/ai/admin/test-glm-ocr', { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ai', 'config'] });
+      qc.invalidateQueries({ queryKey: ['ai', 'diagnostics'] });
+    },
+  });
+}
+
 // Shape from POST /ai/admin/test-function/:fn — runs a REAL end-to-end
 // completion for the given function (unlike test/:provider which only
 // checks reachability). `error` surfaces the actual per-provider failure
@@ -343,6 +380,15 @@ export interface ParsedStatementTransaction {
   [key: string]: unknown;
 }
 
+export interface StatementReconciliationDto {
+  status: 'verified' | 'discrepancy' | 'skipped';
+  deltaCents: number;
+  expectedClosingCents: number | null;
+  actualClosingCents: number | null;
+  repaired: boolean;
+  fixDescription?: string;
+}
+
 export interface ParsedStatement {
   transactions?: ParsedStatementTransaction[];
   accountNumberMasked?: string | null;
@@ -351,6 +397,11 @@ export interface ParsedStatement {
   closingBalance?: string | null;
   confidence?: number | null;
   qualityWarnings?: string[];
+  // Statement-import redesign: detect→OCR→extract→reconcile signals.
+  extractionSource?: string;
+  reconciliation?: StatementReconciliationDto;
+  suspectRows?: Array<{ index: number; deltaCents: number }>;
+  notes?: string | null;
 }
 
 export function useAiParseStatement() {

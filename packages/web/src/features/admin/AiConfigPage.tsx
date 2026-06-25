@@ -8,6 +8,7 @@ import { apiClient } from '../../api/client';
 import {
   useAiConfig, useUpdateAiConfig, useTestAiProvider, useTestAiFunction,
   useSystemAiDisclosure, useAcceptSystemAiDisclosure, useAiPromptTaskTypes,
+  useTestGlmOcr,
 } from '../../api/hooks/useAi';
 import type { TaskOption, TaskOptions, AiFunctionKey, TestFunctionResult, ExtractionOptions } from '../../api/hooks/useAi';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -120,6 +121,7 @@ export function AiConfigPage() {
   const { data, isLoading } = useAiConfig();
   const updateConfig = useUpdateAiConfig();
   const testProvider = useTestAiProvider();
+  const testGlmOcr = useTestGlmOcr();
 
   type PiiLevel = 'strict' | 'standard' | 'permissive';
   interface AiConfigFormState {
@@ -136,6 +138,17 @@ export function AiConfigPage() {
     openaiCompatModel: string;
     openaiCompatApiKey: string;
     openaiCompatMode: 'auto' | 'native' | 'compat';
+    glmOcrEnabled: boolean;
+    glmOcrBaseUrl: string;
+    glmOcrApiKey: string;
+    glmOcrModel: string;
+    glmOcrPrompt: string;
+    glmOcrTimeoutMs: number | null;
+    glmOcrConcurrency: number | null;
+    glmOcrForceOcr: boolean;
+    glmOcrRenderDpi: number | null;
+    statementExtractionProvider: 'local' | 'anthropic';
+    statementExtractionModel: string;
     autoCategorizeOnImport: boolean;
     autoOcrOnUpload: boolean;
     categorizationConfidenceThreshold: number;
@@ -159,6 +172,17 @@ export function AiConfigPage() {
     openaiCompatModel: '',
     openaiCompatApiKey: '',
     openaiCompatMode: 'auto',
+    glmOcrEnabled: false,
+    glmOcrBaseUrl: '',
+    glmOcrApiKey: '',
+    glmOcrModel: '',
+    glmOcrPrompt: '',
+    glmOcrTimeoutMs: null,
+    glmOcrConcurrency: null,
+    glmOcrForceOcr: false,
+    glmOcrRenderDpi: null,
+    statementExtractionProvider: 'local',
+    statementExtractionModel: '',
     autoCategorizeOnImport: true,
     autoOcrOnUpload: true,
     categorizationConfidenceThreshold: 0.7,
@@ -195,6 +219,16 @@ export function AiConfigPage() {
         openaiCompatBaseUrl: data.openaiCompatBaseUrl || '',
         openaiCompatModel: data.openaiCompatModel || '',
         openaiCompatMode: data.openaiCompatMode || 'auto',
+        glmOcrEnabled: !!data.glmOcrEnabled,
+        glmOcrBaseUrl: data.glmOcrBaseUrl || '',
+        glmOcrModel: data.glmOcrModel || '',
+        glmOcrPrompt: data.glmOcrPrompt || '',
+        glmOcrTimeoutMs: data.glmOcrTimeoutMs,
+        glmOcrConcurrency: data.glmOcrConcurrency,
+        glmOcrForceOcr: !!data.glmOcrForceOcr,
+        glmOcrRenderDpi: data.glmOcrRenderDpi,
+        statementExtractionProvider: data.statementExtractionProvider || 'local',
+        statementExtractionModel: data.statementExtractionModel || '',
         autoCategorizeOnImport: data.autoCategorizeOnImport,
         autoOcrOnUpload: data.autoOcrOnUpload,
         categorizationConfidenceThreshold: data.categorizationConfidenceThreshold,
@@ -214,6 +248,15 @@ export function AiConfigPage() {
       setTestResults((r) => ({ ...r, [provider]: { ok: result.success, msg: result.modelInfo || result.error || '' } }));
     } catch (e) {
       setTestResults((r) => ({ ...r, [provider]: { ok: false, msg: e instanceof Error ? e.message : 'Test failed' } }));
+    }
+  };
+
+  const handleTestGlmOcr = async () => {
+    try {
+      const result = await testGlmOcr.mutateAsync();
+      setTestResults((r) => ({ ...r, glm_ocr: { ok: result.success, msg: result.modelInfo || result.error || '' } }));
+    } catch (e) {
+      setTestResults((r) => ({ ...r, glm_ocr: { ok: false, msg: e instanceof Error ? e.message : 'Test failed' } }));
     }
   };
 
@@ -605,6 +648,110 @@ export function AiConfigPage() {
                 {testResults['openai_compat']!.msg}
               </p>
             )}
+          </div>
+
+          {/* GLM-OCR engine — dedicated llama.cpp OCR server for the
+              statement-import pipeline (detect → OCR → extract → reconcile).
+              Separate from the chat/vision providers above; only used to
+              transcribe scanned/image statement pages to markdown. */}
+          <div className="space-y-2 border-t border-gray-100 pt-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-800">GLM-OCR Engine (Statement Import)</h3>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={form.glmOcrEnabled}
+                  onChange={(e) => setForm((f) => ({ ...f, glmOcrEnabled: e.target.checked }))} className="rounded" />
+                <span>Enabled</span>
+              </label>
+            </div>
+            <p className="text-xs text-gray-500">
+              A dedicated llama.cpp <code>llama-server</code> hosting GLM-OCR (OpenAI-compatible chat API).
+              Used to OCR scanned/image bank-statement pages; text-layer PDFs skip it. Keep the base URL on the LAN to stay on-server.
+            </p>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Input label="GLM-OCR Base URL" value={form.glmOcrBaseUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, glmOcrBaseUrl: e.target.value }))}
+                  placeholder="http://vibe-glm-ocr:8090 or http://192.168.x.x:8082" />
+              </div>
+              <div className="pt-5">
+                <Button variant="secondary" size="sm" onClick={handleTestGlmOcr}
+                  loading={testGlmOcr.isPending}
+                  disabled={!form.glmOcrBaseUrl && !data?.glmOcrBaseUrl}>Test</Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Input label="Model" value={form.glmOcrModel}
+                onChange={(e) => setForm((f) => ({ ...f, glmOcrModel: e.target.value }))}
+                placeholder="glm-ocr" />
+              <Input label="Prompt" value={form.glmOcrPrompt}
+                onChange={(e) => setForm((f) => ({ ...f, glmOcrPrompt: e.target.value }))}
+                placeholder="OCR:  (or 'Table Recognition:')" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Input label="Timeout (ms)" type="number" value={form.glmOcrTimeoutMs ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, glmOcrTimeoutMs: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="120000" />
+              <Input label="Concurrency" type="number" value={form.glmOcrConcurrency ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, glmOcrConcurrency: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="2" />
+            </div>
+            <div className="grid grid-cols-2 gap-2 items-end">
+              <Input label="Render DPI" type="number" value={form.glmOcrRenderDpi ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, glmOcrRenderDpi: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="200 (blank = server default)" />
+              <label className="flex items-center gap-2 text-sm pb-2">
+                <input type="checkbox" checked={form.glmOcrForceOcr}
+                  onChange={(e) => setForm((f) => ({ ...f, glmOcrForceOcr: e.target.checked }))} className="rounded" />
+                <span title="OCR every page even when the PDF has a text layer">Force OCR (skip text-layer fast path)</span>
+              </label>
+            </div>
+            <Input label="GLM-OCR API Key (optional)" type="password" value={form.glmOcrApiKey}
+              onChange={(e) => setForm((f) => ({ ...f, glmOcrApiKey: e.target.value }))}
+              placeholder={data?.hasGlmOcrKey ? '••••••••••• (configured)' : 'Leave blank if the server is open'} />
+            {data?.hasGlmOcrKey && (
+              <button type="button"
+                onClick={async () => {
+                  if (!confirm('Clear stored GLM-OCR API Key?')) return;
+                  await apiClient('/ai/admin/config', { method: 'PUT', body: JSON.stringify({ glmOcrApiKey: null }) });
+                  queryClient.invalidateQueries({ queryKey: ['ai', 'config'] });
+                }}
+                className="text-xs text-red-600 hover:underline">
+                Clear stored key
+              </button>
+            )}
+            {testResults['glm_ocr'] && (
+              <p className={`text-xs ${testResults['glm_ocr']!.ok ? 'text-green-600' : 'text-red-600'}`}>
+                {testResults['glm_ocr']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
+                {testResults['glm_ocr']!.msg}
+              </p>
+            )}
+
+            {/* Stage-2 extraction LLM: turns the OCR'd markdown into structured
+                transactions. Independent of the OCR engine above. */}
+            <div className="border-t border-gray-100 pt-3 mt-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Statement extraction LLM</label>
+              <p className="text-xs text-gray-500 mb-2">
+                Which model turns the OCR'd statement text into structured transactions.
+                <strong> Local</strong> keeps data on-server; <strong>Anthropic</strong> sends PII-sanitized text to the cloud.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <select value={form.statementExtractionProvider}
+                  onChange={(e) => setForm((f) => ({ ...f, statementExtractionProvider: e.target.value as 'local' | 'anthropic' }))}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="local">Local LLM (self-hosted)</option>
+                  <option value="anthropic">Anthropic (cloud)</option>
+                </select>
+                <Input label="" value={form.statementExtractionModel}
+                  onChange={(e) => setForm((f) => ({ ...f, statementExtractionModel: e.target.value }))}
+                  placeholder={form.statementExtractionProvider === 'anthropic' ? 'e.g. claude-sonnet-4-6 (blank = default)' : 'model (blank = OCR/local default)'} />
+              </div>
+              {form.statementExtractionProvider === 'anthropic' && !data?.hasAnthropicKey && (
+                <p className="text-xs text-amber-600 mt-1">
+                  <AlertTriangle className="h-3 w-3 inline mr-1" />
+                  No Anthropic API key configured — set one above or extraction will fail.
+                </p>
+              )}
+            </div>
           </div>
         </div>
 

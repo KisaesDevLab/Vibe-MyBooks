@@ -37,8 +37,18 @@ export function StatementUploadPage() {
     closingBalance?: string | null;
     confidence?: number | null;
     qualityWarnings: string[];
+    extractionSource?: string;
+    reconciliation?: {
+      status: 'verified' | 'discrepancy' | 'skipped';
+      deltaCents: number;
+      repaired: boolean;
+      fixDescription?: string;
+    };
   }
   const [metadata, setMetadata] = useState<StatementMetadata | null>(null);
+  // Indices flagged by the running-balance check (findSuspectRows), shown as
+  // per-row "off by $X" badges.
+  const [suspectByIndex, setSuspectByIndex] = useState<Record<number, number>>({});
   const [imported, setImported] = useState<{ imported: number; skipped?: number; duplicates?: number } | null>(null);
   const [bankConnectionId, setBankConnectionId] = useState('');
 
@@ -85,7 +95,12 @@ export function StatementUploadPage() {
           closingBalance: result.closingBalance,
           confidence: result.confidence,
           qualityWarnings: Array.isArray(result.qualityWarnings) ? result.qualityWarnings : [],
+          extractionSource: result.extractionSource,
+          reconciliation: result.reconciliation,
         });
+        setSuspectByIndex(
+          Object.fromEntries((result.suspectRows ?? []).map((s) => [s.index, s.deltaCents])),
+        );
       } catch (err) {
         setParseError(err instanceof Error ? err.message : 'Failed to parse statement. Try a different file format.');
       } finally {
@@ -119,6 +134,7 @@ export function StatementUploadPage() {
     if (!f) return;
     setFile(f);
     setTransactions([]);
+    setSuspectByIndex({});
     setImported(null);
     setParseError('');
     uploadMutation.mutate(f);
@@ -201,7 +217,45 @@ export function StatementUploadPage() {
                   <Brain className="h-3 w-3 inline mr-0.5" />{Math.round(metadata.confidence * 100)}% confidence
                 </span>
               )}
+              {(metadata.openingBalance != null || metadata.closingBalance != null) && (
+                <div className="text-gray-500">
+                  <span>Balances:</span>{' '}
+                  <span className="font-medium">
+                    {metadata.openingBalance != null ? `$${parseFloat(metadata.openingBalance).toFixed(2)}` : '—'}
+                    {' → '}
+                    {metadata.closingBalance != null ? `$${parseFloat(metadata.closingBalance).toFixed(2)}` : '—'}
+                  </span>
+                </div>
+              )}
+              {metadata.extractionSource && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">
+                  {metadata.extractionSource.replace(/_/g, ' ')}
+                </span>
+              )}
               <span className="text-gray-500">{transactions.length} transactions found</span>
+            </div>
+          )}
+
+          {/* Reconciliation (Golden Rule: opening + Σ = closing) */}
+          {metadata?.reconciliation && metadata.reconciliation.status !== 'skipped' && (
+            <div className={`rounded-lg border p-3 text-sm flex items-start gap-2 ${
+              metadata.reconciliation.status === 'verified'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
+            }`}>
+              {metadata.reconciliation.status === 'verified'
+                ? <Check className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                : <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />}
+              <div>
+                {metadata.reconciliation.status === 'verified' ? (
+                  <p>Statement reconciles: opening balance + transactions = closing balance.{metadata.reconciliation.repaired ? ` (auto-fixed: ${metadata.reconciliation.fixDescription})` : ''}</p>
+                ) : (
+                  <p>
+                    Statement does <strong>not</strong> reconcile — off by ${Math.abs(metadata.reconciliation.deltaCents / 100).toFixed(2)}.
+                    A transaction may be missing, duplicated, or mis-signed. Review before importing.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -238,6 +292,11 @@ export function StatementUploadPage() {
                     <td className="px-4 py-2 text-gray-900">
                       {txn.description}
                       {txn.duplicate && <span className="text-xs text-amber-600 ml-2">(duplicate)</span>}
+                      {suspectByIndex[idx] !== undefined && (
+                        <span className="text-xs text-amber-600 ml-2" title="Running balance disagrees with prior balance + amount">
+                          ⚠ off by ${Math.abs(suspectByIndex[idx]! / 100).toFixed(2)}
+                        </span>
+                      )}
                     </td>
                     <td className={`px-4 py-2 text-right font-mono ${txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
                       {txn.type === 'credit' ? '+' : '-'}${parseFloat(txn.amount).toFixed(2)}
