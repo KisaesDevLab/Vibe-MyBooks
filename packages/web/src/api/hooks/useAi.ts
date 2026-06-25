@@ -518,13 +518,21 @@ export async function pollStatementProgress(
   onSnapshot: (s: StatementProgressSnapshot) => void,
   signal?: AbortSignal,
   intervalMs = 1200,
+  // Wall-clock cap so an orphaned job (e.g. the API process restarted
+  // mid-parse, leaving the row stuck in 'processing') can't spin the UI
+  // spinner forever — surface a timeout the user can retry from.
+  maxDurationMs = 480_000,
 ): Promise<void> {
+  const start = Date.now();
   for (;;) {
     if (signal?.aborted) return;
     const snap = await apiClient<StatementProgressSnapshot>(`/ai/parse/statement/${jobId}/status`);
     if (signal?.aborted) return;
     onSnapshot(snap);
     if (snap.status === 'complete' || snap.status === 'failed' || snap.status === 'cancelled') return;
+    if (Date.now() - start > maxDurationMs) {
+      throw new Error('Parsing timed out — the job may have stalled. Please try again.');
+    }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
 }

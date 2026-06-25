@@ -6,7 +6,7 @@ import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import {
-  useAiConfig,
+  useAiStatus,
   useStartStatementParse,
   pollStatementProgress,
   type ParsedStatement,
@@ -77,8 +77,12 @@ export function StatementUploadPage() {
   const [stage, setStage] = useState<string | null>(null);
   const progressCtrl = useRef<AbortController | null>(null);
 
-  const { data: aiConfig, isLoading: aiConfigLoading } = useAiConfig();
-  const aiEnabled = aiConfig?.isEnabled === true;
+  // Gate on the NON-admin feature endpoint (/ai/status). The previous
+  // useAiConfig hit /ai/admin/config, which is super-admin-only and 403s for
+  // every normal user — so the dropzone never rendered and the page looked
+  // permanently "AI not enabled" even when statement parsing was configured.
+  const { data: aiStatus, isLoading: aiConfigLoading } = useAiStatus();
+  const aiEnabled = aiStatus?.hasStatementParser === true;
   const startParse = useStartStatementParse();
 
   // Human label per stage (matches the converter's progress display).
@@ -167,8 +171,20 @@ export function StatementUploadPage() {
         await pollStatementProgress(jobId, (snap) => {
           if (snap.stage) setStage(snap.stage);
           if (snap.status === 'complete') {
-            if (snap.result) { applyResult(snap.result); gotResult = true; }
-            else failure = 'Parsing finished but returned no transactions.';
+            if (snap.result) {
+              applyResult(snap.result);
+              gotResult = true;
+              // A successful parse that found NOTHING must not render a blank
+              // page — surface why (notes / quality warnings) so the user can
+              // act (clearer scan, or a CSV/OFX export).
+              if ((snap.result.transactions ?? []).length === 0) {
+                const why = snap.result.notes
+                  || (Array.isArray(snap.result.qualityWarnings) && snap.result.qualityWarnings.length
+                    ? snap.result.qualityWarnings.join('; ')
+                    : '');
+                failure = `No transactions were found in this statement.${why ? ` (${why})` : ''} Try a clearer scan, or import a CSV/OFX export instead.`;
+              }
+            } else failure = 'Parsing finished but returned no transactions.';
           } else if (snap.status === 'failed') {
             failure = snap.error || 'Failed to parse statement.';
           }
