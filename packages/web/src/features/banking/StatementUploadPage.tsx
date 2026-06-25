@@ -2,16 +2,22 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { useAiConfig, useAiParseStatement } from '../../api/hooks/useAi';
+import {
+  useAiConfig,
+  useStartStatementParse,
+  streamStatementProgress,
+  type ParsedStatement,
+} from '../../api/hooks/useAi';
 import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { FileUp, Brain, Check, X, Loader2, Download, AlertTriangle } from 'lucide-react';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { OcrQualityNotice } from '../../components/ui/OcrQualityNotice';
+import { AccountSelector } from '../../components/forms/AccountSelector';
 
 interface ParsedTransaction {
   date: string;
@@ -50,11 +56,54 @@ export function StatementUploadPage() {
   // per-row "off by $X" badges.
   const [suspectByIndex, setSuspectByIndex] = useState<Record<number, number>>({});
   const [imported, setImported] = useState<{ imported: number; skipped?: number; duplicates?: number } | null>(null);
-  const [bankConnectionId, setBankConnectionId] = useState('');
+  // The GL bank account the statement belongs to; the import find-or-creates a
+  // manual connection for it server-side. Required before importing.
+  const [accountId, setAccountId] = useState('');
+  // Live processing stage from the SSE progress stream.
+  const [stage, setStage] = useState<string | null>(null);
+  const progressCtrl = useRef<AbortController | null>(null);
 
   const { data: aiConfig, isLoading: aiConfigLoading } = useAiConfig();
   const aiEnabled = aiConfig?.isEnabled === true;
-  const parseStatement = useAiParseStatement();
+  const startParse = useStartStatementParse();
+
+  // Human label per stage (matches the converter's progress display).
+  const STAGE_LABELS: Record<string, string> = {
+    queued: 'Queued…',
+    detecting: 'Detecting statement format…',
+    ocr: 'Running OCR on statement pages…',
+    extracting: 'Extracting transactions…',
+    reconciling: 'Reconciling balances…',
+    done: 'Finishing up…',
+  };
+
+  // Map a terminal parse result into the review table + metadata.
+  const applyResult = (result: ParsedStatement) => {
+    setTransactions((result.transactions ?? []).map((t) => ({
+      date: t.date,
+      description: t.description,
+      amount: t.amount,
+      type: t.type === 'credit' ? 'credit' : 'debit',
+      selected: true,
+      duplicate: false,
+    })));
+    setMetadata({
+      accountNumber: result.accountNumberMasked,
+      period: result.statementPeriod,
+      openingBalance: result.openingBalance,
+      closingBalance: result.closingBalance,
+      confidence: result.confidence,
+      qualityWarnings: Array.isArray(result.qualityWarnings) ? result.qualityWarnings : [],
+      extractionSource: result.extractionSource,
+      reconciliation: result.reconciliation,
+    });
+    setSuspectByIndex(
+      Object.fromEntries((result.suspectRows ?? []).map((s) => [s.index, s.deltaCents])),
+    );
+  };
+
+  // Abort any in-flight progress stream on unmount.
+  useEffect(() => () => progressCtrl.current?.abort(), []);
 
   const uploadMutation = useMutation({
     mutationFn: async (f: File) => {
@@ -75,36 +124,33 @@ export function StatementUploadPage() {
       if (!aid) return;
       setAttachmentId(aid);
 
-      // Auto-parse with AI
+      // Kick off the async parse and follow its SSE progress stream. The page
+      // shows the live stage while the pipeline runs in the background, then
+      // renders the review table from the terminal `complete` snapshot.
       setParsing(true);
       setParseError('');
+      setStage('queued');
       try {
-        const result = await parseStatement.mutateAsync(aid);
-        setTransactions((result.transactions || []).map((t) => ({
-          date: t.date,
-          description: t.description,
-          amount: t.amount,
-          type: (t.type === 'credit' ? 'credit' : 'debit'),
-          selected: true,
-          duplicate: false,
-        })));
-        setMetadata({
-          accountNumber: result.accountNumberMasked,
-          period: result.statementPeriod,
-          openingBalance: result.openingBalance,
-          closingBalance: result.closingBalance,
-          confidence: result.confidence,
-          qualityWarnings: Array.isArray(result.qualityWarnings) ? result.qualityWarnings : [],
-          extractionSource: result.extractionSource,
-          reconciliation: result.reconciliation,
-        });
-        setSuspectByIndex(
-          Object.fromEntries((result.suspectRows ?? []).map((s) => [s.index, s.deltaCents])),
-        );
+        const { jobId } = await startParse.mutateAsync(aid);
+        const ctrl = new AbortController();
+        progressCtrl.current?.abort();
+        progressCtrl.current = ctrl;
+        let failure: string | null = null;
+        await streamStatementProgress(jobId, (snap) => {
+          setStage(snap.stage);
+          if (snap.status === 'complete' && snap.result) {
+            applyResult(snap.result);
+          } else if (snap.status === 'failed') {
+            failure = snap.error || 'Failed to parse statement.';
+          }
+        }, ctrl.signal);
+        if (failure) setParseError(failure);
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return; // superseded
         setParseError(err instanceof Error ? err.message : 'Failed to parse statement. Try a different file format.');
       } finally {
         setParsing(false);
+        setStage(null);
       }
     },
   });
@@ -120,7 +166,9 @@ export function StatementUploadPage() {
       const res = await apiClient<StatementImportResult>('/ai/parse/statement/import', {
         method: 'POST',
         body: JSON.stringify({
-          bankConnectionId: bankConnectionId || '00000000-0000-0000-0000-000000000000',
+          // The server find-or-creates the manual bank connection for this
+          // account, so the statement rows land under the chosen GL account.
+          accountId,
           transactions: selected.map((t) => ({ date: t.date, description: t.description, amount: t.amount, type: t.type })),
         }),
       });
@@ -132,11 +180,13 @@ export function StatementUploadPage() {
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    progressCtrl.current?.abort();
     setFile(f);
     setTransactions([]);
     setSuspectByIndex({});
     setImported(null);
     setParseError('');
+    setStage(null);
     uploadMutation.mutate(f);
   };
 
@@ -183,8 +233,16 @@ export function StatementUploadPage() {
       {(uploadMutation.isPending || parsing) && (
         <div className="bg-white rounded-lg border p-12 text-center">
           <Loader2 className="h-8 w-8 text-primary-600 animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-600">{uploadMutation.isPending ? 'Uploading...' : 'AI parsing statement...'}</p>
-          <p className="text-xs text-gray-400 mt-1">This may take a moment for multi-page documents</p>
+          <p className="text-sm text-gray-600">
+            {uploadMutation.isPending
+              ? 'Uploading...'
+              : (stage && STAGE_LABELS[stage]) || 'AI parsing statement...'}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            {stage === 'ocr'
+              ? 'Scanned pages are read one at a time — this can take a minute per page.'
+              : 'This may take a moment for multi-page documents'}
+          </p>
         </div>
       )}
 
@@ -195,6 +253,24 @@ export function StatementUploadPage() {
       {/* Results */}
       {transactions.length > 0 && !parsing && (
         <div className="space-y-4">
+          {/* Destination account — which GL/bank account these transactions
+              belong to. Required before import; the server find-or-creates the
+              manual bank connection for it. */}
+          <div className="bg-white rounded-lg border p-4">
+            <div className="max-w-md">
+              <AccountSelector
+                label="Import into bank account"
+                value={accountId}
+                onChange={setAccountId}
+                accountTypeFilter={['asset', 'liability']}
+                required
+              />
+            </div>
+            {!accountId && (
+              <p className="text-xs text-amber-600 mt-1">Choose the account this statement belongs to before importing.</p>
+            )}
+          </div>
+
           {/* Metadata */}
           {metadata && (
             <div className="bg-white rounded-lg border p-4 flex items-center gap-6 text-sm">
@@ -317,7 +393,7 @@ export function StatementUploadPage() {
                 <Button variant="secondary" onClick={() => { setFile(null); setTransactions([]); setMetadata(null); }}>
                   Upload Different File
                 </Button>
-                <Button onClick={() => importMutation.mutate()} loading={importMutation.isPending} disabled={selectedCount === 0}>
+                <Button onClick={() => importMutation.mutate()} loading={importMutation.isPending} disabled={selectedCount === 0 || !accountId}>
                   <Download className="h-4 w-4 mr-1" /> Import {selectedCount} Transactions
                 </Button>
               </div>

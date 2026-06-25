@@ -70,6 +70,8 @@ export const aiMocks = () => ({
   useAiBatchCategorize: passthroughMutation,
   useAiOcrReceipt: passthroughMutation,
   useAiParseStatement: passthroughMutation,
+  useStartStatementParse: passthroughMutation,
+  streamStatementProgress: async () => {},
   useAiClassify: passthroughMutation,
   useAiUsage: passthroughQuery({ rows: [] }),
   useAiPrompts: passthroughQuery({ prompts: [] }),

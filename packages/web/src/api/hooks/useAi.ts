@@ -413,6 +413,83 @@ export function useAiParseStatement() {
   });
 }
 
+// Async statement parse: returns a jobId the caller follows over SSE.
+export function useStartStatementParse() {
+  return useMutation({
+    mutationFn: (attachmentId: string) =>
+      apiClient<{ jobId: string }>('/ai/parse/statement', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
+  });
+}
+
+export interface StatementProgressSnapshot {
+  status: 'pending' | 'processing' | 'complete' | 'failed' | 'cancelled';
+  stage: string | null;
+  confidence: number | null;
+  error: string | null;
+  /** Present only on the terminal `complete` snapshot. */
+  result: ParsedStatement | null;
+}
+
+/**
+ * Consume the statement-parse SSE progress stream with fetch + a ReadableStream
+ * reader (not EventSource, which can't send the Bearer auth header). Invokes
+ * `onSnapshot` for each status snapshot; resolves when the stream closes.
+ */
+export async function streamStatementProgress(
+  jobId: string,
+  onSnapshot: (s: StatementProgressSnapshot) => void,
+  signal?: AbortSignal,
+  // Injectable for tests; defaults to the global fetch.
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const token = localStorage.getItem('accessToken');
+  const res = await fetchImpl(`/api/v1/ai/parse/statement/${jobId}/progress`, {
+    headers: { Authorization: `Bearer ${token ?? ''}`, Accept: 'text/event-stream' },
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`Progress stream failed (${res.status})`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let sep: number;
+    // SSE frames are separated by a blank line ("\n\n").
+    while ((sep = buf.indexOf('\n\n')) !== -1) {
+      const frame = buf.slice(0, sep);
+      buf = buf.slice(sep + 2);
+      let event = 'message';
+      const dataLines: string[] = [];
+      for (const line of frame.split('\n')) {
+        if (line.startsWith(':')) continue; // heartbeat comment
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+      }
+      if (dataLines.length === 0) continue;
+      const payload = dataLines.join('\n');
+      if (event === 'error') throw new Error(safeMessage(payload, 'Progress error'));
+      if (event === 'timeout') throw new Error('Parsing timed out — please retry.');
+      try {
+        onSnapshot(JSON.parse(payload) as StatementProgressSnapshot);
+      } catch {
+        /* ignore an unparseable frame */
+      }
+    }
+  }
+}
+
+function safeMessage(json: string, fallback: string): string {
+  try {
+    const m = (JSON.parse(json) as { message?: string }).message;
+    return m || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export interface ClassifiedDocument {
   documentType?: string;
   confidence?: number;
