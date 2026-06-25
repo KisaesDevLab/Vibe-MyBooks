@@ -133,6 +133,7 @@ export const bankingMocks = () => ({
   useBulkExclude: passthroughMutation,
   // ADR 0XX §7 — bulk set-tag on already-categorized bank feed items.
   useBulkSetTag: passthroughMutation,
+  useBulkSetName: passthroughMutation,
   useImportBankFile: passthroughMutation,
   useReconciliations: passthroughQuery({ reconciliations: [] }),
   useReconciliation: passthroughQuery(null),

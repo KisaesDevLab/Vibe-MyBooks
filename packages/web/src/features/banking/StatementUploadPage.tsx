@@ -134,7 +134,16 @@ export function StatementUploadPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
         body: formData,
       });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        // Surface the server's real reason (file type/magic-byte rejection,
+        // size limit, auth, validation) instead of a blanket "Upload failed".
+        let msg = `Upload failed (HTTP ${res.status})`;
+        try {
+          const body = await res.json();
+          msg = body?.error?.message || body?.message || msg;
+        } catch { /* non-JSON error body — keep the status line */ }
+        throw new Error(msg);
+      }
       return res.json();
     },
     onSuccess: async (data: { id?: string; attachment?: { id: string } }) => {

@@ -130,6 +130,15 @@ export function useBulkSetTag() {
   });
 }
 
+export function useBulkSetName() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { feedItemIds: string[]; name: string }) =>
+      apiClient('/banking/feed/bulk-set-name', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); },
+  });
+}
+
 export function useBulkRecleanse() {
   const qc = useQueryClient();
   return useMutation({

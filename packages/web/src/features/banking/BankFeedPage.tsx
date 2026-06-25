@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
-import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useBulkSetTag, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
+import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/hooks/useAi';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
@@ -112,6 +112,9 @@ export function BankFeedPage() {
   const bulkSetTag = useBulkSetTag();
   const [showBatchSetTag, setShowBatchSetTag] = useState(false);
   const [batchSetTagId, setBatchSetTagId] = useState<string | null>(null);
+  const bulkSetName = useBulkSetName();
+  const [showBatchSetName, setShowBatchSetName] = useState(false);
+  const [batchSetName, setBatchSetName] = useState('');
   const aiCategorize = useAiCategorize();
   const aiBatch = useAiBatchCategorize();
   const matchFeedItem = useMatchFeedItem();
@@ -337,6 +340,23 @@ export function BankFeedPage() {
                 )}>Apply</Button>
               <Button size="sm" variant="ghost" onClick={() => { setShowBatchSetTag(false); setBatchSetTagId(null); }}>Cancel</Button>
             </div>
+          ) : showBatchSetName ? (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={batchSetName}
+                onChange={(e) => setBatchSetName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && batchSetName.trim()) { bulkSetName.mutate({ feedItemIds: [...selected], name: batchSetName.trim() }, { onSuccess: () => { setSelected(new Set()); setShowBatchSetName(false); setBatchSetName(''); } }); } }}
+                placeholder="New name for selected items"
+                className="w-64 rounded border border-gray-300 px-2 py-1 text-sm"
+              />
+              <Button size="sm" loading={bulkSetName.isPending} disabled={!batchSetName.trim()}
+                onClick={() => bulkSetName.mutate(
+                  { feedItemIds: [...selected], name: batchSetName.trim() },
+                  { onSuccess: () => { setSelected(new Set()); setShowBatchSetName(false); setBatchSetName(''); } },
+                )}>Apply</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setShowBatchSetName(false); setBatchSetName(''); }}>Cancel</Button>
+            </div>
           ) : (
             <>
               <Button size="sm" variant="secondary" onClick={() => setShowBatchCategorize(true)}>
@@ -355,6 +375,9 @@ export function BankFeedPage() {
               </Button>
               <Button size="sm" variant="secondary" onClick={() => setShowBatchSetTag(true)}>
                 Set Tag…
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowBatchSetName(true)}>
+                Set Name…
               </Button>
               <Button size="sm" variant="danger"
                 onClick={() => setShowExcludeConfirm(true)}
