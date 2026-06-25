@@ -17,6 +17,32 @@ import { ArrowLeft, Plus, Search, X } from 'lucide-react';
 
 const PAGE_SIZE = 50;
 
+type TxnSortKey = 'date' | 'type' | 'number' | 'payee' | 'memo' | 'category' | 'amount' | 'status';
+
+function SortableTh({ sortKey, label, align, sortBy, sortDir, onSort }: {
+  sortKey: TxnSortKey;
+  label: string;
+  align?: 'left' | 'right' | 'center';
+  sortBy: '' | TxnSortKey;
+  sortDir: 'asc' | 'desc';
+  onSort: (k: TxnSortKey) => void;
+}) {
+  const active = sortBy === sortKey;
+  const justify = align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start';
+  return (
+    <th className={`px-4 py-3 text-${align || 'left'} text-xs font-medium text-gray-500 uppercase`}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 uppercase hover:text-gray-700 ${justify} ${active ? 'text-gray-800' : ''}`}
+      >
+        {label}
+        <span className="text-[10px] leading-none">{active ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}</span>
+      </button>
+    </th>
+  );
+}
+
 const txnTypeLabels: Record<string, string> = {
   invoice: 'Invoice',
   customer_payment: 'Payment',
@@ -72,6 +98,10 @@ export function TransactionListPage() {
   // EXISTS subquery on journal_lines.
   const tagFilter = searchParams.get('tagId') || '';
   const urlSearch = searchParams.get('q') || '';
+  // Column sort — URL-synced so it survives navigation/refresh. Server-side
+  // (sorts the full filtered set, not just the visible page).
+  const sortBy = (searchParams.get('sortBy') || '') as '' | TxnSortKey;
+  const sortDir = searchParams.get('sortDir') === 'asc' ? 'asc' : 'desc';
   // Pagination is URL-synced so the Back button from a detail page drops
   // the operator back on the exact page + filter combo. offset clamped to
   // a non-negative multiple of PAGE_SIZE.
@@ -170,9 +200,23 @@ export function TransactionListPage() {
     endDate: endDate || undefined,
     tagId: tagFilter || undefined,
     search: debouncedSearch || undefined,
+    sortBy: sortBy || undefined,
+    sortDir: sortBy ? sortDir : undefined,
     limit: PAGE_SIZE,
     offset,
   });
+
+  // Click a column header to sort by it; click again to flip direction.
+  const toggleSort = (key: TxnSortKey) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      const nextDir = sortBy === key && sortDir === 'asc' ? 'desc' : 'asc';
+      next.set('sortBy', key);
+      next.set('sortDir', nextDir);
+      next.set('offset', '0');
+      return next;
+    });
+  };
 
   const { data: tagsData } = useTags({ isActive: true });
   const tagsList = tagsData?.tags || [];
@@ -436,15 +480,15 @@ export function TransactionListPage() {
                   <input type="checkbox" checked={allOnPageSelected} onChange={toggleAllOnPage}
                     aria-label="Select all on page" className="rounded border-gray-300" />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">No.</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payee / Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Memo</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                <SortableTh sortKey="date" label="Date" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh sortKey="type" label="Type" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh sortKey="number" label="No." sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh sortKey="payee" label="Payee / Customer" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh sortKey="memo" label="Memo" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh sortKey="category" label="Category" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tag</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                <SortableTh sortKey="amount" label="Amount" align="right" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh sortKey="status" label="Status" align="center" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">

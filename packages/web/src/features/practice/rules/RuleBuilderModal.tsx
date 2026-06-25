@@ -17,7 +17,7 @@ import { ActionsEditor } from './builder/ActionsEditor';
 import { JsonPreview } from './builder/JsonPreview';
 import { SandboxTab } from './sandbox/SandboxTab';
 import { StatsTab } from './stats/StatsTab';
-import { TIER_TOOLTIPS } from './TierBadge';
+import { TIER_TOOLTIPS, TierBadge } from './TierBadge';
 import {
   useCreateConditionalRule,
   useUpdateConditionalRule,
@@ -33,6 +33,12 @@ interface Props {
   // managing firm. Null on solo books or non-firm members.
   // Drives tier selector availability.
   firmRole?: FirmRole | null;
+  // 3-tier rules plan — move-tier from the edit modal. These reuse the
+  // parent's existing Promote/Demote modals (role-gated transitions), so the
+  // edit flow surfaces the entry point without bypassing the gates. Omitted
+  // (undefined) on surfaces that don't support tier moves.
+  onRequestPromote?: () => void;
+  onRequestDemote?: () => void;
   onClose: () => void;
 }
 
@@ -51,7 +57,17 @@ const EMPTY_ACTIONS: ActionsField = [{ type: 'set_account', accountId: '' }];
 // On save, the modal POSTs/PUTs the assembled rule. Server-side
 // Zod is the source of truth for validation; surface errors as
 // inline text rather than blocking the submit until edit time.
-export function RuleBuilderModal({ open, rule, firmRole, onClose }: Props) {
+export function RuleBuilderModal({ open, rule, firmRole, onRequestPromote, onRequestDemote, onClose }: Props) {
+  // Per-tier role gates (mirror RulesTable): who may move a rule UP or DOWN
+  // from its current scope. The server re-checks; this only governs visibility.
+  const canPromote = (s: string) => !!firmRole && (
+    (s === 'tenant_user' && (firmRole === 'firm_admin' || firmRole === 'firm_staff')) ||
+    (s === 'tenant_firm' && firmRole === 'firm_admin')
+  );
+  const canDemote = (s: string) => !!firmRole && (
+    (s === 'global_firm' && firmRole === 'firm_admin') ||
+    (s === 'tenant_firm' && (firmRole === 'firm_admin' || firmRole === 'firm_staff'))
+  );
   const [name, setName] = useState('');
   const [priority, setPriority] = useState(100);
   const [active, setActive] = useState(true);
@@ -280,6 +296,32 @@ export function RuleBuilderModal({ open, rule, firmRole, onClose }: Props) {
                     matching tag in every managed tenant&apos;s Chart of Accounts.
                   </p>
                 )}
+              </fieldset>
+            )}
+            {/* Edit mode — show the current tier and let the user move it.
+                Tier transitions are role-gated, single-step promote/demote
+                handled by the parent's existing modals. */}
+            {rule && firmRole && (canPromote(rule.scope) || canDemote(rule.scope)) && (
+              <fieldset className="flex flex-col gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+                <legend className="text-xs font-semibold uppercase tracking-wider text-gray-700 px-1">
+                  Tier
+                </legend>
+                <div className="flex flex-wrap items-center gap-3">
+                  <TierBadge scope={rule.scope} forked={!!rule.forkedFromGlobalId} />
+                  {canDemote(rule.scope) && onRequestDemote && (
+                    <Button type="button" size="sm" variant="secondary" onClick={onRequestDemote}>
+                      {rule.scope === 'global_firm' ? 'Demote to a tenant…' : 'Demote to Mine'}
+                    </Button>
+                  )}
+                  {canPromote(rule.scope) && onRequestPromote && (
+                    <Button type="button" size="sm" variant="secondary" onClick={onRequestPromote}>
+                      {rule.scope === 'tenant_user' ? 'Promote to Firm' : 'Promote to Global…'}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-500">
+                  Moving tiers is applied immediately (separate from Save) and may ask for confirmation.
+                </p>
               </fieldset>
             )}
 

@@ -146,6 +146,8 @@ export function RulesPage() {
         open={builderOpen}
         rule={editingRule}
         firmRole={firmRole}
+        onRequestPromote={editingRule ? () => { setPromotingRule(editingRule); setBuilderOpen(false); } : undefined}
+        onRequestDemote={editingRule ? () => { setDemotingRule(editingRule); setBuilderOpen(false); } : undefined}
         onClose={() => {
           setBuilderOpen(false);
           setEditingRule(null);
