@@ -290,9 +290,13 @@ export function StatementUploadPage() {
         <div className="bg-white rounded-lg border p-12 text-center">
           <Loader2 className="h-8 w-8 text-primary-600 animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-600">
-            {uploadMutation.isPending
-              ? 'Uploading...'
-              : (stage && STAGE_LABELS[stage]) || 'AI parsing statement...'}
+            {/* react-query keeps uploadMutation.isPending true for the whole
+                async onSuccess (which runs the parse), so check `parsing` FIRST
+                — otherwise the label sticks on "Uploading…" and the stage
+                progress (detecting → ocr → extracting) is never shown. */}
+            {parsing
+              ? ((stage && STAGE_LABELS[stage]) || 'AI parsing statement...')
+              : 'Uploading...'}
           </p>
           <p className="text-xs text-gray-400 mt-1">
             {stage === 'ocr'
