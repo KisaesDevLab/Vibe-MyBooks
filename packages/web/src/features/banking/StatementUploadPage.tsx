@@ -75,6 +75,13 @@ export function StatementUploadPage() {
   const [previewByIndex, setPreviewByIndex] = useState<Record<number, PreviewCell>>({});
   const [previewError, setPreviewError] = useState('');
   const [imported, setImported] = useState<{ imported: number; skipped?: number; duplicates?: number } | null>(null);
+  // Batch upload: a queue of selected files processed one at a time through the
+  // same review/import UI. queueIndex is the file currently in review; batchDone
+  // accumulates each file's outcome for the end-of-run summary.
+  const [queue, setQueue] = useState<File[]>([]);
+  const [queueIndex, setQueueIndex] = useState(0);
+  interface BatchOutcome { name: string; imported?: number; skipped?: boolean; failed?: string }
+  const [batchDone, setBatchDone] = useState<BatchOutcome[]>([]);
   // The GL bank account the statement belongs to; the import find-or-creates a
   // manual connection for it server-side. Required before importing.
   const [accountId, setAccountId] = useState('');
@@ -260,9 +267,8 @@ export function StatementUploadPage() {
     onError: (err: unknown) => setPreviewError(err instanceof Error ? err.message : 'Categorization preview failed'),
   });
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+  // Reset all per-file state and begin uploading + parsing a single file.
+  const startFile = (f: File) => {
     progressCtrl.current?.abort();
     setFile(f);
     setTransactions([]);
@@ -272,8 +278,46 @@ export function StatementUploadPage() {
     setImported(null);
     setParseError('');
     setStage(null);
+    setAccountId(''); // each statement may belong to a different account
     uploadMutation.mutate(f);
   };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    setQueue(files);
+    setQueueIndex(0);
+    setBatchDone([]);
+    startFile(files[0]!);
+    e.target.value = ''; // allow re-selecting the same file(s) later
+  };
+
+  // Record the current file's outcome and advance to the next queued file, or
+  // end the batch (clear the active file so the summary renders).
+  const advanceQueue = (outcome: BatchOutcome) => {
+    setBatchDone((d) => [...d, outcome]);
+    const next = queueIndex + 1;
+    setQueueIndex(next);
+    if (next < queue.length) {
+      startFile(queue[next]!);
+    } else {
+      progressCtrl.current?.abort();
+      setFile(null);
+      setTransactions([]);
+      setImported(null);
+      setParseError('');
+      setStage(null);
+    }
+  };
+
+  const skipFile = () => {
+    progressCtrl.current?.abort();
+    const name = file?.name ?? `File ${queueIndex + 1}`;
+    advanceQueue(parseError ? { name, failed: parseError } : { name, skipped: true });
+  };
+
+  const moreFilesQueued = queueIndex + 1 < queue.length;
+  const isBatch = queue.length > 1;
 
   const toggleAll = (checked: boolean) => {
     setTransactions((txns) => txns.map((t) => ({ ...t, selected: t.duplicate ? false : checked })));
@@ -303,15 +347,46 @@ export function StatementUploadPage() {
         </div>
       )}
 
+      {/* Batch queue progress — which file of the batch is in review now. */}
+      {isBatch && file && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800 flex items-center justify-between gap-3">
+          <span>
+            Processing file <span className="font-medium">{queueIndex + 1}</span> of {queue.length}:{' '}
+            <span className="font-medium">{file.name}</span>
+            {batchDone.length > 0 && <span className="text-blue-600"> · {batchDone.length} done</span>}
+          </span>
+          <Button size="sm" variant="secondary" onClick={skipFile}>Skip this file</Button>
+        </div>
+      )}
+
+      {/* Batch summary — shown once the last queued file is handled. */}
+      {batchDone.length > 0 && queueIndex >= queue.length && (
+        <div className="bg-white rounded-lg border p-4 mb-4">
+          <p className="text-sm font-medium text-gray-900 mb-2">Batch complete — {batchDone.length} file{batchDone.length === 1 ? '' : 's'}</p>
+          <ul className="text-sm space-y-1">
+            {batchDone.map((b, i) => (
+              <li key={i} className="flex items-center gap-2">
+                {b.failed ? <X className="h-4 w-4 text-red-500 flex-shrink-0" /> : b.skipped ? <X className="h-4 w-4 text-gray-400 flex-shrink-0" /> : <Check className="h-4 w-4 text-green-600 flex-shrink-0" />}
+                <span className="text-gray-700">{b.name}</span>
+                <span className="text-gray-500">— {b.failed ? `failed: ${b.failed}` : b.skipped ? 'skipped' : `imported ${b.imported ?? 0}`}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3">
+            <Button size="sm" onClick={() => navigate('/banking/feed')}>Review in Bank Feed</Button>
+          </div>
+        </div>
+      )}
+
       {/* Upload Area — shown whenever we're idle with no results (initial load
           OR after an error), so the user can always (re)pick a file. */}
-      {aiEnabled && !parsing && !uploadMutation.isPending && transactions.length === 0 && !imported && (
+      {aiEnabled && !parsing && !uploadMutation.isPending && transactions.length === 0 && !imported && !(isBatch && file) && (
         <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-12 text-center cursor-pointer hover:border-primary-400"
           onClick={() => document.getElementById('statement-input')?.click()}>
-          <input id="statement-input" type="file" accept="image/*,.pdf" className="hidden" onChange={handleFileChange} />
+          <input id="statement-input" type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleFileChange} />
           <FileUp className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-600">{file ? 'Upload a different statement' : 'Upload a bank statement (PDF or image)'}</p>
-          <p className="text-xs text-gray-400 mt-1">AI will extract all transactions automatically</p>
+          <p className="text-sm text-gray-600">{file ? 'Upload a different statement' : 'Upload bank statements (PDF or image)'}</p>
+          <p className="text-xs text-gray-400 mt-1">AI extracts all transactions automatically · select multiple files to import a batch</p>
         </div>
       )}
 
@@ -516,9 +591,13 @@ export function StatementUploadPage() {
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-500">{selectedCount} of {transactions.length} transactions selected</p>
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => { setFile(null); setTransactions([]); setMetadata(null); }}>
-                  Upload Different File
-                </Button>
+                {isBatch ? (
+                  <Button variant="secondary" onClick={skipFile}>Skip this file</Button>
+                ) : (
+                  <Button variant="secondary" onClick={() => { setFile(null); setTransactions([]); setMetadata(null); }}>
+                    Upload Different File
+                  </Button>
+                )}
                 <Button onClick={() => importMutation.mutate()} loading={importMutation.isPending} disabled={selectedCount === 0 || !accountId}>
                   <Download className="h-4 w-4 mr-1" /> Import {selectedCount} Transactions
                 </Button>
@@ -529,7 +608,14 @@ export function StatementUploadPage() {
               <Check className="h-6 w-6 text-green-600 mx-auto mb-2" />
               <p className="text-sm font-medium text-green-800">Imported {imported.imported} transactions</p>
               {(imported.skipped ?? 0) > 0 && <p className="text-xs text-green-600">{imported.skipped} duplicates skipped</p>}
-              <Button onClick={() => navigate('/banking/feed')}>Review in Bank Feed</Button>
+              <div className="flex gap-2 justify-center">
+                {isBatch && (
+                  <Button onClick={() => advanceQueue({ name: file?.name ?? `File ${queueIndex + 1}`, imported: imported.imported })}>
+                    {moreFilesQueued ? `Next file (${queueIndex + 2} of ${queue.length})` : 'Finish batch'}
+                  </Button>
+                )}
+                <Button variant={isBatch ? 'secondary' : undefined} onClick={() => navigate('/banking/feed')}>Review in Bank Feed</Button>
+              </div>
             </div>
           )}
         </div>
