@@ -104,6 +104,19 @@ export interface AiConfigDto {
   openaiCompatModel: string | null;
   openaiCompatMode?: 'auto' | 'native' | 'compat';
   hasOpenaiCompatKey: boolean;
+  // GLM-OCR engine (statement-import pipeline). Dedicated llama.cpp OCR server.
+  glmOcrEnabled: boolean;
+  glmOcrBaseUrl: string | null;
+  glmOcrModel: string | null;
+  glmOcrPrompt: string | null;
+  glmOcrTimeoutMs: number | null;
+  glmOcrConcurrency: number | null;
+  glmOcrForceOcr: boolean;
+  glmOcrRenderDpi: number | null;
+  hasGlmOcrKey: boolean;
+  // Stage-2 statement extraction LLM (OCR markdown → JSON).
+  statementExtractionProvider: 'local' | 'anthropic';
+  statementExtractionModel: string | null;
   autoCategorizeOnImport: boolean;
   autoOcrOnUpload: boolean;
   categorizationConfidenceThreshold: number;
@@ -158,6 +171,18 @@ export interface UpdateAiConfigInput {
   openaiCompatBaseUrl?: string | null;
   openaiCompatModel?: string | null;
   openaiCompatMode?: 'auto' | 'native' | 'compat';
+  // GLM-OCR engine. apiKey is write-only (3-state: null clears, blank no-op).
+  glmOcrEnabled?: boolean;
+  glmOcrBaseUrl?: string | null;
+  glmOcrApiKey?: string | null;
+  glmOcrModel?: string | null;
+  glmOcrPrompt?: string | null;
+  glmOcrTimeoutMs?: number | null;
+  glmOcrConcurrency?: number | null;
+  glmOcrForceOcr?: boolean;
+  glmOcrRenderDpi?: number | null;
+  statementExtractionProvider?: 'local' | 'anthropic';
+  statementExtractionModel?: string | null;
   autoCategorizeOnImport?: boolean;
   autoOcrOnUpload?: boolean;
   categorizationConfidenceThreshold?: number;
@@ -180,6 +205,33 @@ export function useAiConfig() {
   return useQuery({
     queryKey: ['ai', 'config'],
     queryFn: () => apiClient<AiConfigDto>('/ai/admin/config'),
+  });
+}
+
+export interface ProviderModels {
+  models: string[];
+  error?: string;
+}
+
+/** Available models for a provider, to populate the model dropdowns. Returns an
+ *  empty list (never throws into the UI) when the provider can't be reached. */
+export function useProviderModels(provider: string | null | undefined) {
+  return useQuery({
+    queryKey: ['ai', 'models', provider],
+    queryFn: () => apiClient<ProviderModels>(`/ai/admin/models/${provider}`),
+    enabled: !!provider,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+/** Models advertised by the configured GLM-OCR llama-server. */
+export function useGlmOcrModels() {
+  return useQuery({
+    queryKey: ['ai', 'glm-ocr-models'],
+    queryFn: () => apiClient<ProviderModels>('/ai/admin/glm-ocr/models'),
+    staleTime: 60_000,
+    retry: false,
   });
 }
 
@@ -265,6 +317,18 @@ export function useTestAiProvider() {
   });
 }
 
+// Test the GLM-OCR statement engine (health probe + 1-page sample OCR).
+export function useTestGlmOcr() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient<TestProviderResult>('/ai/admin/test-glm-ocr', { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ai', 'config'] });
+      qc.invalidateQueries({ queryKey: ['ai', 'diagnostics'] });
+    },
+  });
+}
+
 // Shape from POST /ai/admin/test-function/:fn — runs a REAL end-to-end
 // completion for the given function (unlike test/:provider which only
 // checks reachability). `error` surfaces the actual per-provider failure
@@ -343,6 +407,15 @@ export interface ParsedStatementTransaction {
   [key: string]: unknown;
 }
 
+export interface StatementReconciliationDto {
+  status: 'verified' | 'discrepancy' | 'skipped';
+  deltaCents: number;
+  expectedClosingCents: number | null;
+  actualClosingCents: number | null;
+  repaired: boolean;
+  fixDescription?: string;
+}
+
 export interface ParsedStatement {
   transactions?: ParsedStatementTransaction[];
   accountNumberMasked?: string | null;
@@ -351,6 +424,11 @@ export interface ParsedStatement {
   closingBalance?: string | null;
   confidence?: number | null;
   qualityWarnings?: string[];
+  // Statement-import redesign: detect→OCR→extract→reconcile signals.
+  extractionSource?: string;
+  reconciliation?: StatementReconciliationDto;
+  suspectRows?: Array<{ index: number; deltaCents: number }>;
+  notes?: string | null;
 }
 
 export function useAiParseStatement() {
@@ -360,6 +438,112 @@ export function useAiParseStatement() {
       apiClient<ParsedStatement>('/ai/parse/statement', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
     onError,
   });
+}
+
+// Async statement parse: returns a jobId the caller follows over SSE.
+export function useStartStatementParse() {
+  return useMutation({
+    mutationFn: (attachmentId: string) =>
+      apiClient<{ jobId: string }>('/ai/parse/statement', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
+  });
+}
+
+export interface StatementProgressSnapshot {
+  status: 'pending' | 'processing' | 'complete' | 'failed' | 'cancelled';
+  stage: string | null;
+  confidence: number | null;
+  error: string | null;
+  /** Present only on the terminal `complete` snapshot. */
+  result: ParsedStatement | null;
+}
+
+/**
+ * Consume the statement-parse SSE progress stream with fetch + a ReadableStream
+ * reader (not EventSource, which can't send the Bearer auth header). Invokes
+ * `onSnapshot` for each status snapshot; resolves when the stream closes.
+ */
+export async function streamStatementProgress(
+  jobId: string,
+  onSnapshot: (s: StatementProgressSnapshot) => void,
+  signal?: AbortSignal,
+  // Injectable for tests; defaults to the global fetch.
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const token = localStorage.getItem('accessToken');
+  const res = await fetchImpl(`/api/v1/ai/parse/statement/${jobId}/progress`, {
+    headers: { Authorization: `Bearer ${token ?? ''}`, Accept: 'text/event-stream' },
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`Progress stream failed (${res.status})`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let sep: number;
+    // SSE frames are separated by a blank line ("\n\n").
+    while ((sep = buf.indexOf('\n\n')) !== -1) {
+      const frame = buf.slice(0, sep);
+      buf = buf.slice(sep + 2);
+      let event = 'message';
+      const dataLines: string[] = [];
+      for (const line of frame.split('\n')) {
+        if (line.startsWith(':')) continue; // heartbeat comment
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+      }
+      if (dataLines.length === 0) continue;
+      const payload = dataLines.join('\n');
+      if (event === 'error') throw new Error(safeMessage(payload, 'Progress error'));
+      if (event === 'timeout') throw new Error('Parsing timed out — please retry.');
+      try {
+        onSnapshot(JSON.parse(payload) as StatementProgressSnapshot);
+      } catch {
+        /* ignore an unparseable frame */
+      }
+    }
+  }
+}
+
+/**
+ * Poll the job status endpoint until terminal. Proxy-safe everywhere (plain
+ * JSON GETs), unlike the SSE stream which a reverse proxy or the compression
+ * middleware can buffer — so this is what the UI uses by default.
+ */
+export async function pollStatementProgress(
+  jobId: string,
+  onSnapshot: (s: StatementProgressSnapshot) => void,
+  signal?: AbortSignal,
+  intervalMs = 1200,
+  // Wall-clock cap so an orphaned job (e.g. the API process restarted
+  // mid-parse, leaving the row stuck in 'processing') can't spin the UI
+  // spinner forever — surface a timeout the user can retry from.
+  maxDurationMs = 480_000,
+): Promise<void> {
+  const start = Date.now();
+  for (;;) {
+    if (signal?.aborted) return;
+    const snap = await apiClient<StatementProgressSnapshot>(`/ai/parse/statement/${jobId}/status`);
+    if (signal?.aborted) return;
+    onSnapshot(snap);
+    if (snap.status === 'complete' || snap.status === 'failed' || snap.status === 'cancelled') return;
+    if (Date.now() - start > maxDurationMs) {
+      throw new Error('Parsing timed out — the job may have stalled. Please try again.');
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
+
+function safeMessage(json: string, fallback: string): string {
+  try {
+    const m = (JSON.parse(json) as { message?: string }).message;
+    return m || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export interface ClassifiedDocument {

@@ -17,7 +17,11 @@ export function BankImportModal({ onClose }: BankImportModalProps) {
   const [accountId, setAccountId] = useState('');
   const [preview, setPreview] = useState<string[][]>([]);
   const [mapping, setMapping] = useState({ date: 0, description: 1, amount: 2 });
+  // Optional import window — only transactions in [startDate, endDate] are imported.
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const importFile = useImportBankFile();
+  const dateRangeInvalid = !!startDate && !!endDate && startDate > endDate;
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -37,8 +41,11 @@ export function BankImportModal({ onClose }: BankImportModalProps) {
   };
 
   const handleImport = () => {
-    if (!file || !accountId) return;
-    importFile.mutate({ file, accountId, mapping }, { onSuccess: () => { onClose(); navigate('/banking/feed'); } });
+    if (!file || !accountId || dateRangeInvalid) return;
+    importFile.mutate(
+      { file, accountId, mapping, startDate: startDate || undefined, endDate: endDate || undefined },
+      { onSuccess: () => { onClose(); navigate('/banking/feed'); } },
+    );
   };
 
   const isCsv = file?.name.toLowerCase().endsWith('.csv');
@@ -56,6 +63,26 @@ export function BankImportModal({ onClose }: BankImportModalProps) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">File (CSV, OFX, QFX)</label>
             <input type="file" accept=".csv,.ofx,.qfx" onChange={handleFileChange} className="text-sm" />
+          </div>
+
+          {/* Optional import date range — limits which transactions are imported. */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Import date range <span className="font-normal text-gray-400">(optional)</span></label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">From</label>
+                <input type="date" value={startDate} max={endDate || undefined} onChange={(e) => setStartDate(e.target.value)}
+                  className="block w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">To</label>
+                <input type="date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)}
+                  className="block w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+              </div>
+            </div>
+            {dateRangeInvalid
+              ? <p className="text-xs text-red-600 mt-1">From date must be on or before the To date.</p>
+              : <p className="text-xs text-gray-400 mt-1">Leave blank to import all transactions in the file.</p>}
           </div>
 
           {isCsv && preview.length > 0 && (
@@ -100,7 +127,7 @@ export function BankImportModal({ onClose }: BankImportModalProps) {
 
         <div className="flex justify-end gap-3 px-6 py-4 border-t">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleImport} disabled={!file || !accountId} loading={importFile.isPending}>Import</Button>
+          <Button onClick={handleImport} disabled={!file || !accountId || dateRangeInvalid} loading={importFile.isPending}>Import</Button>
         </div>
       </div>
     </div>

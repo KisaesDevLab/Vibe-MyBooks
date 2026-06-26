@@ -61,14 +61,20 @@ export const accountsMocks = () => ({
 
 export const aiMocks = () => ({
   useAiConfig: passthroughQuery(null),
+  useProviderModels: passthroughQuery({ models: [] }),
+  useGlmOcrModels: passthroughQuery({ models: [] }),
   useAiStatus: passthroughQuery({ isEnabled: false }),
   useUpdateAiConfig: passthroughMutation,
   useTestAiProvider: passthroughMutation,
+  useTestGlmOcr: passthroughMutation,
   useTestAiFunction: passthroughMutation,
   useAiCategorize: passthroughMutation,
   useAiBatchCategorize: passthroughMutation,
   useAiOcrReceipt: passthroughMutation,
   useAiParseStatement: passthroughMutation,
+  useStartStatementParse: passthroughMutation,
+  streamStatementProgress: async () => {},
+  pollStatementProgress: async () => {},
   useAiClassify: passthroughMutation,
   useAiUsage: passthroughQuery({ rows: [] }),
   useAiPrompts: passthroughQuery({ prompts: [] }),
@@ -127,6 +133,7 @@ export const bankingMocks = () => ({
   useBulkExclude: passthroughMutation,
   // ADR 0XX §7 — bulk set-tag on already-categorized bank feed items.
   useBulkSetTag: passthroughMutation,
+  useBulkSetName: passthroughMutation,
   useImportBankFile: passthroughMutation,
   useReconciliations: passthroughQuery({ reconciliations: [] }),
   useReconciliation: passthroughQuery(null),

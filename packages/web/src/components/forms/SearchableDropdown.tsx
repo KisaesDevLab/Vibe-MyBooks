@@ -2,7 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 
 export interface DropdownOption {
@@ -31,6 +32,44 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
   const [highlightIndex, setHighlightIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  // Fixed-position rect for the portal-rendered panel. The panel lives on
+  // document.body (not inside this `relative` wrapper) so a modal/scroll
+  // container's `overflow` can never clip it and z-index always wins.
+  const [panelPos, setPanelPos] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
+
+  const updatePanelPos = useCallback(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const GAP = 4;
+    const cap = compact ? 192 : 240; // matches max-h-48 / max-h-60
+    const spaceBelow = window.innerHeight - r.bottom - GAP - 8;
+    const spaceAbove = r.top - GAP - 8;
+    // Flip above when there's clearly more room up top.
+    const openUp = spaceBelow < Math.min(cap, 160) && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(120, Math.min(cap, openUp ? spaceAbove : spaceBelow));
+    setPanelPos({
+      left: r.left,
+      width: r.width,
+      maxHeight,
+      top: openUp ? r.top - GAP - maxHeight : r.bottom + GAP,
+    });
+  }, [compact]);
+
+  // Position on open, and keep it pinned to the input while any ancestor
+  // scrolls (capture=true) or the window resizes.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    updatePanelPos();
+    const onScroll = () => updatePanelPos();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [isOpen, updatePanelPos]);
 
   // Derive display value from selected id
   const selectedOption = options.find((o) => o.id === value);
@@ -58,12 +97,17 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
     }
   }, [highlightIndex, isOpen]);
 
-  // Close on outside click
+  // Close on outside click. The panel now lives in a portal on document.body,
+  // so "outside" must exclude BOTH the input wrapper and the portal panel —
+  // otherwise a mousedown on an option counts as outside and closes the panel
+  // before the option's click handler fires.
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (inputRef.current && !inputRef.current.parentElement?.contains(target)) {
+      const inWrapper = wrapperRef.current?.contains(target) ?? false;
+      const inPanel = listRef.current?.contains(target) ?? false;
+      if (!inWrapper && !inPanel) {
         setIsOpen(false);
         setSearch('');
       }
@@ -117,7 +161,7 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
   };
 
   return (
-    <div className={clsx('relative', className)}>
+    <div className={clsx('relative', className)} ref={wrapperRef}>
       {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
       <input
         ref={inputRef}
@@ -157,9 +201,15 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
         </button>
       )}
 
-      {/* Dropdown list */}
-      {isOpen && (
-        <div className={clsx('absolute z-50 mt-1 w-full bg-white border border-gray-200 shadow-lg overflow-auto', compact ? 'rounded max-h-48' : 'rounded-lg max-h-60')} ref={listRef}>
+      {/* Dropdown list — rendered in a portal with fixed positioning so it is
+          never clipped by an ancestor's overflow (modals, scroll containers)
+          and always stacks above them. */}
+      {isOpen && panelPos && createPortal(
+        <div
+          className={clsx('fixed z-[1000] bg-white border border-gray-200 shadow-lg overflow-auto', compact ? 'rounded' : 'rounded-lg')}
+          style={{ left: panelPos.left, top: panelPos.top, width: panelPos.width, maxHeight: panelPos.maxHeight }}
+          ref={listRef}
+        >
           {filtered.length === 0 && !onAddNew && (
             <div className={clsx('text-gray-400', compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm')}>No matches found</div>
           )}
@@ -193,7 +243,8 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
               {addNewLabel || (search ? `Add "${search}"` : 'Add new...')}
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

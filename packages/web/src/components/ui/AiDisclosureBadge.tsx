@@ -2,8 +2,9 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, type ReactNode } from 'react';
+import { useState, useRef, type ReactNode } from 'react';
 import { Brain } from 'lucide-react';
+import { AnchoredPortal } from './AnchoredPortal';
 
 /**
  * Small pill badge that marks a screen (or row) as AI-assisted.
@@ -83,6 +84,7 @@ export function AiDisclosureBadge({
   children,
 }: AiDisclosureBadgeProps) {
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const levelKey = (piiLevel || 'strict').toLowerCase();
   const copy = LEVEL_COPY[levelKey] ?? LEVEL_COPY['strict']!;
 
@@ -93,6 +95,7 @@ export function AiDisclosureBadge({
   return (
     <span className="relative inline-flex">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -103,8 +106,8 @@ export function AiDisclosureBadge({
         {!compact && <span>{label}</span>}
       </button>
 
-      {open && (
-        <div className="absolute z-40 top-full mt-1 left-0 w-80 rounded-lg border border-gray-200 bg-white shadow-lg p-4 text-sm text-gray-700">
+      <AnchoredPortal anchorRef={btnRef} open={open} align="left" width={320} maxHeight={480}
+        className="rounded-lg border border-gray-200 bg-white shadow-lg p-4 text-sm text-gray-700">
           <h3 className="text-sm font-semibold text-gray-900 mb-2">AI Processing Details</h3>
           {selfHosted ? (
             <>
@@ -158,8 +161,7 @@ export function AiDisclosureBadge({
           <div className="mt-3 pt-3 border-t border-gray-100 text-[11px] text-gray-500">
             Manage AI settings in Settings &rarr; AI Processing.
           </div>
-        </div>
-      )}
+      </AnchoredPortal>
     </span>
   );
 }

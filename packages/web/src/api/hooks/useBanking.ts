@@ -130,6 +130,15 @@ export function useBulkSetTag() {
   });
 }
 
+export function useBulkSetName() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { feedItemIds: string[]; name: string }) =>
+      apiClient('/banking/feed/bulk-set-name', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); },
+  });
+}
+
 export function useBulkRecleanse() {
   const qc = useQueryClient();
   return useMutation({
@@ -151,11 +160,13 @@ export function useBulkExclude() {
 export function useImportBankFile() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { file: File; accountId: string; mapping?: Record<string, number> }) => {
+    mutationFn: async (input: { file: File; accountId: string; mapping?: Record<string, number>; startDate?: string; endDate?: string }) => {
       const formData = new FormData();
       formData.append('file', input.file);
       formData.append('accountId', input.accountId);
       if (input.mapping) formData.append('mapping', JSON.stringify(input.mapping));
+      if (input.startDate) formData.append('startDate', input.startDate);
+      if (input.endDate) formData.append('endDate', input.endDate);
       const res = await fetch(`${API_BASE}/banking/feed/import`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },

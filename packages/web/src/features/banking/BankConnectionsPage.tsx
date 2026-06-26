@@ -128,6 +128,10 @@ export function BankConnectionsPage() {
     );
   }
   const legacyConnections = legacyData?.connections || [];
+  // 'plaid'-provider connections are internal routing rows that back Plaid
+  // accounts in the bank feed — they're surfaced under the Plaid section, not
+  // as separate "File Import" cards.
+  const fileImports = legacyConnections.filter((c) => c.provider !== 'plaid');
   const plaidItems = plaidData?.items || [];
   const needsAttention = plaidItems.filter((i) => ['login_required', 'pending_disconnect', 'error'].includes(i.itemStatus));
 
@@ -194,6 +198,9 @@ export function BankConnectionsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {statusBadge(item.itemStatus)}
+                    {myAccounts.length > 0 && (
+                      <Button variant="secondary" size="sm" onClick={() => navigate('/banking/feed')}>Review Feed</Button>
+                    )}
                     <Button variant="ghost" size="sm" onClick={() => syncItem.mutate(item.id)} loading={syncItem.isPending} title="Sync"><RefreshCw className="h-4 w-4" /></Button>
                     {unassigned.length > 0 && (
                       <Button variant="secondary" size="sm" onClick={() => setMappingData({ accounts: item.accounts ?? [], hiddenAccountCount: item.hiddenAccountCount || 0 })}>Map</Button>
@@ -247,10 +254,10 @@ export function BankConnectionsPage() {
         </div>
       )}
 
-      {legacyConnections.length > 0 && (
+      {fileImports.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">File Imports</h2>
-          {legacyConnections.map((conn) => (
+          {fileImports.map((conn) => (
             <div key={conn.id} className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
               onClick={() => navigate('/banking/feed')}>
               <div className="flex items-center gap-3">
