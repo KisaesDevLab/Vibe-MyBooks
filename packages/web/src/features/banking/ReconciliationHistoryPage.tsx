@@ -8,11 +8,20 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { useToast } from '../../components/ui/Toaster';
 
 export function ReconciliationHistoryPage() {
   const [accountId, setAccountId] = useState('');
   const { data, isLoading, isError, refetch } = useReconciliations(accountId);
   const undoRecon = useUndoReconciliation();
+  const toast = useToast();
+  // History is ordered by statement date DESC, so the first completed row is the
+  // most recent — the ONLY one eligible to undo (server enforces this too).
+  const latestCompleteId = data?.reconciliations.find((r) => r.status === 'complete')?.id;
+  const onUndo = (id: string) => undoRecon.mutate(id, {
+    onSuccess: () => toast.success('Reconciliation undone.'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not undo reconciliation.'),
+  });
 
   return (
     <div>
@@ -53,9 +62,11 @@ export function ReconciliationHistoryPage() {
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-500">{r.completedAt ? new Date(r.completedAt).toLocaleDateString() : '—'}</td>
                   <td className="px-4 py-2 text-right">
-                    {r.status === 'complete' && (
-                      <Button variant="ghost" size="sm" onClick={() => undoRecon.mutate(r.id)}>Undo</Button>
-                    )}
+                    {r.status === 'complete' && r.id === latestCompleteId ? (
+                      <Button variant="ghost" size="sm" onClick={() => onUndo(r.id)} loading={undoRecon.isPending}>Undo</Button>
+                    ) : r.status === 'complete' ? (
+                      <span className="text-xs text-gray-400" title="Undo a newer reconciliation first">Locked</span>
+                    ) : null}
                   </td>
                 </tr>
               ))}
