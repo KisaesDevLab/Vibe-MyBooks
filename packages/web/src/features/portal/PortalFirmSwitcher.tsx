@@ -56,7 +56,7 @@ export function PortalFirmSwitcher({ linkedContacts, activeContactId }: PortalFi
     setSwitching(targetContactId);
     setError('');
     try {
-      const res = await fetch('/api/portal/auth/switch', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/auth/switch`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

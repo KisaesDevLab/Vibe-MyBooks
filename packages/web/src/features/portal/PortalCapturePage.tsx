@@ -180,7 +180,7 @@ export function PortalCapturePage() {
       const form = new FormData();
       form.append('file', shot, filename);
       form.append('companyId', activeCompanyId);
-      const res = await fetch('/api/portal/receipts/upload', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/receipts/upload`, {
         method: 'POST',
         credentials: 'include',
         body: form,

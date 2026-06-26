@@ -93,7 +93,7 @@ export function SystemSettingsPage() {
       // failed sections in a banner so the admin knows what they're
       // editing against (defaults vs. stored values).
       try {
-        const res = await fetch('/api/v1/admin/settings', { headers: authHeaders });
+        const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/settings`, { headers: authHeaders });
         if (res.ok) {
           const data = await res.json();
           setForm((f) => ({
@@ -116,7 +116,7 @@ export function SystemSettingsPage() {
       }
 
       try {
-        const backupRes = await fetch('/api/v1/admin/backup/remote-config', { headers: authHeaders });
+        const backupRes = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/backup/remote-config`, { headers: authHeaders });
         if (backupRes.ok) {
           const bd = await backupRes.json();
           const pc = JSON.parse(bd.backupRemoteConfig || '{}');
@@ -147,7 +147,7 @@ export function SystemSettingsPage() {
       }
 
       try {
-        const tfaRes = await fetch('/api/v1/admin/tfa/config', { headers: authHeaders });
+        const tfaRes = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/tfa/config`, { headers: authHeaders });
         if (tfaRes.ok) {
           const tfaData = await tfaRes.json();
           setSmsForm((f) => ({
@@ -196,7 +196,7 @@ export function SystemSettingsPage() {
         if (SECRET_FIELDS.has(k) && v === '') continue;
         payload[k] = v;
       }
-      const res = await fetch('/api/v1/admin/tfa/config', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/tfa/config`, {
         method: 'PUT',
         headers: authHeaders,
         body: JSON.stringify(payload),
@@ -216,7 +216,7 @@ export function SystemSettingsPage() {
   const handleTestSms = async () => {
     setSmsTestResult(null);
     try {
-      const res = await fetch('/api/v1/admin/tfa/sms-test', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/tfa/sms-test`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ phoneNumber: smsTestPhone }),
@@ -236,7 +236,7 @@ export function SystemSettingsPage() {
     setTestStatus('testing');
     setTestError('');
     try {
-      const res = await fetch('/api/v1/admin/test-smtp', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/test-smtp`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
@@ -289,7 +289,7 @@ export function SystemSettingsPage() {
         });
       }
 
-      const res = await fetch('/api/v1/admin/backup/remote-config', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/backup/remote-config`, {
         method: 'PUT', headers: authHeaders,
         body: JSON.stringify({
           backupRemoteProvider: backupRemote.provider,
@@ -315,7 +315,7 @@ export function SystemSettingsPage() {
     setBackupTestStatus('testing');
     setBackupTestError('');
     try {
-      const res = await fetch('/api/v1/admin/backup/remote-test', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/backup/remote-test`, {
         method: 'POST', headers: authHeaders,
       });
       const data = await res.json();
@@ -343,7 +343,7 @@ export function SystemSettingsPage() {
       // doesn't return the stored password (so the field is empty on every
       // page load), and sending '' would overwrite the saved password.
       // Backend treats absent smtpPass as "no change".
-      const smtpRes = await fetch('/api/v1/admin/settings/smtp', {
+      const smtpRes = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/settings/smtp`, {
         method: 'PUT',
         headers: authHeaders,
         body: JSON.stringify({
@@ -357,7 +357,7 @@ export function SystemSettingsPage() {
       if (!smtpRes.ok) throw new Error('Failed to save SMTP settings');
 
       // Save application settings
-      const appRes = await fetch('/api/v1/admin/settings/application', {
+      const appRes = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/settings/application`, {
         method: 'PUT',
         headers: authHeaders,
         body: JSON.stringify({
@@ -455,7 +455,7 @@ export function SystemSettingsPage() {
                 type="button"
                 onClick={async () => {
                   if (!confirm('Clear stored SMTP password?')) return;
-                  await fetch('/api/v1/admin/settings/smtp', {
+                  await fetch(`${import.meta.env.BASE_URL}api/v1/admin/settings/smtp`, {
                     method: 'PUT',
                     headers: authHeaders,
                     body: JSON.stringify({
@@ -529,7 +529,7 @@ export function SystemSettingsPage() {
                 {hasSmsTwilioAccountSid && (
                   <button type="button" onClick={async () => {
                     if (!confirm('Clear stored Twilio Account SID?')) return;
-                    await fetch('/api/v1/admin/tfa/config', {
+                    await fetch(`${import.meta.env.BASE_URL}api/v1/admin/tfa/config`, {
                       method: 'PUT', headers: authHeaders,
                       body: JSON.stringify({ smsTwilioAccountSid: null }),
                     });
@@ -545,7 +545,7 @@ export function SystemSettingsPage() {
                 {hasSmsTwilioAuthToken && (
                   <button type="button" onClick={async () => {
                     if (!confirm('Clear stored Twilio Auth Token?')) return;
-                    await fetch('/api/v1/admin/tfa/config', {
+                    await fetch(`${import.meta.env.BASE_URL}api/v1/admin/tfa/config`, {
                       method: 'PUT', headers: authHeaders,
                       body: JSON.stringify({ smsTwilioAuthToken: null }),
                     });
@@ -568,7 +568,7 @@ export function SystemSettingsPage() {
                 {hasSmsTextlinkApiKey && (
                   <button type="button" onClick={async () => {
                     if (!confirm('Clear stored TextLinkSMS API Key?')) return;
-                    await fetch('/api/v1/admin/tfa/config', {
+                    await fetch(`${import.meta.env.BASE_URL}api/v1/admin/tfa/config`, {
                       method: 'PUT', headers: authHeaders,
                       body: JSON.stringify({ smsTextlinkApiKey: null }),
                     });

@@ -63,7 +63,7 @@ export function PrintChecksPage() {
     try {
       // Step 1: Generate and download check PDF
       const token = localStorage.getItem('accessToken');
-      const res = await fetch('/api/v1/checks/render', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/checks/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ checkIds, format }),

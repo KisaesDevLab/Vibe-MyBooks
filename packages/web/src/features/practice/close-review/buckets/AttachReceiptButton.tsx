@@ -33,7 +33,7 @@ export function AttachReceiptButton({ bankFeedItemId }: Props) {
       formData.append('file', file);
       formData.append('attachableType', 'bank_feed_items');
       formData.append('attachableId', bankFeedItemId);
-      const res = await fetch('/api/v1/attachments', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/attachments`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
         body: formData,

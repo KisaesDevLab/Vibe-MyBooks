@@ -21,7 +21,7 @@ export function AttachmentUploader({ attachableType, attachableId }: AttachmentU
       formData.append('file', file);
       formData.append('attachableType', attachableType);
       formData.append('attachableId', attachableId);
-      const res = await fetch('/api/v1/attachments', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/attachments`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
         body: formData,

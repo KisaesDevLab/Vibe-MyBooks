@@ -62,7 +62,7 @@ export function TenantImportPage() {
       formData.append('passphrase', passphrase);
 
       const token = getAccessToken();
-      const res = await fetch('/api/v1/tenant-export/import/validate', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/tenant-export/import/validate`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,

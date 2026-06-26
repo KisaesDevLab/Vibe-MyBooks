@@ -261,7 +261,7 @@ function ImportCsvButton() {
       });
 
       const token = localStorage.getItem('accessToken');
-      const res = await fetch('/api/v1/practice/portal/contacts/import', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/practice/portal/contacts/import`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -327,7 +327,7 @@ function PreviewButton({ contactId }: { contactId: string }) {
 
 async function startPreview(contactId: string, companyId: string): Promise<void> {
   const token = localStorage.getItem('accessToken');
-  const res = await fetch('/api/v1/practice/portal/preview/start', {
+  const res = await fetch(`${import.meta.env.BASE_URL}api/v1/practice/portal/preview/start`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

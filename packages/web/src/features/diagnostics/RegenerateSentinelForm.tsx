@@ -30,7 +30,7 @@ export function RegenerateSentinelForm({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch('/api/diagnostic/regenerate-sentinel', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/diagnostic/regenerate-sentinel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

@@ -70,7 +70,7 @@ export function OpeningBalancesPage() {
       formData.append('file', file);
 
       const token = getAccessToken();
-      const res = await fetch('/api/v1/export/opening-balances', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/export/opening-balances`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,

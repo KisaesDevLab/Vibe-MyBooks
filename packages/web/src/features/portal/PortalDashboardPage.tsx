@@ -83,7 +83,7 @@ export function PortalDashboardPage() {
   // shape includes a featureEnabled flag we need on the panel itself.
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/portal/document-requests', { credentials: 'include' })
+    fetch(`${import.meta.env.BASE_URL}api/portal/document-requests`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         if (cancelled || !body) return;
@@ -99,7 +99,7 @@ export function PortalDashboardPage() {
 
   const reloadDocRequests = async () => {
     try {
-      const r = await fetch('/api/portal/document-requests', { credentials: 'include' });
+      const r = await fetch(`${import.meta.env.BASE_URL}api/portal/document-requests`, { credentials: 'include' });
       if (!r.ok) return;
       const body = await r.json();
       if (body.featureEnabled === false) return;
@@ -285,7 +285,7 @@ function DocRequestRow({
       fd.append('file', file);
       fd.append('companyId', companyId);
       fd.append('documentRequestId', req.id);
-      const res = await fetch('/api/portal/receipts/upload', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/receipts/upload`, {
         method: 'POST',
         body: fd,
         credentials: 'include',

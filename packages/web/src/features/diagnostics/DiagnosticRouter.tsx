@@ -38,7 +38,7 @@ export function DiagnosticRouter({ children }: { children: ReactNode }) {
         // running, /api/diagnostic/env-status is mounted and returns 200,
         // while /api/diagnostic/status is not mounted and 503s. Order
         // matters because the ENV_MISSING flow has zero DB context.
-        const envRes = await fetch('/api/diagnostic/env-status', { cache: 'no-store' });
+        const envRes = await fetch(`${import.meta.env.BASE_URL}api/diagnostic/env-status`, { cache: 'no-store' });
         if (envRes.ok) {
           const envBody = await envRes.json();
           if (envBody?.state === 'env-missing') {
@@ -47,7 +47,7 @@ export function DiagnosticRouter({ children }: { children: ReactNode }) {
           }
         }
 
-        const res = await fetch('/api/diagnostic/status', {
+        const res = await fetch(`${import.meta.env.BASE_URL}api/diagnostic/status`, {
           cache: 'no-store',
         });
         if (!res.ok) {

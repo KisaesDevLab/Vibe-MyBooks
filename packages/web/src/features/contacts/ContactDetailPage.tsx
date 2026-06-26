@@ -282,7 +282,7 @@ function RequestW9Inline({
     setErrMsg(null);
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch('/api/v1/practice/1099/w9-requests', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/practice/1099/w9-requests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

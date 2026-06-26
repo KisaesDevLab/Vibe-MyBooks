@@ -24,7 +24,7 @@ export function TfaConfigPage() {
 
   const { data: methods } = useQuery({
     queryKey: ['auth-methods'],
-    queryFn: () => fetch('/api/v1/auth/methods').then((r) => r.json()),
+    queryFn: () => fetch(`${import.meta.env.BASE_URL}api/v1/auth/methods`).then((r) => r.json()),
   });
 
   // Separate query for the public sign-up toggle. Lives in

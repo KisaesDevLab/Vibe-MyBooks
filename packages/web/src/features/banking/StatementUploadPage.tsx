@@ -133,7 +133,7 @@ export function StatementUploadPage() {
       // not one), but crypto.getRandomValues IS — so build a valid v4 UUID
       // from it (falling back to Math.random only if even that is missing).
       formData.append('attachableId', genUuidV4());
-      const res = await fetch('/api/v1/attachments', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/attachments`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
         body: formData,
