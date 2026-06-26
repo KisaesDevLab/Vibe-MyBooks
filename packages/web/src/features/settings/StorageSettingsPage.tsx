@@ -57,7 +57,7 @@ export function StorageSettingsPage() {
   });
 
   const disconnect = useMutation({
-    mutationFn: async (provider: string) => { await fetch(`/api/v1/settings/storage/disconnect/${provider}`, { method: 'POST', headers }); },
+    mutationFn: async (provider: string) => { await fetch(`${import.meta.env.BASE_URL}api/v1/settings/storage/disconnect/${provider}`, { method: 'POST', headers }); },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['storage'] }),
   });
 
@@ -76,7 +76,7 @@ export function StorageSettingsPage() {
 
   const configureProvider = useMutation({
     mutationFn: async ({ provider, body }: { provider: string; body: Record<string, string> }) => {
-      const res = await fetch(`/api/v1/settings/storage/configure/${provider}`, { method: 'POST', headers, body: JSON.stringify(body) });
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/settings/storage/configure/${provider}`, { method: 'POST', headers, body: JSON.stringify(body) });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error?.message || 'Failed'); }
     },
     onSuccess: () => { setShowConfig(null); qc.invalidateQueries({ queryKey: ['storage-config'] }); },
@@ -199,7 +199,7 @@ export function StorageSettingsPage() {
                     <Button variant="ghost" size="sm" onClick={() => setShowConfig(prov)} title="Update credentials">
                       <Settings className="h-4 w-4 text-gray-400" />
                     </Button>
-                    <a href={`/api/v1/settings/storage/connect/${prov}`}>
+                    <a href={`${import.meta.env.BASE_URL}api/v1/settings/storage/connect/${prov}`}>
                       <Button size="sm">Connect</Button>
                     </a>
                   </>

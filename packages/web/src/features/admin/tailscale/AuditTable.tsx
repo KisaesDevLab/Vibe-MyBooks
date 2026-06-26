@@ -31,7 +31,7 @@ export function AuditTable() {
       const token = getAccessToken();
       const params = new URLSearchParams();
       if (action) params.set('action', action);
-      const res = await fetch(`/api/v1/admin/tailscale/audit/export?${params}`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/tailscale/audit/export?${params}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {

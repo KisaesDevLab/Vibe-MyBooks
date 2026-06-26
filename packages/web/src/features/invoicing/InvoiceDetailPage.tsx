@@ -70,7 +70,7 @@ export function InvoiceDetailPage() {
     setPdfError('');
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`/api/v1/invoices/${inv.id}/pdf`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/invoices/${inv.id}/pdf`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error('Failed to generate PDF');

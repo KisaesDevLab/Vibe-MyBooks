@@ -116,7 +116,7 @@ type StatusFilter = 'all' | 'blocked' | 'warning' | 'compliant' | 'no_w9' | 'exc
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem('accessToken');
-  const res = await fetch(`/api/v1${path}`, {
+  const res = await fetch(`${import.meta.env.BASE_URL}api/v1${path}`, {
     ...init,
     headers: {
       ...(init?.headers ?? {}),
@@ -204,7 +204,7 @@ export function Tax1099Page() {
   const downloadW9 = async (vendor: VendorRow) => {
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`/api/v1/practice/1099/vendors/${vendor.contactId}/w9`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/practice/1099/vendors/${vendor.contactId}/w9`, {
         headers: { Authorization: `Bearer ${token ?? ''}` },
       });
       if (!res.ok) {

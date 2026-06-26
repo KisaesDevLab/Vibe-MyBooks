@@ -39,7 +39,7 @@ interface ApiErrorBody {
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem('accessToken');
-  const res = await fetch(`/api/v1${path}`, {
+  const res = await fetch(`${import.meta.env.BASE_URL}api/v1${path}`, {
     ...init,
     headers: {
       ...(init?.headers ?? {}),

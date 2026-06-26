@@ -194,7 +194,7 @@ export function AuditLogPage() {
     };
     const qs = buildQueryString(exportParams);
     const token = getAccessToken();
-    fetch(`/api/v1/audit-log/export${qs}`, {
+    fetch(`${import.meta.env.BASE_URL}api/v1/audit-log/export${qs}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((res) => res.blob())

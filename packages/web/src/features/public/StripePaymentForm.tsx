@@ -38,7 +38,7 @@ export function StripePaymentForm({ token, publishableKey, balanceDue, currency,
 
     setCreating(true);
     try {
-      const res = await fetch(`/api/v1/public/invoices/${token}/pay`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/public/invoices/${token}/pay`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: numAmount.toFixed(2) }),

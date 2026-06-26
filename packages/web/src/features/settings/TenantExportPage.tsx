@@ -89,7 +89,7 @@ export function TenantExportPage() {
   const handleDownload = () => {
     if (!exportResult) return;
     const token = getAccessToken();
-    fetch(`/api/v1/tenant-export/download/${encodeURIComponent(exportResult.fileName)}`, {
+    fetch(`${import.meta.env.BASE_URL}api/v1/tenant-export/download/${encodeURIComponent(exportResult.fileName)}`, {
       headers: { Authorization: `Bearer ${token || ''}` },
     })
       .then((res) => res.blob())
