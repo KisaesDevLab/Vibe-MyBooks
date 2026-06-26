@@ -139,6 +139,9 @@ const ReconciliationHistoryPage = lazyNamed(() => import('./features/banking/Rec
 const BankDepositPage = lazyNamed(() => import('./features/banking/BankDepositPage'), 'BankDepositPage');
 const StatementUploadPage = lazyNamed(() => import('./features/banking/StatementUploadPage'), 'StatementUploadPage');
 const StatementImportsPage = lazyNamed(() => import('./features/banking/StatementImportsPage'), 'StatementImportsPage');
+const DailySalesEntriesPage = lazyNamed(() => import('./features/daily-sales/DailySalesEntriesPage'), 'DailySalesEntriesPage');
+const DailySalesEntryPage = lazyNamed(() => import('./features/daily-sales/DailySalesEntryPage'), 'DailySalesEntryPage');
+const DailySalesTemplatesPage = lazyNamed(() => import('./features/daily-sales/DailySalesTemplatesPage'), 'DailySalesTemplatesPage');
 
 // ─── Attachments ─────────────────────────────────────────────
 const AttachmentLibraryPage = lazyNamed(() => import('./features/attachments/AttachmentLibraryPage'), 'AttachmentLibraryPage');
@@ -341,6 +344,10 @@ export function App() {
             <Route path="/banking/feed" element={<BankFeedPage />} />
             <Route path="/banking/statement-upload" element={<StatementUploadPage />} />
             <Route path="/banking/statement-imports" element={<StatementImportsPage />} />
+            <Route path="/daily-sales" element={<DailySalesEntriesPage />} />
+            <Route path="/daily-sales/templates" element={<DailySalesTemplatesPage />} />
+            <Route path="/daily-sales/new" element={<DailySalesEntryPage />} />
+            <Route path="/daily-sales/entries/:id" element={<DailySalesEntryPage />} />
             <Route path="/banking/reconcile" element={<ReconciliationPage />} />
             <Route path="/banking/reconciliation-history" element={<ReconciliationHistoryPage />} />
             <Route path="/banking/rules" element={<Navigate to="/practice/rules" replace />} />
