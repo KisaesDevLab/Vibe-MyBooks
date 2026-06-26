@@ -76,7 +76,7 @@ export function StatementUploadPage() {
   const [suspectByIndex, setSuspectByIndex] = useState<Record<number, number>>({});
   // Opt-in AI category/cleansed-name previews (dry-run, nothing imported yet),
   // keyed by row index. Populated by the "Preview categories" action.
-  interface PreviewCell { cleanedName: string | null; suggestedAccountName: string | null; confidence: number | null }
+  interface PreviewCell { cleanedName: string | null; suggestedAccountId: string | null; suggestedAccountName: string | null; tagId: string | null; confidence: number | null }
   const [previewByIndex, setPreviewByIndex] = useState<Record<number, PreviewCell>>({});
   const [previewError, setPreviewError] = useState('');
   const [imported, setImported] = useState<{ imported: number; skipped?: number; duplicates?: number } | null>(null);
@@ -265,7 +265,11 @@ export function StatementUploadPage() {
   }
   const importMutation = useMutation({
     mutationFn: async () => {
-      const selected = transactions.filter((t) => t.selected && !t.duplicate);
+      // Keep the original row index so we can attach each row's preview
+      // (cleaned name + category/tag) — carried into the feed at import.
+      const selected = transactions
+        .map((t, i) => ({ t, i }))
+        .filter(({ t }) => t.selected && !t.duplicate);
       const res = await apiClient<StatementImportResult>('/ai/parse/statement/import', {
         method: 'POST',
         body: JSON.stringify({
@@ -274,7 +278,17 @@ export function StatementUploadPage() {
           accountId,
           // When resuming a saved parse, tell the server which job to mark imported.
           jobId: resumedJobId ?? undefined,
-          transactions: selected.map((t) => ({ date: t.date, description: t.description, amount: t.amount, type: t.type })),
+          transactions: selected.map(({ t, i }) => {
+            const p = previewByIndex[i];
+            return {
+              date: t.date, description: t.description, amount: t.amount, type: t.type,
+              // Carry the reviewed cleaned name + category/tag so the bank feed
+              // shows exactly what was reviewed.
+              cleanedName: p?.cleanedName ?? undefined,
+              suggestedAccountId: p?.suggestedAccountId ?? undefined,
+              tagId: p?.tagId ?? undefined,
+            };
+          }),
         }),
       });
       return res;
@@ -285,7 +299,7 @@ export function StatementUploadPage() {
   // Opt-in dry-run categorization for the parsed rows: shows the suggested
   // account + cleaned name BEFORE import, without writing to the feed. The real
   // categorization still runs server-side at import time.
-  interface PreviewRow { index: number; cleanedName: string | null; suggestedAccountName: string | null; confidence: number | null; error?: string }
+  interface PreviewRow { index: number; cleanedName: string | null; suggestedAccountId: string | null; suggestedAccountName: string | null; tagId: string | null; confidence: number | null; error?: string }
   const previewMutation = useMutation({
     mutationFn: async () => {
       const res = await apiClient<{ rows: PreviewRow[] }>('/ai/categorize/preview', {
@@ -296,12 +310,22 @@ export function StatementUploadPage() {
     },
     onSuccess: (rows) => {
       const map: Record<number, PreviewCell> = {};
-      for (const r of rows) map[r.index] = { cleanedName: r.cleanedName, suggestedAccountName: r.suggestedAccountName, confidence: r.confidence };
+      for (const r of rows) map[r.index] = { cleanedName: r.cleanedName, suggestedAccountId: r.suggestedAccountId, suggestedAccountName: r.suggestedAccountName, tagId: r.tagId, confidence: r.confidence };
       setPreviewByIndex(map);
       setPreviewError('');
     },
     onError: (err: unknown) => setPreviewError(err instanceof Error ? err.message : 'Categorization preview failed'),
   });
+
+  // Auto-run the cleaned-name + category preview once transactions load, so the
+  // review shows them without a click (and they carry into the feed on import).
+  useEffect(() => {
+    if (aiEnabled && transactions.length > 0 && Object.keys(previewByIndex).length === 0
+      && !imported && !previewMutation.isPending && !previewError) {
+      previewMutation.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions.length, imported, aiEnabled]);
 
   // Reset all per-file state and begin uploading + parsing a single file.
   const startFile = (f: File) => {
