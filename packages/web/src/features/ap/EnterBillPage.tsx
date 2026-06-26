@@ -208,7 +208,7 @@ export function EnterBillPage() {
       formData.append('file', file);
       formData.append('attachableType', 'draft');
       formData.append('attachableId', draftId);
-      const uploadRes = await fetch('/api/v1/attachments', {
+      const uploadRes = await fetch(`${import.meta.env.BASE_URL}api/v1/attachments`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}` },
         body: formData,

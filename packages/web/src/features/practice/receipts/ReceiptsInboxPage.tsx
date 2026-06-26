@@ -79,7 +79,7 @@ export function ReceiptsInboxPage() {
       form.append('file', file);
       form.append('companyId', activeCompanyId);
       const token = localStorage.getItem('accessToken');
-      const res = await fetch('/api/v1/practice/receipts/upload', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/practice/receipts/upload`, {
         method: 'POST',
         body: form,
         headers: { Authorization: `Bearer ${token ?? ''}` },

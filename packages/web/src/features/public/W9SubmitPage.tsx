@@ -121,7 +121,7 @@ export function W9SubmitPage() {
 
     setStatus('submitting');
     try {
-      const res = await fetch('/api/w9/complete', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/w9/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

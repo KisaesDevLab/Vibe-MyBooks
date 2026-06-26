@@ -24,7 +24,7 @@ export function PortalLoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch('/api/portal/auth/request-link', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/auth/request-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, tenantSlug }),

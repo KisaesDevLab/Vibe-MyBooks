@@ -279,13 +279,13 @@ export function CheckPrintSettingsPage() {
               try {
                 const token = localStorage.getItem('accessToken');
                 // Save settings first so the test uses current values
-                await fetch('/api/v1/checks/settings', {
+                await fetch(`${import.meta.env.BASE_URL}api/v1/checks/settings`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                   body: JSON.stringify(form),
                 });
                 // Render a sample check
-                const res = await fetch('/api/v1/checks/test-print', {
+                const res = await fetch(`${import.meta.env.BASE_URL}api/v1/checks/test-print`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                   body: JSON.stringify({ format: form.format }),

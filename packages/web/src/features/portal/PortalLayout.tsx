@@ -37,7 +37,7 @@ const ME_KEY = 'kisbooks-portal-me';
 const ACTIVE_COMPANY_KEY = 'kisbooks-portal-active-company';
 
 async function fetchPortalMe(): Promise<PortalMe | null> {
-  const res = await fetch('/api/portal/me', { credentials: 'include' });
+  const res = await fetch(`${import.meta.env.BASE_URL}api/portal/me`, { credentials: 'include' });
   if (res.status === 401) return null;
   if (!res.ok) throw new Error('Failed to load portal session');
   return res.json();
@@ -48,7 +48,7 @@ async function fetchPortalMe(): Promise<PortalMe | null> {
 // { contacts: [] } when the session isn't identity-linked or the
 // flag is off; the layout uses that to hide the switcher entirely.
 async function fetchLinkedContacts(): Promise<LinkedContact[]> {
-  const res = await fetch('/api/portal/auth/linked-contacts', { credentials: 'include' });
+  const res = await fetch(`${import.meta.env.BASE_URL}api/portal/auth/linked-contacts`, { credentials: 'include' });
   if (res.status === 401) return [];
   if (!res.ok) {
     // eslint-disable-next-line no-console
@@ -137,7 +137,7 @@ export function PortalLayout() {
     // server-side session (which will expire on its own). Log so the
     // failure is debuggable without surfacing it as a user-facing error.
     try {
-      const res = await fetch('/api/portal/auth/logout', { method: 'POST', credentials: 'include' });
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/auth/logout`, { method: 'POST', credentials: 'include' });
       if (!res.ok) {
         // eslint-disable-next-line no-console
         console.warn(`[PortalLayout] logout returned ${res.status}; clearing local state anyway.`);
@@ -182,7 +182,7 @@ export function PortalLayout() {
               // TTL bounds the worst-case exposure, and keeping the staff
               // user stuck in preview mode is a worse UX failure.
               try {
-                const res = await fetch('/api/v1/practice/portal/preview/end', {
+                const res = await fetch(`${import.meta.env.BASE_URL}api/v1/practice/portal/preview/end`, {
                   method: 'POST',
                   credentials: 'include',
                   headers: {

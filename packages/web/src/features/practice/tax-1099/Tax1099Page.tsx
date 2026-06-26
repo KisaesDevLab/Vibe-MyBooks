@@ -231,7 +231,7 @@ export function Tax1099Page() {
     setError(null);
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch('/api/v1/practice/1099/tin-match/export', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/practice/1099/tin-match/export`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token ?? ''}` },
       });

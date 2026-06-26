@@ -133,7 +133,7 @@ export async function drainQueue(): Promise<{ uploaded: number; failed: number; 
       const form = new FormData();
       form.append('file', item.blob, item.filename);
       form.append('companyId', item.companyId);
-      const res = await fetch('/api/portal/receipts/upload', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/receipts/upload`, {
         method: 'POST',
         body: form,
         credentials: 'include',

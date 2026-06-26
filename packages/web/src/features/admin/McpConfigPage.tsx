@@ -31,7 +31,7 @@ export function McpConfigPage() {
     queryKey: ['admin', 'mcp-config'],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/v1/admin/mcp/config', { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } });
+        const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/mcp/config`, { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } });
         return res.ok ? res.json() : null;
       } catch { return null; }
     },
@@ -63,7 +63,7 @@ export function McpConfigPage() {
     queryKey: ['admin', 'mcp-log'],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/v1/admin/mcp/log', { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } });
+        const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/mcp/log`, { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } });
         return res.ok ? res.json() : { logs: [] };
       } catch { return { logs: [] }; }
     },
@@ -74,7 +74,7 @@ export function McpConfigPage() {
     setSaveError('');
     setSaved(false);
     try {
-      const res = await fetch('/api/v1/admin/mcp/config', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/mcp/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
         body: JSON.stringify({ ...form, maxKeyLifetimeDays: form.maxKeyLifetimeDays ? parseInt(form.maxKeyLifetimeDays) : null }),

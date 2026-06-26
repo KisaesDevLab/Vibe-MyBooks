@@ -138,7 +138,7 @@ function AskQuestionModal({
     setSubmitting(true);
     setErr(null);
     try {
-      const res = await fetch('/api/portal/questions/ask', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/questions/ask`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

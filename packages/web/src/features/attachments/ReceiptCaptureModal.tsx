@@ -42,7 +42,7 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
       formData.append('file', f);
       formData.append('attachableType', 'receipt');
       formData.append('attachableId', crypto.randomUUID());
-      const res = await fetch('/api/v1/attachments', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/attachments`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
         body: formData,
@@ -90,7 +90,7 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
   const createExpenseMutation = useMutation({
     mutationFn: async () => {
       if (!ocrResult || !expenseAccountId || !payFromAccountId) return;
-      const res = await fetch('/api/v1/transactions', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/transactions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

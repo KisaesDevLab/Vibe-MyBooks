@@ -47,7 +47,7 @@ export function EnvMissingPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/diagnostic/env-status', { cache: 'no-store' });
+        const res = await fetch(`${import.meta.env.BASE_URL}api/diagnostic/env-status`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`status endpoint returned ${res.status}`);
         const body = (await res.json()) as EnvStatus;
         if (!cancelled) setStatus(body);
@@ -67,7 +67,7 @@ export function EnvMissingPage() {
     setSubmitting(true);
     setFormError(null);
     try {
-      const res = await fetch('/api/diagnostic/env-recovery', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/diagnostic/env-recovery`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recoveryKey: key }),

@@ -42,17 +42,17 @@ export function StorageSettingsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['storage-config'],
-    queryFn: async () => (await fetch('/api/v1/settings/storage', { headers })).json(),
+    queryFn: async () => (await fetch(`${import.meta.env.BASE_URL}api/v1/settings/storage`, { headers })).json(),
   });
 
   const { data: migrationData } = useQuery({
     queryKey: ['storage-migration'],
-    queryFn: async () => (await fetch('/api/v1/settings/storage/migrate/status', { headers })).json(),
+    queryFn: async () => (await fetch(`${import.meta.env.BASE_URL}api/v1/settings/storage/migrate/status`, { headers })).json(),
     refetchInterval: data?.active?.provider !== 'local' ? 5000 : false,
   });
 
   const activate = useMutation({
-    mutationFn: async (provider: string) => { await fetch('/api/v1/settings/storage/activate', { method: 'POST', headers, body: JSON.stringify({ provider }) }); },
+    mutationFn: async (provider: string) => { await fetch(`${import.meta.env.BASE_URL}api/v1/settings/storage/activate`, { method: 'POST', headers, body: JSON.stringify({ provider }) }); },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['storage'] }),
   });
 
@@ -62,13 +62,13 @@ export function StorageSettingsPage() {
   });
 
   const healthCheck = useMutation({
-    mutationFn: async () => (await fetch('/api/v1/settings/storage/health-check', { method: 'POST', headers })).json(),
+    mutationFn: async () => (await fetch(`${import.meta.env.BASE_URL}api/v1/settings/storage/health-check`, { method: 'POST', headers })).json(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['storage'] }),
   });
 
   const saveS3 = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/settings/storage/configure/s3', { method: 'POST', headers, body: JSON.stringify(s3Form) });
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/settings/storage/configure/s3`, { method: 'POST', headers, body: JSON.stringify(s3Form) });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error?.message || 'Failed'); }
     },
     onSuccess: () => { setShowS3(false); qc.invalidateQueries({ queryKey: ['storage-config'] }); },
@@ -84,7 +84,7 @@ export function StorageSettingsPage() {
 
   const startMigration = useMutation({
     mutationFn: async ({ from, to }: { from: string; to: string }) => {
-      await fetch('/api/v1/settings/storage/migrate', { method: 'POST', headers, body: JSON.stringify({ fromProvider: from, toProvider: to }) });
+      await fetch(`${import.meta.env.BASE_URL}api/v1/settings/storage/migrate`, { method: 'POST', headers, body: JSON.stringify({ fromProvider: from, toProvider: to }) });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['storage-migration'] }),
   });

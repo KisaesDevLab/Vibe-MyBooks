@@ -137,7 +137,7 @@ export function BackupRestorePage() {
       }
 
       const token = getAccessToken();
-      const res = await fetch('/api/v1/backup/restore', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/backup/restore`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,

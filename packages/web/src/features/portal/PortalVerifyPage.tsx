@@ -22,7 +22,7 @@ export function PortalVerifyPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/portal/auth/verify', {
+        const res = await fetch(`${import.meta.env.BASE_URL}api/portal/auth/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token }),
