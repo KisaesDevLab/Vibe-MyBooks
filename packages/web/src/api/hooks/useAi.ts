@@ -786,6 +786,12 @@ export function useStatementJobs() {
   return useQuery({
     queryKey: ['statement-jobs'],
     queryFn: () => apiClient<{ jobs: StatementJobSummary[]; total: number }>('/ai/parse/statement/jobs'),
+    // Poll while any statement is still extracting in the background so rows
+    // flip from Processing → Pending review without a manual refresh.
+    refetchInterval: (query) => {
+      const jobs = query.state.data?.jobs ?? [];
+      return jobs.some((j) => j.status === 'pending' || j.status === 'processing') ? 4000 : false;
+    },
   });
 }
 

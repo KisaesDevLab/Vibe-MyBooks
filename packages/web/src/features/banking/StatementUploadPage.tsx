@@ -319,17 +319,52 @@ export function StatementUploadPage() {
     uploadMutation.mutate(f);
   };
 
-  // Begin a (possibly multi-file) batch — shared by the file picker and drag-drop.
-  const beginBatch = (files: File[]) => {
+  const [bgUploading, setBgUploading] = useState<{ done: number; total: number } | null>(null);
+
+  // Upload one file and enqueue its parse WITHOUT waiting for extraction — the
+  // job runs in the background (worker/watchdog). Returns true on success.
+  const uploadAndEnqueue = async (f: File): Promise<boolean> => {
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('attachableType', 'bank_statement');
+      fd.append('attachableId', genUuidV4());
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/attachments`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+        body: fd,
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      const aid = data.id || data.attachment?.id;
+      if (!aid) return false;
+      await startParse.mutateAsync(aid); // enqueue only (202) — extraction runs in background
+      return true;
+    } catch { return false; }
+  };
+
+  // Begin upload — shared by the file picker and drag-drop. A single file gets
+  // the immediate foreground review; multiple files upload + enqueue in the
+  // BACKGROUND and land in Statement Processing to review as each finishes.
+  const beginBatch = async (files: File[]) => {
     if (files.length === 0) return;
-    setQueue(files);
-    setQueueIndex(0);
-    setBatchDone([]);
-    startFile(files[0]!);
+    if (files.length === 1) {
+      setQueue(files); setQueueIndex(0); setBatchDone([]);
+      startFile(files[0]!);
+      return;
+    }
+    setBgUploading({ done: 0, total: files.length });
+    let ok = 0;
+    for (let i = 0; i < files.length; i += 1) {
+      if (await uploadAndEnqueue(files[i]!)) ok += 1;
+      setBgUploading({ done: i + 1, total: files.length });
+    }
+    setBgUploading(null);
+    navigate(`/banking/statement-imports?uploaded=${ok}`);
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    beginBatch(Array.from(e.target.files ?? []));
+    void beginBatch(Array.from(e.target.files ?? []));
     e.target.value = ''; // allow re-selecting the same file(s) later
   };
 
@@ -344,7 +379,7 @@ export function StatementUploadPage() {
       setParseError('Only PDF or image statement files can be dropped here.');
       return;
     }
-    beginBatch(files);
+    void beginBatch(files);
   };
 
   // Record the current file's outcome and advance to the next queued file, or
@@ -391,7 +426,7 @@ export function StatementUploadPage() {
         <AiBannerForTask task="statement_parsing" />
         <div className="ml-auto">
           <Button variant="secondary" size="sm" onClick={() => navigate('/banking/statement-imports')}>
-            Saved imports
+            Statement Processing
           </Button>
         </div>
       </div>
@@ -440,7 +475,7 @@ export function StatementUploadPage() {
 
       {/* Upload Area — shown whenever we're idle with no results (initial load
           OR after an error), so the user can always (re)pick a file. */}
-      {aiEnabled && !parsing && !uploadMutation.isPending && transactions.length === 0 && !imported && !(isBatch && file) && (
+      {aiEnabled && !parsing && !uploadMutation.isPending && !bgUploading && transactions.length === 0 && !imported && !(isBatch && file) && (
         <div
           className={`bg-white rounded-lg border-2 border-dashed p-12 text-center cursor-pointer transition-colors ${isDragging ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400'}`}
           onClick={() => document.getElementById('statement-input')?.click()}
@@ -451,6 +486,15 @@ export function StatementUploadPage() {
           <FileUp className={`h-12 w-12 mx-auto mb-3 ${isDragging ? 'text-primary-500' : 'text-gray-300'}`} />
           <p className="text-sm text-gray-600">{isDragging ? 'Drop to upload' : (file ? 'Upload a different statement' : 'Drag & drop bank statements here, or click to browse')}</p>
           <p className="text-xs text-gray-400 mt-1">PDF or image · AI extracts all transactions automatically · drop multiple files to import a batch</p>
+        </div>
+      )}
+
+      {/* Background multi-upload: enqueue all, then go to Statement Processing. */}
+      {bgUploading && (
+        <div className="bg-white rounded-lg border p-12 text-center">
+          <Loader2 className="h-8 w-8 text-primary-600 animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-600">Uploading statements… ({bgUploading.done}/{bgUploading.total})</p>
+          <p className="text-xs text-gray-400 mt-1">Extraction runs in the background — you’ll review each one in Statement Processing.</p>
         </div>
       )}
 
