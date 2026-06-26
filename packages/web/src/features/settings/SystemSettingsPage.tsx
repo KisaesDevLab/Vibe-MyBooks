@@ -253,7 +253,14 @@ export function SystemSettingsPage() {
         setTestStatus('success');
       } else {
         setTestStatus('error');
-        setTestError(data.error || 'SMTP test failed');
+        // data.error may be a plain string OR the API error object
+        // ({ message, code, details }); rendering the object directly throws
+        // React error #31, so always reduce it to a string message.
+        setTestError(
+          typeof data.error === 'string'
+            ? data.error
+            : (data.error?.message || data.message || 'SMTP test failed'),
+        );
       }
     } catch (err) {
       setTestStatus('error');
@@ -323,7 +330,12 @@ export function SystemSettingsPage() {
         setBackupTestStatus('healthy');
       } else {
         setBackupTestStatus('error');
-        setBackupTestError(data.error?.message || data.error || 'Connection failed');
+        // Same as SMTP: never store the raw API error object (React error #31).
+        setBackupTestError(
+          typeof data.error === 'string'
+            ? data.error
+            : (data.error?.message || data.message || 'Connection failed'),
+        );
       }
     } catch (err) {
       setBackupTestStatus('error');
