@@ -54,6 +54,8 @@ import {
   Sparkles,
   Plug,
   FileSpreadsheet,
+  CheckCheck,
+  ClipboardCheck,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLogout, useMe } from '../../api/hooks/useAuth';
@@ -156,6 +158,8 @@ const navGroups: NavGroup[] = [
       { to: '/banking/statement-imports', label: 'Statement Processing', icon: History },
       { to: '/daily-sales', label: 'Daily Sales (POS)', icon: Store },
       { to: '/banking/deposit', label: 'Bank Deposit', icon: PiggyBank },
+      { to: '/banking/reconcile', label: 'Reconcile', icon: CheckCheck },
+      { to: '/banking/reconciliation-history', label: 'Reconcile History', icon: ClipboardCheck },
     ],
   },
   {
