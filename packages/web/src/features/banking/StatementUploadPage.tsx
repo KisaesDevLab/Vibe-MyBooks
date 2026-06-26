@@ -3,7 +3,7 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useState, useRef, useEffect, type ChangeEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import {
   useAiStatus,
@@ -45,8 +45,13 @@ function genUuidV4(): string {
 
 export function StatementUploadPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const resumeJobId = searchParams.get('resume');
   const [file, setFile] = useState<File | null>(null);
   const [attachmentId, setAttachmentId] = useState<string | null>(null);
+  // Set when the review was resumed from a saved parse job, so import marks that
+  // job imported in the Statement Imports history.
+  const [resumedJobId, setResumedJobId] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<ParsedTransaction[]>([]);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState('');
@@ -136,6 +141,35 @@ export function StatementUploadPage() {
 
   // Abort any in-flight progress stream on unmount.
   useEffect(() => () => progressCtrl.current?.abort(), []);
+
+  // Resume a saved statement parse (from the Statement Imports list): load the
+  // persisted extraction straight into the review table — no re-upload/re-parse.
+  useEffect(() => {
+    if (!resumeJobId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiClient<{ result: ParsedStatement | null; attachmentId: string | null }>(
+          `/ai/parse/statement/jobs/${resumeJobId}`,
+        );
+        if (cancelled) return;
+        if (data.result && (data.result.transactions?.length ?? 0) > 0) {
+          applyResult(data.result);
+          setAttachmentId(data.attachmentId);
+          setResumedJobId(resumeJobId);
+          setQueue([]); // resume is a single statement, not a batch
+          setImported(null);
+          setParseError('');
+        } else {
+          setParseError('This statement has no saved transactions to resume. Re-upload it to parse again.');
+        }
+      } catch (err) {
+        if (!cancelled) setParseError(err instanceof Error ? err.message : 'Could not load the saved statement.');
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeJobId]);
 
   const uploadMutation = useMutation({
     mutationFn: async (f: File) => {
@@ -238,6 +272,8 @@ export function StatementUploadPage() {
           // The server find-or-creates the manual bank connection for this
           // account, so the statement rows land under the chosen GL account.
           accountId,
+          // When resuming a saved parse, tell the server which job to mark imported.
+          jobId: resumedJobId ?? undefined,
           transactions: selected.map((t) => ({ date: t.date, description: t.description, amount: t.amount, type: t.type })),
         }),
       });
@@ -270,6 +306,7 @@ export function StatementUploadPage() {
   // Reset all per-file state and begin uploading + parsing a single file.
   const startFile = (f: File) => {
     progressCtrl.current?.abort();
+    setResumedJobId(null); // a fresh upload is not a resume
     setFile(f);
     setTransactions([]);
     setSuspectByIndex({});
@@ -334,6 +371,11 @@ export function StatementUploadPage() {
       <div className="flex items-center gap-3 mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Import Bank Statement</h1>
         <AiBannerForTask task="statement_parsing" />
+        <div className="ml-auto">
+          <Button variant="secondary" size="sm" onClick={() => navigate('/banking/statement-imports')}>
+            Saved imports
+          </Button>
+        </div>
       </div>
 
       {/* AI not enabled alert */}

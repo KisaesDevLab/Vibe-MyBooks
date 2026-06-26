@@ -768,3 +768,31 @@ export function useSetCompanyAiTasks() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ai'] }),
   });
 }
+
+// ─── Statement Imports history ───────────────────────────────────
+export interface StatementJobSummary {
+  jobId: string;
+  attachmentId: string | null;
+  fileName: string;
+  status: string;
+  stage: string | null;
+  createdAt: string | null;
+  importedAt: string | null;
+  transactionCount: number;
+  error: string | null;
+}
+
+export function useStatementJobs() {
+  return useQuery({
+    queryKey: ['statement-jobs'],
+    queryFn: () => apiClient<{ jobs: StatementJobSummary[]; total: number }>('/ai/parse/statement/jobs'),
+  });
+}
+
+export function useDeleteStatementJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) => apiClient(`/ai/parse/statement/jobs/${jobId}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['statement-jobs'] }),
+  });
+}

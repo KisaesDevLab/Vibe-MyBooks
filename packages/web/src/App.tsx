@@ -138,6 +138,7 @@ const ReconciliationPage = lazyNamed(() => import('./features/banking/Reconcilia
 const ReconciliationHistoryPage = lazyNamed(() => import('./features/banking/ReconciliationHistoryPage'), 'ReconciliationHistoryPage');
 const BankDepositPage = lazyNamed(() => import('./features/banking/BankDepositPage'), 'BankDepositPage');
 const StatementUploadPage = lazyNamed(() => import('./features/banking/StatementUploadPage'), 'StatementUploadPage');
+const StatementImportsPage = lazyNamed(() => import('./features/banking/StatementImportsPage'), 'StatementImportsPage');
 
 // ─── Attachments ─────────────────────────────────────────────
 const AttachmentLibraryPage = lazyNamed(() => import('./features/attachments/AttachmentLibraryPage'), 'AttachmentLibraryPage');
@@ -339,6 +340,7 @@ export function App() {
             <Route path="/banking" element={<BankConnectionsPage />} />
             <Route path="/banking/feed" element={<BankFeedPage />} />
             <Route path="/banking/statement-upload" element={<StatementUploadPage />} />
+            <Route path="/banking/statement-imports" element={<StatementImportsPage />} />
             <Route path="/banking/reconcile" element={<ReconciliationPage />} />
             <Route path="/banking/reconciliation-history" element={<ReconciliationHistoryPage />} />
             <Route path="/banking/rules" element={<Navigate to="/practice/rules" replace />} />
