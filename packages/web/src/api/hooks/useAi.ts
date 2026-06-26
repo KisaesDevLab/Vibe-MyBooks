@@ -365,12 +365,39 @@ export function useAiCategorize() {
   });
 }
 
+interface BatchCategorizeRow {
+  error?: { code: string; message: string };
+  skipped?: boolean;
+}
+
 export function useAiBatchCategorize() {
   const qc = useQueryClient();
+  const toast = useToast();
   const onError = useAiErrorToast('AI categorization');
   return useMutation({
-    mutationFn: (feedItemIds: string[]) => apiClient('/ai/categorize/batch', { method: 'POST', body: JSON.stringify({ feedItemIds }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-feed'] }),
+    mutationFn: (feedItemIds: string[]) =>
+      apiClient<{ results: BatchCategorizeRow[] }>('/ai/categorize/batch', {
+        method: 'POST',
+        body: JSON.stringify({ feedItemIds }),
+      }),
+    // The batch endpoint returns HTTP 200 even when every item failed (per-item
+    // errors live INSIDE results). Without inspecting them a total failure —
+    // e.g. no categorization provider configured, or the engine is unreachable —
+    // looks like "nothing happened". Surface a summary so it's never silent.
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['bank-feed'] });
+      const results = data?.results ?? [];
+      const failed = results.filter((r) => r.error);
+      const ok = results.length - failed.length;
+      if (results.length > 0 && ok === 0) {
+        const first = failed[0]!.error!;
+        toast.error(`AI categorization failed — ${reasonForCode(first.code, first.message)}`, { detail: first.code });
+      } else if (failed.length > 0) {
+        toast.error(`AI categorized ${ok} of ${results.length}; ${failed.length} failed.`, { detail: failed[0]!.error!.code });
+      } else if (ok > 0) {
+        toast.success(`AI categorized ${ok} transaction${ok === 1 ? '' : 's'}.`);
+      }
+    },
     onError,
   });
 }
