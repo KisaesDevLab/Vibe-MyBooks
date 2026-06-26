@@ -16,6 +16,12 @@
 // 404 in multi-app appliance installs (BASE_URL=`/mybooks/`).
 export const API_BASE = `${import.meta.env.BASE_URL}api/v1`;
 
+// The app's mount prefix without a trailing slash ('/mybooks' under a subpath,
+// '' at root). Sent as `X-App-Base` on requests so the API can scope the refresh
+// cookie's Path correctly even when the appliance strips the prefix before the
+// request reaches it — no operator COOKIE_PATH config required.
+export const APP_BASE = import.meta.env.BASE_URL.replace(/\/+$/, '');
+
 // What the web actually handles. The refresh token lives in an HttpOnly
 // cookie now, so this side of the wire only ever sees the access token.
 export interface AuthTokens {
@@ -68,7 +74,7 @@ export function getAccessToken(): string | null {
 export async function refreshAccessToken(): Promise<AuthTokens | null> {
   const res = await fetch(`${API_BASE}/auth/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-App-Base': APP_BASE },
     credentials: 'include',
     body: JSON.stringify({}),
   });
@@ -90,6 +96,7 @@ export async function apiClient<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'X-App-Base': APP_BASE,
     ...(options.headers as Record<string, string>),
   };
 

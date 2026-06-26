@@ -44,6 +44,16 @@ import {
   Network,
   Cloud,
   Flag,
+  FileUp,
+  History,
+  Store,
+  Scale,
+  LayoutTemplate,
+  KeyRound,
+  Activity,
+  Sparkles,
+  Plug,
+  FileSpreadsheet,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLogout, useMe } from '../../api/hooks/useAuth';
@@ -73,13 +83,13 @@ const adminNavItems: NavItem[] = [
   { to: '/admin', label: 'Admin Dashboard', icon: ShieldCheck },
   { to: '/admin/tenants', label: 'Tenants', icon: Building2 },
   { to: '/admin/users', label: 'Users', icon: UsersRound },
-  { to: '/admin/coa-templates', label: 'COA Templates', icon: BookOpen },
-  { to: '/admin/tfa', label: 'Two-Factor Auth', icon: Shield },
+  { to: '/admin/coa-templates', label: 'COA Templates', icon: LayoutTemplate },
+  { to: '/admin/tfa', label: 'Two-Factor Auth', icon: KeyRound },
   { to: '/admin/security', label: 'Installation Security', icon: Shield },
   { to: '/admin/plaid', label: 'Plaid Config', icon: Landmark },
-  { to: '/admin/plaid/connections', label: 'Plaid Monitor', icon: Landmark },
-  { to: '/admin/ai', label: 'AI Processing', icon: Shield },
-  { to: '/admin/mcp', label: 'MCP / API', icon: Shield },
+  { to: '/admin/plaid/connections', label: 'Plaid Monitor', icon: Activity },
+  { to: '/admin/ai', label: 'AI Processing', icon: Sparkles },
+  { to: '/admin/mcp', label: 'MCP / API', icon: Plug },
   { to: '/admin/tailscale', label: 'Tailscale', icon: Network },
   { to: '/admin/tunnel', label: 'Cloudflare Tunnel', icon: Cloud },
   { to: '/admin/ip-allowlist', label: 'Staff IP Allowlist', icon: ShieldAlert },
@@ -127,7 +137,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Payroll',
     items: [
-      { to: '/payroll/import', label: 'Import Payroll', icon: Upload },
+      { to: '/payroll/import', label: 'Import Payroll', icon: FileSpreadsheet },
       { to: '/payroll/imports', label: 'Import History', icon: ClipboardList },
     ],
   },
@@ -142,9 +152,9 @@ const navGroups: NavGroup[] = [
     label: 'Banking',
     items: [
       { to: '/banking', label: 'Banking', icon: Landmark },
-      { to: '/banking/statement-upload', label: 'Import Statement', icon: FileText },
-      { to: '/banking/statement-imports', label: 'Statement Imports', icon: FileText },
-      { to: '/daily-sales', label: 'Daily Sales (POS)', icon: PiggyBank },
+      { to: '/banking/statement-upload', label: 'Import Statement', icon: FileUp },
+      { to: '/banking/statement-imports', label: 'Statement Imports', icon: History },
+      { to: '/daily-sales', label: 'Daily Sales (POS)', icon: Store },
       { to: '/banking/deposit', label: 'Bank Deposit', icon: PiggyBank },
     ],
   },
@@ -153,7 +163,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/reports', label: 'Reports', icon: BarChart3 },
       { to: '/budgets', label: 'Budgets', icon: Wallet },
-      { to: '/budgets/vs-actuals', label: 'Budget vs. Actuals', icon: Wallet },
+      { to: '/budgets/vs-actuals', label: 'Budget vs. Actuals', icon: Scale },
     ],
   },
   {
