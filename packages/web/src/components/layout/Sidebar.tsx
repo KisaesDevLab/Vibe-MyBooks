@@ -144,6 +144,7 @@ const navGroups: NavGroup[] = [
       { to: '/banking', label: 'Banking', icon: Landmark },
       { to: '/banking/statement-upload', label: 'Import Statement', icon: FileText },
       { to: '/banking/statement-imports', label: 'Statement Imports', icon: FileText },
+      { to: '/daily-sales', label: 'Daily Sales (POS)', icon: PiggyBank },
       { to: '/banking/deposit', label: 'Bank Deposit', icon: PiggyBank },
     ],
   },
