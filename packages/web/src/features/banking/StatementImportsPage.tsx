@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useStatementJobs, useDeleteStatementJob, type StatementJobSummary } from '../../api/hooks/useAi';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -27,22 +27,32 @@ function fmtDate(s: string | null): string {
 
 export function StatementImportsPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const justUploaded = Number(params.get('uploaded') || '0');
   const { data, isLoading, isError, refetch } = useStatementJobs();
   const del = useDeleteStatementJob();
 
   const jobs = data?.jobs ?? [];
+  const processingCount = jobs.filter((j) => j.status === 'pending' || j.status === 'processing').length;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Statement Imports</h1>
-          <p className="text-sm text-gray-500 mt-1">Uploaded bank statements and their extracted transactions. Resume a pending statement to review and import it.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Statement Processing</h1>
+          <p className="text-sm text-gray-500 mt-1">Uploaded bank statements and their extracted transactions. Statements extract in the background — review and import each when it’s ready.</p>
         </div>
         <Button onClick={() => navigate('/banking/statement-upload')}>
           <Upload className="h-4 w-4 mr-1" /> Upload statements
         </Button>
       </div>
+
+      {justUploaded > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
+          Uploaded {justUploaded} statement{justUploaded === 1 ? '' : 's'} — extracting in the background.
+          {processingCount > 0 ? ` ${processingCount} still processing…` : ' Ready to review.'}
+        </div>
+      )}
 
       {isLoading && (
         <div className="bg-white rounded-lg border p-12 flex justify-center"><LoadingSpinner /></div>
