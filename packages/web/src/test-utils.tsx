@@ -12,6 +12,7 @@ import type { ReactElement } from 'react';
 import { render, screen, type RenderOptions } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from './components/ui/Toaster';
 
 export interface RenderRouteOptions extends Omit<RenderOptions, 'wrapper'> {
   /** Initial URL the MemoryRouter should land on. Defaults to '/'. */
@@ -40,13 +41,15 @@ export function renderRoute(ui: ReactElement, opts: RenderRouteOptions = {}) {
 
   const tree = (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[route]}>
-        {path ? (
-          <Routes>
-            <Route path={path} element={ui} />
-          </Routes>
-        ) : ui}
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={[route]}>
+          {path ? (
+            <Routes>
+              <Route path={path} element={ui} />
+            </Routes>
+          ) : ui}
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>
   );
 
