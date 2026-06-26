@@ -69,6 +69,11 @@ export function StatementUploadPage() {
   // Indices flagged by the running-balance check (findSuspectRows), shown as
   // per-row "off by $X" badges.
   const [suspectByIndex, setSuspectByIndex] = useState<Record<number, number>>({});
+  // Opt-in AI category/cleansed-name previews (dry-run, nothing imported yet),
+  // keyed by row index. Populated by the "Preview categories" action.
+  interface PreviewCell { cleanedName: string | null; suggestedAccountName: string | null; confidence: number | null }
+  const [previewByIndex, setPreviewByIndex] = useState<Record<number, PreviewCell>>({});
+  const [previewError, setPreviewError] = useState('');
   const [imported, setImported] = useState<{ imported: number; skipped?: number; duplicates?: number } | null>(null);
   // The GL bank account the statement belongs to; the import find-or-creates a
   // manual connection for it server-side. Required before importing.
@@ -118,6 +123,8 @@ export function StatementUploadPage() {
     setSuspectByIndex(
       Object.fromEntries((result.suspectRows ?? []).map((s) => [s.index, s.deltaCents])),
     );
+    setPreviewByIndex({});
+    setPreviewError('');
   };
 
   // Abort any in-flight progress stream on unmount.
@@ -232,6 +239,27 @@ export function StatementUploadPage() {
     onSuccess: (data) => setImported(data),
   });
 
+  // Opt-in dry-run categorization for the parsed rows: shows the suggested
+  // account + cleaned name BEFORE import, without writing to the feed. The real
+  // categorization still runs server-side at import time.
+  interface PreviewRow { index: number; cleanedName: string | null; suggestedAccountName: string | null; confidence: number | null; error?: string }
+  const previewMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient<{ rows: PreviewRow[] }>('/ai/categorize/preview', {
+        method: 'POST',
+        body: JSON.stringify({ transactions: transactions.slice(0, 300).map((t) => ({ description: t.description, amount: t.amount })) }),
+      });
+      return res.rows;
+    },
+    onSuccess: (rows) => {
+      const map: Record<number, PreviewCell> = {};
+      for (const r of rows) map[r.index] = { cleanedName: r.cleanedName, suggestedAccountName: r.suggestedAccountName, confidence: r.confidence };
+      setPreviewByIndex(map);
+      setPreviewError('');
+    },
+    onError: (err: unknown) => setPreviewError(err instanceof Error ? err.message : 'Categorization preview failed'),
+  });
+
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -239,6 +267,8 @@ export function StatementUploadPage() {
     setFile(f);
     setTransactions([]);
     setSuspectByIndex({});
+    setPreviewByIndex({});
+    setPreviewError('');
     setImported(null);
     setParseError('');
     setStage(null);
@@ -401,6 +431,20 @@ export function StatementUploadPage() {
             </div>
           )}
 
+          {/* Category preview (opt-in, dry-run) */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button size="sm" variant="secondary" onClick={() => previewMutation.mutate()} loading={previewMutation.isPending}>
+              <Brain className="h-4 w-4 mr-1" /> Preview categories
+            </Button>
+            {previewError && <span className="text-sm text-red-600">{previewError}</span>}
+            {!previewError && Object.keys(previewByIndex).length > 0 && (
+              <span className="text-xs text-gray-500">Suggestions only — the same AI categorization runs automatically when you import.</span>
+            )}
+            {!previewError && Object.keys(previewByIndex).length === 0 && !previewMutation.isPending && (
+              <span className="text-xs text-gray-400">See the suggested account &amp; cleaned name for each row before importing.</span>
+            )}
+          </div>
+
           {/* Transaction Table */}
           <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
             <table className="w-full text-sm">
@@ -414,6 +458,7 @@ export function StatementUploadPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Description</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-600">Amount</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Type</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Suggested Category</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-600">Balance</th>
                 </tr>
               </thead>
@@ -433,11 +478,32 @@ export function StatementUploadPage() {
                           ⚠ off by ${Math.abs(suspectByIndex[idx]! / 100).toFixed(2)}
                         </span>
                       )}
+                      {previewByIndex[idx]?.cleanedName && previewByIndex[idx]!.cleanedName !== txn.description && (
+                        <div className="text-xs text-gray-500 mt-0.5">→ {previewByIndex[idx]!.cleanedName}</div>
+                      )}
                     </td>
                     <td className={`px-4 py-2 text-right font-mono ${txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
                       {txn.type === 'credit' ? '+' : '-'}${parseFloat(txn.amount).toFixed(2)}
                     </td>
                     <td className="px-4 py-2 text-gray-500 capitalize">{txn.type}</td>
+                    <td className="px-4 py-2">
+                      {previewByIndex[idx] ? (
+                        previewByIndex[idx]!.suggestedAccountName ? (
+                          <span className="text-gray-900">
+                            {previewByIndex[idx]!.suggestedAccountName}
+                            {previewByIndex[idx]!.confidence != null && (
+                              <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${previewByIndex[idx]!.confidence! >= 0.8 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                {Math.round(previewByIndex[idx]!.confidence! * 100)}%
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">No match</span>
+                        )
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-right font-mono text-gray-500">{txn.balance ? `$${parseFloat(txn.balance).toFixed(2)}` : ''}</td>
                   </tr>
                 ))}
