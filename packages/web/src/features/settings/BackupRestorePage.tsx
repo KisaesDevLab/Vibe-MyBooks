@@ -171,7 +171,7 @@ export function BackupRestorePage() {
 
   const handleDownload = (fileName: string) => {
     const token = getAccessToken();
-    fetch(`/api/v1/backup/download/${encodeURIComponent(fileName)}`, {
+    fetch(`${import.meta.env.BASE_URL}api/v1/backup/download/${encodeURIComponent(fileName)}`, {
       headers: { Authorization: `Bearer ${token || ''}` },
     })
       .then((res) => res.blob())

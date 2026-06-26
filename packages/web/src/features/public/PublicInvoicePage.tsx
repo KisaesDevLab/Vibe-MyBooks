@@ -53,12 +53,12 @@ export function PublicInvoicePage() {
     if (!token) return;
     fetchInvoice(token);
     // Fire-and-forget: mark as viewed
-    fetch(`/api/v1/public/invoices/${token}/viewed`, { method: 'POST' }).catch(() => {});
+    fetch(`${import.meta.env.BASE_URL}api/v1/public/invoices/${token}/viewed`, { method: 'POST' }).catch(() => {});
   }, [token]);
 
   async function fetchInvoice(t: string) {
     try {
-      const res = await fetch(`/api/v1/public/invoices/${t}`);
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/public/invoices/${t}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: { message: 'Invoice not found' } }));
         setError(data.error?.message || 'Invoice not found');
@@ -275,7 +275,7 @@ export function PublicInvoicePage() {
         {!canPay && (
           <div className="bg-white border-x border-b border-gray-200 rounded-b-lg px-8 py-4 text-center">
             <a
-              href={`/api/v1/public/invoices/${token}?format=pdf`}
+              href={`${import.meta.env.BASE_URL}api/v1/public/invoices/${token}?format=pdf`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 text-sm font-medium"
@@ -288,7 +288,7 @@ export function PublicInvoicePage() {
         {canPay && (
           <div className="text-center mt-3">
             <a
-              href={`/api/v1/public/invoices/${token}?format=pdf`}
+              href={`${import.meta.env.BASE_URL}api/v1/public/invoices/${token}?format=pdf`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 text-sm"

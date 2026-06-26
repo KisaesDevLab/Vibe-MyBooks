@@ -27,7 +27,7 @@ export function DataExportPage() {
 
   const handleDownloadFile = (fileName: string) => {
     const token = getAccessToken();
-    fetch(`/api/v1/export/download/${encodeURIComponent(fileName)}`, {
+    fetch(`${import.meta.env.BASE_URL}api/v1/export/download/${encodeURIComponent(fileName)}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((res) => {

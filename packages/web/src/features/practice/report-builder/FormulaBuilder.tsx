@@ -90,7 +90,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     Authorization: `Bearer ${token ?? ''}`,
   };
   if (init?.body !== undefined) headers['Content-Type'] = 'application/json';
-  const res = await fetch(`/api/v1${path}`, { ...init, headers });
+  const res = await fetch(`${import.meta.env.BASE_URL}api/v1${path}`, { ...init, headers });
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try {

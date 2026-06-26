@@ -32,7 +32,7 @@ export function MagicLinkVerifyPage() {
       return;
     }
 
-    fetch(`/api/v1/auth/magic-link/verify?token=${encodeURIComponent(token)}`)
+    fetch(`${import.meta.env.BASE_URL}api/v1/auth/magic-link/verify?token=${encodeURIComponent(token)}`)
       .then(async (res) => {
         // Catch malformed responses (e.g., HTML error page) so the user
         // sees something useful instead of "unexpected token < in JSON".
