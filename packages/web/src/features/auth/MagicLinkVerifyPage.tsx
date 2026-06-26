@@ -7,7 +7,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { setTokens } from '../../api/client';
+import { setTokens, APP_BASE } from '../../api/client';
 import { TfaVerifyStep, type TfaVerifiedPayload } from './TfaVerifyStep';
 
 export function MagicLinkVerifyPage() {
@@ -32,7 +32,7 @@ export function MagicLinkVerifyPage() {
       return;
     }
 
-    fetch(`${import.meta.env.BASE_URL}api/v1/auth/magic-link/verify?token=${encodeURIComponent(token)}`)
+    fetch(`${import.meta.env.BASE_URL}api/v1/auth/magic-link/verify?token=${encodeURIComponent(token)}`, { headers: { 'X-App-Base': APP_BASE } })
       .then(async (res) => {
         // Catch malformed responses (e.g., HTML error page) so the user
         // sees something useful instead of "unexpected token < in JSON".

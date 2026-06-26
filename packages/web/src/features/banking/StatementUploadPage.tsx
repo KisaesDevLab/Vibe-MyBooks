@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useRef, useEffect, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent, type DragEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import {
@@ -319,14 +319,32 @@ export function StatementUploadPage() {
     uploadMutation.mutate(f);
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+  // Begin a (possibly multi-file) batch — shared by the file picker and drag-drop.
+  const beginBatch = (files: File[]) => {
     if (files.length === 0) return;
     setQueue(files);
     setQueueIndex(0);
     setBatchDone([]);
     startFile(files[0]!);
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    beginBatch(Array.from(e.target.files ?? []));
     e.target.value = ''; // allow re-selecting the same file(s) later
+  };
+
+  const [isDragging, setIsDragging] = useState(false);
+  const isAcceptedFile = (f: File) =>
+    f.type === 'application/pdf' || f.type.startsWith('image/') || /\.(pdf|png|jpe?g|gif|webp|tiff?)$/i.test(f.name);
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files).filter(isAcceptedFile);
+    if (files.length === 0) {
+      setParseError('Only PDF or image statement files can be dropped here.');
+      return;
+    }
+    beginBatch(files);
   };
 
   // Record the current file's outcome and advance to the next queued file, or
@@ -423,12 +441,16 @@ export function StatementUploadPage() {
       {/* Upload Area — shown whenever we're idle with no results (initial load
           OR after an error), so the user can always (re)pick a file. */}
       {aiEnabled && !parsing && !uploadMutation.isPending && transactions.length === 0 && !imported && !(isBatch && file) && (
-        <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-12 text-center cursor-pointer hover:border-primary-400"
-          onClick={() => document.getElementById('statement-input')?.click()}>
+        <div
+          className={`bg-white rounded-lg border-2 border-dashed p-12 text-center cursor-pointer transition-colors ${isDragging ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400'}`}
+          onClick={() => document.getElementById('statement-input')?.click()}
+          onDragOver={(e) => { e.preventDefault(); if (!isDragging) setIsDragging(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+          onDrop={handleDrop}>
           <input id="statement-input" type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleFileChange} />
-          <FileUp className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-600">{file ? 'Upload a different statement' : 'Upload bank statements (PDF or image)'}</p>
-          <p className="text-xs text-gray-400 mt-1">AI extracts all transactions automatically · select multiple files to import a batch</p>
+          <FileUp className={`h-12 w-12 mx-auto mb-3 ${isDragging ? 'text-primary-500' : 'text-gray-300'}`} />
+          <p className="text-sm text-gray-600">{isDragging ? 'Drop to upload' : (file ? 'Upload a different statement' : 'Drag & drop bank statements here, or click to browse')}</p>
+          <p className="text-xs text-gray-400 mt-1">PDF or image · AI extracts all transactions automatically · drop multiple files to import a batch</p>
         </div>
       )}
 

@@ -8,7 +8,7 @@ import { startAuthentication } from '@simplewebauthn/browser';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { setTokens } from '../../api/client';
+import { setTokens, APP_BASE } from '../../api/client';
 import { TfaVerifyStep, type TfaVerifiedPayload } from './TfaVerifyStep';
 import { TurnstileWidget } from '../../components/auth/TurnstileWidget';
 import { AlertCircle, Fingerprint, Mail, KeyRound } from 'lucide-react';
@@ -208,7 +208,7 @@ export function LoginPage() {
     try {
       const res = await fetch(`${API_V1}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-App-Base': APP_BASE },
         body: JSON.stringify({ email: trimmedEmail, password, turnstileToken: turnstileToken ?? '' }),
       });
       const data = await safeJson(res);
@@ -255,7 +255,7 @@ export function LoginPage() {
     try {
       const optRes = await fetch(`${API_V1}/auth/passkeys/login/options`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-App-Base': APP_BASE },
         body: JSON.stringify({ email: email.trim() || undefined }),
       });
       const options = await safeJson(optRes);
@@ -273,7 +273,7 @@ export function LoginPage() {
 
       const verifyRes = await fetch(`${API_V1}/auth/passkeys/login/verify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-App-Base': APP_BASE },
         body: JSON.stringify(authResp),
       });
       const data = await safeJson(verifyRes);
@@ -325,7 +325,7 @@ export function LoginPage() {
     try {
       const res = await fetch(`${API_V1}/auth/magic-link/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-App-Base': APP_BASE },
         body: JSON.stringify({ email: trimmedEmail }),
       });
       const data = await safeJson(res);
