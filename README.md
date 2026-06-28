@@ -1,3 +1,5 @@
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/I3D3227TTP)
+
 # Vibe MyBooks
 
 A self-hosted, source-available bookkeeping application for solo entrepreneurs, freelancers, and CPA firms. Ships as a single Docker Compose appliance with everything you need to manage your books.
