@@ -3,7 +3,7 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { LoginInput, RegisterInput, User, UserType } from '@kis-books/shared';
+import type { LoginInput, RegisterInput, User, UserType, EffectivePermissions } from '@kis-books/shared';
 import { apiClient, setTokens, clearTokens } from '../client';
 
 // The wire User type from shared has userType optional; the
@@ -81,6 +81,10 @@ export interface MeResponse {
   branding?: { appName: string; isCustomName: boolean };
   accessibleTenants?: AccessibleTenant[];
   activeTenantId?: string;
+  // Effective per-resource access levels resolved by the server. The UI
+  // gates identically to the backend by reading this map (see
+  // usePermissions). Optional so a pre-permission server still parses.
+  permissions?: EffectivePermissions;
 }
 
 export function useMe() {

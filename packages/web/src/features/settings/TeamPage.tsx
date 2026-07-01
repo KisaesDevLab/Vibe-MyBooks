@@ -11,7 +11,8 @@ import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { UserPlus, Power, Copy, CheckCircle } from 'lucide-react';
+import { TemplatesModal, UserPermissionsModal } from './TeamPermissionModals';
+import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 
 interface TeamUser {
   id: string;
@@ -34,6 +35,8 @@ export function TeamPage() {
   const [tempPassword, setTempPassword] = useState('');
   const [copied, setCopied] = useState(false);
   const [deactivateTarget, setDeactivateTarget] = useState<TeamUser | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [permTarget, setPermTarget] = useState<TeamUser | null>(null);
 
   // Escape closes the invite dialog — but only before the temp password
   // has been generated. Once we're on the "User Invited" confirmation
@@ -119,11 +122,25 @@ export function TeamPage() {
           <p className="text-sm text-gray-500 mt-1">Manage users who have access to your books.</p>
         </div>
         {isOwner && (
-          <Button onClick={() => { setShowInvite(true); setTempPassword(''); }}>
-            <UserPlus className="h-4 w-4 mr-1" /> Invite User
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setShowTemplates(true)}>
+              <ShieldCheck className="h-4 w-4 mr-1" /> Permission Templates
+            </Button>
+            <Button onClick={() => { setShowInvite(true); setTempPassword(''); }}>
+              <UserPlus className="h-4 w-4 mr-1" /> Invite User
+            </Button>
+          </div>
         )}
       </div>
+
+      {showTemplates && <TemplatesModal onClose={() => setShowTemplates(false)} />}
+      {permTarget && (
+        <UserPermissionsModal
+          userId={permTarget.id}
+          email={permTarget.email}
+          onClose={() => setPermTarget(null)}
+        />
+      )}
 
       {/* Invite Modal */}
       {showInvite && (
@@ -214,23 +231,34 @@ export function TeamPage() {
                   {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : 'Never'}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  {u.role !== 'owner' && (
-                    u.isActive ? (
+                  <div className="inline-flex items-center gap-3">
+                    {isOwner && u.role === 'bookkeeper' && (
                       <button
-                        onClick={() => setDeactivateTarget(u)}
-                        className="text-xs text-red-600 hover:text-red-700"
+                        onClick={() => setPermTarget(u)}
+                        className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+                        title="Manage permissions"
                       >
-                        Deactivate
+                        <SlidersHorizontal className="h-3.5 w-3.5" /> Permissions
                       </button>
-                    ) : (
-                      <button
-                        onClick={() => reactivateUser.mutate(u.id)}
-                        className="text-xs text-green-600 hover:text-green-700"
-                      >
-                        Reactivate
-                      </button>
-                    )
-                  )}
+                    )}
+                    {u.role !== 'owner' && (
+                      u.isActive ? (
+                        <button
+                          onClick={() => setDeactivateTarget(u)}
+                          className="text-xs text-red-600 hover:text-red-700"
+                        >
+                          Deactivate
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => reactivateUser.mutate(u.id)}
+                          className="text-xs text-green-600 hover:text-green-700"
+                        >
+                          Reactivate
+                        </button>
+                      )
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
