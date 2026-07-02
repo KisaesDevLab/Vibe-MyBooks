@@ -9,7 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { AccountSelector } from '../../components/forms/AccountSelector';
-import { validateRoutingNumber } from '@kis-books/shared';
+import { validateRoutingNumber, CHECK_LAYOUTS, type CheckLayout } from '@kis-books/shared';
 import { Printer } from 'lucide-react';
 
 export function CheckPrintSettingsPage() {
@@ -17,7 +17,7 @@ export function CheckPrintSettingsPage() {
   const updateSettings = useUpdateCheckSettings();
 
   const [form, setForm] = useState({
-    format: 'voucher' as 'voucher' | 'check_middle',
+    format: 'voucher' as CheckLayout,
     printOnBlankStock: false,
     bankName: '',
     bankAddress: '',
@@ -48,7 +48,7 @@ export function CheckPrintSettingsPage() {
     if (data?.settings) {
       const s = data.settings;
       setForm({
-        format: ((s.format as string) === 'standard' ? 'check_middle' : s.format) || 'voucher',
+        format: (((s.format as string) === 'standard' ? 'check_middle' : s.format) || 'voucher') as CheckLayout,
         printOnBlankStock: s.printOnBlankStock ?? false,
         bankName: s.bankName || '',
         bankAddress: s.bankAddress || '',
@@ -127,23 +127,20 @@ export function CheckPrintSettingsPage() {
           <h2 className="text-lg font-semibold text-gray-800">Check Format</h2>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Format</label>
-            <div className="flex gap-4">
-              {[
-                { value: 'voucher', label: 'Check on Top', desc: 'Check on top, voucher stub below' },
-                { value: 'check_middle', label: 'Check in Middle', desc: 'Stub on top, check in middle, stub on bottom' },
-              ].map((f) => (
-                <label key={f.value} className="flex items-start gap-2 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-primary-300 flex-1">
+            <div className="flex flex-wrap gap-4">
+              {CHECK_LAYOUTS.map((f) => (
+                <label key={f.value} className="flex items-start gap-2 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-primary-300 flex-1 min-w-[220px]">
                   <input
                     type="radio"
                     name="format"
                     value={f.value}
                     checked={form.format === f.value}
-                    onChange={() => setForm((prev) => ({ ...prev, format: f.value as 'voucher' | 'check_middle' }))}
+                    onChange={() => setForm((prev) => ({ ...prev, format: f.value }))}
                     className="text-primary-600 focus:ring-primary-500 mt-0.5"
                   />
                   <div>
                     <span className="text-sm font-medium text-gray-700">{f.label}</span>
-                    <p className="text-xs text-gray-500">{f.desc}</p>
+                    <p className="text-xs text-gray-500">{f.description}</p>
                   </div>
                 </label>
               ))}

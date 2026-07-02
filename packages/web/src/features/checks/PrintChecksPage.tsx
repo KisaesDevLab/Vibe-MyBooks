@@ -4,6 +4,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CHECK_LAYOUTS, type CheckLayout } from '@kis-books/shared';
 import { usePrintQueue, usePrintChecks, useCheckSettings } from '../../api/hooks/useChecks';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
@@ -21,7 +22,7 @@ export function PrintChecksPage() {
 
   const [bankAccountId, setBankAccountId] = useState('');
   const [startingCheckNumber, setStartingCheckNumber] = useState('');
-  const [format, setFormat] = useState<'voucher' | 'check_middle'>('voucher');
+  const [format, setFormat] = useState<CheckLayout>('voucher');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [flowStep, setFlowStep] = useState<FlowStep>('select');
   const [printedCheckIds, setPrintedCheckIds] = useState<string[]>([]);
@@ -164,12 +165,9 @@ export function PrintChecksPage() {
               onChange={(e) => setStartingCheckNumber(e.target.value)} min={1} required />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Format</label>
-              <div className="flex gap-2 mt-1">
-                {([
-                  { value: 'voucher' as const, label: 'Check on Top' },
-                  { value: 'check_middle' as const, label: 'Check in Middle' },
-                ]).map((f) => (
-                  <button key={f.value} type="button" onClick={() => setFormat(f.value)}
+              <div className="flex flex-wrap gap-2 mt-1">
+                {CHECK_LAYOUTS.map((f) => (
+                  <button key={f.value} type="button" onClick={() => setFormat(f.value)} title={f.description}
                     className={`px-4 py-2 text-sm rounded-lg border transition-colors ${
                       format === f.value ? 'bg-primary-50 border-primary-300 text-primary-700 font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                     }`}>
