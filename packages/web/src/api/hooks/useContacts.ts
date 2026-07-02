@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Contact, CreateContactInput, UpdateContactInput, ContactFilters } from '@kis-books/shared';
-import { apiClient } from '../client';
+import { apiClient, API_BASE, APP_BASE } from '../client';
 
 export function useContacts(filters?: ContactFilters) {
   const params = new URLSearchParams();
@@ -75,8 +75,13 @@ export function useExportContacts() {
   return useMutation({
     mutationFn: async (contactType?: string) => {
       const qs = contactType ? `?contactType=${contactType}` : '';
-      const res = await fetch(`/api/v1/contacts/export${qs}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+      // Prefix with API_BASE (not a bare /api/v1) so this download works
+      // on subpath appliance installs where BASE_URL='/mybooks/'.
+      const res = await fetch(`${API_BASE}/contacts/export${qs}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+          'X-App-Base': APP_BASE,
+        },
       });
       if (!res.ok) throw new Error('Export failed');
       const blob = await res.blob();

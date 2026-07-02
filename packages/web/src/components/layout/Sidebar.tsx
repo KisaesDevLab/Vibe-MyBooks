@@ -64,6 +64,8 @@ import { CompanySwitcher } from './CompanySwitcher';
 import { PracticeGroup } from './PracticeGroup';
 import { FirmGroup } from './FirmGroup';
 import type { LucideIcon } from 'lucide-react';
+import type { ResourceKey } from '@kis-books/shared';
+import { usePermissions } from '../../api/hooks/usePermissions';
 
 interface NavItem {
   to: string;
@@ -74,6 +76,10 @@ interface NavItem {
   // so a readonly account doesn't see a link that would just redirect
   // back to '/' on click.
   requiresWrite?: boolean;
+  // Per-member permission resource. When set, the item is hidden unless
+  // the user has at least `view` on it (see usePermissions). Only
+  // affects restricted bookkeepers; everyone else resolves to full/view.
+  resource?: ResourceKey;
 }
 
 interface NavGroup {
@@ -108,75 +114,75 @@ const navGroups: NavGroup[] = [
   {
     label: 'Transactions',
     items: [
-      { to: '/registers', label: 'Registers', icon: ScrollText },
-      { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
-      { to: '/transactions/batch', label: 'Batch Entry', icon: Grid3X3 },
-      { to: '/recurring', label: 'Recurring', icon: Repeat },
-      { to: '/duplicates', label: 'Duplicates', icon: Copy },
+      { to: '/registers', label: 'Registers', icon: ScrollText, resource: 'transactions' },
+      { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight, resource: 'transactions' },
+      { to: '/transactions/batch', label: 'Batch Entry', icon: Grid3X3, resource: 'batch_entry' },
+      { to: '/recurring', label: 'Recurring', icon: Repeat, resource: 'recurring' },
+      { to: '/duplicates', label: 'Duplicates', icon: Copy, resource: 'duplicates' },
       // Bulk historical-data import (CoA / contacts / TB / GL from
       // Accounting Power or QuickBooks Online). Visible to any
       // non-readonly staff — see StaffWriteRoute. Moved here from the
       // Admin section because the gate is no longer super-admin only.
-      { to: '/imports', label: 'Bulk Import', icon: Upload, requiresWrite: true },
+      { to: '/imports', label: 'Bulk Import', icon: Upload, requiresWrite: true, resource: 'bulk_import' },
     ],
   },
   {
     label: 'Sales',
     items: [
-      { to: '/invoices', label: 'Invoices', icon: FileText },
-      { to: '/receive-payment', label: 'Receive Payment', icon: CreditCard },
-      { to: '/items', label: 'Items', icon: Package },
+      { to: '/invoices', label: 'Invoices', icon: FileText, resource: 'invoices' },
+      { to: '/receive-payment', label: 'Receive Payment', icon: CreditCard, resource: 'receive_payment' },
+      { to: '/items', label: 'Items', icon: Package, resource: 'items' },
     ],
   },
   {
     label: 'Payables',
     items: [
-      { to: '/bills', label: 'Bills', icon: Receipt },
-      { to: '/pay-bills', label: 'Pay Bills', icon: Banknote },
-      { to: '/vendor-credits', label: 'Vendor Credits', icon: RotateCcw },
+      { to: '/bills', label: 'Bills', icon: Receipt, resource: 'bills' },
+      { to: '/pay-bills', label: 'Pay Bills', icon: Banknote, resource: 'pay_bills' },
+      { to: '/vendor-credits', label: 'Vendor Credits', icon: RotateCcw, resource: 'vendor_credits' },
     ],
   },
   {
     label: 'Payroll',
     items: [
-      { to: '/payroll/import', label: 'Import Payroll', icon: FileSpreadsheet },
-      { to: '/payroll/imports', label: 'Import History', icon: ClipboardList },
+      { to: '/payroll/import', label: 'Import Payroll', icon: FileSpreadsheet, resource: 'payroll_import' },
+      { to: '/payroll/imports', label: 'Import History', icon: ClipboardList, resource: 'payroll_import' },
     ],
   },
   {
     label: 'Checks',
     items: [
-      { to: '/checks/write', label: 'Write Check', icon: PenLine },
-      { to: '/checks/print', label: 'Print Checks', icon: Printer },
+      { to: '/checks/write', label: 'Write Check', icon: PenLine, resource: 'checks' },
+      { to: '/checks/print', label: 'Print Checks', icon: Printer, resource: 'checks' },
     ],
   },
   {
     label: 'Banking',
     items: [
-      { to: '/banking', label: 'Banking', icon: Landmark },
-      { to: '/banking/statement-upload', label: 'Import Statement', icon: FileUp },
-      { to: '/banking/statement-imports', label: 'Statement Processing', icon: History },
-      { to: '/daily-sales', label: 'Daily Sales (POS)', icon: Store },
-      { to: '/banking/deposit', label: 'Bank Deposit', icon: PiggyBank },
-      { to: '/banking/reconcile', label: 'Reconcile', icon: CheckCheck },
-      { to: '/banking/reconciliation-history', label: 'Reconcile History', icon: ClipboardCheck },
+      { to: '/banking', label: 'Banking', icon: Landmark, resource: 'banking' },
+      { to: '/banking/statement-upload', label: 'Import Statement', icon: FileUp, resource: 'banking' },
+      { to: '/banking/statement-imports', label: 'Statement Processing', icon: History, resource: 'banking' },
+      { to: '/daily-sales', label: 'Daily Sales (POS)', icon: Store, resource: 'daily_sales' },
+      { to: '/banking/deposit', label: 'Bank Deposit', icon: PiggyBank, resource: 'banking' },
+      { to: '/banking/reconcile', label: 'Reconcile', icon: CheckCheck, resource: 'banking' },
+      { to: '/banking/reconciliation-history', label: 'Reconcile History', icon: ClipboardCheck, resource: 'banking' },
     ],
   },
   {
     label: 'Reporting',
     items: [
-      { to: '/reports', label: 'Reports', icon: BarChart3 },
-      { to: '/budgets', label: 'Budgets', icon: Wallet },
-      { to: '/budgets/vs-actuals', label: 'Budget vs. Actuals', icon: Scale },
+      { to: '/reports', label: 'Reports', icon: BarChart3, resource: 'reports' },
+      { to: '/budgets', label: 'Budgets', icon: Wallet, resource: 'budgets' },
+      { to: '/budgets/vs-actuals', label: 'Budget vs. Actuals', icon: Scale, resource: 'budgets' },
     ],
   },
   {
     label: 'Manage',
     items: [
-      { to: '/accounts', label: 'Chart of Accounts', icon: BookOpen },
-      { to: '/contacts', label: 'Contacts', icon: Users },
-      { to: '/attachments', label: 'Attachments', icon: Paperclip },
-      { to: '/settings/tags', label: 'Tags', icon: Tag },
+      { to: '/accounts', label: 'Chart of Accounts', icon: BookOpen, resource: 'accounts' },
+      { to: '/contacts', label: 'Contacts', icon: Users, resource: 'contacts' },
+      { to: '/attachments', label: 'Attachments', icon: Paperclip, resource: 'attachments' },
+      { to: '/settings/tags', label: 'Tags', icon: Tag, resource: 'tags' },
       { to: '/settings', label: 'Settings', icon: Settings },
       { to: '/help', label: 'Knowledge Base', icon: HelpCircle },
     ],
@@ -371,6 +377,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const isSuperAdmin = meData?.user?.isSuperAdmin === true;
   const userRole = meData?.user?.role;
   const isAccountantRole = userRole === 'accountant' || userRole === 'bookkeeper';
+  const { can } = usePermissions();
   const { collapsed: collapsedGroups, toggle: toggleGroup } = useCollapsedGroups();
   // Branding may be missing during the initial /me fetch — fall back to
   // the default name so the header never flashes empty.
@@ -433,6 +440,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     // anyway, but seeing a link that won't work is worse
                     // UX than not seeing it at all.
                     .filter((item) => !(item.requiresWrite && userRole === 'readonly'))
+                    // Hide any resource the user can't even view (a
+                    // restricted bookkeeper). can() fails open when the
+                    // permission map is absent, so nothing regresses.
+                    .filter((item) => !item.resource || can(item.resource))
                     .map((item) => (
                       <SidebarLink
                         key={item.to}

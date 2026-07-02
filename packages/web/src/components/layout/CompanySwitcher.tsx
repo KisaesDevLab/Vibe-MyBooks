@@ -29,25 +29,26 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('accessToken');
+      // Use apiClient (not raw fetch) so requests inherit the BASE_URL
+      // prefix, X-App-Base header, auth token, and graceful non-JSON
+      // error handling. A bare fetch('/api/v1/...') 404s on subpath
+      // appliance installs (BASE_URL='/mybooks/') because the front
+      // proxy only routes the prefixed path — the raw path fell through
+      // to the proxy's plain-text "Not found", which then blew up
+      // res.json() with "Unexpected token 'N'".
       if (mode === 'client') {
         // Create new tenant + company
-        const res = await fetch('/api/v1/auth/create-client', {
+        await apiClient('/auth/create-client', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ companyName: name, entityType, businessType }),
         });
-        if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || 'Failed'); }
         onCreated();
       } else {
         // Create company in current tenant
-        const res = await fetch('/api/v1/company/create', {
+        const data = await apiClient<{ company: { id: string } }>('/company/create', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ businessName: name, entityType, businessType }),
         });
-        if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || 'Failed'); }
-        const data = await res.json();
         onCreated(data.company.id);
       }
     } catch (err) {

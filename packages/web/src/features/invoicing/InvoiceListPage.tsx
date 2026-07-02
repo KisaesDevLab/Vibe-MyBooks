@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
+import { Can } from '../../components/ui/Can';
 import { Plus, Search, Columns } from 'lucide-react';
 
 const PAGE_SIZE = 50;
@@ -148,9 +149,11 @@ export function InvoiceListPage() {
               </div>
             )}
           </div>
-          <Button size="sm" onClick={() => navigate('/invoices/new')}>
-            <Plus className="h-4 w-4 mr-1" /> New Invoice
-          </Button>
+          <Can resource="invoices" action="create">
+            <Button size="sm" onClick={() => navigate('/invoices/new')}>
+              <Plus className="h-4 w-4 mr-1" /> New Invoice
+            </Button>
+          </Can>
         </div>
       </div>
 

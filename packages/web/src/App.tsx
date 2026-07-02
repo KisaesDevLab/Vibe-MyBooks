@@ -9,6 +9,7 @@ import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { AdminRoute } from './components/layout/AdminRoute';
 import { StaffWriteRoute } from './components/layout/StaffWriteRoute';
+import { RequirePermission } from './components/layout/RequirePermission';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { ToastProvider } from './components/ui/Toaster';
 
@@ -353,12 +354,12 @@ export function App() {
             <Route path="/banking/rules" element={<Navigate to="/practice/rules" replace />} />
             <Route path="/duplicates" element={<DuplicateReviewPage />} />
             <Route path="/items" element={<ItemsListPage />} />
-            <Route path="/receive-payment" element={<ReceivePaymentPage />} />
+            <Route path="/receive-payment" element={<RequirePermission resource="receive_payment"><ReceivePaymentPage /></RequirePermission>} />
             <Route path="/banking/deposit" element={<BankDepositPage />} />
-            <Route path="/invoices" element={<InvoiceListPage />} />
-            <Route path="/invoices/new" element={<InvoiceForm />} />
-            <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
-            <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
+            <Route path="/invoices" element={<RequirePermission resource="invoices"><InvoiceListPage /></RequirePermission>} />
+            <Route path="/invoices/new" element={<RequirePermission resource="invoices" action="create"><InvoiceForm /></RequirePermission>} />
+            <Route path="/invoices/:id" element={<RequirePermission resource="invoices"><InvoiceDetailPage /></RequirePermission>} />
+            <Route path="/invoices/:id/edit" element={<RequirePermission resource="invoices" action="update"><InvoiceForm /></RequirePermission>} />
             <Route path="/settings/invoice-template" element={<InvoiceTemplateEditor />} />
             <Route path="/bills" element={<BillListPage />} />
             <Route path="/bills/new" element={<EnterBillPage />} />
