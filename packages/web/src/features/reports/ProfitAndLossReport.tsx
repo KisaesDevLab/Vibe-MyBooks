@@ -123,6 +123,9 @@ export function ProfitAndLossReport() {
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-pl:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-pl:tagId', '');
   const [groupByDetail, setGroupByDetail] = useState(false);
+  // "% of Revenue" column — a frontend-only display aid (CSV export is
+  // unaffected). Persisted for the tab session.
+  const [showPct, setShowPct] = useSessionState('vibe:report-pl:showPct', false);
   const { activeCompanyId } = useCompanyContext();
 
   // Debounced dates: the native date inputs fire a change per segment
@@ -174,19 +177,42 @@ export function ProfitAndLossReport() {
               Group by detail type
             </label>
           )}
+          {!compare && (
+            <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showPct}
+                onChange={(e) => setShowPct(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              % of Revenue
+            </label>
+          )}
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (
         isComparative
           ? <ComparativeView data={data as PLComparativeData} />
-          : <StandardView data={data as PLStandardData} />
+          : <StandardView data={data as PLStandardData} showPct={showPct} />
       )}
     </ReportShell>
   );
 }
 
-function StandardView({ data }: { data: PLStandardData }) {
+function StandardView({ data, showPct = false }: { data: PLStandardData; showPct?: boolean }) {
   const navigate = useNavigate();
+  // "% of Revenue": each amount as a share of total revenue, one
+  // decimal. With zero total revenue every percentage is undefined —
+  // render an em dash rather than Infinity/NaN. Negative amounts show
+  // negative percentages.
+  const pct = (amount: number): string => {
+    if (data.totalRevenue === 0) return '—';
+    return `${((amount / data.totalRevenue) * 100).toFixed(1)}%`;
+  };
+  const Pct = ({ amount }: { amount: number }) =>
+    showPct ? (
+      <span className="font-mono text-xs text-gray-500 w-16 text-right shrink-0">{pct(amount)}</span>
+    ) : null;
   const hasCogs = (data.cogs?.length ?? 0) > 0;
   const hasOtherRev = (data.otherRevenue?.length ?? 0) > 0;
   const hasOtherExp = (data.otherExpenses?.length ?? 0) > 0;
@@ -212,7 +238,10 @@ function StandardView({ data }: { data: PLStandardData }) {
   const Row = ({ r, indent }: { r: PLRow; indent?: boolean }) => (
     <div className={`flex justify-between py-1 text-sm ${indent ? 'pl-4' : ''}`}>
       <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
-      <DrillAmount accountId={r.accountId} amount={r.amount} />
+      <span className="flex items-baseline gap-3">
+        <DrillAmount accountId={r.accountId} amount={r.amount} />
+        <Pct amount={r.amount} />
+      </span>
     </div>
   );
 
@@ -225,7 +254,11 @@ function StandardView({ data }: { data: PLStandardData }) {
             <div className="py-1 text-xs font-semibold text-gray-500">{g.label}</div>
             {g.entries.map((r, i) => <Row key={i} r={r} indent />)}
             <div className="flex justify-between py-1 pl-4 text-sm font-medium text-gray-700 border-t border-dashed border-gray-200">
-              <span>Total {g.label}</span><span className="font-mono">{fmt(g.subtotal)}</span>
+              <span>Total {g.label}</span>
+              <span className="flex items-baseline gap-3">
+                <span className="font-mono">{fmt(g.subtotal)}</span>
+                <Pct amount={g.subtotal} />
+              </span>
             </div>
           </div>
         ))
@@ -233,7 +266,11 @@ function StandardView({ data }: { data: PLStandardData }) {
         items.map((r, i) => <Row key={i} r={r} />)
       )}
       <div className="flex justify-between py-1 font-semibold border-t mt-1">
-        <span>Total {title}</span><span className="font-mono">{fmt(total)}</span>
+        <span>Total {title}</span>
+        <span className="flex items-baseline gap-3">
+          <span className="font-mono">{fmt(total)}</span>
+          <Pct amount={total} />
+        </span>
       </div>
     </div>
   );
@@ -241,7 +278,10 @@ function StandardView({ data }: { data: PLStandardData }) {
   const Subtotal = ({ label, value }: { label: string; value: number }) => (
     <div className="flex justify-between py-1.5 font-semibold border-t border-gray-300 bg-gray-50 px-2 -mx-2 rounded">
       <span>{label}</span>
-      <span className={`font-mono ${value >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{fmt(value)}</span>
+      <span className="flex items-baseline gap-3">
+        <span className={`font-mono ${value >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{fmt(value)}</span>
+        <Pct amount={value} />
+      </span>
     </div>
   );
 
@@ -260,7 +300,10 @@ function StandardView({ data }: { data: PLStandardData }) {
       {hasOtherExp && <Section title={L.otherExpenses} items={data.otherExpenses ?? []} total={data.totalOtherExpenses ?? 0} groups={data.groups?.otherExpenses} />}
       <div className="flex justify-between py-2 font-bold text-lg border-t-2">
         <span>{L.netIncome}</span>
-        <span className={`font-mono ${data.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(data.netIncome)}</span>
+        <span className="flex items-baseline gap-3">
+          <span className={`font-mono ${data.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(data.netIncome)}</span>
+          {showPct && <span className="font-mono text-sm text-gray-500 w-16 text-right shrink-0">{pct(data.netIncome)}</span>}
+        </span>
       </div>
       <ReportFooter text={data.footer} />
     </div>
