@@ -626,7 +626,10 @@ function BlockInspector({
             <option value="cash_flow">Cash Flow</option>
             <option value="trial_balance">Trial Balance</option>
             <option value="bank_balances">Bank Account Balances</option>
-            <option value="general_ledger">General Ledger</option>
+            {/* general_ledger removed: it never had a resolver, and a
+                full GL doesn't fit an advisory packet. Saved layouts
+                that still reference it render the same error chip they
+                always did. */}
             <option value="ar_aging">A/R Aging</option>
             <option value="ap_aging">A/P Aging</option>
           </select>
