@@ -161,7 +161,11 @@ function StandardView({ data }: { data: BSStandardData }) {
       {items.map((r, i) => (
         <div key={i} className="flex justify-between py-1 text-sm">
           <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
-          <DrillAmount accountId={r.accountId} amount={Math.abs(r.balance)} />
+          {/* Signed: the API now reports L/E in natural (credit-positive)
+              convention, so contra balances (Owner Withdraw, overpaid
+              cards) render negative and rows foot to the section total.
+              The old Math.abs() made line items disagree with totals. */}
+          <DrillAmount accountId={r.accountId} amount={r.balance} />
         </div>
       ))}
       <div className="flex justify-between py-1 font-semibold border-t mt-1">
