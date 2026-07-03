@@ -151,8 +151,10 @@ export function ProfitAndLossReport() {
     try { return window.sessionStorage.getItem('vibe:report-pl:groupBy') === 'true'; } catch { return false; }
   })();
   const [groupMode, setGroupMode] = useSessionState<GroupMode>('vibe:report-pl:groupMode', legacyGrouped ? 'grouped' : 'detail');
-  // "% of Revenue" column — standard view only; also mirrored into the
-  // PDF/CSV export via ?show_pct=1. Persisted for the tab session.
+  // "% of Revenue" — standard view gets one column; comparison views get
+  // a companion % cell per period column (common-size, each against its
+  // own period's revenue). Mirrored into the PDF/CSV export via
+  // ?show_pct=1. Persisted for the tab session.
   const [showPct, setShowPct] = useSessionState('vibe:report-pl:showPct', false);
   const { activeCompanyId } = useCompanyContext();
 
@@ -167,7 +169,7 @@ export function ProfitAndLossReport() {
   // (PDF/CSV mirror the on-screen presentation); the JSON response
   // carries them as additive no-op fields.
   const effectiveGroupBy = groupMode !== 'detail';
-  const effectiveShowPct = showPct && !compare;
+  const effectiveShowPct = showPct;
   const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}${groupMode === 'condensed' ? '&display=condensed' : ''}${effectiveShowPct ? '&show_pct=1' : ''}`;
 
   const { data, isLoading } = useQuery({
@@ -211,22 +213,20 @@ export function ProfitAndLossReport() {
               <option value="condensed">Condensed (group totals)</option>
             </select>
           </label>
-          {!compare && (
-            <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={showPct}
-                onChange={(e) => setShowPct(e.target.checked)}
-                className="rounded border-gray-300"
-              />
-              % of Revenue
-            </label>
-          )}
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showPct}
+              onChange={(e) => setShowPct(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            % of Revenue
+          </label>
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (
         isComparative
-          ? <ComparativeView data={data as PLComparativeData} mode={groupMode} />
+          ? <ComparativeView data={data as PLComparativeData} mode={groupMode} showPct={showPct} />
           : <StandardView data={data as PLStandardData} showPct={showPct} mode={groupMode} />
       )}
     </ReportShell>
@@ -356,10 +356,26 @@ function StandardView({ data, showPct = false, mode = 'detail' }: { data: PLStan
   );
 }
 
-function ComparativeView({ data, mode = 'detail' }: { data: PLComparativeData; mode?: GroupMode }) {
+function ComparativeView({ data, mode = 'detail', showPct = false }: { data: PLComparativeData; mode?: GroupMode; showPct?: boolean }) {
   const navigate = useNavigate();
   const columns: PLComparativeColumn[] = data.columns;
   const isVarianceCol = (col: PLComparativeColumn) => col.type === 'variance' || col.type === 'percent_variance';
+
+  // Common-size columns: each period column gains a companion "%" cell
+  // showing the amount as a share of THAT period's total revenue.
+  // Variance / % change columns are ratios already and get no companion.
+  const hasPctCol = (col: PLComparativeColumn | undefined) => showPct && !!col && !isVarianceCol(col);
+  const pctColCount = showPct ? columns.filter((c) => !isVarianceCol(c)).length : 0;
+  const tableSpan = columns.length + 1 + pctColCount;
+  const pctAt = (value: number | null, i: number): string => {
+    const rev = data.totalRevenue?.[i] ?? 0;
+    if (rev === 0) return '—';
+    return `${(((value ?? 0) / rev) * 100).toFixed(1)}%`;
+  };
+  const PctCell = ({ value, i, className = '' }: { value: number | null; i: number; className?: string }) =>
+    hasPctCol(columns[i]) ? (
+      <td className={`px-2 py-1.5 text-right font-mono text-xs text-gray-500 whitespace-nowrap ${className}`}>{pctAt(value, i)}</td>
+    ) : null;
 
   const allRows = data.rows;
   const byType = (t: string) => allRows.filter((r) => r.accountType === t);
@@ -415,9 +431,12 @@ function ComparativeView({ data, mode = 'detail' }: { data: PLComparativeData; m
       <tr className={bold ? 'border-t-2 border-gray-300' : 'border-t border-gray-200 bg-gray-50'}>
         <td className={`px-3 py-2 text-sm ${bold ? 'font-bold text-base' : 'font-semibold'}`}>{label}</td>
         {values.map((v, i) => (
-          <td key={i} className={`px-3 py-2 text-right text-sm ${bold ? 'font-bold' : 'font-semibold'}`}>
-            <CellValue value={v} col={columns[i]!} />
-          </td>
+          <Fragment key={i}>
+            <td className={`px-3 py-2 text-right text-sm ${bold ? 'font-bold' : 'font-semibold'}`}>
+              <CellValue value={v} col={columns[i]!} />
+            </td>
+            <PctCell value={v} i={i} />
+          </Fragment>
         ))}
       </tr>
     );
@@ -425,7 +444,7 @@ function ComparativeView({ data, mode = 'detail' }: { data: PLComparativeData; m
 
   function SectionHeader({ label }: { label: string }) {
     return (
-      <tr><td colSpan={columns.length + 1} className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-gray-500">{label}</td></tr>
+      <tr><td colSpan={tableSpan} className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-gray-500">{label}</td></tr>
     );
   }
 
@@ -439,20 +458,23 @@ function ComparativeView({ data, mode = 'detail' }: { data: PLComparativeData; m
               const col = columns[j]!;
               const href = drillUrl(row.accountId, col.startDate, col.endDate);
               return (
-                <td key={j} className={`px-3 py-1.5 text-right ${isVarianceCol(col) ? 'bg-gray-50' : ''}`}>
-                  {href ? (
-                    <button
-                      type="button"
-                      onClick={() => navigate(href, { state: { returnTo: '/reports/profit-loss', returnLabel: 'Profit & Loss' } })}
-                      className="cursor-pointer focus:outline-none focus:underline"
-                      title="View transactions for this account and period"
-                    >
+                <Fragment key={j}>
+                  <td className={`px-3 py-1.5 text-right ${isVarianceCol(col) ? 'bg-gray-50' : ''}`}>
+                    {href ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(href, { state: { returnTo: '/reports/profit-loss', returnLabel: 'Profit & Loss' } })}
+                        className="cursor-pointer focus:outline-none focus:underline"
+                        title="View transactions for this account and period"
+                      >
+                        <CellValue value={v} col={col} />
+                      </button>
+                    ) : (
                       <CellValue value={v} col={col} />
-                    </button>
-                  ) : (
-                    <CellValue value={v} col={col} />
-                  )}
-                </td>
+                    )}
+                  </td>
+                  <PctCell value={v} i={j} />
+                </Fragment>
               );
             })}
           </tr>
@@ -468,9 +490,12 @@ function ComparativeView({ data, mode = 'detail' }: { data: PLComparativeData; m
       <tr className="border-t border-dashed border-gray-200">
         <td className="px-3 py-1.5 pl-8 text-sm font-medium text-gray-700">{label}</td>
         {values.map((v, i) => (
-          <td key={i} className="px-3 py-1.5 text-right text-sm font-medium">
-            <CellValue value={v} col={columns[i]!} />
-          </td>
+          <Fragment key={i}>
+            <td className="px-3 py-1.5 text-right text-sm font-medium">
+              <CellValue value={v} col={columns[i]!} />
+            </td>
+            <PctCell value={v} i={i} />
+          </Fragment>
         ))}
       </tr>
     );
@@ -487,7 +512,7 @@ function ComparativeView({ data, mode = 'detail' }: { data: PLComparativeData; m
           <Fragment key={gi}>
             {mode === 'grouped' && (
               <tr>
-                <td colSpan={columns.length + 1} className="px-3 pt-2 pb-1 pl-6 text-xs font-semibold text-gray-500">{g.label}</td>
+                <td colSpan={tableSpan} className="px-3 pt-2 pb-1 pl-6 text-xs font-semibold text-gray-500">{g.label}</td>
               </tr>
             )}
             {mode === 'grouped' && <AccountRows rows={g.rows} indent />}
@@ -506,9 +531,14 @@ function ComparativeView({ data, mode = 'detail' }: { data: PLComparativeData; m
             <tr className="border-b border-gray-200 bg-gray-50">
               <th className="text-left px-3 py-2.5 font-medium text-gray-600 min-w-[200px]">Account</th>
               {columns.map((col, i) => (
-                <th key={i} className={`text-right px-3 py-2.5 font-medium text-gray-600 min-w-[110px] ${isVarianceCol(col) ? 'bg-gray-100' : ''}`}>
-                  {col.label}
-                </th>
+                <Fragment key={i}>
+                  <th className={`text-right px-3 py-2.5 font-medium text-gray-600 min-w-[110px] ${isVarianceCol(col) ? 'bg-gray-100' : ''}`}>
+                    {col.label}
+                  </th>
+                  {hasPctCol(col) && (
+                    <th className="text-right px-2 py-2.5 font-medium text-gray-500 text-xs whitespace-nowrap">%</th>
+                  )}
+                </Fragment>
               ))}
             </tr>
           </thead>

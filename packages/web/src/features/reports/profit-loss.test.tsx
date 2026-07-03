@@ -150,6 +150,27 @@ describe('ProfitAndLossReport comparative grouping', () => {
     expect(apiClientMock.mock.calls.some(([p]) => String(p).includes('compare=previous_year') && String(p).includes('group_by=detail_type'))).toBe(true);
   });
 
+  it('offers % of Revenue in comparison mode: companion % per period column, none for variance columns', async () => {
+    await renderComparative();
+    // The toggle survives switching into a comparison mode.
+    fireEvent.click(screen.getByLabelText('% of Revenue'));
+    // One "%" header per period column (2), none for $ Change / % Change.
+    await waitFor(() => expect(screen.getAllByText('%')).toHaveLength(2));
+    // Common-size: each period's amounts against ITS OWN revenue.
+    // Current column: 1500/8000 = 18.8% (Rent row + Total Expenses),
+    // 6500/8000 = 81.3% (Net Income).
+    expect(screen.getAllByText('18.8%').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('81.3%').length).toBeGreaterThanOrEqual(1);
+    // Prior column: 1500/6000 = 25.0%, net income 4500/6000 = 75.0%.
+    expect(screen.getAllByText('25.0%').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('75.0%').length).toBeGreaterThanOrEqual(1);
+    // Both period columns show 100.0% on the revenue total row.
+    expect(screen.getAllByText('100.0%').length).toBeGreaterThanOrEqual(2);
+    // The export/query param goes out alongside compare.
+    await waitFor(() =>
+      expect(apiClientMock.mock.calls.some(([p]) => String(p).includes('compare=previous_year') && String(p).includes('show_pct=1'))).toBe(true));
+  });
+
   it('condensed comparison shows only group subtotal rows', async () => {
     await renderComparative();
     fireEvent.change(screen.getByLabelText('Report display mode'), { target: { value: 'condensed' } });
