@@ -40,8 +40,45 @@ const basePL = {
   netIncome: 4500,
 };
 
+// Comparative fixture (previous-year mode) with per-section detail-type
+// groups whose subtotal rows carry values for every column.
+const compRevenueRow = { accountId: 'r1', account: 'Consulting', accountNumber: '4000', accountType: 'revenue', values: [8000, 6000, 2000, 33.3], detailType: 'service' };
+const compExpenseRow = { accountId: 'e1', account: 'Rent', accountNumber: '6000', accountType: 'expense', values: [1500, 1500, 0, 0], detailType: 'rent_or_lease' };
+const comparativePL = {
+  startDate: '2026-01-01',
+  endDate: '2026-06-30',
+  comparisonMode: 'previous_year',
+  labels: undefined,
+  footer: '',
+  columns: [
+    { label: 'Jan – Jun 2026', startDate: '2026-01-01', endDate: '2026-06-30' },
+    { label: 'Jan – Jun 2025', startDate: '2025-01-01', endDate: '2025-06-30' },
+    { label: '$ Change', type: 'variance' },
+    { label: '% Change', type: 'percent_variance' },
+  ],
+  rows: [compRevenueRow, compExpenseRow],
+  totalRevenue: [8000, 6000, 2000, 33.3],
+  totalCogs: [0, 0, 0, null],
+  totalExpenses: [1500, 1500, 0, 0],
+  netIncome: [6500, 4500, 2000, 44.4],
+};
+const comparativeGroups = {
+  revenue: [{ detailType: 'service', label: 'Service', rows: [compRevenueRow], values: [8000, 6000, 2000, 33.3] }],
+  cogs: [],
+  expenses: [{ detailType: 'rent_or_lease', label: 'Rent Or Lease', rows: [compExpenseRow], values: [1500, 1500, 0, 0] }],
+  otherRevenue: [],
+  otherExpenses: [],
+};
+
 let plResponse: Record<string, unknown> = basePL;
-const apiClientMock = vi.fn(async (_path: string) => plResponse);
+const apiClientMock = vi.fn(async (path: string) => {
+  if (path.includes('compare=')) {
+    return path.includes('group_by=detail_type')
+      ? { ...comparativePL, groupBy: 'detail_type', groups: comparativeGroups }
+      : comparativePL;
+  }
+  return plResponse;
+});
 
 vi.mock('../../api/client', async () => {
   const actual = await vi.importActual<typeof import('../../api/client')>('../../api/client');
@@ -88,5 +125,40 @@ describe('ProfitAndLossReport % of Revenue', () => {
     await waitFor(() => expect(screen.getByText('Total Revenue')).toBeTruthy());
     fireEvent.click(screen.getByLabelText('% of Revenue'));
     expect(window.sessionStorage.getItem('vibe:report-pl:showPct')).toBe('true');
+  });
+});
+
+describe('ProfitAndLossReport comparative grouping', () => {
+  async function renderComparative() {
+    renderRoute(<ProfitAndLossReport />);
+    await waitFor(() => expect(screen.getByText('Total Revenue')).toBeTruthy());
+    // Switch to a comparison mode; the option keeps grouping available.
+    fireEvent.change(screen.getByDisplayValue('No Comparison'), { target: { value: 'previous_year' } });
+    await waitFor(() => expect(screen.getByText('$ Change')).toBeTruthy());
+  }
+
+  it('keeps the grouping option in comparison mode and renders per-column group subtotals', async () => {
+    await renderComparative();
+    // Selector still present and functional with a comparison active.
+    fireEvent.change(screen.getByLabelText('Report display mode'), { target: { value: 'grouped' } });
+    await waitFor(() => expect(screen.getByText('Service')).toBeTruthy());
+    // Group header + member account + per-column subtotal row.
+    expect(screen.getByText(/Consulting/)).toBeTruthy();
+    expect(screen.getByText('Total Service')).toBeTruthy();
+    expect(screen.getByText('Total Rent Or Lease')).toBeTruthy();
+    // Request carried the grouping param alongside compare.
+    expect(apiClientMock.mock.calls.some(([p]) => String(p).includes('compare=previous_year') && String(p).includes('group_by=detail_type'))).toBe(true);
+  });
+
+  it('condensed comparison shows only group subtotal rows', async () => {
+    await renderComparative();
+    fireEvent.change(screen.getByLabelText('Report display mode'), { target: { value: 'condensed' } });
+    await waitFor(() => expect(screen.getByText('Service')).toBeTruthy());
+    // Account rows hidden; group + section totals remain.
+    expect(screen.queryByText(/Consulting/)).toBeNull();
+    expect(screen.queryByText(/4000/)).toBeNull();
+    expect(screen.getByText('Rent Or Lease')).toBeTruthy();
+    expect(screen.getByText('Total Revenue')).toBeTruthy();
+    expect(screen.getByText('Total Expenses')).toBeTruthy();
   });
 });

@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
@@ -74,6 +74,24 @@ interface PLComparativeRow {
   values: Array<number | null>;
 }
 
+// Comparative detail-type group (group_by=detail_type with a compare
+// mode active): member rows + a per-column subtotal row whose variance
+// columns are re-derived from the group's current/prior sums.
+interface PLCompGroup {
+  detailType: string | null;
+  label: string;
+  rows: PLComparativeRow[];
+  values: Array<number | null>;
+}
+
+interface PLCompGroups {
+  revenue: PLCompGroup[];
+  cogs: PLCompGroup[];
+  expenses: PLCompGroup[];
+  otherRevenue: PLCompGroup[];
+  otherExpenses: PLCompGroup[];
+}
+
 interface PLComparativeData {
   startDate: string;
   endDate: string;
@@ -87,7 +105,12 @@ interface PLComparativeData {
   totalOtherRevenue?: number[];
   totalOtherExpenses?: number[];
   netIncome: number[];
+  groups?: PLCompGroups;
 }
+
+// Display mode: detail = flat accounts; grouped = detail-type group
+// headers + accounts + subtotals; condensed = group subtotal rows only.
+type GroupMode = 'detail' | 'grouped' | 'condensed';
 
 type PLData = PLStandardData | PLComparativeData;
 import { useCompanyContext } from '../../providers/CompanyProvider';
@@ -122,9 +145,14 @@ export function ProfitAndLossReport() {
   const [compare, setCompare] = useSessionState<CompareMode>('vibe:report-pl:compare', '');
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-pl:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-pl:tagId', '');
-  const [groupByDetail, setGroupByDetail] = useState(false);
-  // "% of Revenue" column — a frontend-only display aid (CSV export is
-  // unaffected). Persisted for the tab session.
+  // Display mode (Detail / Grouped / Condensed). Migrates the previous
+  // boolean grouping key gracefully: an old `true` means Grouped.
+  const legacyGrouped = (() => {
+    try { return window.sessionStorage.getItem('vibe:report-pl:groupBy') === 'true'; } catch { return false; }
+  })();
+  const [groupMode, setGroupMode] = useSessionState<GroupMode>('vibe:report-pl:groupMode', legacyGrouped ? 'grouped' : 'detail');
+  // "% of Revenue" column — standard view only; also mirrored into the
+  // PDF/CSV export via ?show_pct=1. Persisted for the tab session.
   const [showPct, setShowPct] = useSessionState('vibe:report-pl:showPct', false);
   const { activeCompanyId } = useCompanyContext();
 
@@ -134,12 +162,16 @@ export function ProfitAndLossReport() {
   const debStartDate = useDebouncedDate(startDate);
   const debEndDate = useDebouncedDate(endDate);
 
-  // Grouping only applies to the standard (non-comparative) view.
-  const effectiveGroupBy = groupByDetail && !compare;
-  const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}`;
+  // Grouping applies to BOTH the standard and comparative views.
+  // display=condensed and show_pct only affect server-side exports
+  // (PDF/CSV mirror the on-screen presentation); the JSON response
+  // carries them as additive no-op fields.
+  const effectiveGroupBy = groupMode !== 'detail';
+  const effectiveShowPct = showPct && !compare;
+  const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}${groupMode === 'condensed' ? '&display=condensed' : ''}${effectiveShowPct ? '&show_pct=1' : ''}`;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports', 'profit-loss', debStartDate, debEndDate, basis, compare, activeCompanyId, scope, tagId, effectiveGroupBy],
+    queryKey: ['reports', 'profit-loss', debStartDate, debEndDate, basis, compare, activeCompanyId, scope, tagId, groupMode, effectiveShowPct],
     queryFn: () => apiClient<PLData>(`/reports/profit-loss?${queryParams}`),
   });
 
@@ -166,17 +198,19 @@ export function ProfitAndLossReport() {
           </select>
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
           <ReportTagFilter value={tagId} onChange={setTagId} />
-          {!compare && (
-            <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={groupByDetail}
-                onChange={(e) => setGroupByDetail(e.target.checked)}
-                className="rounded border-gray-300"
-              />
-              Group by detail type
-            </label>
-          )}
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 select-none">
+            View:
+            <select
+              value={groupMode}
+              onChange={(e) => setGroupMode(e.target.value as GroupMode)}
+              className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+              aria-label="Report display mode"
+            >
+              <option value="detail">Detail</option>
+              <option value="grouped">Grouped by detail type</option>
+              <option value="condensed">Condensed (group totals)</option>
+            </select>
+          </label>
           {!compare && (
             <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
               <input
@@ -192,14 +226,14 @@ export function ProfitAndLossReport() {
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (
         isComparative
-          ? <ComparativeView data={data as PLComparativeData} />
-          : <StandardView data={data as PLStandardData} showPct={showPct} />
+          ? <ComparativeView data={data as PLComparativeData} mode={groupMode} />
+          : <StandardView data={data as PLStandardData} showPct={showPct} mode={groupMode} />
       )}
     </ReportShell>
   );
 }
 
-function StandardView({ data, showPct = false }: { data: PLStandardData; showPct?: boolean }) {
+function StandardView({ data, showPct = false, mode = 'detail' }: { data: PLStandardData; showPct?: boolean; mode?: GroupMode }) {
   const navigate = useNavigate();
   // "% of Revenue": each amount as a share of total revenue, one
   // decimal. With zero total revenue every percentage is undefined —
@@ -248,7 +282,19 @@ function StandardView({ data, showPct = false }: { data: PLStandardData; showPct
   const Section = ({ title, items, total, groups }: { title: string; items: PLRow[]; total: number; groups?: PLGroup[] }) => (
     <div>
       <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
-      {groups ? (
+      {groups && mode === 'condensed' ? (
+        // Condensed: one subtotal line per detail-type group, no
+        // account rows. Section totals below are unchanged.
+        groups.map((g, gi) => (
+          <div key={gi} className="flex justify-between py-1 pl-4 text-sm">
+            <span>{g.label}</span>
+            <span className="flex items-baseline gap-3">
+              <span className="font-mono">{fmt(g.subtotal)}</span>
+              <Pct amount={g.subtotal} />
+            </span>
+          </div>
+        ))
+      ) : groups ? (
         groups.map((g, gi) => (
           <div key={gi} className="mb-1">
             <div className="py-1 text-xs font-semibold text-gray-500">{g.label}</div>
@@ -310,7 +356,7 @@ function StandardView({ data, showPct = false }: { data: PLStandardData; showPct
   );
 }
 
-function ComparativeView({ data }: { data: PLComparativeData }) {
+function ComparativeView({ data, mode = 'detail' }: { data: PLComparativeData; mode?: GroupMode }) {
   const navigate = useNavigate();
   const columns: PLComparativeColumn[] = data.columns;
   const isVarianceCol = (col: PLComparativeColumn) => col.type === 'variance' || col.type === 'percent_variance';
@@ -383,12 +429,12 @@ function ComparativeView({ data }: { data: PLComparativeData }) {
     );
   }
 
-  function AccountRows({ rows }: { rows: PLComparativeRow[] }) {
+  function AccountRows({ rows, indent }: { rows: PLComparativeRow[]; indent?: boolean }) {
     return (
       <>
         {rows.map((row, i) => (
           <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-            <td className="px-3 py-1.5">{row.accountNumber ? `${row.accountNumber} — ` : ''}{row.account}</td>
+            <td className={`px-3 py-1.5 ${indent ? 'pl-8' : ''}`}>{row.accountNumber ? `${row.accountNumber} — ` : ''}{row.account}</td>
             {row.values.map((v, j) => {
               const col = columns[j]!;
               const href = drillUrl(row.accountId, col.startDate, col.endDate);
@@ -415,6 +461,43 @@ function ComparativeView({ data }: { data: PLComparativeData }) {
     );
   }
 
+  // Group subtotal row: lighter than section TotalRow so the visual
+  // hierarchy stays group < section.
+  function GroupSubtotalRow({ label, values }: { label: string; values: Array<number | null> }) {
+    return (
+      <tr className="border-t border-dashed border-gray-200">
+        <td className="px-3 py-1.5 pl-8 text-sm font-medium text-gray-700">{label}</td>
+        {values.map((v, i) => (
+          <td key={i} className="px-3 py-1.5 text-right text-sm font-medium">
+            <CellValue value={v} col={columns[i]!} />
+          </td>
+        ))}
+      </tr>
+    );
+  }
+
+  // One section's body honoring the display mode: detail = flat account
+  // rows; grouped = group header + indented accounts + subtotal row;
+  // condensed = only the per-group subtotal rows.
+  function SectionBody({ rows, groups }: { rows: PLComparativeRow[]; groups?: PLCompGroup[] }) {
+    if (!groups || mode === 'detail') return <AccountRows rows={rows} />;
+    return (
+      <>
+        {groups.map((g, gi) => (
+          <Fragment key={gi}>
+            {mode === 'grouped' && (
+              <tr>
+                <td colSpan={columns.length + 1} className="px-3 pt-2 pb-1 pl-6 text-xs font-semibold text-gray-500">{g.label}</td>
+              </tr>
+            )}
+            {mode === 'grouped' && <AccountRows rows={g.rows} indent />}
+            <GroupSubtotalRow label={mode === 'condensed' ? g.label : `Total ${g.label}`} values={g.values} />
+          </Fragment>
+        ))}
+      </>
+    );
+  }
+
   return (
     <div>
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
@@ -431,20 +514,20 @@ function ComparativeView({ data }: { data: PLComparativeData }) {
           </thead>
           <tbody>
             <SectionHeader label={L.revenue} />
-            <AccountRows rows={revenueRows} />
+            <SectionBody rows={revenueRows} groups={data.groups?.revenue} />
             <TotalRow label={`Total ${L.revenue}`} values={data.totalRevenue} />
 
             {hasCogs && (
               <>
                 <SectionHeader label={L.cogs} />
-                <AccountRows rows={cogsRows} />
+                <SectionBody rows={cogsRows} groups={data.groups?.cogs} />
                 <TotalRow label={`Total ${L.cogs}`} values={data.totalCogs} />
                 <TotalRow label={L.grossProfit} values={grossProfit!} />
               </>
             )}
 
             <SectionHeader label={L.expenses} />
-            <AccountRows rows={expenseRows} />
+            <SectionBody rows={expenseRows} groups={data.groups?.expenses} />
             <TotalRow label={`Total ${L.expenses}`} values={data.totalExpenses} />
 
             {showOperatingIncome && <TotalRow label={L.operatingIncome} values={operatingIncome!} />}
@@ -452,7 +535,7 @@ function ComparativeView({ data }: { data: PLComparativeData }) {
             {hasOtherRev && (
               <>
                 <SectionHeader label={L.otherRevenue} />
-                <AccountRows rows={otherRevRows} />
+                <SectionBody rows={otherRevRows} groups={data.groups?.otherRevenue} />
                 <TotalRow label={`Total ${L.otherRevenue}`} values={data.totalOtherRevenue ?? []} />
               </>
             )}
@@ -460,7 +543,7 @@ function ComparativeView({ data }: { data: PLComparativeData }) {
             {hasOtherExp && (
               <>
                 <SectionHeader label={L.otherExpenses} />
-                <AccountRows rows={otherExpRows} />
+                <SectionBody rows={otherExpRows} groups={data.groups?.otherExpenses} />
                 <TotalRow label={`Total ${L.otherExpenses}`} values={data.totalOtherExpenses ?? []} />
               </>
             )}

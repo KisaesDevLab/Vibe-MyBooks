@@ -4,7 +4,7 @@
 
 
 import { todayLocalISO } from '../../utils/date';
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DEFAULT_BS_LABELS, type BSSectionLabels } from '@kis-books/shared';
@@ -70,6 +70,23 @@ interface BSComparativeRow {
   values: Array<number | null>;
 }
 
+// Comparative detail-type group (group_by=detail_type with a compare
+// mode active): member rows + a per-column subtotal row whose variance
+// columns are re-derived from the group's current/prior sums. Computed
+// equity rows arrive in a trailing 'Equity (Calculated)' group.
+interface BSCompGroup {
+  detailType: string | null;
+  label: string;
+  rows: BSComparativeRow[];
+  values: Array<number | null>;
+}
+
+interface BSCompGroups {
+  assets: BSCompGroup[];
+  liabilities: BSCompGroup[];
+  equity: BSCompGroup[];
+}
+
 interface BSComparativeData {
   columns: BSComparativeColumn[];
   labels?: BSSectionLabels;
@@ -81,7 +98,12 @@ interface BSComparativeData {
   totalLiabilities: Array<number | null>;
   totalEquity: Array<number | null>;
   totalLiabilitiesAndEquity?: Array<number | null>;
+  groups?: BSCompGroups;
 }
+
+// Display mode: detail = flat accounts; grouped = detail-type group
+// headers + accounts + subtotals; condensed = group subtotal rows only.
+type GroupMode = 'detail' | 'grouped' | 'condensed';
 
 type BSData = BSStandardData | BSComparativeData;
 
@@ -119,19 +141,27 @@ export function BalanceSheetReport() {
   const [compare, setCompare] = useSessionState<CompareMode>('vibe:report-bs:compare', '');
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-bs:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-bs:tagId', '');
-  const [groupByDetail, setGroupByDetail] = useState(false);
+  // Display mode (Detail / Grouped / Condensed). Migrates the previous
+  // boolean grouping key gracefully: an old `true` means Grouped.
+  const legacyGrouped = (() => {
+    try { return window.sessionStorage.getItem('vibe:report-bs:groupBy') === 'true'; } catch { return false; }
+  })();
+  const [groupMode, setGroupMode] = useSessionState<GroupMode>('vibe:report-bs:groupMode', legacyGrouped ? 'grouped' : 'detail');
   const { activeCompanyId } = useCompanyContext();
 
   // Native date inputs fire per-segment while typing — only re-query once
   // the as-of date is complete and stable.
   const debAsOfDate = useDebouncedDate(asOfDate);
 
-  // Grouping only applies to the standard (non-comparative) view.
-  const effectiveGroupBy = groupByDetail && !compare;
-  const queryParams = `as_of_date=${debAsOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}`;
+  // Grouping applies to BOTH the standard and comparative views.
+  // display=condensed only affects server-side exports (PDF/CSV mirror
+  // the on-screen presentation); the JSON response carries it as an
+  // additive no-op field.
+  const effectiveGroupBy = groupMode !== 'detail';
+  const queryParams = `as_of_date=${debAsOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}${groupMode === 'condensed' ? '&display=condensed' : ''}`;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports', 'balance-sheet', debAsOfDate, basis, compare, activeCompanyId, scope, tagId, effectiveGroupBy],
+    queryKey: ['reports', 'balance-sheet', debAsOfDate, basis, compare, activeCompanyId, scope, tagId, groupMode],
     queryFn: () => apiClient<BSData>(`/reports/balance-sheet?${queryParams}`),
   });
 
@@ -161,29 +191,31 @@ export function BalanceSheetReport() {
           </select>
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
           <ReportTagFilter value={tagId} onChange={setTagId} />
-          {!compare && (
-            <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={groupByDetail}
-                onChange={(e) => setGroupByDetail(e.target.checked)}
-                className="rounded border-gray-300"
-              />
-              Group by detail type
-            </label>
-          )}
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 select-none">
+            View:
+            <select
+              value={groupMode}
+              onChange={(e) => setGroupMode(e.target.value as GroupMode)}
+              className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+              aria-label="Report display mode"
+            >
+              <option value="detail">Detail</option>
+              <option value="grouped">Grouped by detail type</option>
+              <option value="condensed">Condensed (group totals)</option>
+            </select>
+          </label>
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (
         isComparative
-          ? <ComparativeView data={data as BSComparativeData} />
-          : <StandardView data={data as BSStandardData} />
+          ? <ComparativeView data={data as BSComparativeData} mode={groupMode} />
+          : <StandardView data={data as BSStandardData} mode={groupMode} />
       )}
     </ReportShell>
   );
 }
 
-function StandardView({ data }: { data: BSStandardData }) {
+function StandardView({ data, mode = 'detail' }: { data: BSStandardData; mode?: GroupMode }) {
   const navigate = useNavigate();
   const L = data.labels ?? DEFAULT_BS_LABELS;
   const { data: settingsData } = useCompanySettings();
@@ -220,7 +252,15 @@ function StandardView({ data }: { data: BSStandardData }) {
   const Section = ({ title, items, total, groups }: { title: string; items: BSRow[]; total: number; groups?: BSGroup[] }) => (
     <div>
       <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
-      {groups ? (
+      {groups && mode === 'condensed' ? (
+        // Condensed: one subtotal line per detail-type group, no
+        // account rows. Section totals below are unchanged.
+        groups.map((g, gi) => (
+          <div key={gi} className="flex justify-between py-1 pl-4 text-sm">
+            <span>{g.label}</span><span className="font-mono">{fmt(g.subtotal)}</span>
+          </div>
+        ))
+      ) : groups ? (
         groups.map((g, gi) => (
           <div key={gi} className="mb-1">
             <div className="py-1 pl-4 text-xs font-semibold text-gray-500">{g.label}</div>
@@ -253,7 +293,7 @@ function StandardView({ data }: { data: BSStandardData }) {
   );
 }
 
-function ComparativeView({ data }: { data: BSComparativeData }) {
+function ComparativeView({ data, mode = 'detail' }: { data: BSComparativeData; mode?: GroupMode }) {
   const navigate = useNavigate();
   const { data: settingsData } = useCompanySettings();
   const fyMonth = settingsData?.settings?.fiscalYearStartMonth ?? 1;
@@ -271,35 +311,69 @@ function ComparativeView({ data }: { data: BSComparativeData }) {
     return <span className="font-mono">{fmt(value ?? 0)}</span>;
   }
 
-  function SectionTable({ title, items, totals }: { title: string; items: BSComparativeRow[]; totals: Array<number | null> }) {
+  function AccountRow({ row, indent }: { row: BSComparativeRow; indent?: boolean }) {
+    return (
+      <tr className="border-b border-gray-100 hover:bg-gray-50">
+        <td className={`px-3 py-1.5 text-sm ${indent ? 'pl-8' : ''}`}>{row.name}</td>
+        {row.values.map((v, j) => {
+          const col = columns[j]!;
+          const href = bsDrillUrl(row.accountId, col.asOfDate, fyMonth);
+          return (
+            <td key={j} className={`px-3 py-1.5 text-right text-sm ${isVarianceCol(col) ? 'bg-gray-50' : ''}`}>
+              {href ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(href, { state: BS_RETURN_STATE })}
+                  className="cursor-pointer focus:outline-none focus:underline"
+                  title="View this year's transactions for this account through the as-of date"
+                >
+                  <CellValue value={v} col={col} />
+                </button>
+              ) : (
+                <CellValue value={v} col={col} />
+              )}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  }
+
+  // Group subtotal row: lighter than the section total so the visual
+  // hierarchy stays group < section.
+  function GroupSubtotalRow({ label, values }: { label: string; values: Array<number | null> }) {
+    return (
+      <tr className="border-t border-dashed border-gray-200">
+        <td className="px-3 py-1.5 pl-8 text-sm font-medium text-gray-700">{label}</td>
+        {values.map((v, i) => (
+          <td key={i} className="px-3 py-1.5 text-right text-sm font-medium">
+            <CellValue value={v} col={columns[i]!} />
+          </td>
+        ))}
+      </tr>
+    );
+  }
+
+  function SectionTable({ title, items, totals, groups }: { title: string; items: BSComparativeRow[]; totals: Array<number | null>; groups?: BSCompGroup[] }) {
+    const useGroups = !!groups && mode !== 'detail';
     return (
       <>
         <tr><td colSpan={columns.length + 1} className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-gray-500">{title}</td></tr>
-        {items.map((row, i) => (
-          <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-            <td className="px-3 py-1.5 text-sm">{row.name}</td>
-            {row.values.map((v, j) => {
-              const col = columns[j]!;
-              const href = bsDrillUrl(row.accountId, col.asOfDate, fyMonth);
-              return (
-                <td key={j} className={`px-3 py-1.5 text-right text-sm ${isVarianceCol(col) ? 'bg-gray-50' : ''}`}>
-                  {href ? (
-                    <button
-                      type="button"
-                      onClick={() => navigate(href, { state: BS_RETURN_STATE })}
-                      className="cursor-pointer focus:outline-none focus:underline"
-                      title="View this year's transactions for this account through the as-of date"
-                    >
-                      <CellValue value={v} col={col} />
-                    </button>
-                  ) : (
-                    <CellValue value={v} col={col} />
-                  )}
-                </td>
-              );
-            })}
-          </tr>
-        ))}
+        {useGroups ? (
+          groups!.map((g, gi) => (
+            <Fragment key={gi}>
+              {mode === 'grouped' && (
+                <tr>
+                  <td colSpan={columns.length + 1} className="px-3 pt-2 pb-1 pl-6 text-xs font-semibold text-gray-500">{g.label}</td>
+                </tr>
+              )}
+              {mode === 'grouped' && g.rows.map((row, i) => <AccountRow key={i} row={row} indent />)}
+              <GroupSubtotalRow label={mode === 'condensed' ? g.label : `Total ${g.label}`} values={g.values} />
+            </Fragment>
+          ))
+        ) : (
+          items.map((row, i) => <AccountRow key={i} row={row} />)
+        )}
         <tr className="border-t border-gray-200 bg-gray-50">
           <td className="px-3 py-2 text-sm font-semibold">Total {title}</td>
           {totals.map((v, i) => (
@@ -327,9 +401,9 @@ function ComparativeView({ data }: { data: BSComparativeData }) {
             </tr>
           </thead>
           <tbody>
-            <SectionTable title={L.assets} items={data.assets} totals={data.totalAssets} />
-            <SectionTable title={L.liabilities} items={data.liabilities} totals={data.totalLiabilities} />
-            <SectionTable title={L.equity} items={data.equity} totals={data.totalEquity} />
+            <SectionTable title={L.assets} items={data.assets} totals={data.totalAssets} groups={data.groups?.assets} />
+            <SectionTable title={L.liabilities} items={data.liabilities} totals={data.totalLiabilities} groups={data.groups?.liabilities} />
+            <SectionTable title={L.equity} items={data.equity} totals={data.totalEquity} groups={data.groups?.equity} />
             {/* Closing grand total — equals Total Assets when the books balance. */}
             {data.totalLiabilitiesAndEquity && (
               <tr className="border-t-2 border-gray-300">
