@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Download, FileSearch, Mail, Pencil, FileText, ShieldCheck, Upload } from 'lucide-react';
+import { Tax1099EfilePanel } from './Tax1099EfilePanel';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 14 + 15 — bookkeeper UI.
@@ -557,6 +558,7 @@ export function Tax1099Page() {
 
       <AccountMappingPanel />
 
+      <Tax1099EfilePanel taxYear={taxYear} formType="1099-NEC" />
       <FilingsHistory filings={filings} onCorrect={setCorrectingFiling} />
 
       {correctingFiling && (
