@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DEFAULT_BS_LABELS, type BSSectionLabels } from '@kis-books/shared';
-import { apiClient } from '../../api/client';
+import { apiClient, API_BASE } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useCompanySettings } from '../../api/hooks/useCompany';
 import { ReportShell } from './ReportShell';
@@ -105,7 +105,7 @@ export function BalanceSheetReport() {
   return (
     <ReportShell title="Balance Sheet"
       maxWidth={isComparative ? 'max-w-6xl' : 'max-w-3xl'}
-      exportBaseUrl={`/api/v1/reports/balance-sheet?${queryParams}`}
+      exportBaseUrl={`${API_BASE}/reports/balance-sheet?${queryParams}`}
       filters={
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">

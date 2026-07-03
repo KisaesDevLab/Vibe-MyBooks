@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_CF_LABELS, type CFSectionLabels } from '@kis-books/shared';
-import { apiClient } from '../../api/client';
+import { apiClient, API_BASE } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -46,7 +46,7 @@ export function CashFlowReport() {
   return (
     <ReportShell title="Cash Flow Statement"
       maxWidth="max-w-3xl"
-      exportBaseUrl={`/api/v1/reports/cash-flow?${queryParams}`}
+      exportBaseUrl={`${API_BASE}/reports/cash-flow?${queryParams}`}
       filters={
         <div className="flex items-center gap-4 flex-wrap">
           <DateRangePicker startDate={startDate} endDate={endDate} onChange={(s, e) => { setStartDate(s); setEndDate(e); }} />

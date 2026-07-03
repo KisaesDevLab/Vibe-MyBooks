@@ -5,7 +5,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
-import { apiClient } from '../../api/client';
+import { apiClient, API_BASE } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -96,7 +96,7 @@ export function BudgetVsActualReport() {
   });
 
   const exportBaseUrl = budgetId
-    ? `/api/v1/budgets/${budgetId}/vs-actual?start_date=${startDate}&end_date=${endDate}`
+    ? `${API_BASE}/budgets/${budgetId}/vs-actual?start_date=${startDate}&end_date=${endDate}`
     : '';
 
   const renderRow = (row: BvsARow) => (

@@ -5,7 +5,22 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Download, FileSpreadsheet } from 'lucide-react';
-import { apiClient } from '../../api/client';
+import { apiClient, API_BASE } from '../../api/client';
+import { useToast } from '../../components/ui/Toaster';
+
+/** Rewrite a legacy bare `/api/v1/...` export URL against API_BASE.
+ *  Report pages historically hard-coded absolute `/api/v1` paths, which
+ *  404 on subpath installs (BASE_URL=`/mybooks/` → the api lives at
+ *  `/mybooks/api/v1`). Data fetching goes through apiClient (API_BASE-
+ *  aware) so the report renders, but the export button silently failed.
+ *  Normalizing here keeps every caller safe even if a new page slips in
+ *  a bare path again. URLs already built on API_BASE pass through. */
+export function resolveExportUrl(url: string): string {
+  if (API_BASE !== '/api/v1' && url.startsWith('/api/v1/')) {
+    return `${API_BASE}${url.slice('/api/v1'.length)}`;
+  }
+  return url;
+}
 
 async function downloadReport(url: string, filename: string) {
   const token = localStorage.getItem('accessToken');
@@ -14,7 +29,12 @@ async function downloadReport(url: string, filename: string) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (companyId) headers['X-Company-Id'] = companyId;
   const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error('Export failed');
+  if (!res.ok) {
+    // 404 with a JSON body is the "No data to export" case; other
+    // statuses bubble up as-is so the toast shows something useful.
+    const body = await res.json().catch(() => null) as { error?: { message?: string } } | null;
+    throw new Error(body?.error?.message || `Export failed (${res.status})`);
+  }
   const blob = await res.blob();
   const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -58,6 +78,7 @@ interface ReportShellProps {
 
 export function ReportShell({ title, children, filters, onExportCsv, onExportPdf, exportBaseUrl, maxWidth = 'max-w-5xl' }: ReportShellProps) {
   const [csvLoading, setCsvLoading] = useState(false);
+  const toast = useToast();
 
   const hasCsv = !!(onExportCsv || exportBaseUrl);
   const hasPdf = !!(onExportPdf || exportBaseUrl);
@@ -67,16 +88,23 @@ export function ReportShell({ title, children, filters, onExportCsv, onExportPdf
     if (!exportBaseUrl) return;
     setCsvLoading(true);
     try {
-      const sep = exportBaseUrl.includes('?') ? '&' : '?';
-      await downloadReport(`${exportBaseUrl}${sep}format=csv`, `${title.replace(/\s+/g, '_')}.csv`);
-    } catch { /* ignore */ }
+      const base = resolveExportUrl(exportBaseUrl);
+      const sep = base.includes('?') ? '&' : '?';
+      await downloadReport(`${base}${sep}format=csv`, `${title.replace(/\s+/g, '_')}.csv`);
+    } catch (err) {
+      // Silent-swallow here masked real failures (404s on subpath
+      // installs) — surface them so the user knows the export failed.
+      toast.error('CSV export failed', { detail: err instanceof Error ? err.message : undefined });
+    }
     setCsvLoading(false);
   };
 
   const handlePdf = () => {
     if (onExportPdf) return onExportPdf();
     if (!exportBaseUrl) return;
-    openPdfInTab(exportBaseUrl).catch(() => { /* ignore */ });
+    openPdfInTab(resolveExportUrl(exportBaseUrl)).catch((err) => {
+      toast.error('PDF export failed', { detail: err instanceof Error ? err.message : undefined });
+    });
   };
 
   return (

@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../api/client';
+import { apiClient, API_BASE } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { ReportTable } from './ReportTable';
@@ -62,7 +62,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
     queryFn: () => apiClient<any>(`/reports/${endpoint}?${params.toString()}`),
   });
 
-  const exportBaseUrl = `/api/v1/reports/${endpoint}?${params.toString()}`;
+  const exportBaseUrl = `${API_BASE}/reports/${endpoint}?${params.toString()}`;
 
   return (
     <ReportShell title={title}

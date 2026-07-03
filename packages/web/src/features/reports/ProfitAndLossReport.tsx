@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
-import { apiClient } from '../../api/client';
+import { apiClient, API_BASE } from '../../api/client';
 
 // The /reports/profit-loss endpoint returns two shapes depending on whether
 // a `compare=` parameter is set. Keep both unions permissive on optional
@@ -114,7 +114,7 @@ export function ProfitAndLossReport() {
   return (
     <ReportShell title="Profit and Loss"
       maxWidth={isComparative ? 'max-w-6xl' : 'max-w-3xl'}
-      exportBaseUrl={`/api/v1/reports/profit-loss?${queryParams}`}
+      exportBaseUrl={`${API_BASE}/reports/profit-loss?${queryParams}`}
       filters={
         <div className="flex items-center gap-4 flex-wrap">
           <DateRangePicker startDate={startDate} endDate={endDate} onChange={(s, e) => { setStartDate(s); setEndDate(e); }} />

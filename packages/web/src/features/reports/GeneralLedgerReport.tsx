@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { apiClient } from '../../api/client';
+import { apiClient, API_BASE } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -102,7 +102,7 @@ export function GeneralLedgerReport() {
     <ReportShell
       title="General Ledger"
       maxWidth="max-w-6xl"
-      exportBaseUrl={`/api/v1/reports/general-ledger?${queryParams}`}
+      exportBaseUrl={`${API_BASE}/reports/general-ledger?${queryParams}`}
       filters={
         <div className="flex items-center gap-4 flex-wrap">
           <DateRangePicker
