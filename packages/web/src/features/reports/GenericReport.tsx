@@ -35,9 +35,14 @@ interface GenericReportProps {
   useTagFilter?: boolean;
   extraParams?: Record<string, string>;
   dataKey?: string;
+  // Optional totals footer: maps a column key to the response field
+  // carrying its total (e.g. { balance: 'totalBalance' }). When every
+  // mapped field resolves to a number, ReportTable renders its totals
+  // row. Purely additive — reports without it are unchanged.
+  totalsFrom?: Record<string, string>;
 }
 
-export function GenericReport({ title, endpoint, columns, useDateRange = true, useAsOfDate, useTagFilter = false, extraParams, dataKey = 'data' }: GenericReportProps) {
+export function GenericReport({ title, endpoint, columns, useDateRange = true, useAsOfDate, useTagFilter = false, extraParams, dataKey = 'data', totalsFrom }: GenericReportProps) {
   const today = new Date();
   // Selection criteria persist for the tab session — namespaced per
   // report endpoint so the Trial Balance and AR Aging (etc.) each keep
@@ -74,6 +79,16 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
 
   const exportBaseUrl = `${API_BASE}/reports/${endpoint}?${params.toString()}`;
 
+  // Build the ReportTable totals record from the response when the
+  // report opted in via totalsFrom.
+  let totals: Record<string, number> | undefined;
+  if (totalsFrom && data) {
+    const entries = Object.entries(totalsFrom)
+      .map(([colKey, field]) => [colKey, data[field]] as const)
+      .filter((e): e is readonly [string, number] => typeof e[1] === 'number');
+    if (entries.length > 0) totals = Object.fromEntries(entries);
+  }
+
   return (
     <ReportShell title={title}
       exportBaseUrl={exportBaseUrl}
@@ -97,6 +112,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
         <ReportTable
           columns={columns}
           data={data[dataKey]}
+          totals={totals}
           drillContext={{
             startDate: useDateRange ? startDate : undefined,
             endDate: useDateRange ? endDate : undefined,

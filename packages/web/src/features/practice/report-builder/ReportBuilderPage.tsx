@@ -27,6 +27,7 @@ import {
   Copy,
   Download,
   AlignJustify,
+  Sparkles,
 } from 'lucide-react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { apiClient, API_BASE, getAccessToken } from '../../../api/client';
@@ -943,6 +944,24 @@ function ReportPreviewModal({
     }
   };
 
+  // AI executive summary — generated server-side from the company's
+  // books for this instance's period, then returned for review. The
+  // bookkeeper still has to Save the draft text to commit it into the
+  // snapshot, so nothing lands client-facing unreviewed.
+  const generateAi = async (prompt: string, blockRef: string): Promise<string> => {
+    const result = await api<{ text: string }>(
+      `/practice/reports/instances/${instanceId}/ai-summary/generate`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          ...(prompt.trim() ? { prompt: prompt.trim() } : {}),
+          ...(blockRef ? { blockRef } : {}),
+        }),
+      },
+    );
+    return result.text;
+  };
+
   // Full per-instance layout editing — reuse the template LayoutEditor against
   // this draft instance's own snapshot. Editing here doesn't touch the template.
   if (editingLayout) {
@@ -1059,6 +1078,7 @@ function ReportPreviewModal({
                   data={data as Record<string, unknown>}
                   editable={instance.status !== 'published'}
                   onPatch={patch}
+                  onGenerateAi={instance.status !== 'published' ? generateAi : undefined}
                 />
               )}
             </article>
@@ -1074,6 +1094,7 @@ function ReportRender({
   data,
   editable,
   onPatch,
+  onGenerateAi,
 }: {
   layout: unknown[];
   data: Record<string, unknown>;
@@ -1083,6 +1104,10 @@ function ReportRender({
     aiSummary?: string;
     textOverrides?: Record<string, string>;
   }) => Promise<void>;
+  // Ask the backend to draft grounded summary text for a block. The
+  // returned text lands in the edit textarea for review, not directly
+  // in the snapshot.
+  onGenerateAi?: (prompt: string, blockRef: string) => Promise<string>;
 }) {
   const kpiValues = (data['kpis'] as Record<string, unknown>) ?? {};
   const kpiNames = (data['kpi_names'] as Record<string, string>) ?? {};
@@ -1127,9 +1152,10 @@ function ReportRender({
               key={blockId}
               label="AI summary"
               value={aiSummary}
-              empty="No summary saved yet — click to write one."
+              empty="No summary saved yet — click to write one, or generate with AI."
               editable={editable}
               onSave={onPatch ? (v) => onPatch({ aiSummary: v }) : undefined}
+              onGenerate={onGenerateAi ? (prompt) => onGenerateAi(prompt, blockId) : undefined}
             />
           );
         }
@@ -1156,6 +1182,7 @@ function ReportRender({
                   ? (v) => onPatch({ textOverrides: { [overrideKey]: v } })
                   : undefined
               }
+              onGenerate={onGenerateAi ? (prompt) => onGenerateAi(prompt, overrideKey) : undefined}
             />
           );
         }
@@ -1233,6 +1260,19 @@ interface PlSummary {
 interface BsSummary { assets: number; liabilities: number; equity: number }
 interface PlVsPriorYear { current: PlSummary; prior: PlSummary | null }
 interface TopRow { name: string; amount: number }
+interface TrendPoint { month: string; label: string; amount: number }
+interface CfSummary { netIncome: number; operating: number; investing: number; financing: number; netChange: number }
+interface TbSummary {
+  rows: Array<{ account: string; debit: number; credit: number }>;
+  totalDebits: number;
+  totalCredits: number;
+  truncated: boolean;
+}
+interface BankBalancesSummary {
+  asOfDate: string;
+  accounts: Array<{ name: string; balance: number; isInactive: boolean }>;
+  totalBalance: number;
+}
 
 function fmtMoney(n: number): string {
   if (!Number.isFinite(n)) return '—';
@@ -1357,6 +1397,64 @@ function BlockRender({
             <p className="text-xs text-gray-500 italic">No data.</p>
           ) : (
             <PlVsPriorChart d={d} />
+          )}
+        </Frame>
+      );
+    }
+    case 'revenue_trend_12m':
+    case 'expense_trend_12m':
+    case 'cash_balance_trend': {
+      const pts = (payload.data as TrendPoint[]) ?? [];
+      const heading =
+        payload.type === 'revenue_trend_12m'
+          ? 'Revenue Trend (12 Months)'
+          : payload.type === 'expense_trend_12m'
+            ? 'Expense Trend (12 Months)'
+            : 'Cash Balance Trend (12 Months)';
+      const color =
+        payload.type === 'expense_trend_12m'
+          ? '#f59e0b'
+          : payload.type === 'cash_balance_trend'
+            ? '#0ea5e9'
+            : '#4f46e5';
+      return (
+        <Frame label="Chart" title={heading}>
+          {pts.length === 0 ? (
+            <p className="text-xs text-gray-500 italic">No data.</p>
+          ) : (
+            <TrendChart points={pts} color={color} />
+          )}
+        </Frame>
+      );
+    }
+    case 'cash_flow': {
+      const c = (payload.data as CfSummary) ?? null;
+      return (
+        <Frame title="Cash Flow">
+          {!c ? <p className="text-xs text-gray-500 italic">No data.</p> : <CfTable c={c} />}
+        </Frame>
+      );
+    }
+    case 'trial_balance': {
+      const t = (payload.data as TbSummary) ?? null;
+      return (
+        <Frame title="Trial Balance">
+          {!t || t.rows.length === 0 ? (
+            <p className="text-xs text-gray-500 italic">No data.</p>
+          ) : (
+            <TbTable t={t} />
+          )}
+        </Frame>
+      );
+    }
+    case 'bank_balances': {
+      const b = (payload.data as BankBalancesSummary) ?? null;
+      return (
+        <Frame title="Bank Account Balances">
+          {!b || b.accounts.length === 0 ? (
+            <p className="text-xs text-gray-500 italic">No bank accounts.</p>
+          ) : (
+            <BankBalancesTable b={b} />
           )}
         </Frame>
       );
@@ -1510,6 +1608,100 @@ function PlTable({ p }: { p: PlSummary }) {
   );
 }
 
+// 12-month single-series bar chart shared by the revenue / expense /
+// cash-balance trend blocks. Negative months render red so a loss or
+// overdraft is visible at a glance.
+function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) {
+  const data = points.map((p) => ({ name: p.label, amount: p.amount }));
+  return (
+    <div style={{ width: '100%', height: 220 }}>
+      <ResponsiveContainer>
+        <BarChart data={data} margin={{ top: 4, right: 12, left: 12, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+          <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-40} textAnchor="end" height={38} />
+          <YAxis
+            tick={{ fontSize: 11 }}
+            tickFormatter={(v: unknown) => fmtMoney(Number(v))}
+            width={70}
+          />
+          <Tooltip formatter={((v: unknown) => fmtMoney(Number(v))) as never} />
+          <Bar dataKey="amount" radius={[3, 3, 0, 0]}>
+            {data.map((entry, i) => (
+              <Cell key={`${entry.name}-${i}`} fill={entry.amount < 0 ? '#dc2626' : color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function CfTable({ c }: { c: CfSummary }) {
+  return (
+    <table className="w-full text-sm">
+      <tbody>
+        <tr><td className="py-1 text-gray-700">Operating Activities</td><td className="py-1 text-right font-medium">{fmtMoney(c.operating)}</td></tr>
+        <tr><td className="py-1 text-gray-700">Investing Activities</td><td className="py-1 text-right">{fmtMoney(c.investing)}</td></tr>
+        <tr><td className="py-1 text-gray-700">Financing Activities</td><td className="py-1 text-right">{fmtMoney(c.financing)}</td></tr>
+        <tr className="border-t border-gray-200"><td className="py-1 text-gray-900 font-semibold">Net Change in Cash</td><td className="py-1 text-right font-bold">{fmtMoney(c.netChange)}</td></tr>
+        <tr><td className="py-1 text-gray-500 text-xs">Net Income (accrual)</td><td className="py-1 text-right text-xs text-gray-500">{fmtMoney(c.netIncome)}</td></tr>
+      </tbody>
+    </table>
+  );
+}
+
+function TbTable({ t }: { t: TbSummary }) {
+  return (
+    <div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-[10px] uppercase tracking-wide text-gray-500">
+            <th className="text-left py-1 font-semibold">Account</th>
+            <th className="text-right py-1 font-semibold">Debit</th>
+            <th className="text-right py-1 font-semibold">Credit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {t.rows.map((r) => (
+            <tr key={r.account} className="border-b border-gray-100 last:border-0">
+              <td className="py-1 pr-2 text-gray-800">{r.account}</td>
+              <td className="py-1 text-right text-gray-900">{r.debit !== 0 ? fmtMoney(r.debit) : ''}</td>
+              <td className="py-1 text-right text-gray-900">{r.credit !== 0 ? fmtMoney(r.credit) : ''}</td>
+            </tr>
+          ))}
+          <tr className="border-t border-gray-200 font-semibold">
+            <td className="py-1 text-gray-900">Totals</td>
+            <td className="py-1 text-right">{fmtMoney(t.totalDebits)}</td>
+            <td className="py-1 text-right">{fmtMoney(t.totalCredits)}</td>
+          </tr>
+        </tbody>
+      </table>
+      {t.truncated && (
+        <p className="mt-1 text-[11px] text-gray-500">Showing the first {t.rows.length} accounts.</p>
+      )}
+    </div>
+  );
+}
+
+function BankBalancesTable({ b }: { b: BankBalancesSummary }) {
+  return (
+    <table className="w-full text-sm">
+      <tbody>
+        {b.accounts.map((a) => (
+          <tr key={a.name} className="border-b border-gray-100 last:border-0">
+            <td className="py-1 pr-2 text-gray-800">{a.name}</td>
+            <td className="py-1 text-right text-gray-900 font-medium">{fmtMoney(a.balance)}</td>
+          </tr>
+        ))}
+        <tr className="border-t border-gray-200 font-semibold">
+          <td className="py-1 text-gray-900">Total</td>
+          <td className="py-1 text-right">{fmtMoney(b.totalBalance)}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
 // ── Editable cells ──────────────────────────────────────────────
 
 function KpiCard({
@@ -1592,6 +1784,7 @@ function EditableTextSection({
   compact,
   editable,
   onSave,
+  onGenerate,
 }: {
   label: string;
   value: string;
@@ -1599,10 +1792,18 @@ function EditableTextSection({
   compact?: boolean;
   editable?: boolean;
   onSave?: (v: string) => Promise<void>;
+  // When present, the edit surface offers "Generate with AI": the
+  // backend drafts grounded text (optionally steered by a custom
+  // prompt) into the textarea for review before Save.
+  onGenerate?: (prompt: string) => Promise<string>;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const enter = () => {
     if (!editable || !onSave) return;
@@ -1620,6 +1821,22 @@ function EditableTextSection({
     } finally {
       setSaving(false);
       setEditing(false);
+      setAiOpen(false);
+      setAiError(null);
+    }
+  };
+
+  const generate = async () => {
+    if (!onGenerate) return;
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      const text = await onGenerate(aiPrompt);
+      setDraft(text);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : 'Generation failed.');
+    } finally {
+      setAiBusy(false);
     }
   };
 
@@ -1628,9 +1845,45 @@ function EditableTextSection({
       <section
         className={`border border-indigo-300 rounded-md p-3 ${compact ? '' : 'bg-gray-50'}`}
       >
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
-          {label}
-        </p>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            {label}
+          </p>
+          {onGenerate && (
+            <button
+              onClick={() => setAiOpen((o) => !o)}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-50 px-1.5 py-0.5 rounded"
+              title="Draft this text from the company's books"
+            >
+              <Sparkles className="h-3 w-3" /> Generate with AI
+            </button>
+          )}
+        </div>
+        {aiOpen && onGenerate && (
+          <div className="mb-2 border border-indigo-200 bg-indigo-50/50 rounded-md p-2 space-y-1.5">
+            <label className="block text-[11px] text-gray-700">
+              Optional instructions for the AI (tone, focus, things to mention):
+              <textarea
+                rows={2}
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="e.g. Focus on the cash position and keep it under 100 words."
+                className="mt-1 w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </label>
+            {aiError && <p className="text-[11px] text-red-700">{aiError}</p>}
+            <div className="flex justify-end">
+              <button
+                onClick={generate}
+                disabled={aiBusy}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 px-2 py-1 rounded"
+              >
+                <Sparkles className="h-3 w-3" />
+                {aiBusy ? 'Generating…' : draft.trim() ? 'Regenerate draft' : 'Generate draft'}
+              </button>
+            </div>
+          </div>
+        )}
         <textarea
           autoFocus
           rows={compact ? 3 : 6}
@@ -1643,6 +1896,8 @@ function EditableTextSection({
             onClick={() => {
               setEditing(false);
               setDraft(value);
+              setAiOpen(false);
+              setAiError(null);
             }}
             className="text-xs text-gray-600 hover:bg-gray-100 px-2 py-1 rounded"
           >
@@ -1650,7 +1905,7 @@ function EditableTextSection({
           </button>
           <button
             onClick={commit}
-            disabled={saving}
+            disabled={saving || aiBusy}
             className="text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 px-2 py-1 rounded"
           >
             {saving ? 'Saving…' : 'Save'}
@@ -1677,6 +1932,19 @@ function EditableTextSection({
         <span className="absolute top-2 right-2 text-[10px] text-gray-400 opacity-0 group-hover:opacity-100">
           click to edit
         </span>
+      )}
+      {editable && onSave && onGenerate && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setDraft(value);
+            setEditing(true);
+            setAiOpen(true);
+          }}
+          className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-indigo-700 hover:underline"
+        >
+          <Sparkles className="h-3 w-3" /> Generate with AI
+        </button>
       )}
     </section>
   );

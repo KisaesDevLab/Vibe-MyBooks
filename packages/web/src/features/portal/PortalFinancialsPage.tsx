@@ -215,6 +215,19 @@ interface PlSummary {
 interface BsSummary { assets: number; liabilities: number; equity: number }
 interface PlVsPriorYear { current: PlSummary; prior: PlSummary | null }
 interface TopRow { name: string; amount: number }
+interface TrendPoint { month: string; label: string; amount: number }
+interface CfSummary { netIncome: number; operating: number; investing: number; financing: number; netChange: number }
+interface TbSummary {
+  rows: Array<{ account: string; debit: number; credit: number }>;
+  totalDebits: number;
+  totalCredits: number;
+  truncated: boolean;
+}
+interface BankBalancesSummary {
+  asOfDate: string;
+  accounts: Array<{ name: string; balance: number; isInactive: boolean }>;
+  totalBalance: number;
+}
 
 function PortalBlockRender({
   block,
@@ -323,6 +336,102 @@ function PortalBlockRender({
         </section>
       );
     }
+    case 'revenue_trend_12m':
+    case 'expense_trend_12m':
+    case 'cash_balance_trend': {
+      const pts = (payload.data as TrendPoint[]) ?? [];
+      if (pts.length === 0) return null;
+      const heading =
+        payload.type === 'revenue_trend_12m'
+          ? 'Revenue trend (12 months)'
+          : payload.type === 'expense_trend_12m'
+            ? 'Expense trend (12 months)'
+            : 'Cash balance trend (12 months)';
+      const color =
+        payload.type === 'expense_trend_12m'
+          ? '#f59e0b'
+          : payload.type === 'cash_balance_trend'
+            ? '#0ea5e9'
+            : '#4f46e5';
+      return (
+        <section className="bg-white border border-gray-200 rounded-md p-3">
+          <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">{heading}</p>
+          <PortalTrendChart points={pts} color={color} />
+        </section>
+      );
+    }
+    case 'cash_flow': {
+      const c = (payload.data as CfSummary) ?? null;
+      if (!c) return null;
+      return (
+        <section className="bg-white border border-gray-200 rounded-md p-3">
+          <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Cash flow</p>
+          <table className="w-full text-sm">
+            <tbody>
+              <tr><td className="py-1 text-gray-700">Operating activities</td><td className="py-1 text-right font-medium">{fmtMoney(c.operating)}</td></tr>
+              <tr><td className="py-1 text-gray-700">Investing activities</td><td className="py-1 text-right">{fmtMoney(c.investing)}</td></tr>
+              <tr><td className="py-1 text-gray-700">Financing activities</td><td className="py-1 text-right">{fmtMoney(c.financing)}</td></tr>
+              <tr className="border-t border-gray-200"><td className="py-1 text-gray-900 font-semibold">Net change in cash</td><td className="py-1 text-right font-bold">{fmtMoney(c.netChange)}</td></tr>
+            </tbody>
+          </table>
+        </section>
+      );
+    }
+    case 'trial_balance': {
+      const t = (payload.data as TbSummary) ?? null;
+      if (!t || t.rows.length === 0) return null;
+      return (
+        <section className="bg-white border border-gray-200 rounded-md p-3">
+          <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Trial balance</p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wide text-gray-500">
+                <th className="text-left py-1 font-semibold">Account</th>
+                <th className="text-right py-1 font-semibold">Debit</th>
+                <th className="text-right py-1 font-semibold">Credit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {t.rows.map((r) => (
+                <tr key={r.account} className="border-b border-gray-100 last:border-0">
+                  <td className="py-1 pr-2 text-gray-800">{r.account}</td>
+                  <td className="py-1 text-right text-gray-900">{r.debit !== 0 ? fmtMoney(r.debit) : ''}</td>
+                  <td className="py-1 text-right text-gray-900">{r.credit !== 0 ? fmtMoney(r.credit) : ''}</td>
+                </tr>
+              ))}
+              <tr className="border-t border-gray-200 font-semibold">
+                <td className="py-1 text-gray-900">Totals</td>
+                <td className="py-1 text-right">{fmtMoney(t.totalDebits)}</td>
+                <td className="py-1 text-right">{fmtMoney(t.totalCredits)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      );
+    }
+    case 'bank_balances': {
+      const b = (payload.data as BankBalancesSummary) ?? null;
+      if (!b || b.accounts.length === 0) return null;
+      return (
+        <section className="bg-white border border-gray-200 rounded-md p-3">
+          <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Bank account balances</p>
+          <table className="w-full text-sm">
+            <tbody>
+              {b.accounts.map((a) => (
+                <tr key={a.name} className="border-b border-gray-100 last:border-0">
+                  <td className="py-1 pr-2 text-gray-800">{a.name}</td>
+                  <td className="py-1 text-right text-gray-900 font-medium">{fmtMoney(a.balance)}</td>
+                </tr>
+              ))}
+              <tr className="border-t border-gray-200 font-semibold">
+                <td className="py-1 text-gray-900">Total</td>
+                <td className="py-1 text-right">{fmtMoney(b.totalBalance)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      );
+    }
     default:
       return (
         <div className="text-sm text-gray-700 border-l-2 border-gray-200 pl-3">{friendly}</div>
@@ -361,6 +470,27 @@ function PortalPlBarChart({ p }: { p: PlSummary }) {
           <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
             {data.map((entry) => (
               <Cell key={entry.name} fill={entry.amount < 0 ? '#dc2626' : '#4f46e5'} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function PortalTrendChart({ points, color }: { points: TrendPoint[]; color: string }) {
+  const data = points.map((p) => ({ name: p.label, amount: p.amount }));
+  return (
+    <div style={{ width: '100%', height: 220 }}>
+      <ResponsiveContainer>
+        <BarChart data={data} margin={{ top: 4, right: 12, left: 12, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+          <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-40} textAnchor="end" height={38} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: unknown) => fmtMoney(Number(v))} width={70} />
+          <Tooltip formatter={((v: unknown) => fmtMoney(Number(v))) as never} />
+          <Bar dataKey="amount" radius={[3, 3, 0, 0]}>
+            {data.map((entry, i) => (
+              <Cell key={`${entry.name}-${i}`} fill={entry.amount < 0 ? '#dc2626' : color} />
             ))}
           </Bar>
         </BarChart>

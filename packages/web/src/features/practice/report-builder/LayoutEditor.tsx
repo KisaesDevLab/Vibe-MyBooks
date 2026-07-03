@@ -403,7 +403,8 @@ function BlockSummary({ block }: { block: Block }) {
     const tags = (block['tags'] as string[]) ?? [];
     return <>{tags.length} tag{tags.length === 1 ? '' : 's'}</>;
   }
-  if (block.type === 'report') return <>Embed: {String(block['key'] ?? '—')}</>;
+  if (block.type === 'report')
+    return <>Embed: {String(block['key'] ?? '—')}{block['basis'] === 'cash' ? ' (cash basis)' : ''}</>;
   if (block.type === 'text') return <>{String(block['placeholder'] ?? '—').slice(0, 60)}</>;
   if (block.type === 'ai_summary')
     return <>Tone: {String(block['tone'] ?? '—')} · {String(block['length'] ?? '—')}</>;
@@ -570,19 +571,22 @@ function BlockInspector({
             <option value="ar_aging">A/R aging</option>
             <option value="ap_aging">A/P aging</option>
             <option value="pl_bar">P&amp;L bar chart</option>
+            <option value="bank_balances">Bank account balances</option>
           </select>
         </label>
-        <label className="block text-xs">
-          <span className="block text-gray-800 mb-1">Top N</span>
-          <input
-            type="number"
-            min={1}
-            max={50}
-            value={Number(block['topN'] ?? 10)}
-            onChange={(e) => onChange({ topN: parseInt(e.target.value, 10) })}
-            className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
-          />
-        </label>
+        {block['name'] !== 'bank_balances' && (
+          <label className="block text-xs">
+            <span className="block text-gray-800 mb-1">Top N</span>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={Number(block['topN'] ?? 10)}
+              onChange={(e) => onChange({ topN: parseInt(e.target.value, 10) })}
+              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+            />
+          </label>
+        )}
       </div>
     );
   }
@@ -603,23 +607,43 @@ function BlockInspector({
     );
   }
   if (block.type === 'report') {
+    const key = String(block['key'] ?? '');
+    // Basis only applies to the accrual/cash-capable statements. The
+    // cash-flow statement is direct-method (built from actual cash
+    // movements) so it has no basis knob.
+    const basisApplies = key === 'profit_loss' || key === 'balance_sheet';
     return (
       <div className="space-y-2">
         <label className="block text-xs">
           <span className="block text-gray-800 mb-1">Report key</span>
           <select
-            value={String(block['key'] ?? '')}
+            value={key}
             onChange={(e) => onChange({ key: e.target.value })}
             className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
           >
             <option value="profit_loss">Profit &amp; Loss</option>
             <option value="balance_sheet">Balance Sheet</option>
             <option value="cash_flow">Cash Flow</option>
+            <option value="trial_balance">Trial Balance</option>
+            <option value="bank_balances">Bank Account Balances</option>
             <option value="general_ledger">General Ledger</option>
             <option value="ar_aging">A/R Aging</option>
             <option value="ap_aging">A/P Aging</option>
           </select>
         </label>
+        {basisApplies && (
+          <label className="block text-xs">
+            <span className="block text-gray-800 mb-1">Accounting basis</span>
+            <select
+              value={block['basis'] === 'cash' ? 'cash' : 'accrual'}
+              onChange={(e) => onChange({ basis: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+            >
+              <option value="accrual">Accrual</option>
+              <option value="cash">Cash</option>
+            </select>
+          </label>
+        )}
       </div>
     );
   }

@@ -49,6 +49,19 @@ const drillByAccount =
     return `/transactions?${qs.toString()}`;
   };
 
+// As-of variant of drillByAccount for reports whose only date criterion is
+// an as-of date (e.g. Bank Account Balances). The balance is cumulative
+// from inception, so the drill filters the transactions list up TO the
+// as-of date with no lower bound.
+const drillByAccountAsOf =
+  (idKey: string) =>
+  (row: Record<string, unknown>, ctx: { asOfDate?: string }) => {
+    const id = row[idKey];
+    if (!id || typeof id !== 'string' || !ctx.asOfDate) return null;
+    const qs = new URLSearchParams({ account: id, to: ctx.asOfDate });
+    return `/transactions?${qs.toString()}`;
+  };
+
 // Contact-scoped drill (customer/vendor balance, aging summaries, 1099).
 // Date range is optional — some of these reports are as-of-now rather than
 // bound to a period, and an empty from/to produces "all time" on the
@@ -399,6 +412,7 @@ export function App() {
             <Route path="/reports/bill-payment-history" element={<GenericReport title="Bill Payment History" endpoint="bill-payment-history" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Payment #',drillDown:drillToTxn('id')},{key:'vendor_name',label:'Vendor'},{key:'check_number',label:'Check #'},{key:'bill_count',label:'# Bills',align:'right'},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
             <Route path="/reports/ap-1099-prep" element={<GenericReport title="1099 Preparation" endpoint="ap-1099-prep" useDateRange={false} columns={[{key:'vendor_name',label:'Vendor'},{key:'address',label:'Address'},{key:'tax_id',label:'Tax ID'},{key:'total_paid',label:'Total Paid',align:'right',format:'money'}]} />} />
             <Route path="/reports/transaction-list-by-vendor" element={<GenericReport title="Transactions by Vendor" endpoint="transaction-list-by-vendor" columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
+            <Route path="/reports/bank-balances" element={<GenericReport title="Bank Account Balances" endpoint="bank-balances" useDateRange={false} useAsOfDate columns={[{key:'accountNumber',label:'#'},{key:'name',label:'Account'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByAccountAsOf('accountId')}]} dataKey="accounts" totalsFrom={{balance:'totalBalance'}} />} />
             <Route path="/reports/bank-reconciliation-summary" element={<GenericReport title="Bank Reconciliation" endpoint="bank-reconciliation-summary" useDateRange={false} columns={[]} />} />
             <Route path="/reports/deposit-detail" element={<GenericReport title="Deposit Detail" endpoint="deposit-detail" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />
             <Route path="/reports/check-register" element={<GenericReport title="Check Register" endpoint="check-register" useTagFilter columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'debit',label:'Debit',align:'right',format:'money'},{key:'credit',label:'Credit',align:'right',format:'money'}]} />} />

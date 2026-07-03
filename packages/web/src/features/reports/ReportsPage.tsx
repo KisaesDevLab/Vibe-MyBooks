@@ -59,6 +59,7 @@ const reportGroups = [
     title: 'Banking',
     icon: Landmark,
     reports: [
+      { label: 'Bank Account Balances', path: '/reports/bank-balances' },
       { label: 'Bank Reconciliation', path: '/reports/bank-reconciliation-summary' },
       { label: 'Deposit Detail', path: '/reports/deposit-detail' },
       { label: 'Check Register', path: '/reports/check-register' },
