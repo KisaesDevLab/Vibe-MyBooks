@@ -34,6 +34,7 @@ import { startPortalRecurringScheduler, stopPortalRecurringScheduler } from '../
 import { startPortalReminderScheduler, stopPortalReminderScheduler } from '../../api/src/services/portal-reminder-scheduler.service.js';
 import { startRecurringDocRequestScheduler, stopRecurringDocRequestScheduler } from '../../api/src/services/recurring-doc-request-scheduler.service.js';
 import { startAiRetentionScheduler, stopAiRetentionScheduler } from '../../api/src/services/ai-retention.service.js';
+import { startBalanceValidationScheduler } from '../../api/src/services/balance-validation.service.js';
 import { pool } from '../../api/src/db/index.js';
 import { startHeartbeat, closeWorkerHeartbeatClients } from '../../api/src/utils/worker-heartbeat.js';
 import { env } from '../../api/src/config/env.js';
@@ -64,7 +65,8 @@ try {
   startPortalReminderScheduler();
   startRecurringDocRequestScheduler();
   startAiRetentionScheduler();
-  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, review-checks-scheduler, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler, ai-retention-scheduler');
+  startBalanceValidationScheduler();
+  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, review-checks-scheduler, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler, ai-retention-scheduler, balance-validation-scheduler');
 
   // Statement-parse BullMQ worker — always on (statement import is a core
   // feature). Running the detect→OCR→extract→reconcile pipeline here means it
