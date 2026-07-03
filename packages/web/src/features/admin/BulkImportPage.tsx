@@ -159,8 +159,8 @@ function UploadForm({ onCreated }: { onCreated: (sessionId: string) => void }) {
   // every export, but for the canonical case these inputs make sense.
   // AP doesn't ship contacts at all; surface a hint when the operator
   // selects an unsupported combination.
-  const isUnsupportedCombo =
-    sourceSystem === 'accounting_power' && kind === 'contacts';
+  // Accounting Power vendor/customer exports are now supported directly.
+  const isUnsupportedCombo = false;
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
