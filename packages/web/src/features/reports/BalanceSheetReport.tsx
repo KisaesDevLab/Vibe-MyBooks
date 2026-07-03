@@ -22,6 +22,23 @@ interface BSRow {
   accountNumber?: string | null;
   name: string;
   balance: number;
+  detailType?: string | null;
+}
+
+// Present only when the report was requested with group_by=detail_type.
+// The computed equity rows (Retained Earnings / Net Income) arrive in a
+// dedicated 'Equity (Calculated)' group.
+interface BSGroup {
+  detailType: string | null;
+  label: string;
+  entries: BSRow[];
+  subtotal: number;
+}
+
+interface BSGroups {
+  assets: BSGroup[];
+  liabilities: BSGroup[];
+  equity: BSGroup[];
 }
 
 interface BSStandardData {
@@ -35,6 +52,7 @@ interface BSStandardData {
   totalLiabilities: number;
   totalEquity: number;
   totalLiabilitiesAndEquity: number;
+  groups?: BSGroups;
   columns?: undefined;
 }
 
@@ -60,11 +78,17 @@ interface BSComparativeData {
   totalAssets: Array<number | null>;
   totalLiabilities: Array<number | null>;
   totalEquity: Array<number | null>;
+  totalLiabilitiesAndEquity?: Array<number | null>;
 }
 
 type BSData = BSStandardData | BSComparativeData;
 
-function fmt(n: number) { return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' }); }
+// Accounting convention: negative balances render in parentheses —
+// ($1,234.56) — rather than with a leading minus.
+function fmt(n: number) {
+  const abs = Math.abs(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  return n < 0 ? `(${abs})` : abs;
+}
 function fmtPct(n: number | null) { return n === null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`; }
 
 type CompareMode = '' | 'previous_period' | 'previous_year';
@@ -91,12 +115,15 @@ export function BalanceSheetReport() {
   const [compare, setCompare] = useState<CompareMode>('');
   const [scope, setScope] = useState<'company' | 'consolidated'>('company');
   const [tagId, setTagId] = useState('');
+  const [groupByDetail, setGroupByDetail] = useState(false);
   const { activeCompanyId } = useCompanyContext();
 
-  const queryParams = `as_of_date=${asOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
+  // Grouping only applies to the standard (non-comparative) view.
+  const effectiveGroupBy = groupByDetail && !compare;
+  const queryParams = `as_of_date=${asOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}`;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports', 'balance-sheet', asOfDate, basis, compare, activeCompanyId, scope, tagId],
+    queryKey: ['reports', 'balance-sheet', asOfDate, basis, compare, activeCompanyId, scope, tagId, effectiveGroupBy],
     queryFn: () => apiClient<BSData>(`/reports/balance-sheet?${queryParams}`),
   });
 
@@ -126,6 +153,17 @@ export function BalanceSheetReport() {
           </select>
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
           <ReportTagFilter value={tagId} onChange={setTagId} />
+          {!compare && (
+            <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={groupByDetail}
+                onChange={(e) => setGroupByDetail(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              Group by detail type
+            </label>
+          )}
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (
@@ -158,19 +196,35 @@ function StandardView({ data }: { data: BSStandardData }) {
     );
   };
 
-  const Section = ({ title, items, total }: { title: string; items: BSRow[]; total: number }) => (
+  // Standard statement presentation: account rows indent one level under
+  // the section header; grouped mode indents group members one further.
+  const Row = ({ r, indent = 1 }: { r: BSRow; indent?: 1 | 2 }) => (
+    <div className={`flex justify-between py-1 text-sm ${indent === 2 ? 'pl-8' : 'pl-4'}`}>
+      <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
+      {/* Signed: the API now reports L/E in natural (credit-positive)
+          convention, so contra balances (Owner Withdraw, overpaid
+          cards) render negative and rows foot to the section total.
+          The old Math.abs() made line items disagree with totals. */}
+      <DrillAmount accountId={r.accountId} amount={r.balance} />
+    </div>
+  );
+
+  const Section = ({ title, items, total, groups }: { title: string; items: BSRow[]; total: number; groups?: BSGroup[] }) => (
     <div>
       <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
-      {items.map((r, i) => (
-        <div key={i} className="flex justify-between py-1 text-sm">
-          <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
-          {/* Signed: the API now reports L/E in natural (credit-positive)
-              convention, so contra balances (Owner Withdraw, overpaid
-              cards) render negative and rows foot to the section total.
-              The old Math.abs() made line items disagree with totals. */}
-          <DrillAmount accountId={r.accountId} amount={r.balance} />
-        </div>
-      ))}
+      {groups ? (
+        groups.map((g, gi) => (
+          <div key={gi} className="mb-1">
+            <div className="py-1 pl-4 text-xs font-semibold text-gray-500">{g.label}</div>
+            {g.entries.map((r, i) => <Row key={i} r={r} indent={2} />)}
+            <div className="flex justify-between py-1 pl-8 text-sm font-medium text-gray-700 border-t border-dashed border-gray-200">
+              <span>Total {g.label}</span><span className="font-mono">{fmt(g.subtotal)}</span>
+            </div>
+          </div>
+        ))
+      ) : (
+        items.map((r, i) => <Row key={i} r={r} />)
+      )}
       <div className="flex justify-between py-1 font-semibold border-t mt-1">
         <span>Total {title}</span><span className="font-mono">{fmt(total)}</span>
       </div>
@@ -179,9 +233,9 @@ function StandardView({ data }: { data: BSStandardData }) {
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
-      <Section title={L.assets} items={data.assets} total={data.totalAssets} />
-      <Section title={L.liabilities} items={data.liabilities} total={data.totalLiabilities} />
-      <Section title={L.equity} items={data.equity} total={data.totalEquity} />
+      <Section title={L.assets} items={data.assets} total={data.totalAssets} groups={data.groups?.assets} />
+      <Section title={L.liabilities} items={data.liabilities} total={data.totalLiabilities} groups={data.groups?.liabilities} />
+      <Section title={L.equity} items={data.equity} total={data.totalEquity} groups={data.groups?.equity} />
       <div className="flex justify-between py-2 font-bold text-lg border-t-2">
         <span>{L.totalLiabilitiesAndEquity}</span>
         <span className="font-mono">{fmt(data.totalLiabilitiesAndEquity)}</span>
@@ -268,6 +322,17 @@ function ComparativeView({ data }: { data: BSComparativeData }) {
             <SectionTable title={L.assets} items={data.assets} totals={data.totalAssets} />
             <SectionTable title={L.liabilities} items={data.liabilities} totals={data.totalLiabilities} />
             <SectionTable title={L.equity} items={data.equity} totals={data.totalEquity} />
+            {/* Closing grand total — equals Total Assets when the books balance. */}
+            {data.totalLiabilitiesAndEquity && (
+              <tr className="border-t-2 border-gray-300">
+                <td className="px-3 py-2 text-sm font-bold">{L.totalLiabilitiesAndEquity}</td>
+                {data.totalLiabilitiesAndEquity.map((v, i) => (
+                  <td key={i} className="px-3 py-2 text-right text-sm font-bold">
+                    <CellValue value={v} col={columns[i]!} />
+                  </td>
+                ))}
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

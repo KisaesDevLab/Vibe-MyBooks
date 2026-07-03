@@ -16,6 +16,23 @@ interface PLRow {
   accountNumber?: string | null;
   name: string;
   amount: number;
+  detailType?: string | null;
+}
+
+// Present only when the report was requested with group_by=detail_type.
+interface PLGroup {
+  detailType: string | null;
+  label: string;
+  entries: PLRow[];
+  subtotal: number;
+}
+
+interface PLGroups {
+  revenue: PLGroup[];
+  cogs: PLGroup[];
+  expenses: PLGroup[];
+  otherRevenue: PLGroup[];
+  otherExpenses: PLGroup[];
 }
 
 interface PLStandardData {
@@ -36,6 +53,7 @@ interface PLStandardData {
   otherExpenses?: PLRow[];
   totalOtherExpenses?: number;
   netIncome: number;
+  groups?: PLGroups;
   columns?: undefined;
 }
 
@@ -100,12 +118,15 @@ export function ProfitAndLossReport() {
   const [compare, setCompare] = useState<CompareMode>('');
   const [scope, setScope] = useState<'company' | 'consolidated'>('company');
   const [tagId, setTagId] = useState('');
+  const [groupByDetail, setGroupByDetail] = useState(false);
   const { activeCompanyId } = useCompanyContext();
 
-  const queryParams = `start_date=${startDate}&end_date=${endDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
+  // Grouping only applies to the standard (non-comparative) view.
+  const effectiveGroupBy = groupByDetail && !compare;
+  const queryParams = `start_date=${startDate}&end_date=${endDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}`;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports', 'profit-loss', startDate, endDate, basis, compare, activeCompanyId, scope, tagId],
+    queryKey: ['reports', 'profit-loss', startDate, endDate, basis, compare, activeCompanyId, scope, tagId, effectiveGroupBy],
     queryFn: () => apiClient<PLData>(`/reports/profit-loss?${queryParams}`),
   });
 
@@ -132,6 +153,17 @@ export function ProfitAndLossReport() {
           </select>
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
           <ReportTagFilter value={tagId} onChange={setTagId} />
+          {!compare && (
+            <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={groupByDetail}
+                onChange={(e) => setGroupByDetail(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              Group by detail type
+            </label>
+          )}
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (
@@ -167,15 +199,29 @@ function StandardView({ data }: { data: PLStandardData }) {
     );
   };
 
-  const Section = ({ title, items, total }: { title: string; items: PLRow[]; total: number }) => (
+  const Row = ({ r, indent }: { r: PLRow; indent?: boolean }) => (
+    <div className={`flex justify-between py-1 text-sm ${indent ? 'pl-4' : ''}`}>
+      <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
+      <DrillAmount accountId={r.accountId} amount={r.amount} />
+    </div>
+  );
+
+  const Section = ({ title, items, total, groups }: { title: string; items: PLRow[]; total: number; groups?: PLGroup[] }) => (
     <div>
       <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
-      {items.map((r, i) => (
-        <div key={i} className="flex justify-between py-1 text-sm">
-          <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
-          <DrillAmount accountId={r.accountId} amount={r.amount} />
-        </div>
-      ))}
+      {groups ? (
+        groups.map((g, gi) => (
+          <div key={gi} className="mb-1">
+            <div className="py-1 text-xs font-semibold text-gray-500">{g.label}</div>
+            {g.entries.map((r, i) => <Row key={i} r={r} indent />)}
+            <div className="flex justify-between py-1 pl-4 text-sm font-medium text-gray-700 border-t border-dashed border-gray-200">
+              <span>Total {g.label}</span><span className="font-mono">{fmt(g.subtotal)}</span>
+            </div>
+          </div>
+        ))
+      ) : (
+        items.map((r, i) => <Row key={i} r={r} />)
+      )}
       <div className="flex justify-between py-1 font-semibold border-t mt-1">
         <span>Total {title}</span><span className="font-mono">{fmt(total)}</span>
       </div>
@@ -191,17 +237,17 @@ function StandardView({ data }: { data: PLStandardData }) {
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
-      <Section title={L.revenue} items={data.revenue} total={data.totalRevenue} />
+      <Section title={L.revenue} items={data.revenue} total={data.totalRevenue} groups={data.groups?.revenue} />
       {hasCogs && (
         <>
-          <Section title={L.cogs} items={data.cogs ?? []} total={data.totalCogs ?? 0} />
+          <Section title={L.cogs} items={data.cogs ?? []} total={data.totalCogs ?? 0} groups={data.groups?.cogs} />
           <Subtotal label={L.grossProfit} value={data.grossProfit ?? 0} />
         </>
       )}
-      <Section title={L.expenses} items={data.expenses} total={data.totalExpenses} />
+      <Section title={L.expenses} items={data.expenses} total={data.totalExpenses} groups={data.groups?.expenses} />
       {showOperatingIncome && <Subtotal label={L.operatingIncome} value={data.operatingIncome ?? 0} />}
-      {hasOtherRev && <Section title={L.otherRevenue} items={data.otherRevenue ?? []} total={data.totalOtherRevenue ?? 0} />}
-      {hasOtherExp && <Section title={L.otherExpenses} items={data.otherExpenses ?? []} total={data.totalOtherExpenses ?? 0} />}
+      {hasOtherRev && <Section title={L.otherRevenue} items={data.otherRevenue ?? []} total={data.totalOtherRevenue ?? 0} groups={data.groups?.otherRevenue} />}
+      {hasOtherExp && <Section title={L.otherExpenses} items={data.otherExpenses ?? []} total={data.totalOtherExpenses ?? 0} groups={data.groups?.otherExpenses} />}
       <div className="flex justify-between py-2 font-bold text-lg border-t-2">
         <span>{L.netIncome}</span>
         <span className={`font-mono ${data.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(data.netIncome)}</span>
