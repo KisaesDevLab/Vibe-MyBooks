@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 // admin pages. Shared rather than per-page so the active-tab
 // styling stays consistent. Phases 2-5 add `Rules` and
 // `Settings` tabs as those surfaces ship.
-type FirmTabKey = 'staff' | 'tenants' | 'rules';
+type FirmTabKey = 'staff' | 'tenants' | 'rules' | 'settings';
 
 interface FirmTabsProps {
   firmId: string;
@@ -19,6 +19,7 @@ const TABS: Array<{ key: FirmTabKey; label: string; path: string }> = [
   { key: 'staff', label: 'Staff', path: 'staff' },
   { key: 'tenants', label: 'Managed tenants', path: 'tenants' },
   { key: 'rules', label: 'Rules', path: 'rules' },
+  { key: 'settings', label: 'Settings', path: 'settings' },
 ];
 
 export function FirmTabs({ firmId, active }: FirmTabsProps) {

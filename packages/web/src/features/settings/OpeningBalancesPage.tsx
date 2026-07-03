@@ -56,6 +56,9 @@ export function OpeningBalancesPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [manualBalances, setManualBalances] = useState<Record<string, string>>({});
   const [result, setResult] = useState<ImportResult | null>(null);
+  // Effective date of the opening-balance JE (typically the first day of
+  // the fiscal year the books start). Defaults to today.
+  const [asOfDate, setAsOfDate] = useState(() => new Date().toISOString().split('T')[0]!);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: accountsData, isLoading, isError, refetch } = useQuery({
@@ -68,6 +71,7 @@ export function OpeningBalancesPage() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('asOfDate', asOfDate);
 
       const token = getAccessToken();
       const res = await fetch(`${import.meta.env.BASE_URL}api/v1/export/opening-balances`, {
@@ -92,7 +96,7 @@ export function OpeningBalancesPage() {
     mutationFn: (balances: Array<{ accountId: string; balance: string }>) =>
       apiClient<ImportResult>('/export/opening-balances', {
         method: 'POST',
-        body: JSON.stringify({ balances }),
+        body: JSON.stringify({ balances, asOfDate }),
       }),
     onSuccess: (data) => {
       setResult(data);
@@ -197,6 +201,21 @@ export function OpeningBalancesPage() {
         >
           <FileSpreadsheet className="h-4 w-4 mr-1" /> Manual Entry
         </Button>
+      </div>
+
+      {/* Effective (as-of) date — the opening JE posts at this date so
+          reports dated on/after it include the balances. */}
+      <div className="mb-6 max-w-xs">
+        <label className="block text-sm font-medium text-gray-700 mb-1">As-of date</label>
+        <input
+          type="date"
+          value={asOfDate}
+          onChange={(e) => setAsOfDate(e.target.value)}
+          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Usually the first day of the fiscal year your books start. Reports before this date won't include these balances.
+        </p>
       </div>
 
       {(importCsv.error || importManual.error) && (

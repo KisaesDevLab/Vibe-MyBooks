@@ -460,7 +460,7 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
 
       {/* Sample rows preview — kind-specific tables */}
       {preview.sampleRows.length > 0 && (
-        <PreviewTable kind={session.kind} sampleRows={preview.sampleRows} />
+        <PreviewTable kind={session.kind} sampleRows={preview.sampleRows} totalRows={preview.totalRows} />
       )}
 
       {/* Commit result */}
@@ -553,7 +553,7 @@ function SummaryStat({
 
 // ── Per-kind preview tables ───────────────────────────────────────
 
-function PreviewTable({ kind, sampleRows }: { kind: ImportKind; sampleRows: unknown[] }) {
+function PreviewTable({ kind, sampleRows, totalRows }: { kind: ImportKind; sampleRows: unknown[]; totalRows?: number }) {
   if (sampleRows.length === 0) return null;
   const tableEl = (() => {
     if (kind === 'coa') return <CoaPreviewTable rows={sampleRows as CanonicalCoaRow[]} />;
@@ -562,10 +562,15 @@ function PreviewTable({ kind, sampleRows }: { kind: ImportKind; sampleRows: unkn
     if (kind === 'gl_transactions') return <GlPreviewTable entries={sampleRows as CanonicalGlEntry[]} />;
     return null;
   })();
+  // sampleRows is capped server-side; only when it's smaller than the
+  // parsed total do we say "first N" and reassure that commit imports all.
+  const truncated = typeof totalRows === 'number' && totalRows > sampleRows.length;
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
       <h2 className="text-sm font-semibold text-gray-800 px-4 py-3 border-b">
-        First {sampleRows.length} parsed rows
+        {truncated
+          ? `First ${sampleRows.length} of ${totalRows} parsed rows (all ${totalRows} import on commit)`
+          : `All ${sampleRows.length} parsed rows`}
       </h2>
       <div className="max-h-96 overflow-auto">{tableEl}</div>
     </div>

@@ -27,6 +27,14 @@ interface Budget {
 type MonthKey = `month${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12}`;
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Column labels rotated to the budget's fiscal start — month1 is the
+// FIRST FISCAL month (fill-from-actuals seeds it that way), so a July
+// FY renders Jul..Jun instead of mislabeling July data as "Jan".
+function labelsFor(fiscalYearStart: string | null | undefined): string[] {
+  const m = fiscalYearStart ? parseInt(String(fiscalYearStart).slice(5, 7), 10) || 1 : 1;
+  return [...MONTH_NAMES.slice(m - 1), ...MONTH_NAMES.slice(0, m - 1)];
+}
 const MONTH_KEYS: MonthKey[] = Array.from({ length: 12 }, (_, i) => `month${i + 1}` as MonthKey);
 
 function parseAmount(val: string): number {
@@ -546,6 +554,7 @@ export function BudgetEditorPage() {
             handleSpreadAnnual={handleSpreadAnnual}
             handleApplyToAll={handleApplyToAll}
             hasNonZero={hasNonZero}
+            fiscalYearStart={(budgetsData?.budgets?.find((b) => b.id === activeBudgetId) as { fiscalYearStart?: string | null } | undefined)?.fiscalYearStart}
           />
         )
       ) : (
@@ -687,8 +696,9 @@ function AnnualView({ budgetAccounts, lines, hideZero, getAnnualTotal, setAnnual
 
 // ─── Monthly Entry View ───────────────────────────────────────
 
-function MonthlyView({ budgetAccounts, lines, hideZero, getAnnualTotal, setAnnualAmount, handleCellChange, handleSpreadAnnual, handleApplyToAll, hasNonZero }: {
+function MonthlyView({ budgetAccounts, lines, hideZero, getAnnualTotal, setAnnualAmount, handleCellChange, handleSpreadAnnual, handleApplyToAll, hasNonZero, fiscalYearStart }: {
   budgetAccounts: Array<{ id: string; name: string; accountNumber: string | null; accountType: string }>;
+  fiscalYearStart?: string | null;
   lines: Record<string, Record<MonthKey, string>>;
   hideZero: boolean;
   getAnnualTotal: (id: string) => number;
@@ -742,7 +752,7 @@ function MonthlyView({ budgetAccounts, lines, hideZero, getAnnualTotal, setAnnua
         <thead className="bg-gray-50">
           <tr>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase sticky left-0 bg-gray-50 z-10 min-w-[200px]">Account</th>
-            {MONTH_NAMES.map((m) => (
+            {labelsFor(fiscalYearStart).map((m) => (
               <th key={m} className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase min-w-[100px]">{m}</th>
             ))}
             <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase min-w-[120px] bg-gray-100">Annual Total</th>

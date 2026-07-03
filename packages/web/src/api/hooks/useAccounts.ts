@@ -3,7 +3,7 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Account, CreateAccountInput, UpdateAccountInput, AccountFilters } from '@kis-books/shared';
+import type { Account, CreateAccountInput, UpdateAccountInput, AccountFilters, BulkUpdateAccountsInput } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../client';
 
 export function useAccounts(filters?: AccountFilters) {
@@ -46,6 +46,18 @@ export function useUpdateAccount() {
   return useMutation({
     mutationFn: ({ id, ...input }: UpdateAccountInput & { id: string }) =>
       apiClient<{ account: Account }>(`/accounts/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+  });
+}
+
+export function useBulkUpdateAccounts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: BulkUpdateAccountsInput) =>
+      apiClient<{ updated: number; accounts: Account[] }>('/accounts/bulk', {
         method: 'PUT',
         body: JSON.stringify(input),
       }),

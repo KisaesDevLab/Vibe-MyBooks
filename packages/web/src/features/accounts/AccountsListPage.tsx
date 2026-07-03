@@ -15,7 +15,8 @@ import { Pagination } from '../../components/ui/Pagination';
 import { AccountFormModal } from './AccountFormModal';
 import { AccountImportModal } from './AccountImportModal';
 import { MergeAccountsModal } from './MergeAccountsModal';
-import { Plus, Upload, Download, Merge, Search, Shield, List } from 'lucide-react';
+import { BulkEditAccountsModal } from './BulkEditAccountsModal';
+import { Plus, Upload, Download, Merge, Search, Shield, List, Table2 } from 'lucide-react';
 import type { Account } from '@kis-books/shared';
 
 const PAGE_SIZE = 200;
@@ -30,6 +31,7 @@ export function AccountsListPage() {
   const [editAccount, setEditAccount] = useState<Account | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
 
   // Reset offset on any filter change so the user isn't stranded past the end.
   const setTypeFilter = (v: AccountType | '') => { setTypeFilterRaw(v); setOffset(0); };
@@ -66,6 +68,9 @@ export function AccountsListPage() {
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setShowMerge(true)}>
             <Merge className="h-4 w-4 mr-1" /> Merge
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setShowBulkEdit(true)}>
+            <Table2 className="h-4 w-4 mr-1" /> Bulk Edit
           </Button>
           <Button size="sm" onClick={() => { setEditAccount(null); setShowForm(true); }}>
             <Plus className="h-4 w-4 mr-1" /> New Account
@@ -191,6 +196,7 @@ export function AccountsListPage() {
       {showForm && <AccountFormModal account={editAccount} onClose={() => { setShowForm(false); setEditAccount(null); }} />}
       {showImport && <AccountImportModal onClose={() => setShowImport(false)} />}
       {showMerge && <MergeAccountsModal accounts={accounts} onClose={() => setShowMerge(false)} />}
+      {showBulkEdit && <BulkEditAccountsModal onClose={() => setShowBulkEdit(false)} />}
     </div>
   );
 }
