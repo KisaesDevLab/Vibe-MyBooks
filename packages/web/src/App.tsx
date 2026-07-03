@@ -94,6 +94,7 @@ const EmailSettingsPage = lazyNamed(() => import('./features/settings/EmailSetti
 const CompanyAiSettingsPage = lazyNamed(() => import('./features/settings/CompanyAiSettingsPage'), 'CompanyAiSettingsPage');
 const AiDiagnosticsPage = lazyNamed(() => import('./features/settings/AiDiagnosticsPage'), 'AiDiagnosticsPage');
 const ReportLabelsPage = lazyNamed(() => import('./features/settings/ReportLabelsPage'), 'ReportLabelsPage');
+const DetailTypesPage = lazyNamed(() => import('./features/settings/DetailTypesPage'), 'DetailTypesPage');
 const TeamPage = lazyNamed(() => import('./features/settings/TeamPage'), 'TeamPage');
 const ApiKeysPage = lazyNamed(() => import('./features/settings/ApiKeysPage'), 'ApiKeysPage');
 const TfaSettingsPage = lazyNamed(() => import('./features/settings/TfaSettingsPage'), 'TfaSettingsPage');
@@ -424,6 +425,7 @@ export function App() {
             <Route path="/settings/ai" element={<CompanyAiSettingsPage />} />
             <Route path="/settings/ai/diagnostics" element={<AiDiagnosticsPage />} />
             <Route path="/settings/report-labels" element={<ReportLabelsPage />} />
+            <Route path="/settings/detail-types" element={<DetailTypesPage />} />
             <Route path="/settings/online-payments" element={<StripeSettingsPage />} />
             <Route path="/settings/team" element={<TeamPage />} />
             <Route path="/settings/api-keys" element={<ApiKeysPage />} />

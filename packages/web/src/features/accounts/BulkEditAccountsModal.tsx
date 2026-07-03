@@ -4,8 +4,9 @@
 
 import { useMemo, useState } from 'react';
 import type { Account, AccountType } from '@kis-books/shared';
-import { ACCOUNT_TYPES, DETAIL_TYPES, formatAccountTypeLabel } from '@kis-books/shared';
+import { ACCOUNT_TYPES, formatAccountTypeLabel, formatDetailTypeLabel } from '@kis-books/shared';
 import { useAccounts, useBulkUpdateAccounts } from '../../api/hooks/useAccounts';
+import { useDetailTypes } from '../../api/hooks/useDetailTypes';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { X, Search, Shield } from 'lucide-react';
@@ -38,14 +39,14 @@ function isDirty(a: Account, e: RowEdit): boolean {
   );
 }
 
-function prettyDetail(dt: string): string {
-  return dt.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
+const prettyDetail = formatDetailTypeLabel;
 
 export function BulkEditAccountsModal({ onClose }: { onClose: () => void }) {
   // Load the whole COA (list endpoint caps at 500 — same as the bulk
   // update schema, so one save can cover everything shown).
   const { data, isLoading } = useAccounts({ limit: 500, offset: 0 });
+  // Merged builtin + tenant-custom detail types (static fallback inside).
+  const { optionsFor } = useDetailTypes();
   const bulkUpdate = useBulkUpdateAccounts();
   const [edits, setEdits] = useState<Record<string, RowEdit>>({});
   const [search, setSearch] = useState('');
@@ -129,7 +130,7 @@ export function BulkEditAccountsModal({ onClose }: { onClose: () => void }) {
                 {visible.map((a) => {
                   const e = getEdit(a);
                   const dirty = !!edits[a.id] && isDirty(a, e);
-                  const detailOptions = DETAIL_TYPES[e.accountType] || [];
+                  const detailOptions = optionsFor(e.accountType);
                   return (
                     <tr key={a.id} className={`border-b border-gray-100 ${dirty ? 'bg-amber-50' : ''}`}>
                       <td className="px-4 py-1.5">
@@ -169,10 +170,10 @@ export function BulkEditAccountsModal({ onClose }: { onClose: () => void }) {
                         >
                           <option value="">— None —</option>
                           {detailOptions.map((dt) => (
-                            <option key={dt} value={dt}>{prettyDetail(dt)}</option>
+                            <option key={dt.value} value={dt.value}>{dt.label}</option>
                           ))}
                           {/* Preserve a legacy value not present in the current type's list */}
-                          {e.detailType && !detailOptions.includes(e.detailType) && (
+                          {e.detailType && !detailOptions.some((dt) => dt.value === e.detailType) && (
                             <option value={e.detailType}>{prettyDetail(e.detailType)}</option>
                           )}
                         </select>

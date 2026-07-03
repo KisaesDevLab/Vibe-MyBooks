@@ -22,6 +22,7 @@ import {
   Cloud,
   CreditCard,
   Brain,
+  ListTree,
 } from 'lucide-react';
 
 const settingsCards = [
@@ -66,6 +67,12 @@ const settingsCards = [
     icon: FileText,
     title: 'Report Headings',
     description: 'Customize section headings for P&L, Balance Sheet, and Cash Flow — plus an optional report footer',
+  },
+  {
+    to: '/settings/detail-types',
+    icon: ListTree,
+    title: 'Detail Types',
+    description: 'Add custom account detail types for the chart of accounts and report grouping',
   },
   {
     to: '/settings/online-payments',

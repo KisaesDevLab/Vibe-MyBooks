@@ -64,10 +64,12 @@ import { TeamPage } from './TeamPage';
 import { TenantExportPage } from './TenantExportPage';
 import { TenantImportPage } from './TenantImportPage';
 import { TfaSettingsPage } from './TfaSettingsPage';
+import { DetailTypesPage } from './DetailTypesPage';
 
 describe('settings pages', () => {
   for (const [name, Component] of [
     ['ApiKeysPage', ApiKeysPage],
+    ['DetailTypesPage', DetailTypesPage],
     ['AuditLogPage', AuditLogPage],
     ['BackupRestorePage', BackupRestorePage],
     ['CheckPrintSettingsPage', CheckPrintSettingsPage],

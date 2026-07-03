@@ -4,10 +4,11 @@
 
 import { useState, useEffect, type FormEvent } from 'react';
 import type { Account, AccountType, CreateAccountInput, UpdateAccountInput } from '@kis-books/shared';
-import { ACCOUNT_TYPES, DETAIL_TYPES, formatAccountTypeLabel } from '@kis-books/shared';
+import { ACCOUNT_TYPES, formatAccountTypeLabel, formatDetailTypeLabel } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useCreateAccount, useUpdateAccount } from '../../api/hooks/useAccounts';
+import { useDetailTypes } from '../../api/hooks/useDetailTypes';
 import { X } from 'lucide-react';
 
 interface AccountFormModalProps {
@@ -40,7 +41,10 @@ export function AccountFormModal({ account, onClose }: AccountFormModalProps) {
     }
   }, [account]);
 
-  const detailTypes = DETAIL_TYPES[form.accountType] || [];
+  // Merged builtin + tenant-custom detail types (falls back to the
+  // static builtin list while loading / on fetch failure).
+  const { optionsFor } = useDetailTypes();
+  const detailTypes = optionsFor(form.accountType);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -103,8 +107,12 @@ export function AccountFormModal({ account, onClose }: AccountFormModalProps) {
             >
               <option value="">— Select —</option>
               {detailTypes.map((dt) => (
-                <option key={dt} value={dt}>{dt.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+                <option key={dt.value} value={dt.value}>{dt.label}</option>
               ))}
+              {/* Preserve a legacy/other-type value not in the current list */}
+              {form.detailType && !detailTypes.some((dt) => dt.value === form.detailType) && (
+                <option value={form.detailType}>{formatDetailTypeLabel(form.detailType)}</option>
+              )}
             </select>
           </div>
 
