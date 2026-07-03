@@ -56,6 +56,14 @@ interface ActualsReport {
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// Column labels rotated to the budget's fiscal start (month_1 IS the
+// first fiscal month, e.g. Jul for a July FY — the old hardcoded
+// Jan–Dec headers put July numbers under "Jan" for non-calendar FYs).
+function labelsFor(fiscalYearStart: string | undefined): string[] {
+  const m = fiscalYearStart ? parseInt(fiscalYearStart.slice(5, 7), 10) || 1 : 1;
+  return [...MONTH_NAMES.slice(m - 1), ...MONTH_NAMES.slice(0, m - 1)];
+}
+
 function fmt(n: number): string {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -102,7 +110,7 @@ export function BudgetVsActualsPage() {
     const header = [
       'Account',
       'Type',
-      ...MONTH_NAMES.flatMap((m) => [`${m} Budget`, `${m} Actual`, `${m} Var`]),
+      ...labelsFor(report.fiscalYearStart).flatMap((m) => [`${m} Budget`, `${m} Actual`, `${m} Var`]),
       'Total Budget',
       'Total Actual',
       'Total Var',
@@ -134,15 +142,23 @@ export function BudgetVsActualsPage() {
   const drillThrough = (accountId: string, periodIndex: number) => {
     if (!report) return;
     // Compute the period's start / end dates from the fiscal year start.
-    const fyStart = new Date(report.fiscalYearStart);
+    // UTC arithmetic: the local setMonth/setDate version rolled Feb's
+    // window into March for day-31 fiscal starts and drifted a day in
+    // non-UTC browsers, so drill results didn't foot to the cell.
+    const fyStart = new Date(report.fiscalYearStart.slice(0, 10) + 'T00:00:00Z');
     const monthsPerPeriod =
       report.budget.periodType === 'monthly' ? 1 :
       report.budget.periodType === 'quarterly' ? 3 : 12;
-    const startDate = new Date(fyStart);
-    startDate.setMonth(startDate.getMonth() + (periodIndex - 1) * monthsPerPeriod);
-    const endDate = new Date(startDate);
-    endDate.setMonth(endDate.getMonth() + monthsPerPeriod);
-    endDate.setDate(endDate.getDate() - 1);
+    const startDate = new Date(Date.UTC(
+      fyStart.getUTCFullYear(),
+      fyStart.getUTCMonth() + (periodIndex - 1) * monthsPerPeriod,
+      1,
+    ));
+    const endDate = new Date(Date.UTC(
+      startDate.getUTCFullYear(),
+      startDate.getUTCMonth() + monthsPerPeriod,
+      0,
+    ));
     const params = new URLSearchParams({
       accountId,
       startDate: startDate.toISOString().split('T')[0]!,
@@ -240,7 +256,7 @@ export function BudgetVsActualsPage() {
             <thead className="bg-gray-50 sticky top-0">
               <tr>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase sticky left-0 bg-gray-50 z-10 min-w-[200px]">Account</th>
-                {MONTH_NAMES.map((m, i) => (
+                {labelsFor(report?.fiscalYearStart).map((m, i) => (
                   <th key={i} className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">{m}</th>
                 ))}
                 <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase bg-gray-100">Total Budget</th>

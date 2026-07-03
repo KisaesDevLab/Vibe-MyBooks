@@ -85,6 +85,14 @@ export function PreferencesPage() {
             <select value={form.fiscalYearStartMonth} onChange={set('fiscalYearStartMonth')} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
               {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
+            {data?.settings?.fiscalYearStartMonth !== undefined &&
+              Number(form.fiscalYearStartMonth) !== Number(data.settings.fiscalYearStartMonth) && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mt-2">
+                Changing the fiscal year start re-partitions Retained Earnings vs. Net Income on
+                every historical Balance Sheet and Trial Balance the moment you save — prior-period
+                reports will no longer match previously published versions.
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Accounting Method</label>

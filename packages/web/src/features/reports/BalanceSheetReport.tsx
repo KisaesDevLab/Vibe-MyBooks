@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { DEFAULT_BS_LABELS, type BSSectionLabels } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
+import { useCompanySettings } from '../../api/hooks/useCompany';
 import { ReportShell } from './ReportShell';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
@@ -68,16 +69,16 @@ function fmtPct(n: number | null) { return n === null ? '—' : `${n >= 0 ? '+' 
 
 type CompareMode = '' | 'previous_period' | 'previous_year';
 
-// Balance-sheet drill: show current-year activity against this account,
-// Jan 1 of the as-of date's year through the as-of date itself. Each
-// column in the comparative view has its own as-of, so Jan 1 is derived
-// per column rather than hard-coded from the report's primary filter.
-// The computed rows (Retained Earnings, Net Income) have no source
-// account so their cells render as plain text.
-function bsDrillUrl(accountId: string | null | undefined, asOfDate: string | undefined): string | null {
+// Balance-sheet drill: show current-FISCAL-year activity against this
+// account, from the fiscal year start containing the column's as-of
+// date through the as-of date itself (was hardcoded Jan 1, which split
+// a non-January fiscal year). The computed rows (Retained Earnings,
+// Net Income) have no source account so their cells render as text.
+function bsDrillUrl(accountId: string | null | undefined, asOfDate: string | undefined, fyMonth: number = 1): string | null {
   if (!accountId || !asOfDate) return null;
-  const year = asOfDate.slice(0, 4);
-  const from = `${year}-01-01`;
+  let year = parseInt(asOfDate.slice(0, 4), 10);
+  if (parseInt(asOfDate.slice(5, 7), 10) < fyMonth) year--;
+  const from = `${year}-${String(fyMonth).padStart(2, '0')}-01`;
   const qs = new URLSearchParams({ account: accountId, from, to: asOfDate });
   return `/transactions?${qs.toString()}`;
 }
@@ -139,9 +140,11 @@ export function BalanceSheetReport() {
 function StandardView({ data }: { data: BSStandardData }) {
   const navigate = useNavigate();
   const L = data.labels ?? DEFAULT_BS_LABELS;
+  const { data: settingsData } = useCompanySettings();
+  const fyMonth = settingsData?.settings?.fiscalYearStartMonth ?? 1;
 
   const DrillAmount = ({ accountId, amount }: { accountId: string | null | undefined; amount: number }) => {
-    const href = bsDrillUrl(accountId, data.asOfDate);
+    const href = bsDrillUrl(accountId, data.asOfDate, fyMonth);
     if (!href) return <span className="font-mono">{fmt(amount)}</span>;
     return (
       <button
@@ -190,6 +193,8 @@ function StandardView({ data }: { data: BSStandardData }) {
 
 function ComparativeView({ data }: { data: BSComparativeData }) {
   const navigate = useNavigate();
+  const { data: settingsData } = useCompanySettings();
+  const fyMonth = settingsData?.settings?.fiscalYearStartMonth ?? 1;
   const columns: BSComparativeColumn[] = data.columns;
   const isVarianceCol = (col: BSComparativeColumn) => col.type === 'variance' || col.type === 'percent_variance';
   const L = data.labels ?? DEFAULT_BS_LABELS;
@@ -213,7 +218,7 @@ function ComparativeView({ data }: { data: BSComparativeData }) {
             <td className="px-3 py-1.5 text-sm">{row.name}</td>
             {row.values.map((v, j) => {
               const col = columns[j]!;
-              const href = bsDrillUrl(row.accountId, col.asOfDate);
+              const href = bsDrillUrl(row.accountId, col.asOfDate, fyMonth);
               return (
                 <td key={j} className={`px-3 py-1.5 text-right text-sm ${isVarianceCol(col) ? 'bg-gray-50' : ''}`}>
                   {href ? (
