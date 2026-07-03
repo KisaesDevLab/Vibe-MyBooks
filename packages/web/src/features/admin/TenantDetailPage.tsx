@@ -8,7 +8,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen } from 'lucide-react';
+import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 
 interface TenantUser {
   id: string;
@@ -55,6 +56,12 @@ export function TenantDetailPage() {
   >(null);
   const [showDeleteCoa, setShowDeleteCoa] = useState(false);
   const [coaError, setCoaError] = useState<string | null>(null);
+  const [showDeleteTxns, setShowDeleteTxns] = useState(false);
+  const [txnConfirmText, setTxnConfirmText] = useState('');
+  const [txnError, setTxnError] = useState<string | null>(null);
+  const [templateSlug, setTemplateSlug] = useState('general_business');
+  const [coaApplyMsg, setCoaApplyMsg] = useState<string | null>(null);
+  const coaTemplateOptions = useCoaTemplateOptions();
 
   const toggleAccessMutation = useMutation({
     mutationFn: (userId: string) =>
@@ -98,6 +105,32 @@ export function TenantDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', id] });
     },
     onError: (err: Error) => setCoaError(err.message || 'Delete failed'),
+  });
+
+  // Apply a COA template — only valid on an EMPTY chart of accounts.
+  const applyCoaMutation = useMutation({
+    mutationFn: () => apiClient<{ accountsCreated: number }>(`/admin/tenants/${id}/apply-coa-template`, {
+      method: 'POST',
+      body: JSON.stringify({ templateSlug }),
+    }),
+    onSuccess: (r) => {
+      setCoaApplyMsg(`Applied — ${r.accountsCreated} accounts created.`);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', id] });
+    },
+    onError: (err: Error) => setCoaApplyMsg(err.message || 'Apply failed'),
+  });
+
+  // Books reset: wipes every transaction (keeps COA/contacts/users/
+  // settings, resets bank-feed matches + balances). Type-to-confirm.
+  const deleteTxnsMutation = useMutation({
+    mutationFn: () => apiClient(`/admin/tenants/${id}/transactions`, { method: 'DELETE' }),
+    onSuccess: () => {
+      setShowDeleteTxns(false);
+      setTxnConfirmText('');
+      setTxnError(null);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', id] });
+    },
+    onError: (err: Error) => setTxnError(err.message || 'Delete failed'),
   });
 
   const { data: tenant, isLoading, error } = useQuery({
@@ -369,6 +402,44 @@ export function TenantDetailPage() {
         )}
       </div>
 
+      {/* Chart of Accounts — apply a template when the COA is empty
+          (fresh tenant, or after Delete chart of accounts below). */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+          <BookOpen className="h-5 w-5 text-gray-600" />
+          <h2 className="text-lg font-semibold text-gray-900">Chart of Accounts</h2>
+        </div>
+        <div className="p-6 flex items-end justify-between gap-4 flex-wrap">
+          <div className="text-sm flex-1 min-w-[260px]">
+            <p className="font-medium text-gray-900">Apply a template</p>
+            <p className="text-gray-600 mt-1">
+              {tenant.stats.accountCount === 0
+                ? 'This tenant has no accounts — pick a business-type template to seed its chart of accounts.'
+                : `This tenant already has ${tenant.stats.accountCount} accounts. To apply a different template, delete the chart of accounts first (Danger Zone below — only possible before any transactions).`}
+            </p>
+            {coaApplyMsg && (
+              <p className={`mt-1 ${coaApplyMsg.startsWith('Applied') ? 'text-green-700' : 'text-red-700'}`}>{coaApplyMsg}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={templateSlug} onChange={(e) => setTemplateSlug(e.target.value)}
+              disabled={tenant.stats.accountCount > 0}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400 min-w-[220px]">
+              {coaTemplateOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => { setCoaApplyMsg(null); applyCoaMutation.mutate(); }}
+              disabled={tenant.stats.accountCount > 0 || applyCoaMutation.isPending}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {applyCoaMutation.isPending ? 'Applying…' : 'Apply template'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Danger Zone — destructive operations live here, separated from
           the rest of the page so they can't be clicked by accident. */}
       <div className="bg-white rounded-lg border-2 border-red-200 shadow-sm overflow-hidden">
@@ -398,6 +469,26 @@ export function TenantDetailPage() {
             Delete chart of accounts
           </button>
         </div>
+        {/* Delete all transactions — books reset, everything else kept. */}
+        <div className="p-6 flex items-center justify-between gap-4 border-b border-red-100">
+          <div className="text-sm">
+            <p className="font-medium text-gray-900">Delete all transactions</p>
+            <p className="text-gray-600 mt-1">
+              Removes all {tenant.stats.transactionCount} transactions and journal lines — a books
+              reset. Keeps the chart of accounts, contacts, companies, users, and settings; bank-feed
+              items return to pending and account balances reset to zero. This cannot be undone.
+            </p>
+            {txnError && <p className="text-red-700 mt-1">{txnError}</p>}
+          </div>
+          <button
+            onClick={() => { setTxnError(null); setTxnConfirmText(''); setShowDeleteTxns(true); }}
+            disabled={tenant.stats.transactionCount === 0}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 border border-red-300 hover:bg-red-50 rounded-lg whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete all transactions
+          </button>
+        </div>
         <div className="p-6 flex items-center justify-between gap-4">
           <div className="text-sm">
             <p className="font-medium text-gray-900">Delete this tenant</p>
@@ -416,6 +507,61 @@ export function TenantDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* Delete-all-transactions confirmation — type-to-confirm. */}
+      {showDeleteTxns && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => { if (!deleteTxnsMutation.isPending) setShowDeleteTxns(false); }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Delete all transactions?</h3>
+            </div>
+            <div className="text-sm text-gray-700 space-y-2">
+              <p>
+                This permanently deletes <strong>{tenant.stats.transactionCount} transactions</strong> and
+                their journal lines for <strong>{tenant.name}</strong> — including invoices, bills,
+                payments, reconciliations, and recurring schedules. Account balances reset to zero;
+                bank-feed items return to pending. The chart of accounts, contacts, and settings are kept.
+              </p>
+            </div>
+            <div className="pt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                To confirm, type <span className="font-mono font-bold text-red-700">{tenant.name}</span> below:
+              </label>
+              <input
+                type="text"
+                value={txnConfirmText}
+                onChange={(e) => setTxnConfirmText(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none"
+                placeholder={tenant.name}
+                autoFocus
+                disabled={deleteTxnsMutation.isPending}
+              />
+            </div>
+            {txnError && (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">{txnError}</div>
+            )}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowDeleteTxns(false)}
+                disabled={deleteTxnsMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setTxnError(null); deleteTxnsMutation.mutate(); }}
+                disabled={txnConfirmText !== tenant.name || deleteTxnsMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg"
+              >
+                {deleteTxnsMutation.isPending ? 'Deleting…' : 'Delete all transactions'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={showDeleteCoa}
