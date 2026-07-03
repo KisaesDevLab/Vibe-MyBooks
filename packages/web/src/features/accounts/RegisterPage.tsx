@@ -16,6 +16,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Search, Download, Printer, ChevronLeft, ChevronRight, Ban } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 
 const txnTypeLabels: Record<string, string> = {
   invoice: 'INV', customer_payment: 'PMT', cash_sale: 'SALE', expense: 'CHK',
@@ -52,6 +53,13 @@ export function RegisterPage() {
   const [voidingId, setVoidingId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState('');
 
+  // Typing stays responsive; the register query fires only once the
+  // search text is stable and dates are complete (native date inputs
+  // fire a change per segment).
+  const debouncedSearch = useDebouncedValue(search);
+  const debStartDate = useDebouncedDate(startDate);
+  const debEndDate = useDebouncedDate(endDate);
+
   // Close the void dialog on Escape so the user isn't trapped when they
   // mis-click. Paired with a backdrop click handler below.
   useEffect(() => {
@@ -62,7 +70,7 @@ export function RegisterPage() {
   }, [voidingId]);
 
   const { data, isLoading, isError, refetch } = useRegister(id!, {
-    startDate, endDate, search: search || undefined, txnType: txnTypeFilter || undefined,
+    startDate: debStartDate, endDate: debEndDate, search: debouncedSearch || undefined, txnType: txnTypeFilter || undefined,
     sortBy, sortDir, page, perPage: 50, includeVoid,
   });
   const { data: summary } = useRegisterSummary(id!);

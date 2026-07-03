@@ -2,10 +2,11 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_CF_LABELS, type CFSectionLabels } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
+import { useSessionState } from '../../hooks/useSessionState';
+import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -30,16 +31,21 @@ function fmt(n: number) { return n.toLocaleString('en-US', { style: 'currency', 
 
 export function CashFlowReport() {
   const today = new Date();
-  const [startDate, setStartDate] = useState(`${today.getFullYear()}-01-01`);
-  const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
-  const [scope, setScope] = useState<'company' | 'consolidated'>('company');
-  const [tagId, setTagId] = useState('');
+  // Selection criteria persist for the tab session (sessionStorage).
+  const [startDate, setStartDate] = useSessionState('vibe:report-cf:startDate', `${today.getFullYear()}-01-01`);
+  const [endDate, setEndDate] = useSessionState('vibe:report-cf:endDate', today.toISOString().split('T')[0]!);
+  const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-cf:scope', 'company');
+  const [tagId, setTagId] = useSessionState('vibe:report-cf:tagId', '');
   const { activeCompanyId } = useCompanyContext();
 
-  const queryParams = `start_date=${startDate}&end_date=${endDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
+  // Only query once typed dates are complete and stable.
+  const debStartDate = useDebouncedDate(startDate);
+  const debEndDate = useDebouncedDate(endDate);
+
+  const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['reports', 'cash-flow', startDate, endDate, activeCompanyId, scope, tagId],
+    queryKey: ['reports', 'cash-flow', debStartDate, debEndDate, activeCompanyId, scope, tagId],
     queryFn: () => apiClient<CFData>(`/reports/cash-flow?${queryParams}`),
   });
 

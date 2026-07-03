@@ -6,6 +6,8 @@ import { useState, useMemo, useEffect } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
 import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { useSessionState } from '../../hooks/useSessionState';
+import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/hooks/useAi';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { AccountSelector } from '../../components/forms/AccountSelector';
@@ -28,18 +30,6 @@ function ConfidenceBadge({ score }: { score: number }) {
   if (score >= 0.9) return <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">High</span>;
   if (score >= 0.7) return <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-medium">Medium</span>;
   return <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">Low</span>;
-}
-
-function useDebounce(value: string, delay: number) {
-  // Previously written with useMemo — the returned cleanup function was
-  // discarded, so typing accumulated pending timers. useEffect's cleanup
-  // runs on every dependency change and correctly cancels the stale timer.
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
 }
 
 interface EditState {
@@ -73,30 +63,33 @@ function SortHeader({ label, sortKey, currentSort, currentDir, onSort, align }: 
 }
 
 export function BankFeedPage() {
-  const [statusFilter, setStatusFilter] = useState<BankFeedStatus | ''>('');
+  // Feed filters persist for the tab session (sessionStorage).
+  const [statusFilter, setStatusFilter] = useSessionState<BankFeedStatus | ''>('vibe:bank-feed:status', '');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState>({ feedDate: '', description: '', memo: '', contactId: '' });
   const [catAccountId, setCatAccountId] = useState('');
   const [batchCatAccountId, setBatchCatAccountId] = useState('');
   const [showBatchCategorize, setShowBatchCategorize] = useState(false);
-  const [search, setSearch] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [connectionFilter, setConnectionFilter] = useState('');
-  const [actionableOnly, setActionableOnly] = useState(false);
+  const [search, setSearch] = useSessionState('vibe:bank-feed:search', '');
+  const [startDate, setStartDate] = useSessionState('vibe:bank-feed:startDate', '');
+  const [endDate, setEndDate] = useSessionState('vibe:bank-feed:endDate', '');
+  const [connectionFilter, setConnectionFilter] = useSessionState('vibe:bank-feed:connection', '');
+  const [actionableOnly, setActionableOnly] = useSessionState('vibe:bank-feed:actionableOnly', false);
   const [sortKey, setSortKey] = useState<SortKey>('feedDate');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [matchModalFor, setMatchModalFor] = useState<string | null>(null);
   const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
 
-  const debouncedSearch = useDebounce(search, 400);
+  const debouncedSearch = useDebouncedValue(search);
+  const debStartDate = useDebouncedDate(startDate);
+  const debEndDate = useDebouncedDate(endDate);
 
   const { data, isLoading, isError, isFetching, refetch } = useBankFeed({
     status: statusFilter || undefined,
     bankConnectionId: connectionFilter || undefined,
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
+    startDate: debStartDate || undefined,
+    endDate: debEndDate || undefined,
     search: debouncedSearch || undefined,
     actionableOnly: actionableOnly || undefined,
     limit: 200,

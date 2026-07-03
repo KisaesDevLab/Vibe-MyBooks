@@ -2,9 +2,10 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useBills } from '../../api/hooks/useAp';
+import { useSessionState } from '../../hooks/useSessionState';
+import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -21,18 +22,23 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export function BillListPage() {
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<BillStatus | ''>('');
-  const [search, setSearch] = useState('');
+  // Filters persist for the tab session (sessionStorage); search/date
+  // input is debounced so the query doesn't fire per keystroke.
+  const [statusFilter, setStatusFilter] = useSessionState<BillStatus | ''>('vibe:bills:status', '');
+  const [search, setSearch] = useSessionState('vibe:bills:search', '');
   // ADR / build plan — Bills list gets date-range and tag filters.
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [tagFilter, setTagFilter] = useState('');
+  const [startDate, setStartDate] = useSessionState('vibe:bills:startDate', '');
+  const [endDate, setEndDate] = useSessionState('vibe:bills:endDate', '');
+  const [tagFilter, setTagFilter] = useSessionState('vibe:bills:tag', '');
+  const debouncedSearch = useDebouncedValue(search);
+  const debStartDate = useDebouncedDate(startDate);
+  const debEndDate = useDebouncedDate(endDate);
 
   const { data, isLoading, isError, refetch } = useBills({
     billStatus: statusFilter || undefined,
-    search: search || undefined,
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
+    search: debouncedSearch || undefined,
+    startDate: debStartDate || undefined,
+    endDate: debEndDate || undefined,
     tagId: tagFilter || undefined,
     limit: 100,
   });

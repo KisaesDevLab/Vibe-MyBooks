@@ -7,10 +7,11 @@
 // scope; cells drill through to the Transactions list pre-filtered by
 // account, period, and tag.
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
+import { useSessionState } from '../../hooks/useSessionState';
 import { useTags } from '../../api/hooks/useTags';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -75,7 +76,8 @@ function fmtPct(n: number | null): string {
 
 export function BudgetVsActualsPage() {
   const navigate = useNavigate();
-  const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
+  // Persist the chosen budget for the tab session.
+  const [selectedBudgetId, setSelectedBudgetId] = useSessionState<string>('vibe:budget-vs-actuals:budgetId', '');
 
   const { data: budgetsData } = useQuery({
     queryKey: ['budgets'],

@@ -9,6 +9,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DEFAULT_BS_LABELS, type BSSectionLabels } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
+import { useSessionState } from '../../hooks/useSessionState';
+import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useCompanySettings } from '../../api/hooks/useCompany';
 import { ReportShell } from './ReportShell';
@@ -110,20 +112,26 @@ function bsDrillUrl(accountId: string | null | undefined, asOfDate: string | und
 const BS_RETURN_STATE = { returnTo: '/reports/balance-sheet', returnLabel: 'Balance Sheet' };
 
 export function BalanceSheetReport() {
-  const [asOfDate, setAsOfDate] = useState(todayLocalISO());
-  const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
-  const [compare, setCompare] = useState<CompareMode>('');
-  const [scope, setScope] = useState<'company' | 'consolidated'>('company');
-  const [tagId, setTagId] = useState('');
+  // Selection criteria persist for the tab session (sessionStorage) so a
+  // refresh or route round-trip doesn't reset the user's choices.
+  const [asOfDate, setAsOfDate] = useSessionState('vibe:report-bs:asOfDate', todayLocalISO());
+  const [basis, setBasis] = useSessionState<'accrual' | 'cash'>('vibe:report-bs:basis', 'accrual');
+  const [compare, setCompare] = useSessionState<CompareMode>('vibe:report-bs:compare', '');
+  const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-bs:scope', 'company');
+  const [tagId, setTagId] = useSessionState('vibe:report-bs:tagId', '');
   const [groupByDetail, setGroupByDetail] = useState(false);
   const { activeCompanyId } = useCompanyContext();
 
+  // Native date inputs fire per-segment while typing — only re-query once
+  // the as-of date is complete and stable.
+  const debAsOfDate = useDebouncedDate(asOfDate);
+
   // Grouping only applies to the standard (non-comparative) view.
   const effectiveGroupBy = groupByDetail && !compare;
-  const queryParams = `as_of_date=${asOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}`;
+  const queryParams = `as_of_date=${debAsOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}`;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports', 'balance-sheet', asOfDate, basis, compare, activeCompanyId, scope, tagId, effectiveGroupBy],
+    queryKey: ['reports', 'balance-sheet', debAsOfDate, basis, compare, activeCompanyId, scope, tagId, effectiveGroupBy],
     queryFn: () => apiClient<BSData>(`/reports/balance-sheet?${queryParams}`),
   });
 

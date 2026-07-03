@@ -5,6 +5,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInvoices } from '../../api/hooks/useInvoices';
+import { useSessionState } from '../../hooks/useSessionState';
+import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useTags } from '../../api/hooks/useTags';
 import { useContacts } from '../../api/hooks/useContacts';
 import { Button } from '../../components/ui/Button';
@@ -63,15 +65,24 @@ function saveColumnPrefs(prefs: Record<InvoiceColumnKey, boolean>) {
 
 export function InvoiceListPage() {
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilterRaw] = useState('');
-  const [search, setSearchRaw] = useState('');
+  // Filters persist for the tab session (sessionStorage) so a refresh
+  // doesn't reset the list criteria. Pagination offset intentionally
+  // does NOT persist.
+  const [statusFilter, setStatusFilterRaw] = useSessionState('vibe:invoices:status', '');
+  const [search, setSearchRaw] = useSessionState('vibe:invoices:search', '');
   // ADR / build-plan Phase 8 — Invoices list gets customer + date range
   // + tag filters. All reset offset on change.
-  const [customerFilter, setCustomerFilterRaw] = useState('');
-  const [startDate, setStartDateRaw] = useState('');
-  const [endDate, setEndDateRaw] = useState('');
-  const [tagFilter, setTagFilterRaw] = useState('');
+  const [customerFilter, setCustomerFilterRaw] = useSessionState('vibe:invoices:customer', '');
+  const [startDate, setStartDateRaw] = useSessionState('vibe:invoices:startDate', '');
+  const [endDate, setEndDateRaw] = useSessionState('vibe:invoices:endDate', '');
+  const [tagFilter, setTagFilterRaw] = useSessionState('vibe:invoices:tag', '');
   const [offset, setOffset] = useState(0);
+  // Typing stays responsive; the query only fires once the value is
+  // stable (and, for dates, complete — native date inputs fire a change
+  // per segment).
+  const debouncedSearch = useDebouncedValue(search);
+  const debStartDate = useDebouncedDate(startDate);
+  const debEndDate = useDebouncedDate(endDate);
 
   const setStatusFilter = (v: string) => { setStatusFilterRaw(v); setOffset(0); };
   const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
@@ -100,10 +111,10 @@ export function InvoiceListPage() {
   const { data, isLoading, isError, refetch } = useInvoices({
     status: statusFilter ? statusFilter as 'posted' | 'draft' | 'void' : undefined,
     contactId: customerFilter || undefined,
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
+    startDate: debStartDate || undefined,
+    endDate: debEndDate || undefined,
     tagId: tagFilter || undefined,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     limit: PAGE_SIZE,
     offset,
   });

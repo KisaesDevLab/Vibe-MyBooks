@@ -2,9 +2,10 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, API_BASE } from '../../api/client';
+import { useSessionState } from '../../hooks/useSessionState';
+import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { ReportTable } from './ReportTable';
@@ -38,16 +39,25 @@ interface GenericReportProps {
 
 export function GenericReport({ title, endpoint, columns, useDateRange = true, useAsOfDate, useTagFilter = false, extraParams, dataKey = 'data' }: GenericReportProps) {
   const today = new Date();
-  const [startDate, setStartDate] = useState(`${today.getFullYear()}-01-01`);
-  const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
-  const [asOfDate, setAsOfDate] = useState(today.toISOString().split('T')[0]!);
-  const [scope, setScope] = useState<'company' | 'consolidated'>('company');
-  const [tagId, setTagId] = useState<string>('');
+  // Selection criteria persist for the tab session — namespaced per
+  // report endpoint so the Trial Balance and AR Aging (etc.) each keep
+  // their own criteria.
+  const [startDate, setStartDate] = useSessionState(`vibe:report-${endpoint}:startDate`, `${today.getFullYear()}-01-01`);
+  const [endDate, setEndDate] = useSessionState(`vibe:report-${endpoint}:endDate`, today.toISOString().split('T')[0]!);
+  const [asOfDate, setAsOfDate] = useSessionState(`vibe:report-${endpoint}:asOfDate`, today.toISOString().split('T')[0]!);
+  const [scope, setScope] = useSessionState<'company' | 'consolidated'>(`vibe:report-${endpoint}:scope`, 'company');
+  const [tagId, setTagId] = useSessionState<string>(`vibe:report-${endpoint}:tagId`, '');
   const { activeCompanyId } = useCompanyContext();
 
+  // Only query once typed dates are complete and stable (native date
+  // inputs fire a change per segment).
+  const debStartDate = useDebouncedDate(startDate);
+  const debEndDate = useDebouncedDate(endDate);
+  const debAsOfDate = useDebouncedDate(asOfDate);
+
   const params = new URLSearchParams(extraParams);
-  if (useDateRange) { params.set('start_date', startDate); params.set('end_date', endDate); }
-  if (useAsOfDate) params.set('as_of_date', asOfDate);
+  if (useDateRange) { params.set('start_date', debStartDate); params.set('end_date', debEndDate); }
+  if (useAsOfDate) params.set('as_of_date', debAsOfDate);
   if (scope === 'consolidated') params.set('scope', 'consolidated');
   if (useTagFilter && tagId) params.set('tag_id', tagId);
 
@@ -58,7 +68,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
   // since ReportShell does its own runtime shape handling.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['reports', endpoint, startDate, endDate, asOfDate, extraParams, activeCompanyId, scope, tagId],
+    queryKey: ['reports', endpoint, debStartDate, debEndDate, debAsOfDate, extraParams, activeCompanyId, scope, tagId],
     queryFn: () => apiClient<any>(`/reports/${endpoint}?${params.toString()}`),
   });
 

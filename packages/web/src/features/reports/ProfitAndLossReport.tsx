@@ -7,6 +7,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
+import { useSessionState } from '../../hooks/useSessionState';
+import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 
 // The /reports/profit-loss endpoint returns two shapes depending on whether
 // a `compare=` parameter is set. Keep both unions permissive on optional
@@ -112,21 +114,29 @@ type CompareMode = '' | 'previous_period' | 'previous_year' | 'multi_period';
 
 export function ProfitAndLossReport() {
   const today = new Date();
-  const [startDate, setStartDate] = useState(`${today.getFullYear()}-01-01`);
-  const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
-  const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
-  const [compare, setCompare] = useState<CompareMode>('');
-  const [scope, setScope] = useState<'company' | 'consolidated'>('company');
-  const [tagId, setTagId] = useState('');
+  // Selection criteria persist for the tab session (sessionStorage) so a
+  // refresh or route round-trip doesn't reset the user's choices.
+  const [startDate, setStartDate] = useSessionState('vibe:report-pl:startDate', `${today.getFullYear()}-01-01`);
+  const [endDate, setEndDate] = useSessionState('vibe:report-pl:endDate', today.toISOString().split('T')[0]!);
+  const [basis, setBasis] = useSessionState<'accrual' | 'cash'>('vibe:report-pl:basis', 'accrual');
+  const [compare, setCompare] = useSessionState<CompareMode>('vibe:report-pl:compare', '');
+  const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-pl:scope', 'company');
+  const [tagId, setTagId] = useSessionState('vibe:report-pl:tagId', '');
   const [groupByDetail, setGroupByDetail] = useState(false);
   const { activeCompanyId } = useCompanyContext();
 
+  // Debounced dates: the native date inputs fire a change per segment
+  // while typing — only query once the value is a complete date and the
+  // user has paused.
+  const debStartDate = useDebouncedDate(startDate);
+  const debEndDate = useDebouncedDate(endDate);
+
   // Grouping only applies to the standard (non-comparative) view.
   const effectiveGroupBy = groupByDetail && !compare;
-  const queryParams = `start_date=${startDate}&end_date=${endDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}`;
+  const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}`;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports', 'profit-loss', startDate, endDate, basis, compare, activeCompanyId, scope, tagId, effectiveGroupBy],
+    queryKey: ['reports', 'profit-loss', debStartDate, debEndDate, basis, compare, activeCompanyId, scope, tagId, effectiveGroupBy],
     queryFn: () => apiClient<PLData>(`/reports/profit-loss?${queryParams}`),
   });
 

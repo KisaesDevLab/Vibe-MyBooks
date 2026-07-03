@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { Download, FileSearch, Mail, Pencil, FileText, ShieldCheck, Upload } from 'lucide-react';
 import { Tax1099EfilePanel } from './Tax1099EfilePanel';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { useSessionState } from '../../../hooks/useSessionState';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 14 + 15 — bookkeeper UI.
 // Replaces the prior Tax1099Placeholder. Drives the full lifecycle:
@@ -139,7 +140,9 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function Tax1099Page() {
-  const [taxYear, setTaxYear] = useState<number>(new Date().getUTCFullYear());
+  // The chosen filing year persists for the tab session so navigating
+  // away and back doesn't reset it to the current year.
+  const [taxYear, setTaxYear] = useSessionState<number>('vibe:1099:taxYear', new Date().getUTCFullYear());
   const [summary, setSummary] = useState<Summary | null>(null);
   const [vendors, setVendors] = useState<VendorRow[] | null>(null);
   const [filings, setFilings] = useState<Filing[] | null>(null);

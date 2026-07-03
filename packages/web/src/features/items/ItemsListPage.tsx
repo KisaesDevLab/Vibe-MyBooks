@@ -11,6 +11,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { ItemFormModal } from './ItemFormModal';
 import { Plus, Download, Search } from 'lucide-react';
 import type { Item } from '@kis-books/shared';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 const PAGE_SIZE = 100;
 
@@ -25,9 +26,12 @@ export function ItemsListPage() {
   const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
   const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); };
 
+  // Debounced: the query fires once typing pauses, not per keystroke.
+  const debouncedSearch = useDebouncedValue(search);
+
   const filters = {
     isActive: activeFilter,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     limit: PAGE_SIZE,
     offset,
   };

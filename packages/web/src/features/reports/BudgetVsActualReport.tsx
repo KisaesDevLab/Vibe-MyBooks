@@ -2,10 +2,12 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
+import { useSessionState } from '../../hooks/useSessionState';
+import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -68,9 +70,13 @@ function varianceColor(accountType: string, variance: number): string {
 
 export function BudgetVsActualReport() {
   const today = new Date();
-  const [startDate, setStartDate] = useState(`${today.getFullYear()}-01-01`);
-  const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
-  const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
+  // Selection criteria persist for the tab session (sessionStorage).
+  const [startDate, setStartDate] = useSessionState('vibe:report-bva:startDate', `${today.getFullYear()}-01-01`);
+  const [endDate, setEndDate] = useSessionState('vibe:report-bva:endDate', today.toISOString().split('T')[0]!);
+  const [selectedBudgetId, setSelectedBudgetId] = useSessionState<string>('vibe:report-bva:budgetId', '');
+  // Only query once typed dates are complete and stable.
+  const debStartDate = useDebouncedDate(startDate);
+  const debEndDate = useDebouncedDate(endDate);
   const { activeCompanyId } = useCompanyContext();
 
   // Fetch budgets for dropdown
@@ -87,16 +93,16 @@ export function BudgetVsActualReport() {
 
   // Fetch budget vs actual data
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['budgets', budgetId, 'vs-actual', startDate, endDate, activeCompanyId],
+    queryKey: ['budgets', budgetId, 'vs-actual', debStartDate, debEndDate, activeCompanyId],
     queryFn: () =>
       apiClient<BvsAData>(
-        `/budgets/${budgetId}/vs-actual?start_date=${startDate}&end_date=${endDate}`,
+        `/budgets/${budgetId}/vs-actual?start_date=${debStartDate}&end_date=${debEndDate}`,
       ),
     enabled: !!budgetId,
   });
 
   const exportBaseUrl = budgetId
-    ? `${API_BASE}/budgets/${budgetId}/vs-actual?start_date=${startDate}&end_date=${endDate}`
+    ? `${API_BASE}/budgets/${budgetId}/vs-actual?start_date=${debStartDate}&end_date=${debEndDate}`
     : '';
 
   const renderRow = (row: BvsARow) => (

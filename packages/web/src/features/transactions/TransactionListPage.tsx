@@ -14,6 +14,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { ArrowLeft, Plus, Search, X } from 'lucide-react';
+import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 
 const PAGE_SIZE = 50;
 
@@ -61,19 +62,6 @@ const statusColors: Record<string, string> = {
   void: 'bg-red-100 text-red-700',
 };
 
-function useDebounce(value: string, delay: number) {
-  // Previously written with useMemo, which does not run the returned
-  // cleanup. Fast typing therefore accumulated pending timers and called
-  // setDebounced multiple times. useEffect correctly cancels the pending
-  // timer when `value` changes before the delay elapses.
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
-}
-
 export function TransactionListPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -112,7 +100,7 @@ export function TransactionListPage() {
   // value is what drives both the query and the URL update.
   const [search, setSearch] = useState(urlSearch);
   const [showNewMenu, setShowNewMenu] = useState(false);
-  const debouncedSearch = useDebounce(search, 400);
+  const debouncedSearch = useDebouncedValue(search);
 
   // Multi-select + bulk-edit state. Selection is a Set of txn ids; the bulk
   // toolbar appears whenever at least one row is selected.
@@ -181,6 +169,26 @@ export function TransactionListPage() {
   const setContactFilter = (v: string) => updateParam('contact', v);
   const setStartDate = (v: string) => updateParam('from', v);
   const setEndDate = (v: string) => updateParam('to', v);
+
+  // Date inputs are controlled by raw local state so typing stays
+  // responsive; the URL param (and therefore the query) only updates
+  // once the value is a complete date and stable — native date inputs
+  // fire a change event per segment while the user is still typing.
+  const [fromInput, setFromInput] = useState(startDate);
+  const [toInput, setToInput] = useState(endDate);
+  const debFrom = useDebouncedDate(fromInput);
+  const debTo = useDebouncedDate(toInput);
+  useEffect(() => {
+    if (debFrom !== startDate) setStartDate(debFrom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debFrom]);
+  useEffect(() => {
+    if (debTo !== endDate) setEndDate(debTo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debTo]);
+  // External URL changes (back button, drill-down links) re-sync the inputs.
+  useEffect(() => { setFromInput(startDate); }, [startDate]);
+  useEffect(() => { setToInput(endDate); }, [endDate]);
   const setTagFilter = (v: string) => updateParam('tagId', v);
   const setOffset = (v: number) => updateParam('offset', v > 0 ? String(v) : '', { resetOffset: false });
 
@@ -383,12 +391,12 @@ export function TransactionListPage() {
         <div className="flex gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+            <input type="date" value={fromInput} onChange={(e) => setFromInput(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+            <input type="date" value={toInput} onChange={(e) => setToInput(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           {hasFilters && (

@@ -2,10 +2,11 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, API_BASE } from '../../api/client';
+import { useSessionState } from '../../hooks/useSessionState';
+import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -85,16 +86,21 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 
 export function GeneralLedgerReport() {
   const today = new Date();
-  const [startDate, setStartDate] = useState(`${today.getFullYear()}-01-01`);
-  const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]!);
-  const [scope, setScope] = useState<'company' | 'consolidated'>('company');
-  const [tagId, setTagId] = useState('');
+  // Selection criteria persist for the tab session (sessionStorage).
+  const [startDate, setStartDate] = useSessionState('vibe:report-gl:startDate', `${today.getFullYear()}-01-01`);
+  const [endDate, setEndDate] = useSessionState('vibe:report-gl:endDate', today.toISOString().split('T')[0]!);
+  const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-gl:scope', 'company');
+  const [tagId, setTagId] = useSessionState('vibe:report-gl:tagId', '');
   const { activeCompanyId } = useCompanyContext();
 
-  const queryParams = `start_date=${startDate}&end_date=${endDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
+  // Only query once typed dates are complete and stable.
+  const debStartDate = useDebouncedDate(startDate);
+  const debEndDate = useDebouncedDate(endDate);
+
+  const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
 
   const { data, isLoading, error } = useQuery<GLReportData>({
-    queryKey: ['reports', 'general-ledger', startDate, endDate, activeCompanyId, scope, tagId],
+    queryKey: ['reports', 'general-ledger', debStartDate, debEndDate, activeCompanyId, scope, tagId],
     queryFn: () => apiClient<GLReportData>(`/reports/general-ledger?${queryParams}`),
   });
 

@@ -18,6 +18,7 @@ import { MergeAccountsModal } from './MergeAccountsModal';
 import { BulkEditAccountsModal } from './BulkEditAccountsModal';
 import { Plus, Upload, Download, Merge, Search, Shield, List, Table2 } from 'lucide-react';
 import type { Account } from '@kis-books/shared';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 const PAGE_SIZE = 200;
 
@@ -38,10 +39,13 @@ export function AccountsListPage() {
   const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); };
   const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
 
+  // Debounced: the query fires once typing pauses, not per keystroke.
+  const debouncedSearch = useDebouncedValue(search);
+
   const filters = {
     accountType: typeFilter || undefined,
     isActive: activeFilter,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     limit: PAGE_SIZE,
     offset,
   };

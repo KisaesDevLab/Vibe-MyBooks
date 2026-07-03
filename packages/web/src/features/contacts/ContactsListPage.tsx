@@ -13,6 +13,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { ContactImportModal } from './ContactImportModal';
 import { MergeContactsModal } from './MergeContactsModal';
 import { Plus, Upload, Download, Merge, Search } from 'lucide-react';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 const PAGE_SIZE = 100;
 
@@ -37,10 +38,14 @@ export function ContactsListPage() {
   const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
   const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); };
 
+  // Typing stays responsive; the query fires only once the search text
+  // is stable for ~400ms instead of on every keystroke.
+  const debouncedSearch = useDebouncedValue(search);
+
   const filters = {
     contactType: typeTab || undefined,
     isActive: activeFilter,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     limit: PAGE_SIZE,
     offset,
   };
