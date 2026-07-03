@@ -20,6 +20,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
   const [name, setName] = useState('');
   const [entityType, setEntityType] = useState('sole_prop');
   const [businessType, setBusinessType] = useState('general_business');
+  const [systemAccountsOnly, setSystemAccountsOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const businessTypeOptions = useCoaTemplateOptions();
@@ -40,7 +41,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
         // Create new tenant + company
         await apiClient('/auth/create-client', {
           method: 'POST',
-          body: JSON.stringify({ companyName: name, entityType, businessType }),
+          body: JSON.stringify({ companyName: name, entityType, businessType, systemAccountsOnly }),
         });
         onCreated();
       } else {
@@ -93,9 +94,20 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
             </select>
           </div>
           {mode === 'client' && (
-            <p className="text-xs text-gray-500">
-              This creates a new company with its own workspace and chart of accounts. No users are added — you can invite an owner or bookkeeper from Settings &gt; Team after switching to it.
-            </p>
+            <>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" checked={systemAccountsOnly}
+                  onChange={(e) => setSystemAccountsOnly(e.target.checked)}
+                  className="mt-0.5 text-primary-600 focus:ring-primary-500" />
+                <span className="text-xs text-gray-600">
+                  <span className="font-medium text-gray-700">Set up required accounts only</span>
+                  {' — '}skip the full chart of accounts and create just the system accounts (A/R, A/P, Payments Clearing, Sales Tax, Opening Balances, Retained Earnings, Cash). Add the rest later or import your own.
+                </span>
+              </label>
+              <p className="text-xs text-gray-500">
+                This creates a new company with its own workspace{systemAccountsOnly ? '' : ' and chart of accounts'}. No users are added — you can invite an owner or bookkeeper from Settings &gt; Team after switching to it.
+              </p>
+            </>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>

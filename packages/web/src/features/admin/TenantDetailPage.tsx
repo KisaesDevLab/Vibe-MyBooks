@@ -53,6 +53,8 @@ export function TenantDetailPage() {
   const [pendingAccessChange, setPendingAccessChange] = useState<
     { userId: string; email: string; isActive: boolean } | null
   >(null);
+  const [showDeleteCoa, setShowDeleteCoa] = useState(false);
+  const [coaError, setCoaError] = useState<string | null>(null);
 
   const toggleAccessMutation = useMutation({
     mutationFn: (userId: string) =>
@@ -84,6 +86,19 @@ export function TenantDetailPage() {
     setDeleteConfirmText('');
     setDeleteError(null);
   };
+
+  // Delete the tenant's chart of accounts — the backend refuses if any
+  // transaction exists (COA_HAS_TRANSACTIONS). Used to fix a wrong COA
+  // template on a fresh tenant before re-seeding.
+  const deleteCoaMutation = useMutation({
+    mutationFn: () => apiClient(`/admin/tenants/${id}/chart-of-accounts`, { method: 'DELETE' }),
+    onSuccess: () => {
+      setShowDeleteCoa(false);
+      setCoaError(null);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', id] });
+    },
+    onError: (err: Error) => setCoaError(err.message || 'Delete failed'),
+  });
 
   const { data: tenant, isLoading, error } = useQuery({
     queryKey: ['admin', 'tenants', id],
@@ -361,6 +376,28 @@ export function TenantDetailPage() {
           <AlertTriangle className="h-5 w-5 text-red-600" />
           <h2 className="text-lg font-semibold text-red-900">Danger Zone</h2>
         </div>
+        {/* Delete chart of accounts — only before any transactions exist. */}
+        <div className="p-6 flex items-center justify-between gap-4 border-b border-red-100">
+          <div className="text-sm">
+            <p className="font-medium text-gray-900">Delete chart of accounts</p>
+            <p className="text-gray-600 mt-1">
+              Removes all {tenant.stats.accountCount} accounts so a different COA template can be
+              re-seeded. Only available before any transactions are recorded
+              {tenant.stats.transactionCount > 0
+                ? ` — this tenant has ${tenant.stats.transactionCount} transaction(s), so it's blocked.`
+                : '.'}
+            </p>
+            {coaError && <p className="text-red-700 mt-1">{coaError}</p>}
+          </div>
+          <button
+            onClick={() => { setCoaError(null); setShowDeleteCoa(true); }}
+            disabled={tenant.stats.transactionCount > 0 || tenant.stats.accountCount === 0}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 border border-red-300 hover:bg-red-50 rounded-lg whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete chart of accounts
+          </button>
+        </div>
         <div className="p-6 flex items-center justify-between gap-4">
           <div className="text-sm">
             <p className="font-medium text-gray-900">Delete this tenant</p>
@@ -379,6 +416,17 @@ export function TenantDetailPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showDeleteCoa}
+        title="Delete chart of accounts?"
+        message={`This deletes all ${tenant.stats.accountCount} accounts for "${tenant.name}". You'll need to re-seed a chart of accounts before recording transactions. This is only allowed because the tenant has no transactions yet.`}
+        confirmLabel={deleteCoaMutation.isPending ? 'Deleting…' : 'Delete accounts'}
+        variant="danger"
+        onCancel={() => { if (!deleteCoaMutation.isPending) setShowDeleteCoa(false); }}
+        onConfirm={() => deleteCoaMutation.mutate()}
+      />
+
 
       {/* Delete confirmation modal — type-to-confirm pattern so a
           stray click can't trigger destruction. */}
