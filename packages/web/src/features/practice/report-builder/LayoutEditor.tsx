@@ -390,7 +390,12 @@ function BlockSummary({ block }: { block: Block }) {
     return <>KPIs: {kpis.length === 0 ? '— pick at least one' : kpis.join(', ')}</>;
   }
   if (block.type === 'chart') return <>Report: {String(block['report'] ?? '—')}</>;
-  if (block.type === 'block') return <>{String(block['name'] ?? '—')} (top {String(block['topN'] ?? '—')})</>;
+  if (block.type === 'block') {
+    if (block['name'] === 'budget_vs_actual') {
+      return <>Budget vs. actual: {String(block['budgetName'] ?? '— pick a budget')}</>;
+    }
+    return <>{String(block['name'] ?? '—')} (top {String(block['topN'] ?? '—')})</>;
+  }
   if (block.type === 'tag-segment') {
     const tags = (block['tags'] as string[]) ?? [];
     return <>{tags.length} tag{tags.length === 1 ? '' : 's'}</>;
@@ -542,6 +547,8 @@ function BlockInspector({
             <option value="pl_vs_prior_year">P&amp;L vs. prior year</option>
             <option value="revenue_trend_12m">Revenue trend (12 months)</option>
             <option value="expense_trend_12m">Expense trend (12 months)</option>
+            <option value="net_income_trend_12m">Net income trend (12 mo)</option>
+            <option value="gross_margin_trend_12m">Gross margin % trend (12 mo)</option>
             <option value="cash_balance_trend">Cash balance trend</option>
           </select>
         </label>
@@ -549,24 +556,28 @@ function BlockInspector({
     );
   }
   if (block.type === 'block') {
+    const name = String(block['name'] ?? '');
+    const topNApplies = ['top_customers', 'top_vendors', 'expense_by_category'].includes(name);
     return (
       <div className="space-y-2">
         <label className="block text-xs">
           <span className="block text-gray-800 mb-1">Block</span>
           <select
-            value={String(block['name'] ?? '')}
+            value={name}
             onChange={(e) => onChange({ name: e.target.value })}
             className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
           >
             <option value="top_customers">Top customers</option>
             <option value="top_vendors">Top vendors</option>
+            <option value="expense_by_category">Expenses by category</option>
+            <option value="budget_vs_actual">Budget vs. actual</option>
             <option value="ar_aging">A/R aging</option>
             <option value="ap_aging">A/P aging</option>
             <option value="pl_bar">P&amp;L bar chart</option>
             <option value="bank_balances">Bank account balances</option>
           </select>
         </label>
-        {block['name'] !== 'bank_balances' && (
+        {topNApplies && (
           <label className="block text-xs">
             <span className="block text-gray-800 mb-1">Top N</span>
             <input
@@ -579,23 +590,22 @@ function BlockInspector({
             />
           </label>
         )}
+        {name === 'budget_vs_actual' && (
+          <BudgetPicker
+            budgetId={typeof block['budgetId'] === 'string' ? (block['budgetId'] as string) : ''}
+            onChange={(budgetId, budgetName) => onChange({ budgetId, budgetName })}
+          />
+        )}
       </div>
     );
   }
   if (block.type === 'tag-segment') {
-    const tags = (block['tags'] as string[]) ?? [];
+    const selected = (block['tags'] as string[]) ?? [];
     return (
-      <div className="space-y-2">
-        <p className="text-xs text-gray-700">Tag IDs (one per line):</p>
-        <textarea
-          value={tags.join('\n')}
-          onChange={(e) =>
-            onChange({ tags: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })
-          }
-          rows={5}
-          className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs font-mono"
-        />
-      </div>
+      <TagMultiSelect
+        selected={selected}
+        onChange={(tags) => onChange({ tags })}
+      />
     );
   }
   if (block.type === 'report') {
@@ -624,6 +634,7 @@ function BlockInspector({
                 always did. */}
             <option value="ar_aging">A/R Aging</option>
             <option value="ap_aging">A/P Aging</option>
+            <option value="sales_tax">Sales Tax Liability</option>
           </select>
         </label>
         {basisApplies && (
@@ -704,6 +715,149 @@ function BlockInspector({
     return <p className="text-xs text-gray-500">No settings — splits into a new page in the PDF.</p>;
   }
   return null;
+}
+
+// F1 — budget picker for the Budget vs. Actual block. Stores the id
+// (resolver input) plus the display name so the canvas summary reads
+// like a sentence without another fetch.
+function BudgetPicker({
+  budgetId,
+  onChange,
+}: {
+  budgetId: string;
+  onChange: (budgetId: string, budgetName: string) => void;
+}) {
+  const [budgets, setBudgets] = useState<Array<{ id: string; name: string; fiscalYear: number }> | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api<{ budgets: Array<{ id: string; name: string; fiscalYear: number }> }>('/budgets')
+      .then((d) => {
+        if (!cancelled) setBudgets(d.budgets ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (failed) {
+    return <p className="text-[11px] text-amber-700">Budgets could not be loaded — reopen the editor to retry.</p>;
+  }
+  if (!budgets) {
+    return <p className="text-[11px] text-gray-500">Loading budgets…</p>;
+  }
+  if (budgets.length === 0) {
+    return (
+      <p className="text-[11px] text-amber-700">
+        No budgets yet — create one under Budgets first.
+      </p>
+    );
+  }
+  return (
+    <label className="block text-xs">
+      <span className="block text-gray-800 mb-1">Budget</span>
+      <select
+        value={budgetId}
+        onChange={(e) => {
+          const b = budgets.find((x) => x.id === e.target.value);
+          onChange(e.target.value, b ? `${b.name} (FY${b.fiscalYear})` : '');
+        }}
+        className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+      >
+        <option value="">— pick a budget —</option>
+        {budgets.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.name} (FY{b.fiscalYear})
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+// F2 — proper tag multi-select for the tag-segment block (replaces the
+// raw-UUID textarea). Same /tags endpoint the report tag filters use.
+const TAG_SEGMENT_MAX_TAGS = 10;
+function TagMultiSelect({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (tags: string[]) => void;
+}) {
+  const [tags, setTags] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api<{ tags: Array<{ id: string; name: string }> }>('/tags?is_active=true')
+      .then((d) => {
+        if (!cancelled) setTags(d.tags ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (failed) {
+    return <p className="text-[11px] text-amber-700">Tags could not be loaded — reopen the editor to retry.</p>;
+  }
+  if (!tags) {
+    return <p className="text-[11px] text-gray-500">Loading tags…</p>;
+  }
+  if (tags.length === 0) {
+    return <p className="text-[11px] text-amber-700">No active tags — create tags first to segment the P&amp;L.</p>;
+  }
+
+  const selectedSet = new Set(selected);
+  const atCap = selected.length >= TAG_SEGMENT_MAX_TAGS;
+  const toggle = (id: string, on: boolean) => {
+    if (on && atCap) return;
+    onChange(on ? [...selected, id] : selected.filter((t) => t !== id));
+  };
+  // Selected ids no longer in the active tag list (deleted/deactivated).
+  const orphans = selected.filter((id) => !tags.some((t) => t.id === id));
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] uppercase tracking-wide text-gray-500">
+        Segments (max {TAG_SEGMENT_MAX_TAGS})
+      </p>
+      <div className="space-y-0.5 max-h-56 overflow-y-auto">
+        {tags.map((t) => (
+          <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
+            <input
+              type="checkbox"
+              checked={selectedSet.has(t.id)}
+              disabled={!selectedSet.has(t.id) && atCap}
+              onChange={(e) => toggle(t.id, e.target.checked)}
+              className="h-3.5 w-3.5"
+            />
+            <span className="flex-1 truncate">{t.name}</span>
+          </label>
+        ))}
+      </div>
+      {orphans.length > 0 && (
+        <p className="text-[11px] text-amber-700">
+          {orphans.length} selected tag{orphans.length === 1 ? ' is' : 's are'} no longer active —{' '}
+          <button
+            type="button"
+            onClick={() => onChange(selected.filter((id) => tags.some((t) => t.id === id)))}
+            className="underline"
+          >
+            remove
+          </button>
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default LayoutEditor;

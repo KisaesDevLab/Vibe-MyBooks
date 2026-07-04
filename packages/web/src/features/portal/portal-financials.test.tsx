@@ -130,4 +130,90 @@ describe('PortalFinancialsPage', () => {
     resolveFetch({ ok: true, status: 200, json: async () => ({ reports: [] }) } as Response);
     await waitFor(() => expect(screen.getByText('No reports published yet.')).toBeTruthy());
   });
+
+  it('wave 2: renders the new payload types (budget vs actual, tag segments, sales tax, BS sections, KPI status dot, empty kpi-row note)', async () => {
+    const wave2Report = {
+      ...report,
+      id: 'r2',
+      layout: [
+        { id: 'k1', type: 'kpi-row', kpis: ['gross_margin_pct'] },
+        { id: 'k2', type: 'kpi-row', kpis: [] },
+        { id: 'bva1', type: 'block', name: 'budget_vs_actual', budgetId: 'b1' },
+        { id: 'ts1', type: 'tag-segment', tags: ['t1', 't2'] },
+        { id: 'stx1', type: 'report', key: 'sales_tax' },
+        { id: 'bs1', type: 'report', key: 'balance_sheet' },
+        // Errored block — the portal must silently skip it.
+        { id: 'bad1', type: 'block', name: 'budget_vs_actual' },
+      ],
+      data: {
+        kpis: { gross_margin_pct: '41.0%' },
+        kpi_names: { gross_margin_pct: 'Gross Margin %' },
+        kpi_status: { gross_margin_pct: 'green' },
+        blocks: {
+          bva1: {
+            type: 'budget_vs_actual',
+            data: {
+              budgetName: 'FY26 Plan',
+              fiscalYear: 2026,
+              rows: [{ account: 'Sales', budgeted: 3000, actual: 2500, variance: -500, variancePct: -16.7 }],
+              totals: { budgeted: 3000, actual: 2500, variance: -500 },
+              truncated: false,
+            },
+          },
+          ts1: {
+            type: 'tag_segments',
+            data: [
+              { tagId: 't1', tagName: 'Location A', revenue: 1000, expenses: 400, netIncome: 600 },
+              { tagId: 't2', tagName: 'Location B', revenue: 500, expenses: 200, netIncome: 300 },
+            ],
+          },
+          stx1: { type: 'sales_tax', data: { totalSales: 150, totalTax: 12.25 } },
+          bs1: {
+            type: 'balance_sheet',
+            data: {
+              assets: 1000,
+              liabilities: 200,
+              equity: 800,
+              sections: {
+                currentAssets: 400,
+                fixedAssets: 500,
+                otherAssets: 100,
+                currentLiabilities: 150,
+                longTermLiabilities: 50,
+              },
+            },
+          },
+          bad1: { type: 'budget_vs_actual', error: 'No budget selected' },
+        },
+      },
+    };
+    fetchMock.mockImplementation(() => okResponse({ reports: [wave2Report] }));
+    renderRoute(<PortalFinancialsPage />);
+
+    await waitFor(() => expect(screen.getByText('2026-01-01 → 2026-03-31')).toBeTruthy());
+    fireEvent.click(screen.getByText('2026-01-01 → 2026-03-31'));
+
+    // Budget vs actual table (per-line row + totals row).
+    expect(screen.getByText(/Budget vs\. actual — FY26 Plan/i)).toBeTruthy();
+    expect(screen.getAllByText('$3,000').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('-$500').length).toBeGreaterThanOrEqual(2);
+
+    // Tag segments table.
+    expect(screen.getByText('Location A')).toBeTruthy();
+    expect(screen.getByText('Location B')).toBeTruthy();
+
+    // Sales tax embed.
+    expect(screen.getByText('Sales tax collected')).toBeTruthy();
+
+    // Balance-sheet section subtotals, indented under the totals.
+    expect(screen.getByText('Current assets')).toBeTruthy();
+    expect(screen.getByText('Long-term liabilities')).toBeTruthy();
+
+    // KPI status dot + empty kpi-row note.
+    expect(screen.getByTitle('Status: green')).toBeTruthy();
+    expect(screen.getByText('No KPIs selected.')).toBeTruthy();
+
+    // Errored block renders nothing — no error copy leaks to the client.
+    expect(screen.queryByText(/No budget selected/)).toBeNull();
+  });
 });

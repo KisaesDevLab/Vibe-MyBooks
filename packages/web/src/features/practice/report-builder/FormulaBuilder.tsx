@@ -21,6 +21,15 @@ export interface FormulaNode {
   period?: 'current' | 'prior_month' | 'prior_year';
 }
 
+// F7 — optional red/amber/green target on custom KPIs. Compared by the
+// evaluator against the RAW numeric value (percent KPIs are fractions:
+// 0.4 = 40%).
+export interface KpiThreshold {
+  direction: 'above_is_good' | 'below_is_good';
+  green: number;
+  amber: number;
+}
+
 interface CatalogEntry {
   key: string;
   name: string;
@@ -29,6 +38,7 @@ interface CatalogEntry {
   formula: unknown;
   source: 'stock' | 'custom';
   id?: string;
+  threshold?: unknown;
 }
 
 interface EditorState {
@@ -38,6 +48,19 @@ interface EditorState {
   category: string;
   format: 'currency' | 'percent' | 'ratio' | 'days';
   formula: FormulaNode;
+  threshold: KpiThreshold | null;
+}
+
+// Defensive parse of catalog threshold JSON into the editor shape.
+function parseThreshold(raw: unknown): KpiThreshold | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const t = raw as Record<string, unknown>;
+  const direction = t['direction'];
+  const green = Number(t['green']);
+  const amber = Number(t['amber']);
+  if (direction !== 'above_is_good' && direction !== 'below_is_good') return null;
+  if (!Number.isFinite(green) || !Number.isFinite(amber)) return null;
+  return { direction, green, amber };
 }
 
 const ACCOUNT_CATEGORIES = [
@@ -65,6 +88,13 @@ const METRICS = [
   'inventory_balance',
   'bank_balance',
   'cash_balance',
+  // F8 — balance-sheet metrics for leverage formulas.
+  'total_assets',
+  'total_liabilities',
+  'equity',
+  'fixed_assets',
+  'interest_expense',
+  'depreciation_amortization',
 ] as const;
 
 const KNOWN_KPIS = [
@@ -199,6 +229,7 @@ export function FormulaBuilder({ onClose }: { onClose: () => void }) {
                         category: k.category,
                         format: k.format,
                         formula: normalizeStockFormula(k.formula),
+                        threshold: parseThreshold(k.threshold),
                       })
                     }
                     className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
@@ -247,6 +278,7 @@ export function FormulaBuilder({ onClose }: { onClose: () => void }) {
                   category: k.category,
                   format: k.format,
                   formula: normalizeStockFormula(k.formula),
+                  threshold: null,
                 })
               }
               className="w-full text-left bg-white border border-gray-200 rounded-md p-3 hover:bg-gray-50"
@@ -276,6 +308,7 @@ export function FormulaBuilder({ onClose }: { onClose: () => void }) {
               category: 'custom',
               format: 'currency',
               formula: { kind: 'literal', value: 0 },
+              threshold: null,
             })
           }
           className="inline-flex items-center gap-2 text-sm font-medium text-indigo-700 hover:underline"
@@ -304,6 +337,13 @@ function KpiFormulaEditor({
   const [tree, setTree] = useState<FormulaNode>(initial.formula);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // F7 — optional target (red/amber/green) on the KPI tile.
+  const [targetEnabled, setTargetEnabled] = useState(!!initial.threshold);
+  const [direction, setDirection] = useState<KpiThreshold['direction']>(
+    initial.threshold?.direction ?? 'above_is_good',
+  );
+  const [green, setGreen] = useState(initial.threshold != null ? String(initial.threshold.green) : '');
+  const [amber, setAmber] = useState(initial.threshold != null ? String(initial.threshold.amber) : '');
 
   const preview = useMemo(() => renderTree(tree), [tree]);
   const validation = useMemo(() => validateTree(tree), [tree]);
@@ -322,17 +362,27 @@ function KpiFormulaEditor({
       setErr(validation.join(' '));
       return;
     }
+    let threshold: KpiThreshold | null = null;
+    if (targetEnabled) {
+      const g = Number(green);
+      const a = Number(amber);
+      if (green.trim() === '' || amber.trim() === '' || !Number.isFinite(g) || !Number.isFinite(a)) {
+        setErr('Target thresholds must be numbers (green and amber).');
+        return;
+      }
+      threshold = { direction, green: g, amber: a };
+    }
     setSaving(true);
     try {
       if (isUpdate && initial.id) {
         await api(`/practice/reports/custom-kpis/${initial.id}`, {
           method: 'PUT',
-          body: JSON.stringify({ name, category, format, formula: tree }),
+          body: JSON.stringify({ name, category, format, formula: tree, threshold }),
         });
       } else {
         await api('/practice/reports/custom-kpis', {
           method: 'POST',
-          body: JSON.stringify({ key, name, category, format, formula: tree }),
+          body: JSON.stringify({ key, name, category, format, formula: tree, threshold }),
         });
       }
       onSaved();
@@ -408,6 +458,63 @@ function KpiFormulaEditor({
                 <li key={i}>{m}</li>
               ))}
             </ul>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 border border-gray-200 rounded-md p-3 bg-gray-50">
+        <label className="flex items-center gap-2 text-xs cursor-pointer">
+          <input
+            type="checkbox"
+            checked={targetEnabled}
+            onChange={(e) => setTargetEnabled(e.target.checked)}
+            className="h-3.5 w-3.5"
+          />
+          <span className="uppercase tracking-wide text-gray-500 font-semibold">
+            Target (red / amber / green tile)
+          </span>
+        </label>
+        {targetEnabled && (
+          <div className="mt-2 space-y-2">
+            <label className="block text-xs">
+              <span className="block text-gray-800 mb-1">Direction</span>
+              <select
+                value={direction}
+                onChange={(e) => setDirection(e.target.value as KpiThreshold['direction'])}
+                className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+              >
+                <option value="above_is_good">Higher is better</option>
+                <option value="below_is_good">Lower is better</option>
+              </select>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-xs">
+                <span className="block text-gray-800 mb-1">Green threshold</span>
+                <input
+                  type="number"
+                  step="any"
+                  value={green}
+                  onChange={(e) => setGreen(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                />
+              </label>
+              <label className="block text-xs">
+                <span className="block text-gray-800 mb-1">Amber threshold</span>
+                <input
+                  type="number"
+                  step="any"
+                  value={amber}
+                  onChange={(e) => setAmber(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                />
+              </label>
+            </div>
+            <p className="text-[11px] text-gray-500">
+              Compared against the raw value ({format === 'percent' ? 'fractions: 0.4 = 40%' : format}).{' '}
+              {direction === 'above_is_good'
+                ? 'Green at or above the green threshold, amber at or above the amber one, red below.'
+                : 'Green at or below the green threshold, amber at or below the amber one, red above.'}
+            </p>
           </div>
         )}
       </div>

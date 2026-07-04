@@ -181,9 +181,29 @@ function fmtMoneyTick(v: unknown): string {
   return `${sign}$${Math.round(abs)}`;
 }
 
+// F7 — red/amber/green target dot on KPI tiles (parity with the
+// builder preview + PDF). No status → no dot.
+const KPI_STATUS_COLORS: Record<string, string> = {
+  green: 'bg-green-600',
+  amber: 'bg-amber-500',
+  red: 'bg-red-600',
+};
+
+function KpiStatusDot({ status }: { status?: string }) {
+  const color = status ? KPI_STATUS_COLORS[status] : undefined;
+  if (!color) return null;
+  return (
+    <span
+      title={`Status: ${status}`}
+      className={`inline-block h-2 w-2 rounded-full mr-1.5 align-middle ${color}`}
+    />
+  );
+}
+
 function ReportSnapshot({ data, layout }: { data: Record<string, unknown>; layout: unknown[] }) {
   const kpiValues = (data['kpis'] as Record<string, unknown>) ?? {};
   const kpiNames = (data['kpi_names'] as Record<string, string>) ?? {};
+  const kpiStatus = (data['kpi_status'] as Record<string, string>) ?? {};
   const aiSummary = (data['ai_summary'] as string) ?? '';
   const textOverrides = (data['text_overrides'] as Record<string, string>) ?? {};
   const blocks = (data['blocks'] as Record<string, { type: string; data?: unknown; error?: string }>) ?? {};
@@ -196,6 +216,14 @@ function ReportSnapshot({ data, layout }: { data: Record<string, unknown>; layou
         const blockId = (block['id'] as string | undefined) ?? `idx-${i}`;
         if (t === 'kpi-row') {
           const keys = (block['kpis'] as string[]) ?? [];
+          if (keys.length === 0) {
+            // Parity with the builder preview's empty-row hint.
+            return (
+              <p key={blockId} className="text-xs text-gray-500 italic">
+                No KPIs selected.
+              </p>
+            );
+          }
           return (
             <div key={blockId} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {keys.map((k) => (
@@ -204,6 +232,7 @@ function ReportSnapshot({ data, layout }: { data: Record<string, unknown>; layou
                     {kpiNames[k] ?? k.replace(/_/g, ' ')}
                   </p>
                   <p className="mt-0.5 text-base font-semibold text-gray-900">
+                    <KpiStatusDot status={kpiStatus[k]} />
                     {kpiValues[k] != null ? String(kpiValues[k]) : '—'}
                   </p>
                 </div>
@@ -242,7 +271,7 @@ function ReportSnapshot({ data, layout }: { data: Record<string, unknown>; layou
             />
           );
         }
-        if (t === 'block' || t === 'chart' || t === 'report') {
+        if (t === 'block' || t === 'chart' || t === 'report' || t === 'tag-segment') {
           const payloadKey =
             (block['id'] as string | undefined) ??
             (block['name'] as string | undefined) ??
@@ -273,8 +302,24 @@ interface PlSummary {
   operatingExpense: number;
   netIncome: number;
 }
-interface BsSummary { assets: number; liabilities: number; equity: number }
+interface BsSections {
+  currentAssets: number;
+  fixedAssets: number;
+  otherAssets: number;
+  currentLiabilities: number;
+  longTermLiabilities: number;
+}
+interface BsSummary { assets: number; liabilities: number; equity: number; sections?: BsSections }
 interface PlVsPriorYear { current: PlSummary; prior: PlSummary | null }
+interface BudgetVsActualSummary {
+  budgetName: string;
+  fiscalYear: number;
+  rows: Array<{ account: string; budgeted: number; actual: number; variance: number; variancePct: number | null }>;
+  totals: { budgeted: number; actual: number; variance: number };
+  truncated: boolean;
+}
+interface TagSegmentRow { tagId: string; tagName: string; revenue: number; expenses: number; netIncome: number }
+interface SalesTaxSummary { totalSales: number; totalTax: number }
 interface TopRow { name: string; amount: number }
 interface TrendPoint { month: string; label: string; amount: number }
 interface CfSummary { netIncome: number; operating: number; investing: number; financing: number; netChange: number }
@@ -310,13 +355,18 @@ function PortalBlockRender({
   const friendly = name.replace(/_/g, ' ');
   switch (payload.type) {
     case 'top_customers':
-    case 'top_vendors': {
+    case 'top_vendors':
+    case 'expense_by_category': {
       const rows = (payload.data as TopRow[]) ?? [];
       if (rows.length === 0) return null;
       return (
         <section className="bg-white border border-gray-200 rounded-md p-3">
           <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">
-            {payload.type === 'top_customers' ? 'Top customers' : 'Top vendors'}
+            {payload.type === 'top_customers'
+              ? 'Top customers'
+              : payload.type === 'top_vendors'
+                ? 'Top vendors'
+                : 'Expenses by category'}
           </p>
           <ul className="text-sm divide-y divide-gray-100">
             {rows.map((r) => (
@@ -374,13 +424,25 @@ function PortalBlockRender({
     case 'balance_sheet': {
       const b = (payload.data as BsSummary) ?? null;
       if (!b) return null;
+      const s = b.sections;
+      const sub = (label: string, v: number) => (
+        <tr key={label}>
+          <td className="py-0.5 pl-4 text-xs text-gray-500">{label}</td>
+          <td className="py-0.5 text-right text-xs text-gray-600">{fmtMoney(v)}</td>
+        </tr>
+      );
       return (
         <section className="bg-white border border-gray-200 rounded-md p-3">
           <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Balance sheet</p>
           <table className="w-full text-sm">
             <tbody>
               <tr><td className="py-1 text-gray-700">Total assets</td><td className="py-1 text-right font-medium">{fmtMoney(b.assets)}</td></tr>
+              {s && sub('Current assets', s.currentAssets)}
+              {s && sub('Fixed assets', s.fixedAssets)}
+              {s && sub('Other assets', s.otherAssets)}
               <tr><td className="py-1 text-gray-700">Total liabilities</td><td className="py-1 text-right font-medium">{fmtMoney(b.liabilities)}</td></tr>
+              {s && sub('Current liabilities', s.currentLiabilities)}
+              {s && sub('Long-term liabilities', s.longTermLiabilities)}
               <tr><td className="py-1 text-gray-700">Total equity</td><td className="py-1 text-right font-medium">{fmtMoney(b.equity)}</td></tr>
             </tbody>
           </table>
@@ -399,7 +461,9 @@ function PortalBlockRender({
     }
     case 'revenue_trend_12m':
     case 'expense_trend_12m':
-    case 'cash_balance_trend': {
+    case 'cash_balance_trend':
+    case 'net_income_trend_12m':
+    case 'gross_margin_trend_12m': {
       const pts = (payload.data as TrendPoint[]) ?? [];
       if (pts.length === 0) return null;
       const heading =
@@ -407,17 +471,27 @@ function PortalBlockRender({
           ? 'Revenue trend (12 months)'
           : payload.type === 'expense_trend_12m'
             ? 'Expense trend (12 months)'
-            : 'Cash balance trend (12 months)';
+            : payload.type === 'net_income_trend_12m'
+              ? 'Net income trend (12 months)'
+              : payload.type === 'gross_margin_trend_12m'
+                ? 'Gross margin % trend (12 months)'
+                : 'Cash balance trend (12 months)';
       const color =
         payload.type === 'expense_trend_12m'
           ? '#f59e0b'
           : payload.type === 'cash_balance_trend'
             ? '#0ea5e9'
-            : '#4f46e5';
+            : payload.type === 'net_income_trend_12m' || payload.type === 'gross_margin_trend_12m'
+              ? '#16a34a'
+              : '#4f46e5';
       return (
         <section className="bg-white border border-gray-200 rounded-md p-3">
           <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">{heading}</p>
-          <PortalTrendChart points={pts} color={color} />
+          <PortalTrendChart
+            points={pts}
+            color={color}
+            percent={payload.type === 'gross_margin_trend_12m'}
+          />
         </section>
       );
     }
@@ -433,6 +507,7 @@ function PortalBlockRender({
               <tr><td className="py-1 text-gray-700">Investing activities</td><td className="py-1 text-right">{fmtMoney(c.investing)}</td></tr>
               <tr><td className="py-1 text-gray-700">Financing activities</td><td className="py-1 text-right">{fmtMoney(c.financing)}</td></tr>
               <tr className="border-t border-gray-200"><td className="py-1 text-gray-900 font-semibold">Net change in cash</td><td className="py-1 text-right font-bold">{fmtMoney(c.netChange)}</td></tr>
+              <tr><td className="py-1 text-gray-500 text-xs">Net income (accrual)</td><td className="py-1 text-right text-xs text-gray-500">{fmtMoney(c.netIncome)}</td></tr>
             </tbody>
           </table>
         </section>
@@ -467,6 +542,11 @@ function PortalBlockRender({
               </tr>
             </tbody>
           </table>
+          {t.truncated && (
+            <p className="mt-1 text-[11px] text-gray-500">
+              Showing the first {t.rows.length} accounts.
+            </p>
+          )}
         </section>
       );
     }
@@ -488,6 +568,95 @@ function PortalBlockRender({
                 <td className="py-1 text-gray-900">Total</td>
                 <td className="py-1 text-right">{fmtMoney(b.totalBalance)}</td>
               </tr>
+            </tbody>
+          </table>
+        </section>
+      );
+    }
+    case 'budget_vs_actual': {
+      const d = (payload.data as BudgetVsActualSummary) ?? null;
+      if (!d || d.rows.length === 0) return null;
+      const varClass = (v: number) => (v < 0 ? 'text-red-600' : 'text-gray-900');
+      return (
+        <section className="bg-white border border-gray-200 rounded-md p-3">
+          <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">
+            Budget vs. actual — {d.budgetName}
+          </p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wide text-gray-500">
+                <th className="text-left py-1 font-semibold">Account</th>
+                <th className="text-right py-1 font-semibold">Budget</th>
+                <th className="text-right py-1 font-semibold">Actual</th>
+                <th className="text-right py-1 font-semibold">Variance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.rows.map((r) => (
+                <tr key={r.account} className="border-b border-gray-100 last:border-0">
+                  <td className="py-1 pr-2 text-gray-800">{r.account}</td>
+                  <td className="py-1 text-right text-gray-900">{fmtMoney(r.budgeted)}</td>
+                  <td className="py-1 text-right text-gray-900">{fmtMoney(r.actual)}</td>
+                  <td className={`py-1 text-right font-medium ${varClass(r.variance)}`}>{fmtMoney(r.variance)}</td>
+                </tr>
+              ))}
+              <tr className="border-t border-gray-200 font-semibold">
+                <td className="py-1 text-gray-900">Net income</td>
+                <td className="py-1 text-right">{fmtMoney(d.totals.budgeted)}</td>
+                <td className="py-1 text-right">{fmtMoney(d.totals.actual)}</td>
+                <td className={`py-1 text-right ${varClass(d.totals.variance)}`}>{fmtMoney(d.totals.variance)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {d.truncated && (
+            <p className="mt-1 text-[11px] text-gray-500">
+              Showing the first {d.rows.length} budget lines.
+            </p>
+          )}
+        </section>
+      );
+    }
+    case 'tag_segments': {
+      const rows = (payload.data as TagSegmentRow[]) ?? [];
+      if (rows.length === 0) return null;
+      return (
+        <section className="bg-white border border-gray-200 rounded-md p-3">
+          <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Tag segments</p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wide text-gray-500">
+                <th className="text-left py-1 font-semibold">Segment</th>
+                <th className="text-right py-1 font-semibold">Revenue</th>
+                <th className="text-right py-1 font-semibold">Expenses</th>
+                <th className="text-right py-1 font-semibold">Net income</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.tagId} className="border-b border-gray-100 last:border-0">
+                  <td className="py-1 pr-2 text-gray-800">{r.tagName}</td>
+                  <td className="py-1 text-right text-gray-900">{fmtMoney(r.revenue)}</td>
+                  <td className="py-1 text-right text-gray-900">{fmtMoney(r.expenses)}</td>
+                  <td className={`py-1 text-right font-medium ${r.netIncome < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                    {fmtMoney(r.netIncome)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      );
+    }
+    case 'sales_tax': {
+      const s = (payload.data as SalesTaxSummary) ?? null;
+      if (!s) return null;
+      return (
+        <section className="bg-white border border-gray-200 rounded-md p-3">
+          <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Sales tax liability</p>
+          <table className="w-full text-sm">
+            <tbody>
+              <tr><td className="py-1 text-gray-700">Taxable sales</td><td className="py-1 text-right">{fmtMoney(s.totalSales)}</td></tr>
+              <tr className="border-t border-gray-200"><td className="py-1 text-gray-900 font-semibold">Sales tax collected</td><td className="py-1 text-right font-bold">{fmtMoney(s.totalTax)}</td></tr>
             </tbody>
           </table>
         </section>
@@ -539,16 +708,29 @@ function PortalPlBarChart({ p }: { p: PlSummary }) {
   );
 }
 
-function PortalTrendChart({ points, color }: { points: TrendPoint[]; color: string }) {
+function PortalTrendChart({
+  points,
+  color,
+  percent,
+}: {
+  points: TrendPoint[];
+  color: string;
+  percent?: boolean;
+}) {
   const data = points.map((p) => ({ name: p.label, amount: p.amount }));
+  const fmtPctTick = (v: unknown) => `${Number(v)}%`;
+  const fmtPct = (n: number) => `${n.toFixed(1)}%`;
   return (
     <div style={{ width: '100%', height: 220 }}>
       <ResponsiveContainer>
         <BarChart data={data} margin={{ top: 4, right: 12, left: 12, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
           <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-40} textAnchor="end" height={38} />
-          <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtMoneyTick} width={70} />
-          <Tooltip formatter={((v: unknown) => fmtMoney(Number(v))) as never} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={percent ? fmtPctTick : fmtMoneyTick} width={70} />
+          <Tooltip
+            formatter={((v: unknown) =>
+              percent ? fmtPct(Number(v)) : fmtMoney(Number(v))) as never}
+          />
           <Bar dataKey="amount" radius={[3, 3, 0, 0]}>
             {data.map((entry, i) => (
               <Cell key={`${entry.name}-${i}`} fill={entry.amount < 0 ? '#dc2626' : color} />

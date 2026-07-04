@@ -35,6 +35,7 @@ import { useCompanyContext } from '../../../providers/CompanyProvider';
 import { ThemeEditor } from './ThemeEditor';
 import { FormulaBuilder } from './FormulaBuilder';
 import { LayoutEditor } from './LayoutEditor';
+import { DEFAULT_PERIOD_OPTIONS, resolveDefaultPeriodRange } from './period-defaults';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 16 + 17 — bookkeeper UI for
 // Report Builder. List templates + instances, create instance, set
@@ -542,12 +543,22 @@ function NewInstanceModal({
 }) {
   const [templateId, setTemplateId] = useState<string>(templates[0]?.id ?? '');
   const [coId, setCoId] = useState<string>(companyId ?? companies[0]?.id ?? '');
-  const today = new Date().toISOString().slice(0, 10);
-  const monthStart = `${today.slice(0, 7)}-01`;
-  const [periodStart, setPeriodStart] = useState(monthStart);
-  const [periodEnd, setPeriodEnd] = useState(today);
+  // F6 — the period defaults come from the selected template's
+  // defaultPeriod (this_month/last_month/…/last_12_months) instead of
+  // always month-start → today.
+  const initialRange = resolveDefaultPeriodRange(templates[0]?.defaultPeriod ?? 'this_month');
+  const [periodStart, setPeriodStart] = useState(initialRange.start);
+  const [periodEnd, setPeriodEnd] = useState(initialRange.end);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const pickTemplate = (id: string) => {
+    setTemplateId(id);
+    const tpl = templates.find((t) => t.id === id);
+    const range = resolveDefaultPeriodRange(tpl?.defaultPeriod ?? 'this_month');
+    setPeriodStart(range.start);
+    setPeriodEnd(range.end);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -587,7 +598,7 @@ function NewInstanceModal({
             <span className="block text-gray-800 mb-1">Template</span>
             <select
               value={templateId}
-              onChange={(e) => setTemplateId(e.target.value)}
+              onChange={(e) => pickTemplate(e.target.value)}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             >
               {templates.map((t) => (
@@ -725,12 +736,11 @@ function EditTemplateModal({
             onChange={(e) => setDefaultPeriod(e.target.value)}
             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
           >
-            <option value="this_month">This month</option>
-            <option value="last_month">Last month</option>
-            <option value="this_quarter">This quarter</option>
-            <option value="last_quarter">Last quarter</option>
-            <option value="ytd">Year-to-date</option>
-            <option value="last_year">Last year</option>
+            {DEFAULT_PERIOD_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         </label>
         {err && (
@@ -1236,6 +1246,7 @@ function ReportRender({
 }) {
   const kpiValues = (data['kpis'] as Record<string, unknown>) ?? {};
   const kpiNames = (data['kpi_names'] as Record<string, string>) ?? {};
+  const kpiStatus = (data['kpi_status'] as Record<string, string>) ?? {};
   const aiSummary = (data['ai_summary'] as string) ?? '';
   const textOverrides = (data['text_overrides'] as Record<string, string>) ?? {};
   const blocks = (data['blocks'] as Record<string, BlockPayload>) ?? {};
@@ -1264,6 +1275,7 @@ function ReportRender({
                   key={k}
                   label={kpiNames[k] ?? k.replace(/_/g, ' ')}
                   value={kpiValues[k] != null ? String(kpiValues[k]) : '—'}
+                  status={kpiStatus[k]}
                   editable={editable}
                   onSave={onPatch ? (v) => onPatch({ kpiOverrides: { [k]: v } }) : undefined}
                   onEditingChange={onEditingChange}
@@ -1314,7 +1326,7 @@ function ReportRender({
             />
           );
         }
-        if (t === 'chart' || t === 'block' || t === 'report') {
+        if (t === 'chart' || t === 'block' || t === 'report' || t === 'tag-segment') {
           const payloadKey =
             (block['id'] as string | undefined) ??
             (block['name'] as string | undefined) ??
@@ -1328,15 +1340,6 @@ function ReportRender({
               block={block}
               payload={payload}
             />
-          );
-        }
-        if (t === 'tag-segment') {
-          const tags = (block['tags'] as string[]) ?? [];
-          return (
-            <div key={blockId} className="border-l-4 border-purple-200 pl-3 py-1 text-sm text-gray-700">
-              <span className="text-xs uppercase tracking-wide text-gray-500">Tag segment</span>{' '}
-              · {tags.length} tag{tags.length === 1 ? '' : 's'}
-            </div>
           );
         }
         if (t === 'image') {
@@ -1391,8 +1394,24 @@ interface PlSummary {
   operatingExpense: number;
   netIncome: number;
 }
-interface BsSummary { assets: number; liabilities: number; equity: number }
+interface BsSections {
+  currentAssets: number;
+  fixedAssets: number;
+  otherAssets: number;
+  currentLiabilities: number;
+  longTermLiabilities: number;
+}
+interface BsSummary { assets: number; liabilities: number; equity: number; sections?: BsSections }
 interface PlVsPriorYear { current: PlSummary; prior: PlSummary | null }
+interface BudgetVsActualSummary {
+  budgetName: string;
+  fiscalYear: number;
+  rows: Array<{ account: string; budgeted: number; actual: number; variance: number; variancePct: number | null }>;
+  totals: { budgeted: number; actual: number; variance: number };
+  truncated: boolean;
+}
+interface TagSegmentRow { tagId: string; tagName: string; revenue: number; expenses: number; netIncome: number }
+interface SalesTaxSummary { totalSales: number; totalTax: number }
 interface TopRow { name: string; amount: number }
 interface TrendPoint { month: string; label: string; amount: number }
 interface CfSummary { netIncome: number; operating: number; investing: number; financing: number; netChange: number }
@@ -1442,7 +1461,7 @@ function BlockRender({
     (block['name'] as string | undefined) ??
     (block['report'] as string | undefined) ??
     (block['key'] as string | undefined) ??
-    '';
+    (blockType === 'tag-segment' ? 'tag segments' : '');
   const friendly = name.replace(/_/g, ' ');
 
   if (!payload) {
@@ -1461,9 +1480,15 @@ function BlockRender({
   }
   switch (payload.type) {
     case 'top_customers':
-    case 'top_vendors': {
+    case 'top_vendors':
+    case 'expense_by_category': {
       const rows = (payload.data as TopRow[]) ?? [];
-      const heading = payload.type === 'top_customers' ? 'Top Customers' : 'Top Vendors';
+      const heading =
+        payload.type === 'top_customers'
+          ? 'Top Customers'
+          : payload.type === 'top_vendors'
+            ? 'Top Vendors'
+            : 'Expenses by Category';
       return (
         <Frame label="Top" title={heading}>
           {rows.length === 0 ? (
@@ -1529,13 +1554,7 @@ function BlockRender({
           {!b ? (
             <p className="text-xs text-gray-500 italic">No data.</p>
           ) : (
-            <table className="w-full text-sm">
-              <tbody>
-                <tr><td className="py-1 text-gray-700">Total Assets</td><td className="py-1 text-right font-medium">{fmtMoney(b.assets)}</td></tr>
-                <tr><td className="py-1 text-gray-700">Total Liabilities</td><td className="py-1 text-right font-medium">{fmtMoney(b.liabilities)}</td></tr>
-                <tr><td className="py-1 text-gray-700">Total Equity</td><td className="py-1 text-right font-medium">{fmtMoney(b.equity)}</td></tr>
-              </tbody>
-            </table>
+            <BsTable b={b} />
           )}
         </Frame>
       );
@@ -1554,26 +1573,38 @@ function BlockRender({
     }
     case 'revenue_trend_12m':
     case 'expense_trend_12m':
-    case 'cash_balance_trend': {
+    case 'cash_balance_trend':
+    case 'net_income_trend_12m':
+    case 'gross_margin_trend_12m': {
       const pts = (payload.data as TrendPoint[]) ?? [];
       const heading =
         payload.type === 'revenue_trend_12m'
           ? 'Revenue Trend (12 Months)'
           : payload.type === 'expense_trend_12m'
             ? 'Expense Trend (12 Months)'
-            : 'Cash Balance Trend (12 Months)';
+            : payload.type === 'net_income_trend_12m'
+              ? 'Net Income Trend (12 Months)'
+              : payload.type === 'gross_margin_trend_12m'
+                ? 'Gross Margin % Trend (12 Months)'
+                : 'Cash Balance Trend (12 Months)';
       const color =
         payload.type === 'expense_trend_12m'
           ? '#f59e0b'
           : payload.type === 'cash_balance_trend'
             ? '#0ea5e9'
-            : '#4f46e5';
+            : payload.type === 'net_income_trend_12m' || payload.type === 'gross_margin_trend_12m'
+              ? '#16a34a'
+              : '#4f46e5';
       return (
         <Frame label="Chart" title={heading}>
           {pts.length === 0 ? (
             <p className="text-xs text-gray-500 italic">No data.</p>
           ) : (
-            <TrendChart points={pts} color={color} />
+            <TrendChart
+              points={pts}
+              color={color}
+              percent={payload.type === 'gross_margin_trend_12m'}
+            />
           )}
         </Frame>
       );
@@ -1606,6 +1637,42 @@ function BlockRender({
             <p className="text-xs text-gray-500 italic">No bank accounts.</p>
           ) : (
             <BankBalancesTable b={b} />
+          )}
+        </Frame>
+      );
+    }
+    case 'budget_vs_actual': {
+      const d = (payload.data as BudgetVsActualSummary) ?? null;
+      return (
+        <Frame title={d ? `Budget vs. Actual — ${d.budgetName}` : 'Budget vs. Actual'}>
+          {!d || d.rows.length === 0 ? (
+            <p className="text-xs text-gray-500 italic">No budgeted activity in this period.</p>
+          ) : (
+            <BudgetVsActualTable d={d} />
+          )}
+        </Frame>
+      );
+    }
+    case 'tag_segments': {
+      const rows = (payload.data as TagSegmentRow[]) ?? [];
+      return (
+        <Frame title="Tag Segments">
+          {rows.length === 0 ? (
+            <p className="text-xs text-gray-500 italic">No activity in this period.</p>
+          ) : (
+            <TagSegmentsTable rows={rows} />
+          )}
+        </Frame>
+      );
+    }
+    case 'sales_tax': {
+      const s = (payload.data as SalesTaxSummary) ?? null;
+      return (
+        <Frame title="Sales Tax Liability">
+          {!s ? (
+            <p className="text-xs text-gray-500 italic">No data.</p>
+          ) : (
+            <SalesTaxTable s={s} />
           )}
         </Frame>
       );
@@ -1759,11 +1826,21 @@ function PlTable({ p }: { p: PlSummary }) {
   );
 }
 
-// 12-month single-series bar chart shared by the revenue / expense /
-// cash-balance trend blocks. Negative months render red so a loss or
-// overdraft is visible at a glance.
-function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) {
+// 12-month single-series bar chart shared by the trend blocks.
+// Negative months render red so a loss or overdraft is visible at a
+// glance. `percent` switches the axis/tooltip to % (gross margin).
+function TrendChart({
+  points,
+  color,
+  percent,
+}: {
+  points: TrendPoint[];
+  color: string;
+  percent?: boolean;
+}) {
   const data = points.map((p) => ({ name: p.label, amount: p.amount }));
+  const fmtPctTick = (v: unknown) => `${Number(v)}%`;
+  const fmtPct = (n: number) => `${n.toFixed(1)}%`;
   return (
     <div style={{ width: '100%', height: 220 }}>
       <ResponsiveContainer>
@@ -1772,10 +1849,13 @@ function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) 
           <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-40} textAnchor="end" height={38} />
           <YAxis
             tick={{ fontSize: 11 }}
-            tickFormatter={fmtMoneyTick}
+            tickFormatter={percent ? fmtPctTick : fmtMoneyTick}
             width={70}
           />
-          <Tooltip formatter={((v: unknown) => fmtMoney(Number(v))) as never} />
+          <Tooltip
+            formatter={((v: unknown) =>
+              percent ? fmtPct(Number(v)) : fmtMoney(Number(v))) as never}
+          />
           <Bar dataKey="amount" radius={[3, 3, 0, 0]}>
             {data.map((entry, i) => (
               <Cell key={`${entry.name}-${i}`} fill={entry.amount < 0 ? '#dc2626' : color} />
@@ -1834,6 +1914,111 @@ function TbTable({ t }: { t: TbSummary }) {
   );
 }
 
+// Balance Sheet embed — three totals plus indented section subtotals
+// (current/fixed/other assets, current/long-term liabilities) when the
+// snapshot carries them (F10; older snapshots omit `sections`).
+function BsTable({ b }: { b: BsSummary }) {
+  const s = b.sections;
+  const sub = (label: string, v: number) => (
+    <tr key={label}>
+      <td className="py-0.5 pl-4 text-xs text-gray-500">{label}</td>
+      <td className="py-0.5 text-right text-xs text-gray-600">{fmtMoney(v)}</td>
+    </tr>
+  );
+  return (
+    <table className="w-full text-sm">
+      <tbody>
+        <tr><td className="py-1 text-gray-700">Total Assets</td><td className="py-1 text-right font-medium">{fmtMoney(b.assets)}</td></tr>
+        {s && sub('Current Assets', s.currentAssets)}
+        {s && sub('Fixed Assets', s.fixedAssets)}
+        {s && sub('Other Assets', s.otherAssets)}
+        <tr><td className="py-1 text-gray-700">Total Liabilities</td><td className="py-1 text-right font-medium">{fmtMoney(b.liabilities)}</td></tr>
+        {s && sub('Current Liabilities', s.currentLiabilities)}
+        {s && sub('Long-Term Liabilities', s.longTermLiabilities)}
+        <tr><td className="py-1 text-gray-700">Total Equity</td><td className="py-1 text-right font-medium">{fmtMoney(b.equity)}</td></tr>
+      </tbody>
+    </table>
+  );
+}
+
+// Budget vs. Actual block (F1). Negative variance renders red.
+function BudgetVsActualTable({ d }: { d: BudgetVsActualSummary }) {
+  const varClass = (v: number) => (v < 0 ? 'text-red-600' : 'text-gray-900');
+  return (
+    <div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-[10px] uppercase tracking-wide text-gray-500">
+            <th className="text-left py-1 font-semibold">Account</th>
+            <th className="text-right py-1 font-semibold">Budget</th>
+            <th className="text-right py-1 font-semibold">Actual</th>
+            <th className="text-right py-1 font-semibold">Variance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {d.rows.map((r) => (
+            <tr key={r.account} className="border-b border-gray-100 last:border-0">
+              <td className="py-1 pr-2 text-gray-800">{r.account}</td>
+              <td className="py-1 text-right text-gray-900">{fmtMoney(r.budgeted)}</td>
+              <td className="py-1 text-right text-gray-900">{fmtMoney(r.actual)}</td>
+              <td className={`py-1 text-right font-medium ${varClass(r.variance)}`}>{fmtMoney(r.variance)}</td>
+            </tr>
+          ))}
+          <tr className="border-t border-gray-200 font-semibold">
+            <td className="py-1 text-gray-900">Net Income</td>
+            <td className="py-1 text-right">{fmtMoney(d.totals.budgeted)}</td>
+            <td className="py-1 text-right">{fmtMoney(d.totals.actual)}</td>
+            <td className={`py-1 text-right ${varClass(d.totals.variance)}`}>{fmtMoney(d.totals.variance)}</td>
+          </tr>
+        </tbody>
+      </table>
+      {d.truncated && (
+        <p className="mt-1 text-[11px] text-gray-500">Showing the first {d.rows.length} budget lines.</p>
+      )}
+    </div>
+  );
+}
+
+// Tag-segment block (F2) — one P&L summary row per tag.
+function TagSegmentsTable({ rows }: { rows: TagSegmentRow[] }) {
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="text-[10px] uppercase tracking-wide text-gray-500">
+          <th className="text-left py-1 font-semibold">Segment</th>
+          <th className="text-right py-1 font-semibold">Revenue</th>
+          <th className="text-right py-1 font-semibold">Expenses</th>
+          <th className="text-right py-1 font-semibold">Net Income</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.tagId} className="border-b border-gray-100 last:border-0">
+            <td className="py-1 pr-2 text-gray-800">{r.tagName}</td>
+            <td className="py-1 text-right text-gray-900">{fmtMoney(r.revenue)}</td>
+            <td className="py-1 text-right text-gray-900">{fmtMoney(r.expenses)}</td>
+            <td className={`py-1 text-right font-medium ${r.netIncome < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+              {fmtMoney(r.netIncome)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// Sales Tax Liability embed (F5).
+function SalesTaxTable({ s }: { s: SalesTaxSummary }) {
+  return (
+    <table className="w-full text-sm">
+      <tbody>
+        <tr><td className="py-1 text-gray-700">Taxable Sales</td><td className="py-1 text-right">{fmtMoney(s.totalSales)}</td></tr>
+        <tr className="border-t border-gray-200"><td className="py-1 text-gray-900 font-semibold">Sales Tax Collected</td><td className="py-1 text-right font-bold">{fmtMoney(s.totalTax)}</td></tr>
+      </tbody>
+    </table>
+  );
+}
+
 function BankBalancesTable({ b }: { b: BankBalancesSummary }) {
   return (
     <table className="w-full text-sm">
@@ -1855,15 +2040,36 @@ function BankBalancesTable({ b }: { b: BankBalancesSummary }) {
 
 // ── Editable cells ──────────────────────────────────────────────
 
+// F7 — red/amber/green target dot on KPI tiles. Absent status renders
+// nothing so untargeted KPIs look exactly as before.
+const KPI_STATUS_COLORS: Record<string, string> = {
+  green: 'bg-green-600',
+  amber: 'bg-amber-500',
+  red: 'bg-red-600',
+};
+
+function KpiStatusDot({ status }: { status?: string }) {
+  const color = status ? KPI_STATUS_COLORS[status] : undefined;
+  if (!color) return null;
+  return (
+    <span
+      title={`Status: ${status}`}
+      className={`inline-block h-2 w-2 rounded-full mr-1.5 align-middle ${color}`}
+    />
+  );
+}
+
 function KpiCard({
   label,
   value,
+  status,
   editable,
   onSave,
   onEditingChange,
 }: {
   label: string;
   value: string;
+  status?: string;
   editable?: boolean;
   onSave?: (v: string) => Promise<void>;
   onEditingChange?: (active: boolean) => void;
@@ -1933,6 +2139,7 @@ function KpiCard({
         />
       ) : (
         <p className="mt-0.5 text-base font-semibold text-gray-900">
+          <KpiStatusDot status={status} />
           {saving ? '…' : value}
         </p>
       )}

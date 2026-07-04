@@ -150,4 +150,58 @@ describe('ReportBuilderPage', () => {
     expect(screen.queryByText(/Layout has no KPI rows yet/)).toBeNull();
     expect(screen.getByText('Net Income')).toBeTruthy();
   });
+
+  it('wave 2: preview renders budget vs actual, tag segments, sales tax, KPI status dot, and the error frame', async () => {
+    const wave2Detail = {
+      instance: {
+        ...draft,
+        layoutSnapshotJsonb: [
+          { id: 'k1', type: 'kpi-row', kpis: ['net_income'] },
+          { id: 'bva1', type: 'block', name: 'budget_vs_actual', budgetId: 'b1' },
+          { id: 'ts1', type: 'tag-segment', tags: ['t1'] },
+          { id: 'stx1', type: 'report', key: 'sales_tax' },
+          { id: 'bad1', type: 'block', name: 'budget_vs_actual' },
+        ],
+        dataSnapshotJsonb: {
+          kpis: { net_income: '$1,000' },
+          kpi_names: { net_income: 'Net Income' },
+          kpi_status: { net_income: 'amber' },
+          blocks: {
+            bva1: {
+              type: 'budget_vs_actual',
+              data: {
+                budgetName: 'FY26 Plan',
+                fiscalYear: 2026,
+                rows: [{ account: 'Sales', budgeted: 3000, actual: 2500, variance: -500, variancePct: -16.7 }],
+                totals: { budgeted: 3000, actual: 2500, variance: -500 },
+                truncated: false,
+              },
+            },
+            ts1: {
+              type: 'tag_segments',
+              data: [{ tagId: 't1', tagName: 'Location A', revenue: 1000, expenses: 400, netIncome: 600 }],
+            },
+            stx1: { type: 'sales_tax', data: { totalSales: 150, totalTax: 12.25 } },
+            bad1: { type: 'budget_vs_actual', error: 'No budget selected — pick one in the layout editor.' },
+          },
+        },
+      },
+    };
+    apiMock.mockImplementation((path: string) => {
+      if (path === '/practice/reports/instances/i1') return Promise.resolve(wave2Detail);
+      return defaultApi(path);
+    });
+    renderRoute(<ReportBuilderPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Preview' }));
+
+    await screen.findByText(/Budget vs\. Actual — FY26 Plan/i);
+    expect(screen.getByText('Location A')).toBeTruthy();
+    expect(screen.getByText('Tag Segments')).toBeTruthy();
+    expect(screen.getByText('Sales Tax Collected')).toBeTruthy();
+    // KPI status dot (F7).
+    expect(screen.getByTitle('Status: amber')).toBeTruthy();
+    // The errored block shows its message in the amber frame (preview only).
+    expect(screen.getByText(/No budget selected/)).toBeTruthy();
+  });
 });
