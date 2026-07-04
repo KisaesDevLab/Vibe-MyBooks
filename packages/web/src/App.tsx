@@ -151,6 +151,8 @@ const BankConnectionsPage = lazyNamed(() => import('./features/banking/BankConne
 const BankFeedPage = lazyNamed(() => import('./features/banking/BankFeedPage'), 'BankFeedPage');
 const ReconciliationPage = lazyNamed(() => import('./features/banking/ReconciliationPage'), 'ReconciliationPage');
 const ReconciliationHistoryPage = lazyNamed(() => import('./features/banking/ReconciliationHistoryPage'), 'ReconciliationHistoryPage');
+const BankReconciliationSummaryReport = lazyNamed(() => import('./features/reports/BankReconciliationSummaryReport'), 'BankReconciliationSummaryReport');
+const ReconciliationDetailReport = lazyNamed(() => import('./features/reports/ReconciliationDetailReport'), 'ReconciliationDetailReport');
 const BankDepositPage = lazyNamed(() => import('./features/banking/BankDepositPage'), 'BankDepositPage');
 const StatementUploadPage = lazyNamed(() => import('./features/banking/StatementUploadPage'), 'StatementUploadPage');
 const StatementImportsPage = lazyNamed(() => import('./features/banking/StatementImportsPage'), 'StatementImportsPage');
@@ -414,7 +416,8 @@ export function App() {
             <Route path="/reports/ap-1099-prep" element={<GenericReport title="1099 Preparation" endpoint="ap-1099-prep" useDateRange={false} columns={[{key:'vendor_name',label:'Vendor'},{key:'address',label:'Address'},{key:'tax_id',label:'Tax ID'},{key:'total_paid',label:'Total Paid',align:'right',format:'money'}]} />} />
             <Route path="/reports/transaction-list-by-vendor" element={<GenericReport title="Transactions by Vendor" endpoint="transaction-list-by-vendor" columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'total',label:'Amount',align:'right',format:'money'}]} />} />
             <Route path="/reports/bank-balances" element={<GenericReport title="Bank Account Balances" endpoint="bank-balances" useDateRange={false} useAsOfDate columns={[{key:'accountNumber',label:'#'},{key:'name',label:'Account'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByAccountAsOf('accountId')}]} dataKey="accounts" totalsFrom={{balance:'totalBalance'}} />} />
-            <Route path="/reports/bank-reconciliation-summary" element={<GenericReport title="Bank Reconciliation" endpoint="bank-reconciliation-summary" useDateRange={false} columns={[]} />} />
+            <Route path="/reports/bank-reconciliation-summary" element={<BankReconciliationSummaryReport />} />
+            <Route path="/reports/reconciliation-detail" element={<ReconciliationDetailReport />} />
             <Route path="/reports/deposit-detail" element={<GenericReport title="Deposit Detail" endpoint="deposit-detail" columns={[{key:'txn_date',label:'Date'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'total',label:'Amount',align:'right',format:'money'},{key:'memo',label:'Memo'}]} />} />
             <Route path="/reports/check-register" element={<GenericReport title="Check Register" endpoint="check-register" useTagFilter columns={[{key:'txn_date',label:'Date'},{key:'txn_type',label:'Type'},{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'debit',label:'Debit',align:'right',format:'money'},{key:'credit',label:'Credit',align:'right',format:'money'}]} />} />
             <Route path="/reports/sales-tax-liability" element={<GenericReport title="Sales Tax Liability" endpoint="sales-tax-liability" columns={[]} dataKey="__single" />} />

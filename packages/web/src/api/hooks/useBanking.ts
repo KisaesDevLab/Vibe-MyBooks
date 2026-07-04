@@ -179,6 +179,67 @@ export function useImportBankFile() {
   });
 }
 
+// ─── Bank Statements (statement-driven reconciliation) ─────────────
+
+export interface BankStatementRow {
+  id: string;
+  accountId: string;
+  accountName: string;
+  accountNumber: string | null;
+  attachmentId: string | null;
+  fileName: string | null;
+  periodStart: string | null;
+  periodEnd: string;
+  openingBalance: string | null;
+  closingBalance: string;
+  maskedAccountNumber: string | null;
+  institutionName: string | null;
+  statementType: string | null;
+  goldenRuleStatus: 'verified' | 'discrepancy' | 'unknown' | string;
+  goldenRuleDelta: string | null;
+  reconciliationId: string | null;
+  status: 'reconciled' | 'in_progress' | 'not_reconciled';
+  unpostedCount: number;
+  accountHasInProgress: boolean;
+  continuityWarning: { expected: number; actual: number; delta: number } | null;
+  createdAt: string | null;
+}
+
+export interface StatementGapInfo {
+  accountId: string;
+  accountName: string;
+  missingMonths: string[];
+}
+
+export interface BankStatementsResponse {
+  statements: BankStatementRow[];
+  total: number;
+  gaps: StatementGapInfo[];
+}
+
+export function useBankStatements(accountId?: string, opts?: { limit?: number; offset?: number }) {
+  const params = new URLSearchParams();
+  if (accountId) params.set('account_id', accountId);
+  if (opts?.limit) params.set('limit', String(opts.limit));
+  if (opts?.offset) params.set('offset', String(opts.offset));
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ['bank-statements', accountId ?? '', opts?.limit ?? 50, opts?.offset ?? 0],
+    queryFn: () => apiClient<BankStatementsResponse>(`/banking/statements${qs ? `?${qs}` : ''}`),
+  });
+}
+
+export function useAutoClearStatement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reconciliationId: string) =>
+      apiClient<{ cleared: number; alreadyCleared: number; unmatched: number }>(
+        `/banking/reconciliations/${reconciliationId}/auto-clear-statement`, { method: 'POST' },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['reconciliation'] }),
+  });
+}
+
 export function useReconciliations(accountId?: string) {
   return useQuery({
     queryKey: ['reconciliations', accountId],
@@ -213,6 +274,17 @@ export type ReconciliationWithLines = Omit<Reconciliation, 'clearedBalance' | 'd
   lines: ReconciliationLineRow[];
   clearedBalance: number;
   difference: number;
+  // Statement-driven reconciliation: the linked bank_statements row (null
+  // for manual reconciliations) + the opening-balance continuity warning.
+  statement?: {
+    id: string;
+    periodStart: string | null;
+    periodEnd: string;
+    openingBalance: string | null;
+    closingBalance: string;
+    attachmentId: string | null;
+  } | null;
+  continuityWarning?: { expected: number; actual: number; delta: number } | null;
 };
 
 export function useReconciliation(id: string) {
@@ -226,9 +298,14 @@ export function useReconciliation(id: string) {
 export function useStartReconciliation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { accountId: string; statementDate: string; statementEndingBalance: string }) =>
+    // Manual start (accountId + statementDate + statementEndingBalance) or
+    // statement-driven start (statementId only — the server derives the rest).
+    mutationFn: (input: { accountId?: string; statementDate?: string; statementEndingBalance?: string; statementId?: string }) =>
       apiClient<{ reconciliation: Reconciliation }>('/banking/reconciliations', { method: 'POST', body: JSON.stringify(input) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reconciliations'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliations'] });
+      qc.invalidateQueries({ queryKey: ['bank-statements'] });
+    },
   });
 }
 
@@ -245,7 +322,11 @@ export function useCompleteReconciliation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient(`/banking/reconciliations/${id}/complete`, { method: 'POST' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['reconciliation'] }); qc.invalidateQueries({ queryKey: ['reconciliations'] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation'] });
+      qc.invalidateQueries({ queryKey: ['reconciliations'] });
+      qc.invalidateQueries({ queryKey: ['bank-statements'] });
+    },
   });
 }
 

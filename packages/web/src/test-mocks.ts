@@ -137,6 +137,9 @@ export const bankingMocks = () => ({
   useImportBankFile: passthroughMutation,
   useReconciliations: passthroughQuery({ reconciliations: [] }),
   useReconciliation: passthroughQuery(null),
+  // Statement-driven reconciliation
+  useBankStatements: passthroughQuery({ statements: [], total: 0, gaps: [] }),
+  useAutoClearStatement: passthroughMutation,
   useStartReconciliation: passthroughMutation,
   useUpdateReconciliationLines: passthroughMutation,
   useCompleteReconciliation: passthroughMutation,

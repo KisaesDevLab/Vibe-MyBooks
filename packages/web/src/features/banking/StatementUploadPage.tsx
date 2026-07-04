@@ -52,6 +52,13 @@ export function StatementUploadPage() {
   // Set when the review was resumed from a saved parse job, so import marks that
   // job imported in the Statement Imports history.
   const [resumedJobId, setResumedJobId] = useState<string | null>(null);
+  // The parse job behind a fresh upload. Sent with the import so the server
+  // can capture the bank_statements record (statement-driven reconciliation)
+  // and mark the job imported in the Statement Imports history.
+  const [parseJobId, setParseJobId] = useState<string | null>(null);
+  // Account auto-suggest: set when the account was pre-selected from a prior
+  // statement with the same masked account number (user can still override).
+  const [accountSuggested, setAccountSuggested] = useState(false);
   const [transactions, setTransactions] = useState<ParsedTransaction[]>([]);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState('');
@@ -79,7 +86,7 @@ export function StatementUploadPage() {
   interface PreviewCell { cleanedName: string | null; suggestedAccountId: string | null; suggestedAccountName: string | null; tagId: string | null; confidence: number | null }
   const [previewByIndex, setPreviewByIndex] = useState<Record<number, PreviewCell>>({});
   const [previewError, setPreviewError] = useState('');
-  const [imported, setImported] = useState<{ imported: number; skipped?: number; duplicates?: number } | null>(null);
+  const [imported, setImported] = useState<{ imported: number; skipped?: number; duplicates?: number; duplicateWarning?: string } | null>(null);
   // Batch upload: a queue of selected files processed one at a time through the
   // same review/import UI. queueIndex is the file currently in review; batchDone
   // accumulates each file's outcome for the end-of-run summary.
@@ -211,6 +218,7 @@ export function StatementUploadPage() {
       setStage('queued');
       try {
         const { jobId } = await startParse.mutateAsync(aid);
+        setParseJobId(jobId);
         const ctrl = new AbortController();
         progressCtrl.current?.abort();
         progressCtrl.current = ctrl;
@@ -262,6 +270,10 @@ export function StatementUploadPage() {
     imported: number;
     duplicates?: number;
     errors?: string[];
+    // Statement-driven reconciliation: the captured bank_statements record +
+    // a warning when a statement for an overlapping period already exists.
+    statementId?: string;
+    duplicateWarning?: string;
   }
   const importMutation = useMutation({
     mutationFn: async () => {
@@ -276,8 +288,10 @@ export function StatementUploadPage() {
           // The server find-or-creates the manual bank connection for this
           // account, so the statement rows land under the chosen GL account.
           accountId,
-          // When resuming a saved parse, tell the server which job to mark imported.
-          jobId: resumedJobId ?? undefined,
+          // The parse job behind this review (resume OR fresh upload) — the
+          // server marks it imported and captures the bank_statements record
+          // from its persisted parse result.
+          jobId: resumedJobId ?? parseJobId ?? undefined,
           transactions: selected.map(({ t, i }) => {
             const p = previewByIndex[i];
             return {
@@ -317,6 +331,28 @@ export function StatementUploadPage() {
     onError: (err: unknown) => setPreviewError(err instanceof Error ? err.message : 'Categorization preview failed'),
   });
 
+  // Account auto-suggest: when the parse read a masked account number, look
+  // up the most recent statement on file with the same masked number and
+  // pre-select its GL account (the user can override).
+  useEffect(() => {
+    const masked = metadata?.accountNumber;
+    if (!masked || accountId || transactions.length === 0 || imported) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiClient<{ suggestion: { accountId: string; accountName: string } | null }>(
+          `/banking/statements/suggest-account?masked=${encodeURIComponent(masked)}`,
+        );
+        if (!cancelled && res.suggestion) {
+          setAccountId(res.suggestion.accountId);
+          setAccountSuggested(true);
+        }
+      } catch { /* suggestion is best-effort */ }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metadata?.accountNumber, transactions.length]);
+
   // Auto-run the cleaned-name + category preview once transactions load, so the
   // review shows them without a click (and they carry into the feed on import).
   useEffect(() => {
@@ -331,6 +367,8 @@ export function StatementUploadPage() {
   const startFile = (f: File) => {
     progressCtrl.current?.abort();
     setResumedJobId(null); // a fresh upload is not a resume
+    setParseJobId(null);
+    setAccountSuggested(false);
     setFile(f);
     setTransactions([]);
     setSuspectByIndex({});
@@ -566,6 +604,11 @@ export function StatementUploadPage() {
             {!accountId && (
               <p className="text-xs text-amber-600 mt-1">Choose the account this statement belongs to before importing.</p>
             )}
+            {accountId && accountSuggested && (
+              <p className="text-xs text-gray-500 mt-1">
+                Suggested from a previous statement with the same account number — change it if this is wrong.
+              </p>
+            )}
           </div>
 
           {/* Metadata */}
@@ -740,6 +783,11 @@ export function StatementUploadPage() {
               <Check className="h-6 w-6 text-green-600 mx-auto mb-2" />
               <p className="text-sm font-medium text-green-800">Imported {imported.imported} transactions</p>
               {(imported.skipped ?? 0) > 0 && <p className="text-xs text-green-600">{imported.skipped} duplicates skipped</p>}
+              {imported.duplicateWarning && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 inline-block">
+                  {imported.duplicateWarning}
+                </p>
+              )}
               <div className="flex gap-2 justify-center">
                 {isBatch && (
                   <Button onClick={() => advanceQueue({ name: file?.name ?? `File ${queueIndex + 1}`, imported: imported.imported })}>

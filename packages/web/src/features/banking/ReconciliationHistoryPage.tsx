@@ -3,6 +3,7 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useReconciliations, useUndoReconciliation } from '../../api/hooks/useBanking';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { Button } from '../../components/ui/Button';
@@ -61,7 +62,15 @@ export function ReconciliationHistoryPage() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-500">{r.completedAt ? new Date(r.completedAt).toLocaleDateString() : '—'}</td>
-                  <td className="px-4 py-2 text-right">
+                  <td className="px-4 py-2 text-right whitespace-nowrap">
+                    {r.status === 'complete' && (
+                      <Link
+                        to={`/reports/reconciliation-detail?reconciliation_id=${r.id}`}
+                        className="text-sm text-primary-600 hover:underline mr-3"
+                      >
+                        Report
+                      </Link>
+                    )}
                     {r.status === 'complete' && r.id === latestCompleteId ? (
                       <Button variant="ghost" size="sm" onClick={() => onUndo(r.id)} loading={undoRecon.isPending}>Undo</Button>
                     ) : r.status === 'complete' ? (

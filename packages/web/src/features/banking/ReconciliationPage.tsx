@@ -5,13 +5,200 @@
 
 import { todayLocalISO } from '../../utils/date';
 import { useState, useMemo } from 'react';
-import { useStartReconciliation, useReconciliation, useUpdateReconciliationLines, useCompleteReconciliation } from '../../api/hooks/useBanking';
+import { Link } from 'react-router-dom';
+import {
+  useStartReconciliation, useReconciliation, useUpdateReconciliationLines, useCompleteReconciliation,
+  useBankStatements, useAutoClearStatement, type BankStatementRow,
+} from '../../api/hooks/useBanking';
+import { apiClient, API_BASE } from '../../api/client';
+import { useSessionState } from '../../hooks/useSessionState';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { useToast } from '../../components/ui/Toaster';
+import { AlertTriangle, FileText, Sparkles } from 'lucide-react';
+
+// Open the statement PDF in a new tab via the single-use download token
+// (same pattern as ReportShell's openPdfInTab — window.open can't carry an
+// Authorization header).
+async function openAttachmentInTab(attachmentId: string) {
+  const { token } = await apiClient<{ token: string; expiresIn: number }>(
+    '/downloads/token', { method: 'POST', body: JSON.stringify({}) },
+  );
+  window.open(
+    `${API_BASE}/attachments/${attachmentId}/download?inline=1&_dl=${encodeURIComponent(token)}`,
+    '_blank', 'noopener',
+  );
+}
+
+const money = (v: string | number | null | undefined) =>
+  v == null || v === '' ? '—' : `$${parseFloat(String(v)).toFixed(2)}`;
+
+function StatementStatusChip({ status }: { status: BankStatementRow['status'] }) {
+  const styles: Record<BankStatementRow['status'], string> = {
+    reconciled: 'bg-green-100 text-green-700',
+    in_progress: 'bg-yellow-100 text-yellow-700',
+    not_reconciled: 'bg-gray-100 text-gray-600',
+  };
+  const labels: Record<BankStatementRow['status'], string> = {
+    reconciled: 'Reconciled',
+    in_progress: 'In progress',
+    not_reconciled: 'Not reconciled',
+  };
+  return <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${styles[status]}`}>{labels[status]}</span>;
+}
+
+// Statements on file for the tenant (optionally filtered by account), each
+// with derived reconciliation status, readiness, and a one-click Reconcile.
+function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }) {
+  const [accountFilter, setAccountFilter] = useSessionState('vibe:reconcile:accountFilter', '');
+  const { data, isLoading, isError, refetch } = useBankStatements(accountFilter || undefined);
+  const startRecon = useStartReconciliation();
+  const toast = useToast();
+  const [startingId, setStartingId] = useState('');
+
+  const handleReconcile = (stmt: BankStatementRow) => {
+    if (stmt.unpostedCount > 0) {
+      const ok = window.confirm(
+        `${stmt.unpostedCount} imported item${stmt.unpostedCount === 1 ? '' : 's'} from this statement ` +
+        `${stmt.unpostedCount === 1 ? 'is' : 'are'} not posted yet — they won't appear on the worksheet ` +
+        'until categorized or matched. Start the reconciliation anyway?',
+      );
+      if (!ok) return;
+    }
+    setStartingId(stmt.id);
+    startRecon.mutate({ statementId: stmt.id }, {
+      onSuccess: (res) => onStarted(res.reconciliation.id),
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not start reconciliation.'),
+      onSettled: () => setStartingId(''),
+    });
+  };
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center gap-4 mb-3 flex-wrap">
+        <h2 className="text-lg font-semibold text-gray-900">Statements on File</h2>
+        <div className="w-64">
+          <AccountSelector value={accountFilter} onChange={setAccountFilter} accountTypeFilter={['asset', 'liability']} />
+        </div>
+        {accountFilter && (
+          <button className="text-xs text-gray-500 hover:text-gray-700 underline" onClick={() => setAccountFilter('')}>
+            Clear filter
+          </button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <LoadingSpinner className="py-8" />
+      ) : isError ? (
+        <ErrorMessage message="Couldn't load statements." onRetry={() => refetch()} />
+      ) : !data || data.statements.length === 0 ? (
+        <div className="bg-white rounded-lg border p-6 text-sm text-gray-500">
+          No statements on file yet. Import a bank statement (Banking → Import Statement) and it will appear here,
+          ready for one-click reconciliation.
+        </div>
+      ) : (
+        <>
+          {/* Statement coverage gaps per account */}
+          {data.gaps.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 text-sm text-amber-800 space-y-1">
+              {data.gaps.map((g) => (
+                <p key={g.accountId} className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    <span className="font-medium">{g.accountName}:</span>{' '}
+                    no statement on file for {g.missingMonths.join(', ')}
+                  </span>
+                </p>
+              ))}
+            </div>
+          )}
+
+          <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Account</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Ending Balance</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Readiness</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-4 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {data.statements.map((s) => (
+                  <tr key={s.id}>
+                    <td className="px-4 py-2">
+                      <span className="font-medium text-gray-900">{s.accountName}</span>
+                      {s.maskedAccountNumber && <span className="text-gray-400 ml-1">··{s.maskedAccountNumber.slice(-4)}</span>}
+                      {s.institutionName && <div className="text-xs text-gray-500">{s.institutionName}</div>}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      {s.periodStart ? `${s.periodStart} – ` : ''}{s.periodEnd}
+                      {s.goldenRuleStatus === 'discrepancy' && (
+                        <span
+                          className="inline-flex ml-2 text-amber-600 align-middle"
+                          title={`Statement didn't reconcile at import (opening + transactions ≠ closing)${s.goldenRuleDelta ? ` — off by $${Math.abs(parseFloat(s.goldenRuleDelta)).toFixed(2)}` : ''}`}
+                        >
+                          <AlertTriangle className="h-4 w-4" />
+                        </span>
+                      )}
+                      {s.continuityWarning && (
+                        <span
+                          className="inline-flex ml-1 text-amber-600 align-middle"
+                          title={`Opening balance (${money(s.continuityWarning.actual)}) doesn't match the last reconciled ending balance (${money(s.continuityWarning.expected)})`}
+                        >
+                          <AlertTriangle className="h-4 w-4" />
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono">{money(s.closingBalance)}</td>
+                    <td className="px-4 py-2 text-center">
+                      {s.unpostedCount > 0 ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 whitespace-nowrap">
+                          {s.unpostedCount} not posted
+                        </span>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Ready</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-center"><StatementStatusChip status={s.status} /></td>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      {s.attachmentId && (
+                        <Button variant="ghost" size="sm" onClick={() => { void openAttachmentInTab(s.attachmentId!); }} title={s.fileName ?? 'View statement'}>
+                          <FileText className="h-4 w-4 mr-1" /> View
+                        </Button>
+                      )}
+                      {s.status === 'not_reconciled' && (
+                        <span title={s.accountHasInProgress ? 'A reconciliation is already in progress for this account — finish or cancel it first.' : undefined}>
+                          <Button
+                            size="sm"
+                            onClick={() => handleReconcile(s)}
+                            disabled={s.accountHasInProgress || startRecon.isPending}
+                            loading={startingId === s.id && startRecon.isPending}
+                          >
+                            Reconcile
+                          </Button>
+                        </span>
+                      )}
+                      {s.status === 'in_progress' && s.reconciliationId && (
+                        <Button variant="secondary" size="sm" onClick={() => onStarted(s.reconciliationId!)}>Resume</Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function ReconciliationPage() {
   const [reconId, setReconId] = useState('');
@@ -23,11 +210,14 @@ export function ReconciliationPage() {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<'date' | 'type' | 'description' | 'amount'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [autoClearResult, setAutoClearResult] = useState<{ cleared: number; alreadyCleared: number; unmatched: number } | null>(null);
 
   const startRecon = useStartReconciliation();
   const { data: reconData, isLoading, isError, refetch } = useReconciliation(reconId);
   const updateLines = useUpdateReconciliationLines();
   const completeRecon = useCompleteReconciliation();
+  const autoClear = useAutoClearStatement();
+  const toast = useToast();
 
   const handleStart = () => {
     startRecon.mutate({
@@ -41,49 +231,22 @@ export function ReconciliationPage() {
     updateLines.mutate({ id: reconId, lines: [{ journalLineId, isCleared }] });
   };
 
-  if (!reconId) {
-    return (
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Bank Reconciliation</h1>
-        <div className="max-w-md bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-          <AccountSelector label="Bank Account" value={accountId} onChange={setAccountId} accountTypeFilter="asset" required />
-          <DatePicker label="Statement Date" value={statementDate} onChange={(e) => setStatementDate(e.target.value)} required />
-          <MoneyInput label="Statement Ending Balance" value={endingBalance} onChange={setEndingBalance} required />
-          <Button onClick={handleStart} loading={startRecon.isPending} disabled={!accountId || !endingBalance}>
-            Start Reconciliation
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const handleAutoClear = () => {
+    autoClear.mutate(reconId, {
+      onSuccess: (res) => {
+        setAutoClearResult(res);
+        toast.success(`Auto-clear: ${res.cleared} cleared, ${res.alreadyCleared} already cleared, ${res.unmatched} unmatched.`);
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Auto-clear failed.'),
+    });
+  };
 
-  if (isLoading) return <LoadingSpinner className="py-12" />;
-  // Without an explicit error path, a fetch failure produced a blank
-  // page (`if (!recon) return null`) — operators saw nothing happen
-  // after clicking Start Reconciliation. Surface the failure with a
-  // retry button so a transient network blip is recoverable without
-  // re-entering the statement balance.
-  if (isError) return <ErrorMessage message="Couldn't load this reconciliation." onRetry={() => refetch()} />;
   const recon = reconData?.reconciliation;
-  if (!recon) return <ErrorMessage message="Reconciliation not found." onRetry={() => refetch()} />;
-
-  const lines = recon.lines || [];
-  const diff = recon.difference ?? 0;
-  const isBalanced = Math.abs(diff) < 0.01;
-  const m = (n: number) => `$${n.toFixed(2)}`;
+  const lines = recon?.lines || [];
 
   // Bank account (asset): deposit = debit > 0 (money in); payment = credit > 0.
-  const isDeposit = (l: typeof lines[number]) => parseFloat(l.debit) > 0;
-  const amountOf = (l: typeof lines[number]) => (isDeposit(l) ? parseFloat(l.debit) : parseFloat(l.credit));
-
-  // Cleared vs uncleared totals split by deposits vs payments (+ counts).
-  const t = lines.reduce((acc, l) => {
-    const key = `${isDeposit(l) ? 'dep' : 'pay'}${l.is_cleared ? 'Cleared' : 'Uncleared'}` as keyof typeof acc;
-    acc[key] = { sum: acc[key].sum + amountOf(l), count: acc[key].count + 1 };
-    return acc;
-  }, { depCleared: { sum: 0, count: 0 }, depUncleared: { sum: 0, count: 0 }, payCleared: { sum: 0, count: 0 }, payUncleared: { sum: 0, count: 0 } });
-  const depCount = t.depCleared.count + t.depUncleared.count;
-  const payCount = t.payCleared.count + t.payUncleared.count;
+  const isDeposit = (l: (typeof lines)[number]) => parseFloat(l.debit) > 0;
+  const amountOf = (l: (typeof lines)[number]) => (isDeposit(l) ? parseFloat(l.debit) : parseFloat(l.credit));
 
   const view = useMemo(() => {
     let rows = lines;
@@ -105,6 +268,55 @@ export function ReconciliationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines, typeFilter, search, sortKey, sortDir]);
 
+  if (!reconId) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Bank Reconciliation</h1>
+
+        {/* Statements table — one-click reconcile from imported statements. */}
+        <StatementsTable onStarted={setReconId} />
+
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Start Manually</h2>
+        <div className="max-w-md bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+          <AccountSelector label="Bank Account" value={accountId} onChange={setAccountId} accountTypeFilter="asset" required />
+          <DatePicker label="Statement Date" value={statementDate} onChange={(e) => setStatementDate(e.target.value)} required />
+          <MoneyInput label="Statement Ending Balance" value={endingBalance} onChange={setEndingBalance} required />
+          <Button onClick={handleStart} loading={startRecon.isPending} disabled={!accountId || !endingBalance}>
+            Start Reconciliation
+          </Button>
+          {startRecon.isError && (
+            <p className="text-sm text-red-600">
+              {startRecon.error instanceof Error ? startRecon.error.message : 'Could not start reconciliation.'}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) return <LoadingSpinner className="py-12" />;
+  // Without an explicit error path, a fetch failure produced a blank
+  // page (`if (!recon) return null`) — operators saw nothing happen
+  // after clicking Start Reconciliation. Surface the failure with a
+  // retry button so a transient network blip is recoverable without
+  // re-entering the statement balance.
+  if (isError) return <ErrorMessage message="Couldn't load this reconciliation." onRetry={() => refetch()} />;
+  if (!recon) return <ErrorMessage message="Reconciliation not found." onRetry={() => refetch()} />;
+
+  const diff = recon.difference ?? 0;
+  const isBalanced = Math.abs(diff) < 0.01;
+  const m = (n: number) => `$${n.toFixed(2)}`;
+  const isComplete = recon.status === 'complete';
+
+  // Cleared vs uncleared totals split by deposits vs payments (+ counts).
+  const t = lines.reduce((acc, l) => {
+    const key = `${isDeposit(l) ? 'dep' : 'pay'}${l.is_cleared ? 'Cleared' : 'Uncleared'}` as keyof typeof acc;
+    acc[key] = { sum: acc[key].sum + amountOf(l), count: acc[key].count + 1 };
+    return acc;
+  }, { depCleared: { sum: 0, count: 0 }, depUncleared: { sum: 0, count: 0 }, payCleared: { sum: 0, count: 0 }, payUncleared: { sum: 0, count: 0 } });
+  const depCount = t.depCleared.count + t.depUncleared.count;
+  const payCount = t.payCleared.count + t.payUncleared.count;
+
   const toggleSort = (key: typeof sortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortKey(key); setSortDir('asc'); }
@@ -121,7 +333,31 @@ export function ReconciliationPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-4">Reconcile</h1>
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <h1 className="text-2xl font-bold text-gray-900">Reconcile</h1>
+        {recon.statement?.attachmentId && (
+          <Button variant="ghost" size="sm" onClick={() => { void openAttachmentInTab(recon.statement!.attachmentId!); }}>
+            <FileText className="h-4 w-4 mr-1" /> View statement
+          </Button>
+        )}
+        {isComplete && (
+          <Link to={`/reports/reconciliation-detail?reconciliation_id=${reconId}`} className="text-sm text-primary-600 hover:underline">
+            View report
+          </Link>
+        )}
+      </div>
+
+      {/* Opening-balance continuity warning (statement-driven recs). */}
+      {recon.continuityWarning && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-800">
+            Statement opening balance ({m(recon.continuityWarning.actual)}) doesn't match the last reconciled
+            ending balance ({m(recon.continuityWarning.expected)}) — cleared transactions may have been changed
+            or deleted since the last reconciliation.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="bg-white rounded-lg border p-4 text-center">
@@ -147,6 +383,20 @@ export function ReconciliationPage() {
         <TotalCard label="Deposits (money in)" cleared={t.depCleared} uncleared={t.depUncleared} />
         <TotalCard label="Payments (money out)" cleared={t.payCleared} uncleared={t.payUncleared} />
       </div>
+
+      {/* Auto-clear the linked statement's transactions */}
+      {recon.statement && !isComplete && (
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <Button variant="secondary" size="sm" onClick={handleAutoClear} loading={autoClear.isPending}>
+            <Sparkles className="h-4 w-4 mr-1" /> Auto-clear statement transactions
+          </Button>
+          {autoClearResult && (
+            <span className="text-sm text-gray-600">
+              {autoClearResult.cleared} cleared · {autoClearResult.alreadyCleared} already cleared · {autoClearResult.unmatched} unmatched
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Filter buttons + search */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -176,7 +426,7 @@ export function ReconciliationPage() {
             {view.map((line) => (
               <tr key={line.id} className={line.is_cleared ? 'bg-green-50' : ''}>
                 <td className="px-4 py-2">
-                  <input type="checkbox" checked={line.is_cleared}
+                  <input type="checkbox" checked={line.is_cleared} disabled={isComplete}
                     onChange={(e) => handleToggleLine(line.journal_line_id, e.target.checked)} className="rounded" />
                 </td>
                 <td className="px-4 py-2">{line.txn_date}</td>
@@ -197,9 +447,19 @@ export function ReconciliationPage() {
         )}
       </div>
 
-      <Button onClick={() => completeRecon.mutate(reconId)} disabled={!isBalanced} loading={completeRecon.isPending}>
-        Complete Reconciliation
-      </Button>
+      {!isComplete && (
+        <Button onClick={() => completeRecon.mutate(reconId)} disabled={!isBalanced} loading={completeRecon.isPending}>
+          Complete Reconciliation
+        </Button>
+      )}
+      {isComplete && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800 flex items-center gap-3 flex-wrap">
+          <span>Reconciliation complete.</span>
+          <Link to={`/reports/reconciliation-detail?reconciliation_id=${reconId}`} className="text-primary-600 hover:underline font-medium">
+            View reconciliation report
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
