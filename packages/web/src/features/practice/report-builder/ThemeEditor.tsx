@@ -4,25 +4,16 @@
 
 import { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
+import { apiClient } from '../../../api/client';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 16.9 — theme editor.
 // Edits the per-practice portal branding (logo URL, primary color)
 // AND the per-template themeJsonb. The editor saves both in one
 // pass so the published PDF + portal share a coherent look.
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('accessToken');
-  const res = await fetch(`${import.meta.env.BASE_URL}api/v1${path}`, {
-    ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token ?? ''}`,
-    },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
+// Shared api client: credentials, X-Company-Id, 401 → refresh → retry,
+// and server error messages surfaced via ApiError (extends Error).
+const api = apiClient;
 
 interface Theme {
   primaryColor: string;
@@ -56,6 +47,7 @@ interface Template {
 export function ThemeEditor({ onClose }: { onClose: () => void }) {
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [practiceSettings, setPracticeSettings] = useState<PracticeSettings | null>(null);
   const [scope, setScope] = useState<'practice' | string>('practice'); // template id or 'practice'
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,30 +61,43 @@ export function ThemeEditor({ onClose }: { onClose: () => void }) {
     ])
       .then(([s, t]) => {
         setTemplates(t.templates);
-        setTheme((prev) => ({
-          ...prev,
-          primaryColor: s.settings.brandingPrimaryColor ?? prev.primaryColor,
-          brandingLogoUrl: s.settings.brandingLogoUrl ?? '',
-        }));
+        setPracticeSettings(s.settings);
       })
       .catch(() => setError('Failed to load theme.'))
       .finally(() => setLoading(false));
   }, []);
 
-  // When scope changes to a specific template, hydrate its themeJsonb.
+  // A "Saved at" stamp belongs to the scope it was saved in — clear it
+  // when the user switches scopes. (Separate effect from hydration below,
+  // which also re-runs when local data is synced after a save.)
   useEffect(() => {
-    if (scope === 'practice') return;
-    const tpl = templates.find((t) => t.id === scope);
-    if (tpl?.themeJsonb) {
-      setTheme((prev) => ({ ...prev, ...(tpl.themeJsonb as Partial<Theme>) }));
+    setSavedAt(null);
+  }, [scope]);
+
+  // Hydrate the form whenever the scope changes (and once the data
+  // arrives). Always reset to DEFAULT_THEME first so values edited in
+  // one scope never leak into another.
+  useEffect(() => {
+    if (scope === 'practice') {
+      setTheme({
+        ...DEFAULT_THEME,
+        primaryColor: practiceSettings?.brandingPrimaryColor ?? DEFAULT_THEME.primaryColor,
+        brandingLogoUrl: practiceSettings?.brandingLogoUrl ?? '',
+      });
+      return;
     }
-  }, [scope, templates]);
+    const tpl = templates.find((t) => t.id === scope);
+    setTheme({ ...DEFAULT_THEME, ...((tpl?.themeJsonb as Partial<Theme>) ?? {}) });
+  }, [scope, templates, practiceSettings]);
 
   const save = async () => {
     setError(null);
     setSaving(true);
     try {
       if (scope === 'practice') {
+        // The practice branding endpoint only persists the primary color
+        // and logo URL (see portal-contacts.routes.ts) — the secondary
+        // color field is hidden in this scope so nothing is silently lost.
         await api('/practice/portal/settings/practice', {
           method: 'PUT',
           body: JSON.stringify({
@@ -100,12 +105,23 @@ export function ThemeEditor({ onClose }: { onClose: () => void }) {
             brandingLogoUrl: theme.brandingLogoUrl || null,
           }),
         });
+        setPracticeSettings({
+          brandingPrimaryColor: theme.primaryColor,
+          brandingLogoUrl: theme.brandingLogoUrl || null,
+        });
       } else {
         // Per-template override.
         await api(`/practice/reports/templates/${scope}`, {
           method: 'PUT',
           body: JSON.stringify({ theme }),
         });
+        // Keep the local template list in sync so switching scopes away
+        // and back shows the values that were just saved.
+        setTemplates((prev) =>
+          prev.map((t) =>
+            t.id === scope ? { ...t, themeJsonb: { ...theme } as Record<string, unknown> } : t,
+          ),
+        );
       }
       setSavedAt(new Date().toLocaleTimeString());
     } catch (e) {
@@ -148,11 +164,19 @@ export function ThemeEditor({ onClose }: { onClose: () => void }) {
             value={theme.primaryColor}
             onChange={(v) => setTheme({ ...theme, primaryColor: v })}
           />
-          <ColorField
-            label="Secondary color"
-            value={theme.secondaryColor}
-            onChange={(v) => setTheme({ ...theme, secondaryColor: v })}
-          />
+          {scope !== 'practice' ? (
+            <ColorField
+              label="Secondary color"
+              value={theme.secondaryColor}
+              onChange={(v) => setTheme({ ...theme, secondaryColor: v })}
+            />
+          ) : (
+            // Practice-wide branding only stores the primary color and
+            // logo; the secondary color lives on each template's theme.
+            <p className="text-xs text-gray-500 self-end pb-1">
+              Secondary color is set per template — pick a template scope to edit it.
+            </p>
+          )}
         </div>
 
         <TextField

@@ -56,7 +56,7 @@ export function PortalQuestionsListPage() {
     if (!activeCompanyId) return;
     setLoading(true);
     fetchJson<{ open: QuestionListItem[]; answered: QuestionListItem[] }>(
-      `/api/portal/questions?companyId=${activeCompanyId}`,
+      `${import.meta.env.BASE_URL}api/portal/questions?companyId=${activeCompanyId}`,
     )
       .then((d) => setData(d))
       .catch(() => setError('Could not load your questions.'))
@@ -242,7 +242,7 @@ export function PortalQuestionDetailPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const reload = () =>
-    fetchJson<{ question: QuestionDetail }>(`/api/portal/questions/${id}`)
+    fetchJson<{ question: QuestionDetail }>(`${import.meta.env.BASE_URL}api/portal/questions/${id}`)
       .then((d) => setQ(d.question))
       .catch(() => setError('Could not load this question.'))
       .finally(() => setLoading(false));
@@ -259,7 +259,7 @@ export function PortalQuestionDetailPage() {
     if (!reply.trim()) return;
     setSubmitting(true);
     try {
-      await fetchJson(`/api/portal/questions/${id}/answers`, {
+      await fetchJson(`${import.meta.env.BASE_URL}api/portal/questions/${id}/answers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: reply.trim() }),

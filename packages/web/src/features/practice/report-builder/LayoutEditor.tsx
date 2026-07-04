@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
   AlignJustify,
 } from 'lucide-react';
+import { apiClient } from '../../../api/client';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 16.4 — drag-drop layout
 // editor for report templates. Native HTML5 drag-and-drop (no
@@ -59,19 +60,10 @@ const PALETTE: Array<{
   { type: 'page-break', label: 'Page break', icon: AlignJustify, defaults: { type: 'page-break' } },
 ];
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('accessToken');
-  const res = await fetch(`${import.meta.env.BASE_URL}api/v1${path}`, {
-    ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token ?? ''}`,
-    },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
+// Shared api client: credentials, X-Company-Id, 401 → refresh → retry,
+// and server error messages surfaced via ApiError (extends Error). The
+// local bare-fetch wrapper this replaces had none of that.
+const api = apiClient;
 
 function uid() {
   return Math.random().toString(36).slice(2, 11);

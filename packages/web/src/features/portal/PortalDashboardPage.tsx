@@ -49,12 +49,14 @@ export function PortalDashboardPage() {
     if (!activeCompanyId) return;
     let cancelled = false;
     const load = async () => {
+      // BASE_URL prefix keeps these working on appliance subpath installs.
+      const base = import.meta.env.BASE_URL;
       const [questions, receipts, reports] = await Promise.allSettled([
-        fetch(`/api/portal/questions?companyId=${activeCompanyId}`, { credentials: 'include' })
+        fetch(`${base}api/portal/questions?companyId=${activeCompanyId}`, { credentials: 'include' })
           .then((r) => (r.ok ? r.json() : null)),
-        fetch(`/api/portal/receipts?companyId=${activeCompanyId}`, { credentials: 'include' })
+        fetch(`${base}api/portal/receipts?companyId=${activeCompanyId}`, { credentials: 'include' })
           .then((r) => (r.ok ? r.json() : null)),
-        fetch(`/api/portal/financials?companyId=${activeCompanyId}`, { credentials: 'include' })
+        fetch(`${base}api/portal/financials?companyId=${activeCompanyId}`, { credentials: 'include' })
           .then((r) => (r.ok ? r.json() : null)),
       ]);
       if (cancelled) return;

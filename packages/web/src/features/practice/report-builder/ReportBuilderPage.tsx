@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BarChart,
   Bar,
@@ -80,6 +80,13 @@ export function ReportBuilderPage() {
   const [previewInstanceId, setPreviewInstanceId] = useState<string | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [editingInstance, setEditingInstance] = useState<Instance | null>(null);
+  // Row-level in-flight guard: while an instance action (publish /
+  // duplicate / archive / delete / download) is running, that row's
+  // action buttons are disabled and re-entry is a no-op.
+  const [busyId, setBusyId] = useState<string | null>(null);
+  // Initial-load failure state (distinct from per-action errors) so the
+  // page can render a Retry instead of spinning forever.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const reload = async () => {
     try {
@@ -89,9 +96,17 @@ export function ReportBuilderPage() {
       ]);
       setTemplates(t.templates);
       setInstances(i.instances);
+      setLoadFailed(false);
     } catch {
       setError('Failed to load reports.');
+      setLoadFailed(true);
     }
+  };
+
+  const retryLoad = () => {
+    setError(null);
+    setLoadFailed(false);
+    reload();
   };
 
   useEffect(() => {
@@ -108,6 +123,8 @@ export function ReportBuilderPage() {
   };
 
   const setStatus = async (id: string, status: string) => {
+    if (busyId) return;
+    setBusyId(id);
     setError(null);
     try {
       const result = await api<{
@@ -125,10 +142,14 @@ export function ReportBuilderPage() {
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Status update failed.');
+    } finally {
+      setBusyId(null);
     }
   };
 
   const duplicateInstance = async (i: Instance) => {
+    if (busyId) return;
+    setBusyId(i.id);
     setError(null);
     try {
       await api<{ id: string; version: number }>(
@@ -138,33 +159,43 @@ export function ReportBuilderPage() {
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Duplicate failed.');
+    } finally {
+      setBusyId(null);
     }
   };
 
   const downloadPdf = async (i: Instance) => {
+    if (busyId) return;
     if (!i.pdfUrl) {
       setError('No PDF on file. Re-publish to generate one.');
       return;
     }
-    // Binary download — can't go through apiClient (it parses JSON), but we
-    // still build the URL off API_BASE and send credentials so it works in
-    // subpath installs and behind the auth cookie.
-    const token = getAccessToken();
-    const res = await fetch(`${API_BASE}/practice/reports/instances/${i.id}/download`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      credentials: 'include',
-    });
-    if (!res.ok) {
-      setError(`Download failed (${res.status}).`);
-      return;
+    setBusyId(i.id);
+    try {
+      // Binary download — can't go through apiClient (it parses JSON), but we
+      // still build the URL off API_BASE and send credentials so it works in
+      // subpath installs and behind the auth cookie.
+      const token = getAccessToken();
+      const res = await fetch(`${API_BASE}/practice/reports/instances/${i.id}/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        setError(`Download failed (${res.status}).`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `report-v${i.version}-${i.periodEnd}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Download failed.');
+    } finally {
+      setBusyId(null);
     }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `report-v${i.version}-${i.periodEnd}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const deleteTemplate = async (t: Template) => {
@@ -178,6 +209,7 @@ export function ReportBuilderPage() {
   };
 
   const deleteInstance = async (i: Instance) => {
+    if (busyId) return;
     const force = i.status === 'published';
     const confirmText = force
       ? `This report has been published. Deleting it removes the artifact and the snapshot — clients will lose access. Type DELETE to confirm.`
@@ -186,6 +218,7 @@ export function ReportBuilderPage() {
       const ans = prompt(confirmText);
       if (ans !== 'DELETE') return;
     } else if (!confirm(confirmText)) return;
+    setBusyId(i.id);
     try {
       await api(`/practice/reports/instances/${i.id}${force ? '?force=true' : ''}`, {
         method: 'DELETE',
@@ -193,6 +226,8 @@ export function ReportBuilderPage() {
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Instance delete failed.');
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -236,9 +271,21 @@ export function ReportBuilderPage() {
 
       <h2 className="text-base font-semibold text-gray-900 mb-2">Templates</h2>
       {!templates ? (
-        <div className="py-6 flex items-center justify-center">
-          <LoadingSpinner />
-        </div>
+        loadFailed ? (
+          <div className="text-center py-10 border border-dashed border-gray-300 rounded-lg mb-6">
+            <p className="text-sm text-gray-600 mb-2">Templates could not be loaded.</p>
+            <button
+              onClick={retryLoad}
+              className="text-sm font-medium text-indigo-700 hover:underline"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div className="py-6 flex items-center justify-center">
+            <LoadingSpinner />
+          </div>
+        )
       ) : templates.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg mb-6">
           <LineChart className="mx-auto h-10 w-10 text-gray-400 mb-3" />
@@ -288,7 +335,23 @@ export function ReportBuilderPage() {
       )}
 
       <h2 className="text-base font-semibold text-gray-900 mb-2">Instances</h2>
-      {!instances ? null : instances.length === 0 ? (
+      {!instances ? (
+        loadFailed ? (
+          <div className="text-center py-10 border border-dashed border-gray-300 rounded-lg">
+            <p className="text-sm text-gray-600 mb-2">Reports could not be loaded.</p>
+            <button
+              onClick={retryLoad}
+              className="text-sm font-medium text-indigo-700 hover:underline"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div className="py-6 flex items-center justify-center">
+            <LoadingSpinner />
+          </div>
+        )
+      ) : instances.length === 0 ? (
         <div className="text-center py-10 border border-dashed border-gray-300 rounded-lg">
           <FileText className="mx-auto h-8 w-8 text-gray-400 mb-2" />
           <p className="text-sm text-gray-500">No reports generated yet.</p>
@@ -308,6 +371,7 @@ export function ReportBuilderPage() {
             <tbody className="divide-y divide-gray-100">
               {instances.map((i) => {
                 const co = companies.find((c) => c.id === i.companyId);
+                const busy = busyId === i.id;
                 return (
                   <tr key={i.id}>
                     <td className="px-4 py-3 text-gray-900">
@@ -329,16 +393,18 @@ export function ReportBuilderPage() {
                           {i.pdfUrl && (
                             <button
                               onClick={() => downloadPdf(i)}
+                              disabled={busy}
                               title="Download PDF"
-                              className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:underline mr-2"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:underline mr-2 disabled:opacity-50"
                             >
                               <Download className="h-3.5 w-3.5" /> PDF
                             </button>
                           )}
                           <button
                             onClick={() => duplicateInstance(i)}
+                            disabled={busy}
                             title="Duplicate as new draft (v+1)"
-                            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline mr-2"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline mr-2 disabled:opacity-50"
                           >
                             <Copy className="h-3.5 w-3.5" /> Duplicate
                           </button>
@@ -354,16 +420,18 @@ export function ReportBuilderPage() {
                           </button>
                           <button
                             onClick={() => setStatus(i.id, 'published')}
-                            className="text-xs font-medium text-indigo-700 hover:underline mr-2"
+                            disabled={busy}
+                            className="text-xs font-medium text-indigo-700 hover:underline mr-2 disabled:opacity-50"
                           >
-                            Publish
+                            {busy ? 'Working…' : 'Publish'}
                           </button>
                         </>
                       )}
                       {i.status !== 'archived' && i.status !== 'published' && (
                         <button
                           onClick={() => setStatus(i.id, 'archived')}
-                          className="text-xs font-medium text-gray-600 hover:underline mr-2"
+                          disabled={busy}
+                          className="text-xs font-medium text-gray-600 hover:underline mr-2 disabled:opacity-50"
                         >
                           Archive
                         </button>
@@ -371,16 +439,18 @@ export function ReportBuilderPage() {
                       {i.status === 'archived' && (
                         <button
                           onClick={() => setStatus(i.id, 'draft')}
+                          disabled={busy}
                           title="Reopen as draft"
-                          className="text-xs font-medium text-gray-600 hover:underline mr-2"
+                          className="text-xs font-medium text-gray-600 hover:underline mr-2 disabled:opacity-50"
                         >
                           Reopen
                         </button>
                       )}
                       <button
                         onClick={() => deleteInstance(i)}
+                        disabled={busy}
                         title="Delete"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:underline"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -398,7 +468,14 @@ export function ReportBuilderPage() {
       {previewInstanceId && (
         <ReportPreviewModal
           instanceId={previewInstanceId}
-          onClose={() => setPreviewInstanceId(null)}
+          onClose={() => {
+            setPreviewInstanceId(null);
+            // The modal can mutate the instance (compute, inline edits,
+            // publish-with-pdf-error) without going through onPublished —
+            // always refresh the lists on close so the table never shows
+            // a stale status. Two GETs, cheap.
+            reload();
+          }}
           onPublished={() => {
             setPreviewInstanceId(null);
             reload();
@@ -859,6 +936,22 @@ function ReportPreviewModal({
   const [computing, setComputing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [editingLayout, setEditingLayout] = useState(false);
+  // FM2 — count of inline editors (KPI cells / text sections) currently
+  // open with an uncommitted draft. Closing the modal while > 0 asks for
+  // confirmation so an unsaved edit isn't silently discarded.
+  const activeEditorsRef = useRef(0);
+  const handleEditingChange = (active: boolean) => {
+    activeEditorsRef.current = Math.max(0, activeEditorsRef.current + (active ? 1 : -1));
+  };
+  const requestClose = () => {
+    if (
+      activeEditorsRef.current > 0 &&
+      !window.confirm('You have an unsaved inline edit open. Close and discard it?')
+    ) {
+      return;
+    }
+    onClose();
+  };
 
   const reload = async () => {
     setError(null);
@@ -985,7 +1078,7 @@ function ReportPreviewModal({
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-      onClick={onClose}
+      onClick={requestClose}
     >
       <div
         className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
@@ -1035,7 +1128,7 @@ function ReportPreviewModal({
               </button>
             )}
             <button
-              onClick={onClose}
+              onClick={requestClose}
               className="text-gray-500 hover:text-gray-700 text-sm px-2"
             >
               ×
@@ -1044,11 +1137,38 @@ function ReportPreviewModal({
         </header>
 
         <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
-          {loading || !instance ? (
-            <p className="text-sm text-gray-500 py-12 text-center">Loading…</p>
-          ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-md px-4 py-3 text-sm text-red-700">
-              {error}
+          {/* Errors and non-fatal compute notices render as a dismissible
+              banner ABOVE the report — never in place of it, so a
+              placeholder warning doesn't blank a rendered report. */}
+          {error && (
+            <div className="mb-4 max-w-2xl mx-auto flex items-start justify-between gap-3 bg-red-50 border border-red-200 rounded-md px-4 py-3 text-sm text-red-700">
+              <span className="flex-1">{error}</span>
+              <button
+                onClick={() => setError(null)}
+                aria-label="Dismiss"
+                title="Dismiss"
+                className="text-red-700 hover:text-red-900 font-bold leading-none"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          {loading ? (
+            <div className="py-12 flex justify-center">
+              <LoadingSpinner />
+            </div>
+          ) : !instance ? (
+            <div className="text-center py-12">
+              <p className="text-sm text-gray-500 mb-2">This report could not be loaded.</p>
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  reload();
+                }}
+                className="text-sm font-medium text-indigo-700 hover:underline"
+              >
+                Retry
+              </button>
             </div>
           ) : (
             <article className="bg-white border border-gray-200 rounded-lg p-6 max-w-2xl mx-auto">
@@ -1063,8 +1183,8 @@ function ReportPreviewModal({
 
               {!hasData && (
                 <div className="mb-4 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-xs text-amber-900">
-                  No data computed yet. Click <strong>Compute sample data</strong> to fill the layout
-                  with placeholders so you can see the structure.
+                  No data computed yet. Click <strong>Compute</strong> to fill the layout with data
+                  from the books (or placeholders) so you can see the structure.
                 </div>
               )}
 
@@ -1079,6 +1199,7 @@ function ReportPreviewModal({
                   editable={instance.status !== 'published'}
                   onPatch={patch}
                   onGenerateAi={instance.status !== 'published' ? generateAi : undefined}
+                  onEditingChange={handleEditingChange}
                 />
               )}
             </article>
@@ -1095,6 +1216,7 @@ function ReportRender({
   editable,
   onPatch,
   onGenerateAi,
+  onEditingChange,
 }: {
   layout: unknown[];
   data: Record<string, unknown>;
@@ -1108,6 +1230,9 @@ function ReportRender({
   // returned text lands in the edit textarea for review, not directly
   // in the snapshot.
   onGenerateAi?: (prompt: string, blockRef: string) => Promise<string>;
+  // Notifies the parent when an inline editor opens/closes so the modal
+  // can warn before discarding uncommitted drafts.
+  onEditingChange?: (active: boolean) => void;
 }) {
   const kpiValues = (data['kpis'] as Record<string, unknown>) ?? {};
   const kpiNames = (data['kpi_names'] as Record<string, string>) ?? {};
@@ -1138,9 +1263,10 @@ function ReportRender({
                 <KpiCard
                   key={k}
                   label={kpiNames[k] ?? k.replace(/_/g, ' ')}
-                  value={kpiValues[k] !== undefined ? String(kpiValues[k]) : '—'}
+                  value={kpiValues[k] != null ? String(kpiValues[k]) : '—'}
                   editable={editable}
                   onSave={onPatch ? (v) => onPatch({ kpiOverrides: { [k]: v } }) : undefined}
+                  onEditingChange={onEditingChange}
                 />
               ))}
             </div>
@@ -1156,6 +1282,7 @@ function ReportRender({
               editable={editable}
               onSave={onPatch ? (v) => onPatch({ aiSummary: v }) : undefined}
               onGenerate={onGenerateAi ? (prompt) => onGenerateAi(prompt, blockId) : undefined}
+              onEditingChange={onEditingChange}
             />
           );
         }
@@ -1183,6 +1310,7 @@ function ReportRender({
                   : undefined
               }
               onGenerate={onGenerateAi ? (prompt) => onGenerateAi(prompt, overrideKey) : undefined}
+              onEditingChange={onEditingChange}
             />
           );
         }
@@ -1214,7 +1342,13 @@ function ReportRender({
         if (t === 'image') {
           const src = (block['src'] as string) ?? '';
           return src ? (
-            <img key={blockId} src={src} alt="" className="max-w-full rounded" />
+            <img
+              key={blockId}
+              src={src}
+              alt=""
+              className="max-w-full rounded"
+              onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+            />
           ) : (
             <div key={blockId} className="text-xs text-gray-500 italic">[image — no src]</div>
           );
@@ -1277,6 +1411,23 @@ interface BankBalancesSummary {
 function fmtMoney(n: number): string {
   if (!Number.isFinite(n)) return '—';
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+// Compact axis-tick labels ($1.2M / $340k) so big numbers don't clip in
+// the fixed-width Y axis. Tooltips keep the full-precision fmtMoney.
+function fmtMoneyTick(v: unknown): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '';
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  const trim = (x: number) => {
+    const s = x.toFixed(1);
+    return s.endsWith('.0') ? s.slice(0, -2) : s;
+  };
+  if (abs >= 1e9) return `${sign}$${trim(abs / 1e9)}B`;
+  if (abs >= 1e6) return `${sign}$${trim(abs / 1e6)}M`;
+  if (abs >= 1e3) return `${sign}$${trim(abs / 1e3)}k`;
+  return `${sign}$${Math.round(abs)}`;
 }
 
 function BlockRender({
@@ -1519,7 +1670,7 @@ function PlBarChart({ p }: { p: PlSummary }) {
           <XAxis dataKey="name" tick={{ fontSize: 11 }} />
           <YAxis
             tick={{ fontSize: 11 }}
-            tickFormatter={(v: unknown) => fmtMoney(Number(v))}
+            tickFormatter={fmtMoneyTick}
             width={70}
           />
           <Tooltip formatter={((v: unknown) => fmtMoney(Number(v))) as never} />
@@ -1575,7 +1726,7 @@ function PlVsPriorChart({ d }: { d: PlVsPriorYear }) {
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
             <YAxis
               tick={{ fontSize: 11 }}
-              tickFormatter={(v: unknown) => fmtMoney(Number(v))}
+              tickFormatter={fmtMoneyTick}
               width={70}
             />
             <Tooltip formatter={((v: unknown) => fmtMoney(Number(v))) as never} />
@@ -1621,7 +1772,7 @@ function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) 
           <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-40} textAnchor="end" height={38} />
           <YAxis
             tick={{ fontSize: 11 }}
-            tickFormatter={(v: unknown) => fmtMoney(Number(v))}
+            tickFormatter={fmtMoneyTick}
             width={70}
           />
           <Tooltip formatter={((v: unknown) => fmtMoney(Number(v))) as never} />
@@ -1709,22 +1860,38 @@ function KpiCard({
   value,
   editable,
   onSave,
+  onEditingChange,
 }: {
   label: string;
   value: string;
   editable?: boolean;
   onSave?: (v: string) => Promise<void>;
+  onEditingChange?: (active: boolean) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
+  // One commit per edit session: Enter fires commit, then the input's
+  // blur (unmount / focus move) fires it again — without this guard the
+  // override PATCH is sent twice. Escape also closes the session so the
+  // trailing blur doesn't save a cancelled draft.
+  const sessionDoneRef = useRef(false);
+
+  useEffect(() => {
+    if (!editing || !onEditingChange) return;
+    onEditingChange(true);
+    return () => onEditingChange(false);
+  }, [editing, onEditingChange]);
 
   const enter = () => {
     if (!editable || !onSave) return;
     setDraft(value);
+    sessionDoneRef.current = false;
     setEditing(true);
   };
   const commit = async () => {
+    if (sessionDoneRef.current) return;
+    sessionDoneRef.current = true;
     if (!onSave) {
       setEditing(false);
       return;
@@ -1757,6 +1924,7 @@ function KpiCard({
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit();
             if (e.key === 'Escape') {
+              sessionDoneRef.current = true;
               setEditing(false);
               setDraft(value);
             }
@@ -1785,6 +1953,7 @@ function EditableTextSection({
   editable,
   onSave,
   onGenerate,
+  onEditingChange,
 }: {
   label: string;
   value: string;
@@ -1796,6 +1965,7 @@ function EditableTextSection({
   // backend drafts grounded text (optionally steered by a custom
   // prompt) into the textarea for review before Save.
   onGenerate?: (prompt: string) => Promise<string>;
+  onEditingChange?: (active: boolean) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -1804,6 +1974,12 @@ function EditableTextSection({
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editing || !onEditingChange) return;
+    onEditingChange(true);
+    return () => onEditingChange(false);
+  }, [editing, onEditingChange]);
 
   const enter = () => {
     if (!editable || !onSave) return;

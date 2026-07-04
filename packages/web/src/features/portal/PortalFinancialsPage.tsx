@@ -15,6 +15,7 @@ import {
   Legend,
   Cell,
 } from 'recharts';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { usePortal } from './PortalLayout';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 17.4 + 17.5 — portal-side
@@ -36,34 +37,59 @@ export function PortalFinancialsPage() {
   const { activeCompanyId } = usePortal();
   const [reports, setReports] = useState<PublishedReport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 403 is an access state ("not enabled"), not a transient failure —
+  // only transient failures get a Retry button.
+  const [retryable, setRetryable] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!activeCompanyId) return;
+    let cancelled = false;
     setReports(null);
     setError(null);
-    fetch(`/api/portal/financials?companyId=${activeCompanyId}`, {
+    setRetryable(false);
+    // BASE_URL prefix (trailing slash included) keeps this working on
+    // appliance subpath installs (/mybooks/api/portal/...), matching
+    // every other portal fetch (see PortalLayout.tsx).
+    fetch(`${import.meta.env.BASE_URL}api/portal/financials?companyId=${activeCompanyId}`, {
       credentials: 'include',
     })
       .then((r) => {
         if (r.status === 403) {
-          setError('Financial reports are not enabled for your account.');
+          if (!cancelled) setError('Financial reports are not enabled for your account.');
           return null;
         }
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
       .then((d) => {
-        if (d) setReports(d.reports);
+        if (d && !cancelled) setReports(d.reports);
       })
-      .catch(() => setError('Failed to load reports.'));
-  }, [activeCompanyId]);
+      .catch(() => {
+        if (!cancelled) {
+          setError('Failed to load reports.');
+          setRetryable(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCompanyId, attempt]);
 
   if (error) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-10">
         <div className="bg-amber-50 border border-amber-200 rounded-md px-4 py-3 text-sm text-amber-800">
-          {error}
+          <p>{error}</p>
+          {retryable && (
+            <button
+              onClick={() => setAttempt((a) => a + 1)}
+              className="mt-2 text-sm font-medium text-amber-900 underline hover:no-underline"
+            >
+              Retry
+            </button>
+          )}
         </div>
       </div>
     );
@@ -77,7 +103,9 @@ export function PortalFinancialsPage() {
       </p>
 
       {!reports ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <div className="py-10">
+          <LoadingSpinner />
+        </div>
       ) : reports.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg">
           <FileText className="mx-auto h-10 w-10 text-gray-400 mb-3" />
@@ -86,36 +114,39 @@ export function PortalFinancialsPage() {
       ) : (
         <div className="space-y-2">
           {reports.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setOpenId(openId === r.id ? null : r.id)}
-              className="w-full text-left bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
-            >
-              <div className="flex items-center justify-between">
-                <div>
+            // Only the header row toggles the report open/closed. The
+            // expanded snapshot is a sibling of the toggle button (never
+            // nested inside it) so clicks inside the open report don't
+            // collapse it, and the PDF link isn't an <a> inside a <button>.
+            <div key={r.id} className="bg-white border border-gray-200 rounded-lg">
+              <div className="flex items-center justify-between gap-3 p-4">
+                <button
+                  onClick={() => setOpenId(openId === r.id ? null : r.id)}
+                  aria-expanded={openId === r.id}
+                  className="flex-1 text-left rounded-md hover:bg-gray-50"
+                >
                   <p className="text-sm font-semibold text-gray-900">
                     {r.periodStart} → {r.periodEnd}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     Published {new Date(r.publishedAt).toLocaleDateString()} · v{r.version}
                   </p>
-                </div>
+                </button>
                 {r.pdfUrl && (
                   <a
-                    href={`/api/portal/financials/${r.id}/download`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline"
+                    href={`${import.meta.env.BASE_URL}api/portal/financials/${r.id}/download`}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline flex-shrink-0"
                   >
                     <Download className="h-3.5 w-3.5" /> PDF
                   </a>
                 )}
               </div>
               {openId === r.id && r.data && (
-                <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="px-4 pb-4 pt-3 border-t border-gray-100">
                   <ReportSnapshot data={r.data} layout={r.layout ?? []} />
                 </div>
               )}
-            </button>
+            </div>
           ))}
         </div>
       )}
@@ -131,6 +162,23 @@ function fmtMoney(n: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
+}
+
+// Compact axis-tick labels ($1.2M / $340k) so big numbers don't clip in
+// the fixed-width Y axis. Tooltips keep the full-precision fmtMoney.
+function fmtMoneyTick(v: unknown): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '';
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  const trim = (x: number) => {
+    const s = x.toFixed(1);
+    return s.endsWith('.0') ? s.slice(0, -2) : s;
+  };
+  if (abs >= 1e9) return `${sign}$${trim(abs / 1e9)}B`;
+  if (abs >= 1e6) return `${sign}$${trim(abs / 1e6)}M`;
+  if (abs >= 1e3) return `${sign}$${trim(abs / 1e3)}k`;
+  return `${sign}$${Math.round(abs)}`;
 }
 
 function ReportSnapshot({ data, layout }: { data: Record<string, unknown>; layout: unknown[] }) {
@@ -156,7 +204,7 @@ function ReportSnapshot({ data, layout }: { data: Record<string, unknown>; layou
                     {kpiNames[k] ?? k.replace(/_/g, ' ')}
                   </p>
                   <p className="mt-0.5 text-base font-semibold text-gray-900">
-                    {kpiValues[k] !== undefined ? String(kpiValues[k]) : '—'}
+                    {kpiValues[k] != null ? String(kpiValues[k]) : '—'}
                   </p>
                 </div>
               ))}
@@ -179,6 +227,19 @@ function ReportSnapshot({ data, layout }: { data: Record<string, unknown>; layou
             <p key={blockId} className="text-sm text-gray-800 whitespace-pre-wrap">
               {label}
             </p>
+          );
+        }
+        if (t === 'image') {
+          const src = (block['src'] as string) ?? '';
+          if (!src) return null;
+          return (
+            <img
+              key={blockId}
+              src={src}
+              alt=""
+              className="max-w-full rounded"
+              onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+            />
           );
         }
         if (t === 'block' || t === 'chart' || t === 'report') {
@@ -463,7 +524,7 @@ function PortalPlBarChart({ p }: { p: PlSummary }) {
           <XAxis dataKey="name" tick={{ fontSize: 11 }} />
           <YAxis
             tick={{ fontSize: 11 }}
-            tickFormatter={(v: unknown) => fmtMoney(Number(v))}
+            tickFormatter={fmtMoneyTick}
             width={70}
           />
           <Tooltip formatter={((v: unknown) => fmtMoney(Number(v))) as never} />
@@ -486,7 +547,7 @@ function PortalTrendChart({ points, color }: { points: TrendPoint[]; color: stri
         <BarChart data={data} margin={{ top: 4, right: 12, left: 12, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
           <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-40} textAnchor="end" height={38} />
-          <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: unknown) => fmtMoney(Number(v))} width={70} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtMoneyTick} width={70} />
           <Tooltip formatter={((v: unknown) => fmtMoney(Number(v))) as never} />
           <Bar dataKey="amount" radius={[3, 3, 0, 0]}>
             {data.map((entry, i) => (
@@ -514,7 +575,7 @@ function PortalPlVsPriorChart({ d }: { d: PlVsPriorYear }) {
           <BarChart data={data} margin={{ top: 4, right: 12, left: 12, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: unknown) => fmtMoney(Number(v))} width={70} />
+            <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtMoneyTick} width={70} />
             <Tooltip formatter={((v: unknown) => fmtMoney(Number(v))) as never} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey="Current" fill="#4f46e5" radius={[3, 3, 0, 0]} />

@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Wand2, Save, Plus, Trash2, Pencil, AlertTriangle } from 'lucide-react';
+import { apiClient } from '../../../api/client';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 16.3 — visual formula
 // builder for custom KPIs. Produces an AST the server-side
@@ -78,32 +79,11 @@ const KNOWN_KPIS = [
   'cash_balance',
 ];
 
-interface ApiErrorBody {
-  error?: { message?: string };
-  message?: string;
-}
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('accessToken');
-  const headers: Record<string, string> = {
-    ...(init?.headers as Record<string, string> | undefined),
-    Authorization: `Bearer ${token ?? ''}`,
-  };
-  if (init?.body !== undefined) headers['Content-Type'] = 'application/json';
-  const res = await fetch(`${import.meta.env.BASE_URL}api/v1${path}`, { ...init, headers });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = (await res.json()) as ApiErrorBody;
-      detail = body?.error?.message ?? body?.message ?? detail;
-    } catch {
-      // non-JSON response
-    }
-    throw new Error(detail);
-  }
-  if (res.status === 204) return undefined as T;
-  return res.json();
-}
+// Shared api client: credentials, X-Company-Id, 401 → refresh → retry,
+// 204 handling, and the server's structured error message surfaced via
+// ApiError (extends Error), so the `e instanceof Error` catches below
+// keep showing the real message.
+const api = apiClient;
 
 // Convert a stock-catalog AST shape (op:'div',a,b / type:'category')
 // into the FormulaBuilder's editor shape (kind:'op',left,right /
