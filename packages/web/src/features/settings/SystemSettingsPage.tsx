@@ -61,18 +61,35 @@ export function SystemSettingsPage() {
     retentionMonthly: '12',
     retentionYearly: '7',
     lastRun: '',
-    // S3 fields
+    // S3 fields (bucket/endpoint/region/prefix are shared with B2)
     s3Bucket: '', s3Region: 'us-east-1', s3Endpoint: '', s3AccessKeyId: '', s3SecretAccessKey: '', s3Prefix: 'backups/',
+    // Backblaze B2 fields
+    b2KeyId: '', b2ApplicationKey: '',
     // OAuth fields
     oauthAppKey: '', oauthAppSecret: '', oauthClientId: '', oauthClientSecret: '',
     oauthTenantId: 'common', oauthRootFolder: '/Vibe MyBooks Backups', oauthFolderId: 'root',
     // Connection status
     hasAccessToken: false,
+    hasApplicationKey: false,
   });
   const [backupSaveStatus, setBackupSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [backupSaveError, setBackupSaveError] = useState('');
   const [backupTestStatus, setBackupTestStatus] = useState<'idle' | 'testing' | 'healthy' | 'error'>('idle');
   const [backupTestError, setBackupTestError] = useState('');
+
+  // System-level file storage (default for tenants without their own provider)
+  const [fileStorage, setFileStorage] = useState({
+    provider: 'local',
+    bucket: '', endpoint: '', region: '', prefix: '',
+    keyId: '', applicationKey: '',
+    accessKeyId: '', secretAccessKey: '',
+    hasApplicationKey: false, hasSecretAccessKey: false,
+    envOverrideActive: false, envOverrideProvider: '',
+  });
+  const [fsSaveStatus, setFsSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [fsSaveError, setFsSaveError] = useState('');
+  const [fsTestStatus, setFsTestStatus] = useState<'idle' | 'testing' | 'healthy' | 'error'>('idle');
+  const [fsTestError, setFsTestError] = useState('');
 
   const GFS_PRESETS: Record<string, { daily: string; weekly: string; monthly: string; yearly: string }> = {
     recommended: { daily: '14', weekly: '8', monthly: '12', yearly: '7' },
@@ -133,17 +150,42 @@ export function SystemSettingsPage() {
             s3Bucket: pc.bucket || '', s3Region: pc.region || 'us-east-1',
             s3Endpoint: pc.endpoint || '', s3AccessKeyId: pc.accessKeyId || '',
             s3Prefix: pc.prefix || 'backups/',
+            b2KeyId: pc.keyId || '',
             oauthAppKey: pc.app_key || '', oauthClientId: pc.client_id || '',
             oauthTenantId: pc.ms_tenant_id || 'common',
             oauthRootFolder: pc.root_folder || '/Vibe MyBooks Backups',
             oauthFolderId: pc.folder_id || 'root',
             hasAccessToken: !!pc.hasAccessToken,
+            hasApplicationKey: !!pc.hasApplicationKey,
           }));
         } else {
           errors.push(`Backup remote config (HTTP ${backupRes.status})`);
         }
       } catch (err) {
         errors.push(`Backup remote config (${err instanceof Error ? err.message : 'network error'})`);
+      }
+
+      try {
+        const fsRes = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/storage/system-config`, { headers: authHeaders });
+        if (fsRes.ok) {
+          const fd = await fsRes.json();
+          const fc = JSON.parse(fd.storageSystemConfig || '{}');
+          setFileStorage((s) => ({
+            ...s,
+            provider: fd.storageSystemProvider || 'local',
+            bucket: fc.bucket || '', endpoint: fc.endpoint || '',
+            region: fc.region || '', prefix: fc.prefix || '',
+            keyId: fc.keyId || '', accessKeyId: fc.accessKeyId || '',
+            hasApplicationKey: !!fc.hasApplicationKey,
+            hasSecretAccessKey: !!fc.hasSecretAccessKey,
+            envOverrideActive: !!fd.envOverrideActive,
+            envOverrideProvider: fd.envOverrideProvider || '',
+          }));
+        } else {
+          errors.push(`System file storage config (HTTP ${fsRes.status})`);
+        }
+      } catch (err) {
+        errors.push(`System file storage config (${err instanceof Error ? err.message : 'network error'})`);
       }
 
       try {
@@ -279,6 +321,12 @@ export function SystemSettingsPage() {
           endpoint: backupRemote.s3Endpoint, accessKeyId: backupRemote.s3AccessKeyId,
           secretAccessKey: backupRemote.s3SecretAccessKey, prefix: backupRemote.s3Prefix,
         });
+      } else if (backupRemote.provider === 'b2') {
+        Object.assign(providerConfig, {
+          bucket: backupRemote.s3Bucket, endpoint: backupRemote.s3Endpoint,
+          keyId: backupRemote.b2KeyId, applicationKey: backupRemote.b2ApplicationKey,
+          region: backupRemote.s3Region, prefix: backupRemote.s3Prefix,
+        });
       } else if (backupRemote.provider === 'dropbox') {
         Object.assign(providerConfig, {
           appKey: backupRemote.oauthAppKey, appSecret: backupRemote.oauthAppSecret,
@@ -345,6 +393,75 @@ export function SystemSettingsPage() {
 
   const setBackup = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setBackupRemote((b) => ({ ...b, [field]: e.target.value }));
+
+  const setFs = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setFileStorage((s) => ({ ...s, [field]: e.target.value }));
+
+  const handleSaveFileStorage = async () => {
+    setFsSaveStatus('saving');
+    setFsSaveError('');
+    try {
+      // Secrets are omitted when blank so a re-save never wipes the
+      // stored (encrypted) value — the backend preserves omitted keys.
+      const providerConfig: Record<string, string> = {};
+      if (fileStorage.provider === 'b2') {
+        Object.assign(providerConfig, {
+          bucket: fileStorage.bucket, endpoint: fileStorage.endpoint,
+          keyId: fileStorage.keyId, region: fileStorage.region, prefix: fileStorage.prefix,
+          ...(fileStorage.applicationKey ? { applicationKey: fileStorage.applicationKey } : {}),
+        });
+      } else if (fileStorage.provider === 's3') {
+        Object.assign(providerConfig, {
+          bucket: fileStorage.bucket, endpoint: fileStorage.endpoint,
+          accessKeyId: fileStorage.accessKeyId, region: fileStorage.region, prefix: fileStorage.prefix,
+          ...(fileStorage.secretAccessKey ? { secretAccessKey: fileStorage.secretAccessKey } : {}),
+        });
+      }
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/storage/system-config`, {
+        method: 'PUT', headers: authHeaders,
+        body: JSON.stringify({
+          storageSystemProvider: fileStorage.provider,
+          providerConfig: fileStorage.provider !== 'local' ? providerConfig : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error?.message || `Failed to save (HTTP ${res.status})`);
+      }
+      if (fileStorage.applicationKey) setFileStorage((s) => ({ ...s, applicationKey: '', hasApplicationKey: true }));
+      if (fileStorage.secretAccessKey) setFileStorage((s) => ({ ...s, secretAccessKey: '', hasSecretAccessKey: true }));
+      setFsSaveStatus('saved');
+      setTimeout(() => setFsSaveStatus('idle'), 3000);
+    } catch (err) {
+      setFsSaveStatus('error');
+      setFsSaveError(err instanceof Error ? err.message : 'Failed to save');
+    }
+  };
+
+  const handleTestFileStorage = async () => {
+    setFsTestStatus('testing');
+    setFsTestError('');
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/storage/system-test`, {
+        method: 'POST', headers: authHeaders,
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'healthy') {
+        setFsTestStatus('healthy');
+      } else {
+        setFsTestStatus('error');
+        // Never store the raw API error object (React error #31).
+        setFsTestError(
+          typeof data.error === 'string'
+            ? data.error
+            : (data.error?.message || data.message || 'Connection failed'),
+        );
+      }
+    } catch (err) {
+      setFsTestStatus('error');
+      setFsTestError(err instanceof Error ? err.message : 'Connection failed');
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -634,6 +751,89 @@ export function SystemSettingsPage() {
           </div>
         </div>
 
+        {/* System File Storage Section */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <Cloud className="h-5 w-5 text-gray-500" />
+            <h2 className="text-lg font-semibold text-gray-800">File Storage</h2>
+          </div>
+          <p className="text-sm text-gray-500">
+            Default storage for uploaded files (attachments, receipts, report PDFs). Applies to all tenants
+            that haven't configured their own storage under Settings &gt; File Storage.
+          </p>
+
+          {fileStorage.envOverrideActive && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
+              A deploy-time override is active (<code className="bg-amber-100 px-1 rounded">STORAGE_SYSTEM_PROVIDER={fileStorage.envOverrideProvider}</code>).
+              It takes precedence over the settings below until the environment variable is removed.
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+            <select value={fileStorage.provider} onChange={setFs('provider')}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="local">Local disk</option>
+              <option value="b2">Backblaze B2</option>
+              <option value="s3">S3-compatible (AWS / MinIO / R2)</option>
+            </select>
+          </div>
+
+          {fileStorage.provider === 'b2' && (
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              <Input label="Key ID" value={fileStorage.keyId} onChange={setFs('keyId')} placeholder="0045f0a7…" />
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">Application Key</label>
+                <input type="password" value={fileStorage.applicationKey} onChange={setFs('applicationKey')}
+                  placeholder={fileStorage.hasApplicationKey ? '•••• saved — leave blank to keep' : 'Enter your B2 application key'}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              </div>
+              <Input label="Bucket" value={fileStorage.bucket} onChange={setFs('bucket')} placeholder="my-mybooks-bucket" />
+              <Input label="Endpoint" value={fileStorage.endpoint} onChange={setFs('endpoint')} placeholder="https://s3.us-west-004.backblazeb2.com" />
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Region (optional)" value={fileStorage.region} onChange={setFs('region')} placeholder="derived from endpoint" />
+                <Input label="Path Prefix (optional)" value={fileStorage.prefix} onChange={setFs('prefix')} placeholder="mybooks/" />
+              </div>
+            </div>
+          )}
+
+          {fileStorage.provider === 's3' && (
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              <Input label="Bucket" value={fileStorage.bucket} onChange={setFs('bucket')} placeholder="my-mybooks-bucket" />
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Region" value={fileStorage.region} onChange={setFs('region')} placeholder="us-east-1" />
+                <Input label="Endpoint (optional)" value={fileStorage.endpoint} onChange={setFs('endpoint')} placeholder="https://s3.example.com" />
+              </div>
+              <Input label="Access Key ID" value={fileStorage.accessKeyId} onChange={setFs('accessKeyId')} />
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">Secret Access Key</label>
+                <input type="password" value={fileStorage.secretAccessKey} onChange={setFs('secretAccessKey')}
+                  placeholder={fileStorage.hasSecretAccessKey ? '•••• saved — leave blank to keep' : 'Enter your secret access key'}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              </div>
+              <Input label="Path Prefix (optional)" value={fileStorage.prefix} onChange={setFs('prefix')} placeholder="mybooks/" />
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 pt-2">
+            <Button type="button" onClick={handleSaveFileStorage} loading={fsSaveStatus === 'saving'}>
+              Save File Storage
+            </Button>
+            <Button type="button" variant="secondary" onClick={handleTestFileStorage} loading={fsTestStatus === 'testing'}>
+              Test Connection
+            </Button>
+            {fsSaveStatus === 'saved' && <span className="text-sm text-green-600 flex items-center gap-1"><CheckCircle className="h-4 w-4" /> Saved</span>}
+            {fsSaveStatus === 'error' && <span className="text-sm text-red-600">{fsSaveError}</span>}
+            {fsTestStatus === 'healthy' && <span className="text-sm text-green-600 flex items-center gap-1"><CheckCircle className="h-4 w-4" /> Healthy</span>}
+            {fsTestStatus === 'error' && <span className="text-sm text-red-600">{fsTestError}</span>}
+          </div>
+          <p className="text-xs text-gray-500">
+            Test Connection verifies the last-saved configuration (save first). Applies to all tenants that
+            haven't configured their own storage. Existing files remain on local disk and are still served;
+            migrate them per tenant from Settings &gt; File Storage.
+          </p>
+        </div>
+
         {/* Backup Section */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center gap-2">
@@ -687,8 +887,25 @@ export function SystemSettingsPage() {
               <option value="google_drive">Google Drive</option>
               <option value="onedrive">OneDrive</option>
               <option value="s3">S3 / MinIO / R2</option>
+              <option value="b2">Backblaze B2</option>
             </select>
           </div>
+
+          {/* Backblaze B2 Config */}
+          {backupRemote.provider === 'b2' && (
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              <Input label="Key ID" value={backupRemote.b2KeyId} onChange={setBackup('b2KeyId')} placeholder="0045f0a7…" />
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">Application Key</label>
+                <input type="password" value={backupRemote.b2ApplicationKey} onChange={setBackup('b2ApplicationKey')}
+                  placeholder={backupRemote.hasApplicationKey ? '•••• saved — leave blank to keep' : 'Enter your B2 application key'}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              </div>
+              <Input label="Bucket" value={backupRemote.s3Bucket} onChange={setBackup('s3Bucket')} placeholder="my-backup-bucket" />
+              <Input label="Endpoint" value={backupRemote.s3Endpoint} onChange={setBackup('s3Endpoint')} placeholder="https://s3.us-west-004.backblazeb2.com" />
+              <Input label="Path Prefix" value={backupRemote.s3Prefix} onChange={setBackup('s3Prefix')} placeholder="backups/" />
+            </div>
+          )}
 
           {/* S3 Config */}
           {backupRemote.provider === 's3' && (

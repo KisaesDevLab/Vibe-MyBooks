@@ -17,6 +17,7 @@ const PROVIDER_INFO: Record<string, { label: string; icon: LucideIcon; color: st
   google_drive: { label: 'Google Drive', icon: Cloud, color: 'text-green-600' },
   onedrive: { label: 'OneDrive', icon: Cloud, color: 'text-blue-500' },
   s3: { label: 'S3 Storage', icon: Cloud, color: 'text-orange-500' },
+  b2: { label: 'Backblaze B2', icon: Cloud, color: 'text-red-600' },
 };
 
 const statusBadge = (s: string) => {
@@ -33,7 +34,9 @@ export function StorageSettingsPage() {
     | { title: string; message: string; confirmLabel: string; variant: 'primary' | 'danger'; onConfirm: () => void }
     | null
   >(null);
+  const [showB2, setShowB2] = useState(false);
   const [s3Form, setS3Form] = useState({ bucket: '', region: 'us-east-1', endpoint: '', accessKeyId: '', secretAccessKey: '', prefix: '' });
+  const [b2Form, setB2Form] = useState({ keyId: '', applicationKey: '', bucket: '', endpoint: '', prefix: '' });
   const [dropboxForm, setDropboxForm] = useState({ appKey: '', appSecret: '' });
   const [googleForm, setGoogleForm] = useState({ clientId: '', clientSecret: '' });
   const [onedriveForm, setOnedriveForm] = useState({ clientId: '', clientSecret: '', tenantId: 'common' });
@@ -72,6 +75,14 @@ export function StorageSettingsPage() {
       if (!res.ok) { const d = await res.json(); throw new Error(d.error?.message || 'Failed'); }
     },
     onSuccess: () => { setShowS3(false); qc.invalidateQueries({ queryKey: ['storage-config'] }); },
+  });
+
+  const saveB2 = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/settings/storage/configure/b2`, { method: 'POST', headers, body: JSON.stringify(b2Form) });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error?.message || 'Failed'); }
+    },
+    onSuccess: () => { setShowB2(false); qc.invalidateQueries({ queryKey: ['storage-config'] }); },
   });
 
   const configureProvider = useMutation({
@@ -122,7 +133,11 @@ export function StorageSettingsPage() {
             <activeInfo.icon className={`h-8 w-8 ${activeInfo.color}`} />
             <div>
               <p className="font-semibold text-gray-900">{activeInfo.label}</p>
-              <p className="text-xs text-gray-500">Active storage provider</p>
+              <p className="text-xs text-gray-500">
+                {active.isSystemDefault
+                  ? `Using system default: ${activeInfo.label}`
+                  : 'Active storage provider'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -152,7 +167,7 @@ export function StorageSettingsPage() {
           const info = PROVIDER_INFO[prov] || { label: prov, icon: Cloud, color: 'text-gray-400' };
           const connected = providers.find((p: { provider: string }) => p.provider === prov);
           const isActive = active.provider === prov;
-          const isOAuth = prov !== 'local' && prov !== 's3';
+          const isOAuth = prov !== 'local' && prov !== 's3' && prov !== 'b2';
           const status = providerStatus[prov];
           const isConfigured = status?.configured ?? false;
           const isConnected = status?.connected ?? false;
@@ -210,6 +225,9 @@ export function StorageSettingsPage() {
                 {!isConnected && prov === 's3' && (
                   <Button size="sm" onClick={() => setShowS3(true)}>Configure</Button>
                 )}
+                {!isConnected && prov === 'b2' && (
+                  <Button size="sm" onClick={() => setShowB2(true)}>Configure</Button>
+                )}
                 {isActive && prov !== 'local' && (
                   <Button variant="ghost" size="sm" onClick={() =>
                     setPendingAction({
@@ -244,6 +262,32 @@ export function StorageSettingsPage() {
             <div className="flex justify-end gap-3">
               <Button variant="secondary" onClick={() => setShowS3(false)}>Cancel</Button>
               <Button onClick={() => saveS3.mutate()} loading={saveS3.isPending}>Save & Connect</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Backblaze B2 Config Modal */}
+      {showB2 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">Configure Backblaze B2</h3>
+            <p className="text-xs text-gray-500">
+              Create a bucket and an application key at <a href="https://secure.backblaze.com/b2_buckets.htm" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline">Backblaze B2</a>.
+              The endpoint is shown on the bucket page (S3-compatible API).
+            </p>
+            <Input label="Key ID" value={b2Form.keyId} onChange={(e) => setB2Form((f) => ({ ...f, keyId: e.target.value }))} placeholder="0045f0a7…" />
+            <Input label="Application Key" type="password" value={b2Form.applicationKey} onChange={(e) => setB2Form((f) => ({ ...f, applicationKey: e.target.value }))} />
+            <Input label="Bucket" value={b2Form.bucket} onChange={(e) => setB2Form((f) => ({ ...f, bucket: e.target.value }))} placeholder="my-mybooks-bucket" />
+            <Input label="Endpoint" value={b2Form.endpoint} onChange={(e) => setB2Form((f) => ({ ...f, endpoint: e.target.value }))} placeholder="https://s3.us-west-004.backblazeb2.com" />
+            <Input label="Path Prefix (optional)" value={b2Form.prefix} onChange={(e) => setB2Form((f) => ({ ...f, prefix: e.target.value }))} placeholder="mybooks/" />
+            {saveB2.error && <p className="text-sm text-red-600">{saveB2.error.message}</p>}
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setShowB2(false)}>Cancel</Button>
+              <Button onClick={() => saveB2.mutate()} loading={saveB2.isPending}
+                disabled={!b2Form.keyId || !b2Form.applicationKey || !b2Form.bucket || !b2Form.endpoint}>
+                Save & Connect
+              </Button>
             </div>
           </div>
         </div>

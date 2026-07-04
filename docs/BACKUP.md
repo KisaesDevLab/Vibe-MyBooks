@@ -35,7 +35,9 @@ Set the backup schedule in **Settings > Backup** (None / Daily / Weekly / Monthl
 
 Vibe MyBooks can automatically push backups to cloud storage with Grandfather-Father-Son (GFS) retention:
 
-**Supported providers:** S3 (AWS, MinIO, R2), Dropbox, Google Drive, OneDrive
+**Supported providers:** S3 (AWS, MinIO, R2), Backblaze B2, Dropbox, Google Drive, OneDrive
+
+Backblaze B2 uses its S3-compatible API: enter the bucket's S3 endpoint (e.g. `https://s3.us-west-004.backblazeb2.com`), the application key's keyID, and the applicationKey itself in **Admin > System Settings > Remote Backup Storage**.
 
 Configure under **Settings > File Storage** or via the admin panel. Remote backups run on a schedule alongside local backups and are retained according to GFS policy (daily, weekly, monthly tiers).
 
