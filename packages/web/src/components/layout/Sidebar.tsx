@@ -189,15 +189,20 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-function SidebarLink({ item, end, onClick }: { item: NavItem; end?: boolean; onClick?: () => void }) {
+function SidebarLink({ item, end, onClick, collapsed }: { item: NavItem; end?: boolean; onClick?: () => void; collapsed?: boolean }) {
   return (
     <NavLink
       to={item.to}
       end={end}
       onClick={onClick}
+      // Collapsed rail: icon-only, centered, with the label surfaced via
+      // title (hover tooltip) + aria-label (screen readers).
+      title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? item.label : undefined}
       className={({ isActive }) =>
         clsx(
-          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+          'flex items-center rounded-lg text-sm font-medium transition-colors',
+          collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
           isActive ? 'sidebar-active' : 'sidebar-item',
         )
       }
@@ -220,31 +225,47 @@ function SidebarLink({ item, end, onClick }: { item: NavItem; end?: boolean; onC
         }
       }}
     >
-      <item.icon className="h-5 w-5" />
-      {item.label}
+      <item.icon className="h-5 w-5 shrink-0" />
+      {!collapsed && item.label}
     </NavLink>
   );
 }
 
-function AdminSection({ onNavigate }: { onNavigate?: () => void }) {
+function AdminSection({ onNavigate, collapsed }: { onNavigate?: () => void; collapsed?: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center justify-between w-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity"
-        style={{ color: '#9CA3AF' }}
-      >
-        <span>Admin</span>
-        <ChevronDown
-          className={clsx('h-3.5 w-3.5 transition-transform duration-200', open && 'rotate-180')}
-        />
-      </button>
+      {collapsed ? (
+        // Rail mode: the section toggle shrinks to an icon-only button
+        // (ShieldCheck mirrors the Admin Dashboard entry).
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          title="Admin"
+          aria-label="Admin"
+          className="flex items-center justify-center w-full px-2 py-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+          style={{ color: '#9CA3AF' }}
+        >
+          <ShieldCheck className="h-5 w-5" />
+        </button>
+      ) : (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex items-center justify-between w-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity"
+          style={{ color: '#9CA3AF' }}
+        >
+          <span>Admin</span>
+          <ChevronDown
+            className={clsx('h-3.5 w-3.5 transition-transform duration-200', open && 'rotate-180')}
+          />
+        </button>
+      )}
       {open && (
         <>
           {adminNavItems.map((item) => (
-            <SidebarLink key={item.to} item={item} end={item.to === '/admin'} onClick={onNavigate} />
+            <SidebarLink key={item.to} item={item} end={item.to === '/admin'} onClick={onNavigate} collapsed={collapsed} />
           ))}
         </>
       )}
@@ -266,7 +287,7 @@ const newTxnOptions = [
   { label: 'Journal Entry', path: '/transactions/new/journal-entry' },
 ];
 
-function NewTransactionButton() {
+function NewTransactionButton({ collapsed }: { collapsed?: boolean }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -298,13 +319,18 @@ function NewTransactionButton() {
       <button
         ref={btnRef}
         onClick={handleClick}
-        className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+        title={collapsed ? 'New Transaction' : undefined}
+        aria-label={collapsed ? 'New Transaction' : undefined}
+        className={clsx(
+          'flex items-center w-full rounded-lg text-sm font-medium transition-colors',
+          collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
+        )}
         style={{ color: '#D1D5DB' }}
         onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1F2937'; e.currentTarget.style.color = '#FFFFFF'; }}
         onMouseLeave={(e) => { if (!open) { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = '#D1D5DB'; } }}
       >
-        <Plus className="h-5 w-5" />
-        New Transaction
+        <Plus className="h-5 w-5 shrink-0" />
+        {!collapsed && 'New Transaction'}
       </button>
       {open && createPortal(
         <div
@@ -371,7 +397,13 @@ function useCollapsedGroups() {
 
 const DEFAULT_APP_NAME = 'Vibe MyBooks';
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+// `collapsed` renders the desktop icons-only rail: nav items show just
+// their icon (label via title/aria-label), section headings and the
+// composite widgets (company switcher, practice/firm groups, display
+// controls) are hidden, and every nav item stays reachable because the
+// rail ignores the per-group collapse state. The mobile drawer always
+// receives collapsed={false} (see AppShell).
+export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const logout = useLogout();
   const { data: meData } = useMe();
   const isSuperAdmin = meData?.user?.isSuperAdmin === true;
@@ -393,31 +425,41 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   };
 
   return (
-    <aside className="flex flex-col w-64 h-full min-h-screen" style={{ backgroundColor: '#111827', color: '#D1D5DB' }}>
-      <div className="px-6 py-5" style={{ borderBottom: '1px solid #374151' }}>
-        <h1 className="text-xl font-bold" style={{ color: '#FFFFFF' }}>{appName}</h1>
-      </div>
+    <aside className="flex flex-col w-full h-full min-h-screen" style={{ backgroundColor: '#111827', color: '#D1D5DB' }}>
+      {collapsed ? (
+        // Rail header: first letter of the app name as a compact mark.
+        <div className="py-5 text-center" style={{ borderBottom: '1px solid #374151' }} title={appName}>
+          <h1 className="text-xl font-bold" style={{ color: '#FFFFFF' }}>{appName.charAt(0)}</h1>
+        </div>
+      ) : (
+        <div className="px-6 py-5" style={{ borderBottom: '1px solid #374151' }}>
+          <h1 className="text-xl font-bold" style={{ color: '#FFFFFF' }}>{appName}</h1>
+        </div>
+      )}
 
-      <CompanySwitcher />
+      {!collapsed && <CompanySwitcher />}
 
-      {isAccountantRole && (
+      {!collapsed && isAccountantRole && (
         <div className="mx-3 mt-2 px-3 py-1.5 rounded-lg text-xs font-medium text-center"
           style={{ backgroundColor: '#312E81', color: '#C4B5FD' }}>
           {userRole === 'bookkeeper' ? 'Bookkeeper' : 'Accountant'} View
         </div>
       )}
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav className={clsx('flex-1 py-4 space-y-0.5 overflow-y-auto', collapsed ? 'px-2' : 'px-3')}>
         {isSuperAdmin && (
-          <AdminSection onNavigate={onNavigate} />
+          <AdminSection onNavigate={onNavigate} collapsed={collapsed} />
         )}
 
         {navGroups.map((group, gi) => {
           const isCollapsed = group.label ? collapsedGroups[group.label] === true : false;
-          const expanded = !isCollapsed;
+          // Rail mode has no group headers, so honoring the per-group
+          // collapse state would strand items with no way to reach
+          // them — the rail always shows every (permitted) item.
+          const expanded = collapsed || !isCollapsed;
           return (
             <div key={gi}>
-              {group.label && (
+              {group.label && !collapsed && (
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.label!)}
@@ -431,9 +473,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   />
                 </button>
               )}
+              {/* Rail: thin divider stands in for the hidden heading. */}
+              {group.label && collapsed && (
+                <div className="my-2 mx-2" style={{ borderBottom: '1px solid #374151' }} />
+              )}
               {expanded && (
                 <>
-                  {group.label === 'Transactions' && <NewTransactionButton />}
+                  {group.label === 'Transactions' && <NewTransactionButton collapsed={collapsed} />}
                   {group.items
                     // requiresWrite items hide from readonly accounts —
                     // the StaffWriteRoute gate would redirect them away
@@ -450,6 +496,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                         item={item}
                         end={item.to === '/' || item.to === '/settings'}
                         onClick={onNavigate}
+                        collapsed={collapsed}
                       />
                     ))}
                 </>
@@ -458,32 +505,40 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   per VIBE_MYBOOKS_PRACTICE_BUILD_PLAN sidebar spec.
                   It self-gates by role + user_type + flags, so this
                   unconditional render just positions it — nothing
-                  is rendered for staff/readonly or client users. */}
-              {group.label === 'Reporting' && <PracticeGroup onNavigate={onNavigate} />}
+                  is rendered for staff/readonly or client users.
+                  Hidden on the collapsed rail (composite widget with
+                  its own headings/toggles); expand the sidebar to
+                  reach it. */}
+              {group.label === 'Reporting' && !collapsed && <PracticeGroup onNavigate={onNavigate} />}
               {/* 3-tier rules plan, Phase 1 — Firm sidebar entry.
                   Self-gates on `useFirms()` returning a non-empty
                   list, so non-firm users never see the link. Sits
                   below Practice on the same hierarchy level. */}
-              {group.label === 'Reporting' && <FirmGroup onNavigate={onNavigate} />}
+              {group.label === 'Reporting' && !collapsed && <FirmGroup onNavigate={onNavigate} />}
             </div>
           );
         })}
       </nav>
 
-      <SidebarDisplayControls />
+      {!collapsed && <SidebarDisplayControls />}
 
-      <div className="px-3 py-3" style={{ borderTop: '1px solid #374151' }}>
+      <div className={clsx('py-3', collapsed ? 'px-2' : 'px-3')} style={{ borderTop: '1px solid #374151' }}>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          title={collapsed ? 'Log out' : undefined}
+          aria-label={collapsed ? 'Log out' : undefined}
+          className={clsx(
+            'flex items-center w-full rounded-lg text-sm font-medium transition-colors',
+            collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
+          )}
           style={{ color: '#D1D5DB' }}
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1F2937'; e.currentTarget.style.color = '#FFFFFF'; }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = '#D1D5DB'; }}
         >
-          <LogOut className="h-5 w-5" />
-          Log out
+          <LogOut className="h-5 w-5 shrink-0" />
+          {!collapsed && 'Log out'}
         </button>
-        {isCustomAppName && (
+        {!collapsed && isCustomAppName && (
           <div className="mt-2 px-3 text-center text-[11px]" style={{ color: '#6B7280' }}>
             powered by{' '}
             <a

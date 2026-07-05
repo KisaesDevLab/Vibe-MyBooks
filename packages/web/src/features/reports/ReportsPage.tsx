@@ -89,6 +89,7 @@ const reportGroups = [
     reports: [
       { label: 'General Ledger', path: '/reports/general-ledger' },
       { label: 'Trial Balance', path: '/reports/trial-balance' },
+      { label: 'Account Activity Summary', path: '/reports/account-activity-summary' },
       { label: 'Transaction List', path: '/reports/transaction-list' },
       { label: 'Journal Entry Report', path: '/reports/journal-entry-report' },
     ],

@@ -13,6 +13,7 @@ import {
   type CustomDetailType,
   type DetailTypeOption,
   type MergedDetailTypes,
+  type UpdateDetailTypeInput,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
 
@@ -69,6 +70,24 @@ export function useCreateDetailType() {
     mutationFn: (input: CreateDetailTypeInput) =>
       apiClient<CustomDetailType>('/tenant-settings/detail-types', {
         method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['detail-types'] }),
+  });
+}
+
+/**
+ * PATCH one custom detail type (label rename / sortOrder reorder).
+ * A multi-row reorder (see DetailTypesPage) awaits its PATCHes
+ * sequentially; the per-success invalidation coalesces into one
+ * refetch at the end.
+ */
+export function useUpdateDetailType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateDetailTypeInput & { id: string }) =>
+      apiClient<CustomDetailType>(`/tenant-settings/detail-types/${id}`, {
+        method: 'PATCH',
         body: JSON.stringify(input),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['detail-types'] }),

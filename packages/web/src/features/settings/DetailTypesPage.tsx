@@ -3,13 +3,14 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useState, type FormEvent } from 'react';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   ACCOUNT_TYPES,
   formatAccountTypeLabel,
   type AccountType,
+  type CustomDetailType,
 } from '@kis-books/shared';
-import { useDetailTypes, useCreateDetailType, useDeleteDetailType } from '../../api/hooks/useDetailTypes';
+import { useDetailTypes, useCreateDetailType, useDeleteDetailType, useUpdateDetailType } from '../../api/hooks/useDetailTypes';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -30,6 +31,8 @@ export function DetailTypesPage() {
   const { custom, isLoading, isError, refetch } = useDetailTypes();
   const createDetailType = useCreateDetailType();
   const deleteDetailType = useDeleteDetailType();
+  const updateDetailType = useUpdateDetailType();
+  const [reordering, setReordering] = useState(false);
   const toast = useToast();
 
   const [accountType, setAccountType] = useState<AccountType>('expense');
@@ -62,6 +65,34 @@ export function DetailTypesPage() {
       onSuccess: () => toast.success(`Deleted '${delLabel}'`),
       onError: (err: Error) => toast.error('Could not delete detail type', { detail: err.message }),
     });
+  };
+
+  // Move a row up/down WITHIN its account-type segment (reports group
+  // per account type, so cross-type order is meaningless). The server
+  // returns `custom` in presentation order (sort_order NULLS LAST,
+  // label), so the displayed order is the source of truth: swap in the
+  // segment, then persist index positions for every row whose stored
+  // sortOrder differs — this also normalizes legacy NULLs the first
+  // time a segment is reordered.
+  const handleMove = async (dt: CustomDetailType, direction: -1 | 1) => {
+    const segment = custom.filter((c) => c.accountType === dt.accountType);
+    const idx = segment.findIndex((c) => c.id === dt.id);
+    const target = idx + direction;
+    if (idx < 0 || target < 0 || target >= segment.length) return;
+    const next = [...segment];
+    [next[idx], next[target]] = [next[target]!, next[idx]!];
+    setReordering(true);
+    try {
+      for (let i = 0; i < next.length; i++) {
+        if (next[i]!.sortOrder !== i) {
+          await updateDetailType.mutateAsync({ id: next[i]!.id, sortOrder: i });
+        }
+      }
+    } catch (err) {
+      toast.error('Could not reorder detail types', { detail: (err as Error).message });
+    } finally {
+      setReordering(false);
+    }
   };
 
   return (
@@ -124,36 +155,69 @@ export function DetailTypesPage() {
             No custom detail types yet. Add one above — it will show up alongside the built-ins.
           </p>
         ) : (
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-gray-600">
-                <th className="py-2 pr-4 font-medium">Account Type</th>
-                <th className="py-2 pr-4 font-medium">Label</th>
-                <th className="py-2 pr-4 font-medium">Value</th>
-                <th className="py-2 w-10" />
-              </tr>
-            </thead>
-            <tbody>
-              {custom.map((dt) => (
-                <tr key={dt.id} className="border-b border-gray-100">
-                  <td className="py-2 pr-4">{formatAccountTypeLabel(dt.accountType)}</td>
-                  <td className="py-2 pr-4">{dt.label}</td>
-                  <td className="py-2 pr-4 font-mono text-xs text-gray-500">{dt.value}</td>
-                  <td className="py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(dt.id, dt.label)}
-                      disabled={deleteDetailType.isPending}
-                      className="text-gray-400 hover:text-red-600 disabled:opacity-50"
-                      aria-label={`Delete ${dt.label}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </td>
+          <>
+            <p className="text-xs text-gray-500 mb-3">
+              Use the arrows to set the presentation order. Grouped reports (P&amp;L, Balance Sheet)
+              show custom detail-type groups in this order, after the built-in groups.
+            </p>
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-left text-gray-600">
+                  <th className="py-2 pr-2 font-medium w-16">Order</th>
+                  <th className="py-2 pr-4 font-medium">Account Type</th>
+                  <th className="py-2 pr-4 font-medium">Label</th>
+                  <th className="py-2 pr-4 font-medium">Value</th>
+                  <th className="py-2 w-10" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {custom.map((dt) => {
+                  const segment = custom.filter((c) => c.accountType === dt.accountType);
+                  const segIdx = segment.findIndex((c) => c.id === dt.id);
+                  return (
+                    <tr key={dt.id} className="border-b border-gray-100">
+                      <td className="py-2 pr-2">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleMove(dt, -1)}
+                            disabled={reordering || segIdx <= 0}
+                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-400"
+                            aria-label={`Move ${dt.label} up`}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMove(dt, 1)}
+                            disabled={reordering || segIdx >= segment.length - 1}
+                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:hover:text-gray-400"
+                            aria-label={`Move ${dt.label} down`}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="py-2 pr-4">{formatAccountTypeLabel(dt.accountType)}</td>
+                      <td className="py-2 pr-4">{dt.label}</td>
+                      <td className="py-2 pr-4 font-mono text-xs text-gray-500">{dt.value}</td>
+                      <td className="py-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(dt.id, dt.label)}
+                          disabled={deleteDetailType.isPending}
+                          className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+                          aria-label={`Delete ${dt.label}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
         )}
       </section>
     </div>
