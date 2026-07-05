@@ -551,7 +551,13 @@ export function TransactionListPage() {
                     })()}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">
-                    {txn.total ? parseFloat(txn.total).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '—'}
+                    {(() => {
+                      // displayTotal = total with a server-side fallback to the
+                      // journal-line magnitude (JEs/transfers/imports have no
+                      // document total and used to render as an em dash).
+                      const amount = txn.displayTotal ?? txn.total;
+                      return amount ? parseFloat(amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '—';
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[txn.status] || ''}`}>
