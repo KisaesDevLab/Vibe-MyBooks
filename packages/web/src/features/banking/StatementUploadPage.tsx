@@ -86,7 +86,10 @@ export function StatementUploadPage() {
   interface PreviewCell { cleanedName: string | null; suggestedAccountId: string | null; suggestedAccountName: string | null; tagId: string | null; confidence: number | null }
   const [previewByIndex, setPreviewByIndex] = useState<Record<number, PreviewCell>>({});
   const [previewError, setPreviewError] = useState('');
-  const [imported, setImported] = useState<{ imported: number; skipped?: number; duplicates?: number; duplicateWarning?: string } | null>(null);
+  const [imported, setImported] = useState<{
+    imported: number; skipped?: number; duplicates?: number; duplicateWarning?: string;
+    reconcileOnly?: boolean; lineCount?: number;
+  } | null>(null);
   // Batch upload: a queue of selected files processed one at a time through the
   // same review/import UI. queueIndex is the file currently in review; batchDone
   // accumulates each file's outcome for the end-of-run summary.
@@ -97,6 +100,12 @@ export function StatementUploadPage() {
   // The GL bank account the statement belongs to; the import find-or-creates a
   // manual connection for it server-side. Required before importing.
   const [accountId, setAccountId] = useState('');
+  // Statement Match Engine wave 1 — import destination:
+  //   'bank_feed'      import rows as bank feed items (current behavior)
+  //   'reconcile_only' books already entered (manual / live bank feed):
+  //                    store the statement + its lines for reconciliation
+  //                    matching, import nothing into the feed.
+  const [importMode, setImportMode] = useState<'bank_feed' | 'reconcile_only'>('bank_feed');
   // Live processing stage from the SSE progress stream.
   const [stage, setStage] = useState<string | null>(null);
   const progressCtrl = useRef<AbortController | null>(null);
@@ -274,6 +283,10 @@ export function StatementUploadPage() {
     // a warning when a statement for an overlapping period already exists.
     statementId?: string;
     duplicateWarning?: string;
+    // Reconciliation-only mode: no feed items imported; lineCount statement
+    // lines were stored for the match engine.
+    reconcileOnly?: boolean;
+    lineCount?: number;
   }
   const importMutation = useMutation({
     mutationFn: async () => {
@@ -292,6 +305,9 @@ export function StatementUploadPage() {
           // server marks it imported and captures the bank_statements record
           // from its persisted parse result.
           jobId: resumedJobId ?? parseJobId ?? undefined,
+          // 'bank_feed' (default) or 'reconcile_only' (statement + lines only,
+          // no feed items — books already entered).
+          importMode,
           transactions: selected.map(({ t, i }) => {
             const p = previewByIndex[i];
             return {
@@ -378,6 +394,7 @@ export function StatementUploadPage() {
     setParseError('');
     setStage(null);
     setAccountId(''); // each statement may belong to a different account
+    setImportMode('bank_feed');
     uploadMutation.mutate(f);
   };
 
@@ -609,6 +626,41 @@ export function StatementUploadPage() {
                 Suggested from a previous statement with the same account number — change it if this is wrong.
               </p>
             )}
+
+            {/* Import destination (Statement Match Engine wave 1). */}
+            <fieldset className="mt-4 border-t pt-3">
+              <legend className="sr-only">Import destination</legend>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="import-mode"
+                  className="mt-0.5"
+                  checked={importMode === 'bank_feed'}
+                  onChange={() => setImportMode('bank_feed')}
+                />
+                <span className="text-sm text-gray-800">
+                  Import transactions to the bank feed
+                  <span className="block text-xs text-gray-500">
+                    Rows land in the bank feed for categorization and posting.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer mt-2">
+                <input
+                  type="radio"
+                  name="import-mode"
+                  className="mt-0.5"
+                  checked={importMode === 'reconcile_only'}
+                  onChange={() => setImportMode('reconcile_only')}
+                />
+                <span className="text-sm text-gray-800">
+                  Reconciliation only — my transactions are already entered (manual books / live bank feed)
+                  <span className="block text-xs text-gray-500">
+                    Nothing is imported; the statement is stored so its lines can be matched against your books at reconciliation time.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
           </div>
 
           {/* Metadata */}
@@ -774,14 +826,19 @@ export function StatementUploadPage() {
                   </Button>
                 )}
                 <Button onClick={() => importMutation.mutate()} loading={importMutation.isPending} disabled={selectedCount === 0 || !accountId}>
-                  <Download className="h-4 w-4 mr-1" /> Import {selectedCount} Transactions
+                  <Download className="h-4 w-4 mr-1" />{' '}
+                  {importMode === 'reconcile_only' ? 'Save Statement for Reconciliation' : `Import ${selectedCount} Transactions`}
                 </Button>
               </div>
             </div>
           ) : (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center space-y-3">
               <Check className="h-6 w-6 text-green-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-green-800">Imported {imported.imported} transactions</p>
+              <p className="text-sm font-medium text-green-800">
+                {imported.reconcileOnly
+                  ? `Statement saved for reconciliation — ${imported.lineCount ?? 0} lines stored, nothing imported to the bank feed`
+                  : `Imported ${imported.imported} transactions`}
+              </p>
               {(imported.skipped ?? 0) > 0 && <p className="text-xs text-green-600">{imported.skipped} duplicates skipped</p>}
               {imported.duplicateWarning && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 inline-block">
@@ -794,7 +851,13 @@ export function StatementUploadPage() {
                     {moreFilesQueued ? `Next file (${queueIndex + 2} of ${queue.length})` : 'Finish batch'}
                   </Button>
                 )}
-                <Button variant={isBatch ? 'secondary' : undefined} onClick={() => navigate('/banking/feed')}>Review in Bank Feed</Button>
+                {imported.reconcileOnly ? (
+                  <Button variant={isBatch ? 'secondary' : undefined} onClick={() => navigate('/banking/reconcile')}>
+                    Go to Reconciliation
+                  </Button>
+                ) : (
+                  <Button variant={isBatch ? 'secondary' : undefined} onClick={() => navigate('/banking/feed')}>Review in Bank Feed</Button>
+                )}
               </div>
             </div>
           )}

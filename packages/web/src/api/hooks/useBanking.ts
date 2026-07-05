@@ -264,6 +264,11 @@ export interface ReconciliationLineRow {
   txn_type: string;
   txn_number: string | null;
   memo: string | null;
+  // Statement Match Engine wave 1 — additive fields for the suggestions UI.
+  check_number: number | null;
+  payee_name_on_check: string | null;
+  contact_id: string | null;
+  contact_name: string | null;
 }
 
 // Override clearedBalance/difference — the shared `Reconciliation` type
@@ -283,6 +288,9 @@ export type ReconciliationWithLines = Omit<Reconciliation, 'clearedBalance' | 'd
     openingBalance: string | null;
     closingBalance: string;
     attachmentId: string | null;
+    // Statement Match Engine wave 1: stored bank_statement_lines count —
+    // gates the "Match statement" button.
+    lineCount?: number;
   } | null;
   continuityWarning?: { expected: number; actual: number; delta: number } | null;
 };
@@ -326,6 +334,109 @@ export function useCompleteReconciliation() {
       qc.invalidateQueries({ queryKey: ['reconciliation'] });
       qc.invalidateQueries({ queryKey: ['reconciliations'] });
       qc.invalidateQueries({ queryKey: ['bank-statements'] });
+    },
+  });
+}
+
+// ─── Statement Match Engine (wave 1) ───────────────────────────────
+
+export interface StatementLineSummary {
+  id: string;
+  lineDate: string;
+  description: string | null;
+  amount: string;
+  checkNumber: string | null;
+  payee: string | null;
+  matchStatus: string;
+}
+
+export interface StatementMatchCandidate {
+  journalLineId: string;
+  transactionId: string;
+  txnDate: string;
+  txnType: string;
+  txnNumber: string | null;
+  checkNumber: number | null;
+  payee: string | null;
+  amount: string;
+  description: string | null;
+  composite: number;
+  amountScore: number;
+  dateScore: number;
+  nameScore: number;
+  pool: 'A' | 'B';
+  checkExact: boolean;
+  amountDelta: number;
+  dateDiffDays: number;
+  idLinked?: boolean;
+}
+
+export interface StatementMatchSuggestion {
+  statementLine: StatementLineSummary;
+  candidates: StatementMatchCandidate[];
+}
+
+export interface StatementMatchResult {
+  autoCleared: number;
+  suggestions: StatementMatchSuggestion[];
+  unmatchedLines: StatementLineSummary[];
+  outstandingCount: number;
+  skippedLines: number;
+}
+
+export interface StatementMatchesView {
+  statementId: string;
+  counts: { auto: number; confirmed: number; suggested: number; unmatched: number; rejected: number };
+  suggestions: StatementMatchSuggestion[];
+  unmatchedLines: StatementLineSummary[];
+  outstandingCount: number;
+}
+
+export function useMatchStatement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reconciliationId: string) =>
+      apiClient<StatementMatchResult>(
+        `/banking/reconciliations/${reconciliationId}/match-statement`, { method: 'POST' },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation'] });
+      qc.invalidateQueries({ queryKey: ['statement-matches'] });
+    },
+  });
+}
+
+export function useStatementMatches(reconciliationId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['statement-matches', reconciliationId],
+    queryFn: () => apiClient<StatementMatchesView>(`/banking/reconciliations/${reconciliationId}/statement-matches`),
+    enabled: enabled && !!reconciliationId,
+  });
+}
+
+export function useConfirmStatementLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ lineId, journalLineId }: { lineId: string; journalLineId: string }) =>
+      apiClient<{ line: StatementLineSummary }>(
+        `/banking/statement-lines/${lineId}/confirm`,
+        { method: 'POST', body: JSON.stringify({ journalLineId }) },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation'] });
+      qc.invalidateQueries({ queryKey: ['statement-matches'] });
+    },
+  });
+}
+
+export function useRejectStatementLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (lineId: string) =>
+      apiClient<{ line: StatementLineSummary }>(`/banking/statement-lines/${lineId}/reject`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation'] });
+      qc.invalidateQueries({ queryKey: ['statement-matches'] });
     },
   });
 }

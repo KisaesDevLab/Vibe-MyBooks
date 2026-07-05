@@ -140,6 +140,17 @@ export const bankingMocks = () => ({
   // Statement-driven reconciliation
   useBankStatements: passthroughQuery({ statements: [], total: 0, gaps: [] }),
   useAutoClearStatement: passthroughMutation,
+  // Statement Match Engine (wave 1)
+  useMatchStatement: passthroughMutation,
+  useStatementMatches: passthroughQuery({
+    statementId: '',
+    counts: { auto: 0, confirmed: 0, suggested: 0, unmatched: 0, rejected: 0 },
+    suggestions: [],
+    unmatchedLines: [],
+    outstandingCount: 0,
+  }),
+  useConfirmStatementLine: passthroughMutation,
+  useRejectStatementLine: passthroughMutation,
   useStartReconciliation: passthroughMutation,
   useUpdateReconciliationLines: passthroughMutation,
   useCompleteReconciliation: passthroughMutation,

@@ -9,6 +9,9 @@ import { Link } from 'react-router-dom';
 import {
   useStartReconciliation, useReconciliation, useUpdateReconciliationLines, useCompleteReconciliation,
   useBankStatements, useAutoClearStatement, type BankStatementRow,
+  useMatchStatement, useStatementMatches, useConfirmStatementLine, useRejectStatementLine,
+  type StatementMatchResult, type StatementMatchCandidate, type StatementMatchSuggestion,
+  type StatementLineSummary,
 } from '../../api/hooks/useBanking';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
@@ -19,7 +22,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { useToast } from '../../components/ui/Toaster';
-import { AlertTriangle, FileText, Sparkles } from 'lucide-react';
+import { AlertTriangle, FileText, Sparkles, Wand2, Check, X } from 'lucide-react';
 
 // Open the statement PDF in a new tab via the single-use download token
 // (same pattern as ReportShell's openPdfInTab — window.open can't carry an
@@ -200,6 +203,181 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
   );
 }
 
+// ─── Statement Match Engine (wave 1) ────────────────────────────────
+
+const fmtMoney = (v: string | number) => {
+  const n = typeof v === 'number' ? v : parseFloat(v);
+  return `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(2)}`;
+};
+
+// Human evidence chips for one candidate: why the engine thinks this is it.
+function evidenceChips(c: StatementMatchCandidate): string[] {
+  const chips: string[] = [];
+  if (c.idLinked) chips.push('Matched via bank feed');
+  if (c.pool === 'A') chips.push('Exact amount');
+  else chips.push(`Amount differs by $${Math.abs(c.amountDelta).toFixed(2)}`);
+  const d = Math.abs(c.dateDiffDays);
+  chips.push(d === 0 ? 'Same day' : `${d} day${d === 1 ? '' : 's'} apart`);
+  if (c.checkExact && c.checkNumber != null) chips.push(`Check #${c.checkNumber}`);
+  else if (!c.idLinked && c.nameScore > 0) chips.push(`Payee ${Math.round(c.nameScore * 100)}%`);
+  return chips;
+}
+
+function SuggestionCard({
+  suggestion, disabled, onConfirm, onReject, pending,
+}: {
+  suggestion: StatementMatchSuggestion;
+  disabled: boolean;
+  onConfirm: (lineId: string, journalLineId: string) => void;
+  onReject: (lineId: string) => void;
+  pending: boolean;
+}) {
+  const { statementLine: sl, candidates } = suggestion;
+  const [pickedId, setPickedId] = useState(candidates[0]?.journalLineId ?? '');
+  const picked = candidates.find((c) => c.journalLineId === pickedId) ?? candidates[0];
+
+  return (
+    <div className="border rounded-lg p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="text-sm min-w-0">
+          <p className="text-xs text-gray-500 uppercase mb-0.5">On the statement</p>
+          <p className="text-gray-900">
+            <span className="font-mono">{sl.lineDate}</span>
+            <span className="mx-2">·</span>{sl.description || sl.payee || '—'}
+            <span className="mx-2">·</span><span className="font-mono font-medium">{fmtMoney(sl.amount)}</span>
+          </p>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <Button size="sm" disabled={disabled || !picked} loading={pending}
+            onClick={() => picked && onConfirm(sl.id, picked.journalLineId)}>
+            <Check className="h-4 w-4 mr-1" /> Confirm
+          </Button>
+          <Button size="sm" variant="secondary" disabled={disabled} onClick={() => onReject(sl.id)}>
+            <X className="h-4 w-4 mr-1" /> Reject
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-2 space-y-1">
+        {candidates.map((c) => (
+          <label key={c.journalLineId}
+            className={`flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer ${
+              c.journalLineId === picked?.journalLineId ? 'bg-primary-50 border border-primary-200' : 'border border-transparent hover:bg-gray-50'
+            }`}>
+            {candidates.length > 1 && (
+              <input type="radio" className="rounded-full" checked={c.journalLineId === picked?.journalLineId}
+                onChange={() => setPickedId(c.journalLineId)} />
+            )}
+            <span className="font-mono">{c.txnDate}</span>
+            <span className="text-gray-500">{c.txnType}{c.txnNumber ? ` #${c.txnNumber}` : ''}{c.checkNumber != null ? ` · check ${c.checkNumber}` : ''}</span>
+            <span className="text-gray-900 truncate max-w-[16rem]">{c.payee || c.description || '—'}</span>
+            <span className="font-mono font-medium">{fmtMoney(c.amount)}</span>
+            <span className="flex flex-wrap gap-1 ml-auto">
+              {evidenceChips(c).map((chip) => (
+                <span key={chip} className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">{chip}</span>
+              ))}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Suggestions + unmatched statement lines + outstanding chip, driven by the
+// persisted match state (survives reloads).
+function StatementMatchPanel({
+  reconId, isComplete, onShowUncleared,
+}: {
+  reconId: string;
+  isComplete: boolean;
+  onShowUncleared: () => void;
+}) {
+  const { data, isLoading, isError, refetch } = useStatementMatches(reconId, true);
+  const confirmLine = useConfirmStatementLine();
+  const rejectLine = useRejectStatementLine();
+  const toast = useToast();
+
+  if (isLoading) return <LoadingSpinner className="py-6" />;
+  if (isError) return <ErrorMessage message="Couldn't load statement match results." onRetry={() => refetch()} />;
+  if (!data) return null;
+
+  const handleConfirm = (lineId: string, journalLineId: string) => {
+    confirmLine.mutate({ lineId, journalLineId }, {
+      onSuccess: () => toast.success('Match confirmed — transaction cleared.'),
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not confirm the match.'),
+    });
+  };
+  const handleReject = (lineId: string) => {
+    rejectLine.mutate(lineId, {
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not reject the suggestion.'),
+    });
+  };
+
+  const rejected = data.unmatchedLines.filter((l) => l.matchStatus === 'rejected');
+  const unmatched = data.unmatchedLines.filter((l) => l.matchStatus !== 'rejected');
+
+  return (
+    <div className="space-y-4 mb-4">
+      {/* Outstanding items — in the books, not on the statement. */}
+      {data.outstandingCount > 0 && (
+        <button
+          onClick={onShowUncleared}
+          className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+          title="In your books, not on the statement — outstanding checks / deposits in transit. Click to filter the worksheet to uncleared rows."
+        >
+          {data.outstandingCount} outstanding item{data.outstandingCount === 1 ? '' : 's'} — in your books, not on the statement
+        </button>
+      )}
+
+      {data.suggestions.length > 0 && (
+        <div className="bg-white rounded-lg border shadow-sm p-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">
+            Suggested matches ({data.suggestions.length}) — review and confirm
+          </h3>
+          <div className="space-y-3">
+            {data.suggestions.map((s) => (
+              <SuggestionCard
+                key={s.statementLine.id}
+                suggestion={s}
+                disabled={isComplete}
+                onConfirm={handleConfirm}
+                onReject={handleReject}
+                pending={confirmLine.isPending}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(unmatched.length > 0 || rejected.length > 0) && (
+        <div className="bg-white rounded-lg border shadow-sm p-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">
+            On the statement, not in your books ({unmatched.length + rejected.length})
+          </h3>
+          <p className="text-xs text-gray-500 mb-3">
+            These statement lines have no matching transaction. Add the missing transactions
+            (or import them through the bank feed), then run the match again.
+          </p>
+          <ul className="divide-y divide-gray-100 text-sm">
+            {[...unmatched, ...rejected].map((l: StatementLineSummary) => (
+              <li key={l.id} className="py-1.5 flex flex-wrap items-center gap-2">
+                <span className="font-mono">{l.lineDate}</span>
+                <span className="text-gray-700 truncate max-w-[24rem]">{l.description || l.payee || '—'}</span>
+                {l.checkNumber && <span className="text-xs text-gray-500">check {l.checkNumber}</span>}
+                <span className="font-mono font-medium ml-auto">{fmtMoney(l.amount)}</span>
+                {l.matchStatus === 'rejected' && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">suggestion rejected</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ReconciliationPage() {
   const [reconId, setReconId] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -211,12 +389,17 @@ export function ReconciliationPage() {
   const [sortKey, setSortKey] = useState<'date' | 'type' | 'description' | 'amount'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [autoClearResult, setAutoClearResult] = useState<{ cleared: number; alreadyCleared: number; unmatched: number } | null>(null);
+  // Statement Match Engine (wave 1): last run's banner + the uncleared-only
+  // worksheet filter driven by the outstanding-items chip.
+  const [matchResult, setMatchResult] = useState<StatementMatchResult | null>(null);
+  const [unclearedOnly, setUnclearedOnly] = useState(false);
 
   const startRecon = useStartReconciliation();
   const { data: reconData, isLoading, isError, refetch } = useReconciliation(reconId);
   const updateLines = useUpdateReconciliationLines();
   const completeRecon = useCompleteReconciliation();
   const autoClear = useAutoClearStatement();
+  const matchStatement = useMatchStatement();
   const toast = useToast();
 
   const handleStart = () => {
@@ -241,6 +424,16 @@ export function ReconciliationPage() {
     });
   };
 
+  const handleMatchStatement = () => {
+    matchStatement.mutate(reconId, {
+      onSuccess: (res) => {
+        setMatchResult(res);
+        toast.success(`Statement match: ${res.autoCleared} auto-cleared, ${res.suggestions.length} suggestions.`);
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Statement match failed.'),
+    });
+  };
+
   const recon = reconData?.reconciliation;
   const lines = recon?.lines || [];
 
@@ -252,6 +445,7 @@ export function ReconciliationPage() {
     let rows = lines;
     if (typeFilter === 'deposits') rows = rows.filter(isDeposit);
     else if (typeFilter === 'payments') rows = rows.filter((l) => !isDeposit(l));
+    if (unclearedOnly) rows = rows.filter((l) => !l.is_cleared);
     if (search.trim()) {
       const q = search.toLowerCase();
       rows = rows.filter((l) => `${l.description ?? ''} ${l.memo ?? ''} ${l.txn_type ?? ''}`.toLowerCase().includes(q));
@@ -266,7 +460,7 @@ export function ReconciliationPage() {
       return c * dir;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, typeFilter, search, sortKey, sortDir]);
+  }, [lines, typeFilter, search, sortKey, sortDir, unclearedOnly]);
 
   if (!reconId) {
     return (
@@ -387,6 +581,13 @@ export function ReconciliationPage() {
       {/* Auto-clear the linked statement's transactions */}
       {recon.statement && !isComplete && (
         <div className="flex items-center gap-3 mb-4 flex-wrap">
+          {/* Statement Match Engine (wave 1): scored matcher — visible when
+              the linked statement has stored lines. */}
+          {(recon.statement.lineCount ?? 0) > 0 && (
+            <Button size="sm" onClick={handleMatchStatement} loading={matchStatement.isPending}>
+              <Wand2 className="h-4 w-4 mr-1" /> Match statement
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={handleAutoClear} loading={autoClear.isPending}>
             <Sparkles className="h-4 w-4 mr-1" /> Auto-clear statement transactions
           </Button>
@@ -398,6 +599,24 @@ export function ReconciliationPage() {
         </div>
       )}
 
+      {/* Statement match run banner */}
+      {matchResult && (
+        <div className="bg-primary-50 border border-primary-200 rounded-lg p-3 mb-4 text-sm text-primary-900">
+          {matchResult.autoCleared} auto-cleared · {matchResult.suggestions.length} suggestion{matchResult.suggestions.length === 1 ? '' : 's'} ·{' '}
+          {matchResult.unmatchedLines.length} statement line{matchResult.unmatchedLines.length === 1 ? '' : 's'} unmatched ·{' '}
+          {matchResult.outstandingCount} outstanding item{matchResult.outstandingCount === 1 ? '' : 's'}
+        </div>
+      )}
+
+      {/* Suggestions / unmatched / outstanding (persisted match state) */}
+      {recon.statement && (recon.statement.lineCount ?? 0) > 0 && (
+        <StatementMatchPanel
+          reconId={reconId}
+          isComplete={isComplete}
+          onShowUncleared={() => setUnclearedOnly(true)}
+        />
+      )}
+
       {/* Filter buttons + search */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         {([['all', `All (${lines.length})`], ['deposits', `Deposits (${depCount})`], ['payments', `Payments (${payCount})`]] as const).map(([key, label]) => (
@@ -406,6 +625,13 @@ export function ReconciliationPage() {
             {label}
           </button>
         ))}
+        {unclearedOnly && (
+          <button onClick={() => setUnclearedOnly(false)}
+            className="px-3 py-1.5 rounded-md text-sm border bg-blue-600 text-white border-blue-600"
+            title="Showing uncleared rows only — click to show all">
+            Uncleared only ✕
+          </button>
+        )}
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search description / type…"
           className="ml-auto rounded-md border-gray-300 text-sm px-3 py-1.5 min-w-[14rem]" />
       </div>
