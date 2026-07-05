@@ -371,9 +371,34 @@ export interface StatementMatchCandidate {
   idLinked?: boolean;
 }
 
+// Wave 2: grouped matches (suggest-only; a confirmed set sums exactly).
+export interface StatementGroupLine {
+  journalLineId: string;
+  transactionId: string;
+  txnDate: string;
+  txnType: string;
+  txnNumber: string | null;
+  checkNumber: number | null;
+  payee: string | null;
+  amount: string;
+  description: string | null;
+  dateDiffDays: number;
+}
+
+export interface StatementGroupCandidate {
+  kind: 'one_to_many' | 'many_to_one';
+  /** one_to_many: the 2..5 worksheet members; many_to_one: exactly one. */
+  journalLines: StatementGroupLine[];
+  /** many_to_one: every member statement line, primary first. */
+  memberStatementLines: StatementLineSummary[];
+  sum: string;
+  dateSpanDays: number;
+}
+
 export interface StatementMatchSuggestion {
   statementLine: StatementLineSummary;
   candidates: StatementMatchCandidate[];
+  groupCandidates?: StatementGroupCandidate[];
 }
 
 export interface StatementMatchResult {
@@ -382,6 +407,7 @@ export interface StatementMatchResult {
   unmatchedLines: StatementLineSummary[];
   outstandingCount: number;
   skippedLines: number;
+  skippedAmbiguousGroups: number;
 }
 
 export interface StatementMatchesView {
@@ -414,17 +440,52 @@ export function useStatementMatches(reconciliationId: string, enabled: boolean) 
   });
 }
 
+// Wave 2: the same confirm route also accepts grouped forms —
+// journalLineIds (one statement line ↔ many worksheet lines) or
+// journalLineId + memberStatementLineIds (many statement lines ↔ one line).
+export interface ConfirmStatementLinePayload {
+  lineId: string;
+  journalLineId?: string;
+  journalLineIds?: string[];
+  memberStatementLineIds?: string[];
+}
+
 export function useConfirmStatementLine() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ lineId, journalLineId }: { lineId: string; journalLineId: string }) =>
+    mutationFn: ({ lineId, ...body }: ConfirmStatementLinePayload) =>
       apiClient<{ line: StatementLineSummary }>(
         `/banking/statement-lines/${lineId}/confirm`,
-        { method: 'POST', body: JSON.stringify({ journalLineId }) },
+        { method: 'POST', body: JSON.stringify(body) },
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reconciliation'] });
       qc.invalidateQueries({ queryKey: ['statement-matches'] });
+    },
+  });
+}
+
+// Wave 2 Feature B: "Add to books" — post a transaction from an unmatched
+// statement line and clear it on the worksheet.
+export interface CreateFromStatementLinePayload {
+  lineId: string;
+  accountId: string;
+  contactId?: string;
+  memo?: string;
+}
+
+export function useCreateFromStatementLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ lineId, ...body }: CreateFromStatementLinePayload) =>
+      apiClient<{ line: StatementLineSummary; transactionId: string }>(
+        `/banking/statement-lines/${lineId}/create-transaction`,
+        { method: 'POST', body: JSON.stringify(body) },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation'] });
+      qc.invalidateQueries({ queryKey: ['statement-matches'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 }

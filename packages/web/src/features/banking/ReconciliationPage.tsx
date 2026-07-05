@@ -10,19 +10,22 @@ import {
   useStartReconciliation, useReconciliation, useUpdateReconciliationLines, useCompleteReconciliation,
   useBankStatements, useAutoClearStatement, type BankStatementRow,
   useMatchStatement, useStatementMatches, useConfirmStatementLine, useRejectStatementLine,
+  useCreateFromStatementLine,
   type StatementMatchResult, type StatementMatchCandidate, type StatementMatchSuggestion,
-  type StatementLineSummary,
+  type StatementLineSummary, type StatementGroupCandidate, type ConfirmStatementLinePayload,
 } from '../../api/hooks/useBanking';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
 import { AccountSelector } from '../../components/forms/AccountSelector';
+import { ContactSelector } from '../../components/forms/ContactSelector';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { useToast } from '../../components/ui/Toaster';
-import { AlertTriangle, FileText, Sparkles, Wand2, Check, X } from 'lucide-react';
+import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus } from 'lucide-react';
 
 // Open the statement PDF in a new tab via the single-use download token
 // (same pattern as ReportShell's openPdfInTab — window.open can't carry an
@@ -223,17 +226,149 @@ function evidenceChips(c: StatementMatchCandidate): string[] {
   return chips;
 }
 
+// Evidence chips for a grouped set: exact sum is the headline signal.
+function groupEvidenceChips(g: StatementGroupCandidate): string[] {
+  const n = g.kind === 'one_to_many' ? g.journalLines.length : g.memberStatementLines.length;
+  return [
+    'Sums exactly',
+    `${n} items`,
+    g.dateSpanDays === 0 ? 'Same day' : `${g.dateSpanDays}-day span`,
+  ];
+}
+
+// Wave 2: grouped suggestion — "1 deposit ↔ 3 receipts" with the member
+// rows listed, a single Confirm for the whole set, and a set picker when
+// the engine found more than one exact-sum set.
+function GroupSuggestionCard({
+  suggestion, disabled, onConfirm, onReject, pending,
+}: {
+  suggestion: StatementMatchSuggestion;
+  disabled: boolean;
+  onConfirm: (payload: ConfirmStatementLinePayload) => void;
+  onReject: (lineId: string) => void;
+  pending: boolean;
+}) {
+  const { statementLine: sl } = suggestion;
+  const sets = suggestion.groupCandidates ?? [];
+  const [pickedIdx, setPickedIdx] = useState(0);
+  const g = sets[Math.min(pickedIdx, sets.length - 1)];
+  if (!g) return null;
+
+  const isDeposit = parseFloat(sl.amount) > 0;
+  const header = g.kind === 'one_to_many'
+    ? `1 ${isDeposit ? 'deposit' : 'withdrawal'} ↔ ${g.journalLines.length} ${isDeposit ? 'receipts' : 'payments'}`
+    : `${g.memberStatementLines.length} statement lines ↔ 1 book transaction`;
+
+  const handleConfirm = () => {
+    if (g.kind === 'one_to_many') {
+      onConfirm({ lineId: sl.id, journalLineIds: g.journalLines.map((j) => j.journalLineId) });
+    } else {
+      onConfirm({
+        lineId: sl.id,
+        journalLineId: g.journalLines[0]!.journalLineId,
+        memberStatementLineIds: g.memberStatementLines.filter((m) => m.id !== sl.id).map((m) => m.id),
+      });
+    }
+  };
+
+  return (
+    <div className="border rounded-lg p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="text-sm min-w-0">
+          <p className="text-xs text-gray-500 uppercase mb-0.5">Grouped match — {header}</p>
+          <p className="text-gray-900">
+            <span className="font-mono">{sl.lineDate}</span>
+            <span className="mx-2">·</span>{sl.description || sl.payee || '—'}
+            <span className="mx-2">·</span><span className="font-mono font-medium">{fmtMoney(sl.amount)}</span>
+          </p>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <Button size="sm" disabled={disabled} loading={pending} onClick={handleConfirm}>
+            <Check className="h-4 w-4 mr-1" /> Confirm set
+          </Button>
+          <Button size="sm" variant="secondary" disabled={disabled} onClick={() => onReject(sl.id)}>
+            <X className="h-4 w-4 mr-1" /> Reject
+          </Button>
+        </div>
+      </div>
+
+      {sets.length > 1 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {sets.map((_, i) => (
+            <button key={i} onClick={() => setPickedIdx(i)}
+              className={`text-xs px-2 py-1 rounded-md border ${i === pickedIdx ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
+              Set {i + 1}
+            </button>
+          ))}
+          <span className="text-xs text-gray-500 self-center">Multiple exact-sum sets found — pick one to confirm.</span>
+        </div>
+      )}
+
+      <div className="mt-2 space-y-1">
+        {(g.kind === 'one_to_many' ? g.journalLines : []).map((m) => (
+          <div key={m.journalLineId} className="flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 text-sm bg-gray-50">
+            <span className="font-mono">{m.txnDate}</span>
+            <span className="text-gray-500">{m.txnType}{m.txnNumber ? ` #${m.txnNumber}` : ''}{m.checkNumber != null ? ` · check ${m.checkNumber}` : ''}</span>
+            <span className="text-gray-900 truncate max-w-[16rem]">{m.payee || m.description || '—'}</span>
+            <span className="font-mono font-medium ml-auto">{fmtMoney(m.amount)}</span>
+          </div>
+        ))}
+        {g.kind === 'many_to_one' && (
+          <>
+            {g.memberStatementLines.map((m) => (
+              <div key={m.id} className="flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 text-sm bg-gray-50">
+                <span className="font-mono">{m.lineDate}</span>
+                <span className="text-gray-900 truncate max-w-[16rem]">{m.description || m.payee || '—'}</span>
+                <span className="font-mono font-medium ml-auto">{fmtMoney(m.amount)}</span>
+              </div>
+            ))}
+            <div className="flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 text-sm border border-primary-200 bg-primary-50">
+              <span className="text-xs text-gray-500 uppercase">In your books</span>
+              <span className="font-mono">{g.journalLines[0]!.txnDate}</span>
+              <span className="text-gray-900 truncate max-w-[16rem]">{g.journalLines[0]!.payee || g.journalLines[0]!.description || '—'}</span>
+              <span className="font-mono font-medium ml-auto">{fmtMoney(g.journalLines[0]!.amount)}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <span className="text-sm text-gray-600 mr-1">
+          Set total <span className="font-mono font-medium">{fmtMoney(g.sum)}</span> = statement line
+        </span>
+        {groupEvidenceChips(g).map((chip) => (
+          <span key={chip} className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap">{chip}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SuggestionCard({
   suggestion, disabled, onConfirm, onReject, pending,
 }: {
   suggestion: StatementMatchSuggestion;
   disabled: boolean;
-  onConfirm: (lineId: string, journalLineId: string) => void;
+  onConfirm: (payload: ConfirmStatementLinePayload) => void;
   onReject: (lineId: string) => void;
   pending: boolean;
 }) {
   const { statementLine: sl, candidates } = suggestion;
   const [pickedId, setPickedId] = useState(candidates[0]?.journalLineId ?? '');
+
+  // Wave 2: group-only suggestions render the grouped card instead.
+  if (candidates.length === 0 && (suggestion.groupCandidates?.length ?? 0) > 0) {
+    return (
+      <GroupSuggestionCard
+        suggestion={suggestion}
+        disabled={disabled}
+        onConfirm={onConfirm}
+        onReject={onReject}
+        pending={pending}
+      />
+    );
+  }
+
   const picked = candidates.find((c) => c.journalLineId === pickedId) ?? candidates[0];
 
   return (
@@ -249,7 +384,7 @@ function SuggestionCard({
         </div>
         <div className="flex gap-2 flex-shrink-0">
           <Button size="sm" disabled={disabled || !picked} loading={pending}
-            onClick={() => picked && onConfirm(sl.id, picked.journalLineId)}>
+            onClick={() => picked && onConfirm({ lineId: sl.id, journalLineId: picked.journalLineId })}>
             <Check className="h-4 w-4 mr-1" /> Confirm
           </Button>
           <Button size="sm" variant="secondary" disabled={disabled} onClick={() => onReject(sl.id)}>
@@ -284,6 +419,76 @@ function SuggestionCard({
   );
 }
 
+// Wave 2 Feature B: "Add to books" — create a posted transaction from an
+// unmatched statement line. Date and amount come from the line (read-only);
+// the user picks the category account (and optionally a contact / memo).
+function AddToBooksModal({
+  line, onClose,
+}: {
+  line: StatementLineSummary;
+  onClose: () => void;
+}) {
+  const [accountId, setAccountId] = useState('');
+  const [contactId, setContactId] = useState('');
+  const [memo, setMemo] = useState(line.description ?? '');
+  const createFromLine = useCreateFromStatementLine();
+  const toast = useToast();
+  const isDeposit = parseFloat(line.amount) > 0;
+
+  const handleCreate = () => {
+    createFromLine.mutate({
+      lineId: line.id,
+      accountId,
+      ...(contactId ? { contactId } : {}),
+      ...(memo.trim() ? { memo: memo.trim() } : {}),
+    }, {
+      onSuccess: () => {
+        toast.success('Transaction created and cleared on the worksheet.');
+        onClose();
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not create the transaction.'),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">Add to books</h3>
+        <div className="text-sm text-gray-700 bg-gray-50 rounded-md p-3 space-y-1">
+          <div className="flex justify-between"><span className="text-gray-500">Date</span><span className="font-mono">{line.lineDate}</span></div>
+          <div className="flex justify-between"><span className="text-gray-500">Amount</span><span className="font-mono font-medium">{fmtMoney(line.amount)} ({isDeposit ? 'deposit' : 'money out'})</span></div>
+          {(line.payee || line.description) && (
+            <div className="flex justify-between gap-3"><span className="text-gray-500">Payee</span><span className="truncate">{line.payee || line.description}</span></div>
+          )}
+          {line.checkNumber && (
+            <div className="flex justify-between"><span className="text-gray-500">Check #</span><span className="font-mono">{line.checkNumber}</span></div>
+          )}
+        </div>
+        <AccountSelector
+          label={isDeposit ? 'Income category' : 'Expense category'}
+          value={accountId}
+          onChange={setAccountId}
+          accountTypeFilter={isDeposit ? 'revenue' : 'expense'}
+          required
+        />
+        <ContactSelector label="Contact (optional)" value={contactId} onChange={setContactId} />
+        <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
+        {createFromLine.isError && (
+          <p className="text-sm text-red-600">
+            {createFromLine.error instanceof Error ? createFromLine.error.message : 'Could not create the transaction.'}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={createFromLine.isPending}>Cancel</Button>
+          <Button onClick={handleCreate} disabled={!accountId} loading={createFromLine.isPending}>
+            Create transaction
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Suggestions + unmatched statement lines + outstanding chip, driven by the
 // persisted match state (survives reloads).
 function StatementMatchPanel({
@@ -297,13 +502,15 @@ function StatementMatchPanel({
   const confirmLine = useConfirmStatementLine();
   const rejectLine = useRejectStatementLine();
   const toast = useToast();
+  // Wave 2 Feature B: the statement line the "Add to books" modal is open for.
+  const [addToBooksLine, setAddToBooksLine] = useState<StatementLineSummary | null>(null);
 
   if (isLoading) return <LoadingSpinner className="py-6" />;
   if (isError) return <ErrorMessage message="Couldn't load statement match results." onRetry={() => refetch()} />;
   if (!data) return null;
 
-  const handleConfirm = (lineId: string, journalLineId: string) => {
-    confirmLine.mutate({ lineId, journalLineId }, {
+  const handleConfirm = (payload: ConfirmStatementLinePayload) => {
+    confirmLine.mutate(payload, {
       onSuccess: () => toast.success('Match confirmed — transaction cleared.'),
       onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not confirm the match.'),
     });
@@ -356,8 +563,8 @@ function StatementMatchPanel({
             On the statement, not in your books ({unmatched.length + rejected.length})
           </h3>
           <p className="text-xs text-gray-500 mb-3">
-            These statement lines have no matching transaction. Add the missing transactions
-            (or import them through the bank feed), then run the match again.
+            These statement lines have no matching transaction. Add them to your books directly,
+            import them through the bank feed, then run the match again.
           </p>
           <ul className="divide-y divide-gray-100 text-sm">
             {[...unmatched, ...rejected].map((l: StatementLineSummary) => (
@@ -369,10 +576,19 @@ function StatementMatchPanel({
                 {l.matchStatus === 'rejected' && (
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">suggestion rejected</span>
                 )}
+                {!isComplete && (
+                  <Button size="sm" variant="ghost" onClick={() => setAddToBooksLine(l)}>
+                    <Plus className="h-4 w-4 mr-1" /> Add to books
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
         </div>
+      )}
+
+      {addToBooksLine && (
+        <AddToBooksModal line={addToBooksLine} onClose={() => setAddToBooksLine(null)} />
       )}
     </div>
   );

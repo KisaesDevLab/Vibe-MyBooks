@@ -37,6 +37,7 @@ const matchResult: StatementMatchResult = {
   ],
   outstandingCount: 3,
   skippedLines: 0,
+  skippedAmbiguousGroups: 0,
 };
 
 const matchesView: StatementMatchesView = {
