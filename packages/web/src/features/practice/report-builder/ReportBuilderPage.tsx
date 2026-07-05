@@ -1288,7 +1288,7 @@ function ReportRender({
           return (
             <EditableTextSection
               key={blockId}
-              label="AI summary"
+              label="Summary"
               value={aiSummary}
               empty="No summary saved yet — click to write one, or generate with AI."
               editable={editable}
@@ -2178,7 +2178,9 @@ function EditableTextSection({
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState('');
+  // Default generation prompt — editable before generating. Kept in sync
+  // with the server-side base instruction in portal-reports.service.ts.
+  const [aiPrompt, setAiPrompt] = useState('Provide a 100 word summary of the financials');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
