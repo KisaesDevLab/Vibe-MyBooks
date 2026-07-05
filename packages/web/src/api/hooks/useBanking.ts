@@ -322,7 +322,12 @@ export function useUpdateReconciliationLines() {
   return useMutation({
     mutationFn: ({ id, lines }: { id: string; lines: Array<{ journalLineId: string; isCleared: boolean }> }) =>
       apiClient(`/banking/reconciliations/${id}/lines`, { method: 'PUT', body: JSON.stringify({ lines }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reconciliation'] }),
+    // Un-clearing a worksheet line resets its auto/confirmed statement-line
+    // match server-side — refresh the open match panel too.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation'] });
+      qc.invalidateQueries({ queryKey: ['statement-matches'] });
+    },
   });
 }
 
@@ -506,6 +511,12 @@ export function useUndoReconciliation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient(`/banking/reconciliations/${id}/undo`, { method: 'POST' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['reconciliation'] }); qc.invalidateQueries({ queryKey: ['reconciliations'] }); },
+    // Undo resets every auto/confirmed statement-line match of the linked
+    // statement — the match panel must not keep showing them.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation'] });
+      qc.invalidateQueries({ queryKey: ['reconciliations'] });
+      qc.invalidateQueries({ queryKey: ['statement-matches'] });
+    },
   });
 }
