@@ -7,12 +7,14 @@ import { useNavigate } from 'react-router-dom';
 import { useImportBankFile } from '../../api/hooks/useBanking';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toaster';
 import { X } from 'lucide-react';
 
 interface BankImportModalProps { onClose: () => void }
 
 export function BankImportModal({ onClose }: BankImportModalProps) {
   const navigate = useNavigate();
+  const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [accountId, setAccountId] = useState('');
   const [preview, setPreview] = useState<string[][]>([]);
@@ -44,7 +46,21 @@ export function BankImportModal({ onClose }: BankImportModalProps) {
     if (!file || !accountId || dateRangeInvalid) return;
     importFile.mutate(
       { file, accountId, mapping, startDate: startDate || undefined, endDate: endDate || undefined },
-      { onSuccess: () => { onClose(); navigate('/banking/feed'); } },
+      {
+        onSuccess: (data) => {
+          // Subtle degradation warning: the rows imported fine, but the AI
+          // description cleanup failed and regex-only cleaning was used.
+          if ((data.cleansing?.aiFailed ?? 0) > 0) {
+            const n = data.cleansing!.aiFailed;
+            toast.info(
+              `AI cleanup unavailable — ${n} description${n === 1 ? '' : 's'} kept regex-only cleaning.`,
+              { detail: data.cleansing!.firstError },
+            );
+          }
+          onClose();
+          navigate('/banking/feed');
+        },
+      },
     );
   };
 

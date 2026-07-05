@@ -89,6 +89,7 @@ export function StatementUploadPage() {
   const [imported, setImported] = useState<{
     imported: number; skipped?: number; duplicates?: number; duplicateWarning?: string;
     reconcileOnly?: boolean; lineCount?: number;
+    cleansing?: { processed: number; aiCleansed: number; aiFailed: number; disabled: number; firstError?: string };
   } | null>(null);
   // Batch upload: a queue of selected files processed one at a time through the
   // same review/import UI. queueIndex is the file currently in review; batchDone
@@ -287,6 +288,9 @@ export function StatementUploadPage() {
     // lines were stored for the match engine.
     reconcileOnly?: boolean;
     lineCount?: number;
+    // Additive cleansing-outcome payload (bank-feed CleansingAggregate) —
+    // aiFailed > 0 means the AI description cleanup degraded to regex-only.
+    cleansing?: { processed: number; aiCleansed: number; aiFailed: number; disabled: number; firstError?: string };
   }
   const importMutation = useMutation({
     mutationFn: async () => {
@@ -840,6 +844,12 @@ export function StatementUploadPage() {
                   : `Imported ${imported.imported} transactions`}
               </p>
               {(imported.skipped ?? 0) > 0 && <p className="text-xs text-green-600">{imported.skipped} duplicates skipped</p>}
+              {(imported.cleansing?.aiFailed ?? 0) > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 inline-block">
+                  AI cleanup unavailable — {imported.cleansing!.aiFailed} description{imported.cleansing!.aiFailed === 1 ? '' : 's'} kept regex-only cleaning.
+                  {imported.cleansing!.firstError ? ` ${imported.cleansing!.firstError}` : ''}
+                </p>
+              )}
               {imported.duplicateWarning && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 inline-block">
                   {imported.duplicateWarning}

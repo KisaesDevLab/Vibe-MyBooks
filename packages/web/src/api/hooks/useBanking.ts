@@ -139,11 +139,25 @@ export function useBulkSetName() {
   });
 }
 
+/** Additive cleansing-outcome payload returned by every import/re-cleanse
+ *  endpoint. Mirrors CleansingAggregate in
+ *  packages/api/src/services/bank-feed.service.ts. */
+export interface CleansingAggregateDto {
+  processed: number;
+  aiCleansed: number;
+  aiFailed: number;
+  disabled: number;
+  firstError?: string;
+}
+
 export function useBulkRecleanse() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (feedItemIds: string[]) =>
-      apiClient('/banking/feed/bulk-recleanse', { method: 'POST', body: JSON.stringify({ feedItemIds }) }),
+      apiClient<{ cleansed: number; cleansing?: CleansingAggregateDto }>(
+        '/banking/feed/bulk-recleanse',
+        { method: 'POST', body: JSON.stringify({ feedItemIds }) },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-feed'] }),
   });
 }
@@ -155,6 +169,12 @@ export function useBulkExclude() {
       apiClient('/banking/feed/bulk-exclude', { method: 'POST', body: JSON.stringify({ feedItemIds }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-feed'] }),
   });
+}
+
+export interface BankFileImportResult {
+  imported: number;
+  items: BankFeedItem[];
+  cleansing?: CleansingAggregateDto;
 }
 
 export function useImportBankFile() {
@@ -173,7 +193,7 @@ export function useImportBankFile() {
         body: formData,
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error?.message || 'Import failed'); }
-      return res.json();
+      return res.json() as Promise<BankFileImportResult>;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); qc.invalidateQueries({ queryKey: ['bank-connections'] }); },
   });

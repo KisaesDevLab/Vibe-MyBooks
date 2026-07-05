@@ -152,7 +152,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     >
       <Icon className={clsx('h-4 w-4 mt-0.5 flex-shrink-0', s.icon)} aria-hidden />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-gray-900 leading-snug">{toast.message}</p>
+        {/* whitespace-pre-line: AI failure toasts put the per-provider
+            reasons on a second line — render the \n instead of collapsing. */}
+        <p className="text-sm text-gray-900 leading-snug whitespace-pre-line">{toast.message}</p>
         {toast.detail && (
           <p className="text-xs text-gray-500 mt-0.5 font-mono break-all">{toast.detail}</p>
         )}

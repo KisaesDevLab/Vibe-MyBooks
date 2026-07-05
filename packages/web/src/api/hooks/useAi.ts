@@ -15,7 +15,8 @@ export type { TaskOption, TaskOptions, AiFunctionKey, ExtractionOptions };
 // classification.
 type AiTaskLabel = 'AI categorization' | 'Receipt OCR' | 'Bill OCR' | 'Statement parsing' | 'Document classification';
 
-const PROVIDER_FAILED_MSG = 'Every configured AI provider failed. Check the test buttons in System Settings → AI.';
+const PROVIDER_FAILED_MSG =
+  "Every configured AI provider failed. Check Admin → AI → the function's 'Test this function' button.";
 const CONSENT_REQUIRED_MSG = 'Consent required — accept the AI disclosure on your company before this task can run.';
 const BUDGET_EXCEEDED_MSG = 'Monthly AI budget exceeded. Raise the limit in System Settings → AI.';
 const AI_DISABLED_MSG = 'AI is currently disabled for this workspace.';
@@ -33,6 +34,7 @@ const REASON_BY_CODE: Record<string, string> = {
   ai_all_providers_failed: PROVIDER_FAILED_MSG,
   ai_provider_failed: PROVIDER_FAILED_MSG,
   ai_categorization_failed: PROVIDER_FAILED_MSG,
+  ai_function_disabled: 'This AI function is disabled in Admin → AI ("Enable this function").',
   AI_RATE_LIMIT: 'Too many AI requests in a short window. Slow down and retry.',
   AI_DISABLED: AI_DISABLED_MSG,
   CHAT_DISABLED: AI_DISABLED_MSG,
@@ -40,6 +42,19 @@ const REASON_BY_CODE: Record<string, string> = {
 
 function reasonForCode(code: string | undefined, fallback: string): string {
   return (code && REASON_BY_CODE[code]) || fallback;
+}
+
+/** Compose the toast headline for an AI failure. For
+ *  `ai_all_providers_failed` the SERVER message carries the per-provider
+ *  failure reasons (executeWithFallback's aggregated providerErrors), so
+ *  append it on its own line rather than replacing it with the fixed
+ *  friendly copy — that detail is exactly what the admin needs. */
+function composeAiErrorMessage(label: string, code: string | undefined, serverMessage: string): string {
+  const reason = reasonForCode(code, serverMessage);
+  if (code === 'ai_all_providers_failed' && serverMessage && serverMessage !== reason) {
+    return `${label} failed — ${reason}\n${serverMessage}`;
+  }
+  return `${label} failed — ${reason}`;
 }
 
 /** Shared onError factory for AI mutations. Always surfaces a toast with
@@ -50,7 +65,7 @@ function useAiErrorToast(label: AiTaskLabel) {
   return (err: unknown) => {
     const code = isApiError(err) ? err.code : undefined;
     const rawMessage = err instanceof Error ? err.message : String(err);
-    toast.error(`${label} failed — ${reasonForCode(code, rawMessage)}`, {
+    toast.error(composeAiErrorMessage(label, code, rawMessage), {
       detail: code,
     });
   };
@@ -391,7 +406,7 @@ export function useAiBatchCategorize() {
       const ok = results.length - failed.length;
       if (results.length > 0 && ok === 0) {
         const first = failed[0]!.error!;
-        toast.error(`AI categorization failed — ${reasonForCode(first.code, first.message)}`, { detail: first.code });
+        toast.error(composeAiErrorMessage('AI categorization', first.code, first.message), { detail: first.code });
       } else if (failed.length > 0) {
         toast.error(`AI categorized ${ok} of ${results.length}; ${failed.length} failed.`, { detail: failed[0]!.error!.code });
       } else if (ok > 0) {

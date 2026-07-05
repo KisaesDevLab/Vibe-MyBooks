@@ -16,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useToast } from '../../components/ui/Toaster';
 import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2 } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
@@ -102,6 +103,7 @@ export function BankFeedPage() {
   const bulkCategorize = useBulkCategorize();
   const bulkExclude = useBulkExclude();
   const bulkRecleanse = useBulkRecleanse();
+  const toast = useToast();
   const bulkSetTag = useBulkSetTag();
   const [showBatchSetTag, setShowBatchSetTag] = useState(false);
   const [batchSetTagId, setBatchSetTagId] = useState<string | null>(null);
@@ -363,7 +365,25 @@ export function BankFeedPage() {
               <Button size="sm" onClick={() => bulkApprove.mutate([...selected], { onSuccess: () => setSelected(new Set()) })} loading={bulkApprove.isPending}>
                 <CheckCheck className="h-4 w-4 mr-1" /> Approve
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => bulkRecleanse.mutate([...selected], { onSuccess: () => setSelected(new Set()) })} loading={bulkRecleanse.isPending}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => bulkRecleanse.mutate([...selected], {
+                  onSuccess: (data) => {
+                    setSelected(new Set());
+                    // Subtle degradation warning — the re-cleanse ran, but the
+                    // AI step failed and regex-only cleaning was used.
+                    if ((data.cleansing?.aiFailed ?? 0) > 0) {
+                      const n = data.cleansing!.aiFailed;
+                      toast.info(
+                        `AI cleanup unavailable — ${n} description${n === 1 ? '' : 's'} kept regex-only cleaning.`,
+                        { detail: data.cleansing!.firstError },
+                      );
+                    }
+                  },
+                })}
+                loading={bulkRecleanse.isPending}
+              >
                 <RefreshCw className="h-4 w-4 mr-1" /> Re-cleanse
               </Button>
               <Button size="sm" variant="secondary" onClick={() => setShowBatchSetTag(true)}>
