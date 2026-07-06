@@ -198,7 +198,11 @@ export function BankFeedPage() {
       categorize.mutate({
         id: itemId, accountId: catAccountId,
         contactId: editState.contactId || undefined, memo: editState.memo || undefined,
-        tagId: catTagId || undefined,
+        // Send an explicit value (id or null), never undefined: the picker
+        // is pre-seeded with the suggested tag, so clearing it means the
+        // user wants NO tag. `null` tells the server to honor that instead
+        // of resurrecting the suggestion (undefined = "no choice" fallback).
+        tagId: catTagId || null,
       }, { onSuccess: () => { setExpandedId(null); } });
     } else {
       refetch();
