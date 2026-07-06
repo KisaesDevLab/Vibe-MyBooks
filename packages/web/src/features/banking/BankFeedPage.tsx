@@ -167,7 +167,11 @@ export function BankFeedPage() {
     setEditState({
       feedDate: item.feedDate,
       description: item.description || '',
-      memo: item.category || '',
+      // Memo starts blank — it becomes the posted transaction's memo.
+      // (Previously prefilled with the raw provider category hint, e.g.
+      // "FOOD_AND_DRINK", which leaked odd strings into the books; the
+      // hint renders as its own label below the memo input instead.)
+      memo: '',
       contactId: item.suggestedContactId || '',
     });
     setCatAccountId(item.suggestedAccountId || '');
@@ -464,11 +468,17 @@ export function BankFeedPage() {
                             className="block w-full rounded border border-gray-300 px-2 py-1 text-sm" placeholder="Name" />
                           <ContactSelector value={editState.contactId}
                             onChange={(v) => setEditState((s) => ({ ...s, contactId: v }))} />
-                          {item.payeeNameOnCheck && (
+                          {item.payeeNameOnCheck ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
                               Payee from check{item.checkNumber ? ` #${item.checkNumber}` : ''}: {item.payeeNameOnCheck}
                             </span>
-                          )}
+                          ) : item.checkNumber ? (
+                            // Check number without a check-image payee — the
+                            // Plaid / OFX import case.
+                            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                              Check #{item.checkNumber}
+                            </span>
+                          ) : null}
                         </div>
                       ) : (
                         <div>
@@ -476,11 +486,15 @@ export function BankFeedPage() {
                           {item.originalDescription && item.originalDescription !== item.description && (
                             <p className="text-xs text-gray-400 truncate max-w-[300px]" title={item.originalDescription}>{item.originalDescription}</p>
                           )}
-                          {item.payeeNameOnCheck && (
+                          {item.payeeNameOnCheck ? (
                             <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
                               Payee from check{item.checkNumber ? ` #${item.checkNumber}` : ''}: {item.payeeNameOnCheck}
                             </span>
-                          )}
+                          ) : item.checkNumber ? (
+                            <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                              Check #{item.checkNumber}
+                            </span>
+                          ) : null}
                           {item.suggestedAccountId && item.status === 'pending' && (
                             <p className="text-xs text-primary-600 flex items-center gap-0.5 mt-0.5">
                               <Sparkles className="h-3 w-3" />
@@ -501,6 +515,9 @@ export function BankFeedPage() {
                           <input value={editState.memo}
                             onChange={(e) => setEditState((s) => ({ ...s, memo: e.target.value }))}
                             className="block w-full rounded border border-gray-300 px-2 py-1 text-sm" placeholder="Memo" />
+                          {item.category && (
+                            <p className="text-[11px] text-gray-400">Bank category hint: {item.category}</p>
+                          )}
                           <PayrollOverlapBanner feedItemId={item.id} />
                         </div>
                       ) : (
