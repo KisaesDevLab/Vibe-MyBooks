@@ -158,15 +158,46 @@ function ValueInput({
     );
   }
 
-  if (field === 'amount' || field === 'amount_sign') {
+  // amount_sign is the purpose-built "deposit vs withdrawal" field. Its
+  // stored values are the numeric codes -1 (deposit / money in), 1
+  // (withdrawal / money out), 0 (zero) — the raw number box was a trap
+  // (users typed `1` for deposits and silently matched withdrawals). A
+  // labelled select removes the guesswork.
+  if (field === 'amount_sign') {
     return (
-      <input
-        type="number"
-        step="0.01"
-        value={String(value ?? '')}
+      <select
+        value={value === '' || value == null ? '' : String(value)}
         onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
         className={baseClass}
-      />
+      >
+        <option value="">Select…</option>
+        <option value="-1">Deposit (money in)</option>
+        <option value="1">Withdrawal (money out)</option>
+        <option value="0">Zero</option>
+      </select>
+    );
+  }
+
+  if (field === 'amount') {
+    // Sign convention: a positive amount is a WITHDRAWAL (money out) and a
+    // negative amount is a DEPOSIT (money in). This trips people up — a
+    // rule of `amount gt 0` captures withdrawals, not deposits. Surface
+    // the convention inline; to target deposits, prefer the Amount sign
+    // field (or use a negative amount here).
+    return (
+      <div>
+        <input
+          type="number"
+          step="0.01"
+          value={String(value ?? '')}
+          onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+          className={baseClass}
+        />
+        <p className="mt-1 text-[11px] text-gray-500">
+          Positive = withdrawal (money out), negative = deposit (money in).
+          For deposits only, use the “Amount sign” field.
+        </p>
+      </div>
     );
   }
 
@@ -234,7 +265,14 @@ function defaultValueForOperator(field: ConditionField, operator: string): LeafC
 }
 
 function prettyField(f: string): string {
-  return f.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  // Clearer labels for the two fields users most often get wrong:
+  // amount_sign is the deposit/withdrawal selector, and descriptor
+  // matches the raw bank/Plaid text (not the cleaned name).
+  const OVERRIDES: Record<string, string> = {
+    amount_sign: 'Deposit or Withdrawal',
+    descriptor: 'Descriptor (raw bank text)',
+  };
+  return OVERRIDES[f] ?? f.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function prettyOperator(op: string): string {
