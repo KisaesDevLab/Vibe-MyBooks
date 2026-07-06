@@ -15,6 +15,7 @@ import { ContactSelector } from '../../components/forms/ContactSelector';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
 import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2 } from 'lucide-react';
@@ -86,6 +87,16 @@ export function BankFeedPage() {
   const debStartDate = useDebouncedDate(startDate);
   const debEndDate = useDebouncedDate(endDate);
 
+  // Pagination: the page previously requested a fixed limit of 200 with
+  // no next/prev, silently truncating imports larger than that.
+  const PAGE_SIZE = 100;
+  const [offset, setOffset] = useState(0);
+  // Any filter change invalidates the current offset — otherwise the
+  // user sits on page 3 of a smaller filtered set and sees nothing.
+  useEffect(() => {
+    setOffset(0);
+  }, [statusFilter, connectionFilter, debouncedSearch, debStartDate, debEndDate, actionableOnly]);
+
   const { data, isLoading, isError, isFetching, refetch } = useBankFeed({
     status: statusFilter || undefined,
     bankConnectionId: connectionFilter || undefined,
@@ -93,7 +104,8 @@ export function BankFeedPage() {
     endDate: debEndDate || undefined,
     search: debouncedSearch || undefined,
     actionableOnly: actionableOnly || undefined,
-    limit: 200,
+    limit: PAGE_SIZE,
+    offset,
   });
   const { data: connectionsData } = useBankConnections();
   const { data: aiConfig } = useAiConfig();
@@ -560,7 +572,7 @@ export function BankFeedPage() {
           </table>
         </div>
       )}
-      <p className="text-sm text-gray-500 mt-2">{data?.total ?? 0} items</p>
+      <Pagination total={data?.total ?? 0} limit={PAGE_SIZE} offset={offset} onChange={setOffset} unit="items" />
 
       {matchModalFor && (
         <MatchCandidatesModal

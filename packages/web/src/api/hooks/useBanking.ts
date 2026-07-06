@@ -39,6 +39,7 @@ export function useBankFeed(filters?: BankFeedFilters) {
   if (filters?.search) params.set('search', filters.search);
   if (filters?.actionableOnly) params.set('actionableOnly', 'true');
   if (filters?.limit) params.set('limit', String(filters.limit));
+  if (filters?.offset) params.set('offset', String(filters.offset));
   const qs = params.toString();
   return useQuery({
     queryKey: ['bank-feed', filters],
