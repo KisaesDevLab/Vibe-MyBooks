@@ -124,7 +124,8 @@ function TaskModelField({ provider, value, onChange }: {
 // The four configurable AI functions ("tasks"). `showThreshold` gates the
 // Confidence threshold control — chat has no confidence concept.
 const TASK_FUNCTIONS: ReadonlyArray<{ key: AiFunctionKey; label: string; showThreshold: boolean }> = [
-  { key: 'categorization', label: 'Categorization', showThreshold: true },
+  // Display label only — the underlying task KEY stays `categorization`.
+  { key: 'categorization', label: 'Transaction Categorization & Name Cleanup', showThreshold: true },
   { key: 'ocr', label: 'OCR', showThreshold: true },
   { key: 'document_classification', label: 'Document Classification', showThreshold: true },
   { key: 'chat', label: 'Chat', showThreshold: false },
@@ -145,6 +146,8 @@ function normalizeTaskOption(opt: TaskOption | undefined): TaskOption | null {
     threshold: opt.threshold ?? null,
     piiLevel: opt.piiLevel ?? null,
     numCtx: opt.numCtx ?? null,
+    // Batched categorization chunk size (categorization only); null = default.
+    batchSize: opt.batchSize ?? null,
   };
   // Only include boolean overrides when explicitly set (a checkbox the
   // admin actually toggled) so we don't clobber the default with false.
@@ -818,11 +821,12 @@ export function AiConfigPage() {
               Categorization provider/model below. Say so, so an admin knows
               setting Categorization also controls name cleanup. */}
           <p className="text-xs text-gray-500 -mt-1">
-            The <span className="font-medium text-gray-700">Categorization</span> provider/model also
-            performs bank-feed name cleanup (merchant-name tidying on import) — they share one engine.
+            The <span className="font-medium text-gray-700">Transaction Categorization &amp; Name Cleanup</span> model
+            both categorizes bank-feed transactions AND cleans up their names — it&apos;s a single AI call, so one
+            model covers both. There is no separate name-cleanup model.
           </p>
           {[
-            { label: 'Categorization (also bank-feed name cleanup)', providerField: 'categorizationProvider', modelField: 'categorizationModel' },
+            { label: 'Transaction Categorization & Name Cleanup', providerField: 'categorizationProvider', modelField: 'categorizationModel' },
             { label: 'OCR / Document Parsing', providerField: 'ocrProvider', modelField: 'ocrModel' },
           ].map((task) => {
             const selectedProvider = form[task.providerField as keyof AiConfigFormState] as string;
@@ -1011,6 +1015,9 @@ function TaskSettingsCard({
   const opt: TaskOption = value ?? {};
   const patch = (changes: Partial<TaskOption>) => onChange({ ...opt, ...changes });
 
+  // Batched AI categorization is a categorization-only concept.
+  const showBatchSize = fnKey === 'categorization';
+
   // Fallback chain is edited as a comma-separated list of provider keys.
   const fallbackText = (opt.fallbackChain ?? []).join(', ');
 
@@ -1038,6 +1045,12 @@ function TaskSettingsCard({
 
       {open && (
         <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+          {showBatchSize && (
+            <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+              This model both categorizes bank-feed transactions AND cleans up their names — it&apos;s a
+              single AI call, so one model covers both.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Max tokens"
@@ -1103,6 +1116,25 @@ function TaskSettingsCard({
                 onChange={(e) => patch({ threshold: strToNum(e.target.value) })}
                 placeholder="Default"
               />
+            )}
+            {showBatchSize && (
+              <div className="col-span-2">
+                <Input
+                  label="Transactions per AI call (batch size)"
+                  type="number"
+                  min="1"
+                  max="50"
+                  step="1"
+                  value={numToStr(opt.batchSize)}
+                  onChange={(e) => patch({ batchSize: strToNum(e.target.value) })}
+                  placeholder="Default 15"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  How many bank-feed transactions to categorize in a single AI request.
+                  Higher = fewer API calls and lower cost, but larger prompts; lower = simpler
+                  prompts. 1 sends each transaction separately. Range 1–50; default 15.
+                </p>
+              </div>
             )}
           </div>
 
