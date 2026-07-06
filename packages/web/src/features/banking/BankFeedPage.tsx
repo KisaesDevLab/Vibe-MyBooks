@@ -167,11 +167,11 @@ export function BankFeedPage() {
     setEditState({
       feedDate: item.feedDate,
       description: item.description || '',
-      // Memo starts blank — it becomes the posted transaction's memo.
-      // (Previously prefilled with the raw provider category hint, e.g.
-      // "FOOD_AND_DRINK", which leaked odd strings into the books; the
-      // hint renders as its own label below the memo input instead.)
-      memo: '',
+      // Prefill from the feed item's memo — Plaid seeds it with the
+      // bank's raw payee text; edits persist on the item and flow onto
+      // the posted transaction. (The provider category hint is shown as
+      // a label, never as the memo.)
+      memo: item.memo || '',
       contactId: item.suggestedContactId || '',
     });
     setCatAccountId(item.suggestedAccountId || '');
