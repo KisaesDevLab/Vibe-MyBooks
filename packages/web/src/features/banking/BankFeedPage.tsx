@@ -13,6 +13,7 @@ import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/ho
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
+import { BulkSetNameInput } from './BulkSetNameInput';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -389,13 +390,10 @@ export function BankFeedPage() {
             </div>
           ) : showBatchSetName ? (
             <div className="flex items-center gap-2">
-              <input
-                autoFocus
+              <BulkSetNameInput
                 value={batchSetName}
-                onChange={(e) => setBatchSetName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && batchSetName.trim()) { bulkSetName.mutate({ feedItemIds: [...selected], name: batchSetName.trim() }, { onSuccess: () => { setSelected(new Set()); setShowBatchSetName(false); setBatchSetName(''); } }); } }}
-                placeholder="New name for selected items"
-                className="w-64 rounded border border-gray-300 px-2 py-1 text-sm"
+                onChange={setBatchSetName}
+                onEnter={() => bulkSetName.mutate({ feedItemIds: [...selected], name: batchSetName.trim() }, { onSuccess: () => { setSelected(new Set()); setShowBatchSetName(false); setBatchSetName(''); } })}
               />
               <Button size="sm" loading={bulkSetName.isPending} disabled={!batchSetName.trim()}
                 onClick={() => bulkSetName.mutate(
