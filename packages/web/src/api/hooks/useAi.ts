@@ -44,14 +44,20 @@ function reasonForCode(code: string | undefined, fallback: string): string {
   return (code && REASON_BY_CODE[code]) || fallback;
 }
 
-/** Compose the toast headline for an AI failure. For
- *  `ai_all_providers_failed` the SERVER message carries the per-provider
- *  failure reasons (executeWithFallback's aggregated providerErrors), so
- *  append it on its own line rather than replacing it with the fixed
- *  friendly copy — that detail is exactly what the admin needs. */
+/** Codes whose SERVER message carries actionable diagnostic detail:
+ *  `ai_all_providers_failed` aggregates the per-provider failure reasons
+ *  (executeWithFallback's providerErrors); `ai_parse_failed` names the
+ *  provider/model and a short excerpt of what the model actually said
+ *  (or a "response truncated — raise max tokens" hint). */
+const CODES_WITH_SERVER_DETAIL = new Set(['ai_all_providers_failed', 'ai_parse_failed']);
+
+/** Compose the toast headline for an AI failure. For codes in
+ *  CODES_WITH_SERVER_DETAIL, append the server message on its own line
+ *  rather than replacing it with the fixed friendly copy — that detail
+ *  is exactly what the admin needs. */
 function composeAiErrorMessage(label: string, code: string | undefined, serverMessage: string): string {
   const reason = reasonForCode(code, serverMessage);
-  if (code === 'ai_all_providers_failed' && serverMessage && serverMessage !== reason) {
+  if (code && CODES_WITH_SERVER_DETAIL.has(code) && serverMessage && serverMessage !== reason) {
     return `${label} failed — ${reason}\n${serverMessage}`;
   }
   return `${label} failed — ${reason}`;
