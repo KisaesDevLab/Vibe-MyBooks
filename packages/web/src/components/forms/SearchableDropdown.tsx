@@ -24,9 +24,17 @@ interface SearchableDropdownProps {
   onAddNew?: (searchText: string) => void;
   addNewLabel?: string;
   compact?: boolean;
+  // Server-side search hook: called whenever the user's query text
+  // changes (and with '' on close/select), so the parent can feed it
+  // into a search-backed list query instead of relying on the
+  // client-side filter over a capped page of options.
+  onQueryChange?: (query: string) => void;
+  // Fallback display label for the selected id when it isn't among
+  // `options` (e.g. a saved value outside the current server page).
+  selectedLabel?: string;
 }
 
-export function SearchableDropdown({ value, onChange, options, placeholder = 'Search...', label, required, className, onAddNew, addNewLabel, compact }: SearchableDropdownProps) {
+export function SearchableDropdown({ value, onChange, options, placeholder = 'Search...', label, required, className, onAddNew, addNewLabel, compact, onQueryChange, selectedLabel }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [highlightIndex, setHighlightIndex] = useState(0);
@@ -71,9 +79,15 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
     };
   }, [isOpen, updatePanelPos]);
 
-  // Derive display value from selected id
+  // Derive display value from selected id; fall back to the caller-
+  // supplied label when the selection isn't in the current option page.
   const selectedOption = options.find((o) => o.id === value);
-  const displayValue = isOpen ? search : (selectedOption?.label || '');
+  const displayValue = isOpen ? search : (selectedOption?.label || selectedLabel || '');
+
+  const setSearchAndNotify = (q: string) => {
+    setSearch(q);
+    onQueryChange?.(q);
+  };
 
   // Filter options by search
   const query = search.toLowerCase();
@@ -109,7 +123,7 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
       const inPanel = listRef.current?.contains(target) ?? false;
       if (!inWrapper && !inPanel) {
         setIsOpen(false);
-        setSearch('');
+        setSearchAndNotify('');
       }
     };
     document.addEventListener('mousedown', handler);
@@ -119,7 +133,7 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
   const handleSelect = (id: string) => {
     onChange(id);
     setIsOpen(false);
-    setSearch('');
+    setSearchAndNotify('');
     inputRef.current?.blur();
   };
 
@@ -151,11 +165,11 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
       case 'Escape':
         e.preventDefault();
         setIsOpen(false);
-        setSearch('');
+        setSearchAndNotify('');
         break;
       case 'Tab':
         setIsOpen(false);
-        setSearch('');
+        setSearchAndNotify('');
         break;
     }
   };
@@ -170,13 +184,13 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
         placeholder={placeholder}
         required={required && !value}
         onChange={(e) => {
-          setSearch(e.target.value);
+          setSearchAndNotify(e.target.value);
           if (!isOpen) setIsOpen(true);
           if (e.target.value === '') onChange('');
         }}
         onFocus={() => {
           setIsOpen(true);
-          setSearch('');
+          setSearchAndNotify('');
         }}
         onKeyDown={handleKeyDown}
         className={clsx(

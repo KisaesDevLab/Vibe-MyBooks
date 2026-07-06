@@ -22,7 +22,7 @@ export function SetupWizard() {
   const navigate = useNavigate();
   const updateCompany = useUpdateCompany();
   const markComplete = useMarkSetupComplete();
-  const { data: accountsData } = useAccounts({ limit: 200, offset: 0 });
+  const { data: accountsData } = useAccounts({ limit: 500, offset: 0 });
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));

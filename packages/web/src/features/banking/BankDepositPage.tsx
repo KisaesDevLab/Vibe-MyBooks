@@ -61,7 +61,7 @@ export function BankDepositPage() {
       // Use the first selected item to find the account via a simple approach:
       // The deposit API (txnType=deposit) expects lines with accountId (the "from" accounts)
       // For pending deposits, we send each payment amount as a line from Payments Clearing
-      const pcResponse = await apiClient<{ data: Array<{ id: string; systemTag: string | null }> }>('/accounts?limit=200');
+      const pcResponse = await apiClient<{ data: Array<{ id: string; systemTag: string | null }> }>('/accounts?limit=500');
       const pcAccount = pcResponse.data.find((a) => a.systemTag === 'payments_clearing');
       const pcAccountId = pcAccount?.id || depositToAccountId;
 

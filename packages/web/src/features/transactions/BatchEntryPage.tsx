@@ -171,8 +171,8 @@ export function BatchEntryPage() {
   const parseCsv = useParseCsv();
 
   // Lookup maps for resolving IDs to names
-  const { data: accountsData } = useAccounts({ isActive: true, limit: 200, offset: 0 });
-  const { data: contactsData } = useContacts({ isActive: true, limit: 200, offset: 0 });
+  const { data: accountsData } = useAccounts({ isActive: true, limit: 500, offset: 0 });
+  const { data: contactsData } = useContacts({ isActive: true, limit: 500, offset: 0 });
   const accountNameMap = new Map((accountsData?.data || []).map((a) => [a.id, a.name]));
   const contactNameMap = new Map((contactsData?.data || []).map((c) => [c.id, c.displayName]));
 

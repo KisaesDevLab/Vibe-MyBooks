@@ -2,9 +2,11 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+import { useState } from 'react';
 import type { AccountType } from '@kis-books/shared';
 import { useAccounts } from '../../api/hooks/useAccounts';
 import { useCompanySettings } from '../../api/hooks/useCompany';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { SearchableDropdown, type DropdownOption } from './SearchableDropdown';
 
 interface AccountSelectorProps {
@@ -17,7 +19,12 @@ interface AccountSelectorProps {
 }
 
 export function AccountSelector({ value, onChange, label, accountTypeFilter, required, compact }: AccountSelectorProps) {
-  const { data } = useAccounts({ isActive: true, limit: 200, offset: 0 });
+  // 500 + server-side search-as-you-type: the previous one-shot 200 cap
+  // made accounts past the first page unfindable in large COAs (same
+  // truncation class as the ContactSelector vendor bug).
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query);
+  const { data } = useAccounts({ isActive: true, limit: 500, offset: 0, search: debouncedQuery || undefined });
   const { data: settingsData } = useCompanySettings();
   const accounts = data?.data || [];
 
@@ -44,6 +51,7 @@ export function AccountSelector({ value, onChange, label, accountTypeFilter, req
       label={label}
       required={required}
       compact={compact}
+      onQueryChange={setQuery}
     />
   );
 }

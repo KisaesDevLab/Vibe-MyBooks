@@ -4,7 +4,8 @@
 
 import { useState, type FormEvent } from 'react';
 import type { ContactType } from '@kis-books/shared';
-import { useContacts, useCreateContact } from '../../api/hooks/useContacts';
+import { useContacts, useContact, useCreateContact } from '../../api/hooks/useContacts';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { SearchableDropdown, type DropdownOption } from './SearchableDropdown';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -31,8 +32,25 @@ interface ContactSelectorProps {
 }
 
 export function ContactSelector({ value, onChange, onSelect, label, contactTypeFilter, required, compact }: ContactSelectorProps) {
-  const { data, refetch } = useContacts({ contactType: contactTypeFilter, isActive: true, limit: 200, offset: 0 });
+  // Server-side search-as-you-type. A capped one-shot fetch meant any
+  // contact past the first page could NEVER be found in this dropdown
+  // (the type-to-filter only narrowed the loaded page) — the reported
+  // "not all vendors show on Rules" bug.
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query);
+  const { data, refetch } = useContacts({
+    contactType: contactTypeFilter,
+    isActive: true,
+    limit: 200,
+    offset: 0,
+    search: debouncedQuery || undefined,
+  });
   const contacts = data?.data || [];
+  // The saved selection may live outside the current page/search — fetch
+  // it individually so the closed input still shows its name.
+  const inList = !value || contacts.some((c) => c.id === value);
+  const { data: selectedData } = useContact(inList ? '' : value);
+  const selectedContact = selectedData?.contact;
   const [showAddModal, setShowAddModal] = useState(false);
   const [prefillName, setPrefillName] = useState('');
 
@@ -82,6 +100,8 @@ export function ContactSelector({ value, onChange, onSelect, label, contactTypeF
         compact={compact}
         onAddNew={handleAddNew}
         addNewLabel={prefillName ? undefined : 'Add new contact...'}
+        onQueryChange={setQuery}
+        selectedLabel={selectedContact?.displayName}
       />
       {showAddModal && (
         <QuickAddContactModal

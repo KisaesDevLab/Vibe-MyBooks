@@ -12,7 +12,7 @@ interface AccountSwitcherProps {
 
 export function AccountSwitcher({ currentAccountId }: AccountSwitcherProps) {
   const navigate = useNavigate();
-  const { data } = useAccounts({ isActive: true, limit: 200, offset: 0 });
+  const { data } = useAccounts({ isActive: true, limit: 500, offset: 0 });
   const allAccounts = data?.data || [];
 
   // Only show balance sheet accounts (asset, liability, equity)

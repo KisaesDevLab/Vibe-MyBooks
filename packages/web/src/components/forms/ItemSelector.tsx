@@ -2,7 +2,9 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
+import { useState } from 'react';
 import { useItems } from '../../api/hooks/useItems';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { SearchableDropdown, type DropdownOption } from './SearchableDropdown';
 
 export interface ItemSelection {
@@ -25,7 +27,12 @@ interface ItemSelectorProps {
 }
 
 export function ItemSelector({ value, onChange, onSelect, label, required, compact, onAddNew }: ItemSelectorProps) {
-  const { data } = useItems({ isActive: true, limit: 200, offset: 0 });
+  // Server-side search-as-you-type — the one-shot 200 cap made items
+  // past the first page unfindable (same truncation class as the
+  // ContactSelector vendor bug).
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query);
+  const { data } = useItems({ isActive: true, limit: 500, offset: 0, search: debouncedQuery || undefined });
   const items = data?.data || [];
 
   const options: DropdownOption[] = items.map((item) => ({
@@ -63,6 +70,7 @@ export function ItemSelector({ value, onChange, onSelect, label, required, compa
       compact={compact}
       onAddNew={onAddNew}
       addNewLabel="Add new item..."
+      onQueryChange={setQuery}
     />
   );
 }

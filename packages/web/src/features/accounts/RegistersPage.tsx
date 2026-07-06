@@ -49,7 +49,7 @@ function AccountGroup({ title, accounts, icon: Icon }: { title: string; accounts
 }
 
 export function RegistersPage() {
-  const { data, isLoading } = useAccounts({ isActive: true, limit: 200, offset: 0 });
+  const { data, isLoading } = useAccounts({ isActive: true, limit: 500, offset: 0 });
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
 
