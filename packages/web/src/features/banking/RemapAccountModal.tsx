@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { Account, PlaidAccount } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
-import { useMapPlaidAccount, usePlaidAccountSuggestions } from '../../api/hooks/usePlaid';
+import { useMapPlaidAccount, useUnmapPlaidAccount, usePlaidAccountSuggestions } from '../../api/hooks/usePlaid';
 import { Button } from '../../components/ui/Button';
 import { AlertTriangle } from 'lucide-react';
 
@@ -29,7 +29,9 @@ interface Props {
 
 export function RemapAccountModal({ account, onClose, onSaved }: Props) {
   const [selectedCoaId, setSelectedCoaId] = useState(account.mappedAccountId || '');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const mapAccount = useMapPlaidAccount();
+  const unmapAccount = useUnmapPlaidAccount();
   const { data: suggestionsData } = usePlaidAccountSuggestions(account.id);
 
   const { data: coaData } = useQuery({
@@ -40,16 +42,21 @@ export function RemapAccountModal({ account, onClose, onSaved }: Props) {
   const suggestions = suggestionsData?.suggestions || [];
 
   const handleSave = async () => {
-    if (selectedCoaId) {
-      await mapAccount.mutateAsync({ accountId: account.id, coaAccountId: selectedCoaId });
-    } else {
-      // Unmap
-      await apiClient(`/plaid/accounts/${account.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ mappedAccountId: null }),
-      });
+    setSaveError(null);
+    try {
+      if (selectedCoaId) {
+        await mapAccount.mutateAsync({ accountId: account.id, coaAccountId: selectedCoaId });
+      } else if (account.mappedAccountId) {
+        // Unmap via the dedicated endpoint (POST .../unmap). This branch
+        // previously PUT to a route that doesn't exist, so "Not mapped
+        // (stop importing)" 404ed silently and the modal never closed.
+        await unmapAccount.mutateAsync(account.id);
+      }
+      // Already unmapped + "Not mapped" selected → nothing to do, just close.
+      onSaved();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save mapping');
     }
-    onSaved();
   };
 
   return (
@@ -98,11 +105,11 @@ export function RemapAccountModal({ account, onClose, onSaved }: Props) {
           </div>
         </div>
 
-        {mapAccount.error && <p className="text-sm text-red-600 mt-2">{mapAccount.error.message}</p>}
+        {saveError && <p className="text-sm text-red-600 mt-2">{saveError}</p>}
 
         <div className="flex justify-end gap-3 mt-6">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} loading={mapAccount.isPending}>Save Mapping</Button>
+          <Button onClick={handleSave} loading={mapAccount.isPending || unmapAccount.isPending}>Save Mapping</Button>
         </div>
       </div>
     </div>
