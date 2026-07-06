@@ -157,6 +157,21 @@ export function useSyncPlaidItem() {
   });
 }
 
+// Full re-import: resets the Plaid cursor and replays all history. Used
+// to recover transactions deleted locally (a normal sync won't re-fetch
+// already-delivered transactions). Invalidates the bank feed too.
+export function useResyncPlaidItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (itemId: string) =>
+      apiClient<{ added: number; modified: number; removed: number }>(`/plaid/items/${itemId}/resync`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaid'] });
+      qc.invalidateQueries({ queryKey: ['bank-feed'] });
+    },
+  });
+}
+
 export function useCreateUpdateLinkToken() {
   return useMutation({
     mutationFn: (itemId: string) => apiClient<{ linkToken: string }>('/plaid/link-token/update', { method: 'POST', body: JSON.stringify({ itemId }) }),

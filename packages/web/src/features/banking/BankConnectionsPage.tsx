@@ -7,7 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from 'react-plaid-link';
 import type { PlaidAccount, PlaidItem } from '@kis-books/shared';
 import { useBankConnections, useDisconnectBank } from '../../api/hooks/useBanking';
-import { usePlaidItems, useCreateLinkToken, useExchangeToken, useSyncPlaidItem, useUnmapCompany, useTogglePlaidSync, usePlaidActivity } from '../../api/hooks/usePlaid';
+import { usePlaidItems, useCreateLinkToken, useExchangeToken, useSyncPlaidItem, useResyncPlaidItem, useUnmapCompany, useTogglePlaidSync, usePlaidActivity } from '../../api/hooks/usePlaid';
+import { useToast } from '../../components/ui/Toaster';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -18,7 +19,7 @@ import { DisconnectDialog } from './DisconnectDialog';
 import { ExistingInstitutionDialog } from './ExistingInstitutionDialog';
 import { FullDisconnectDialog } from './FullDisconnectDialog';
 import { apiClient } from '../../api/client';
-import { Landmark, Upload, Unplug, RefreshCw, AlertTriangle, CheckCircle, Link2, Wrench, Pencil, Share2, Clock, Trash2 } from 'lucide-react';
+import { Landmark, Upload, Unplug, RefreshCw, RotateCcw, AlertTriangle, CheckCircle, Link2, Wrench, Pencil, Share2, Clock, Trash2 } from 'lucide-react';
 
 // The `/plaid/items/:id` detail endpoint returns the item plus its
 // child accounts and the denormalised hiddenAccountCount (accounts
@@ -77,6 +78,9 @@ export function BankConnectionsPage() {
   const disconnect = useDisconnectBank();
   const exchangeToken = useExchangeToken();
   const syncItem = useSyncPlaidItem();
+  const resyncItem = useResyncPlaidItem();
+  const [resyncId, setResyncId] = useState<string | null>(null);
+  const toast = useToast();
   const unmapCompany = useUnmapCompany();
   const [showImport, setShowImport] = useState(false);
   const [mappingData, setMappingData] = useState<{ accounts: PlaidAccount[]; hiddenAccountCount: number } | null>(null);
@@ -137,6 +141,21 @@ export function BankConnectionsPage() {
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!resyncId}
+        title="Re-import all transactions?"
+        message="Resets the sync and re-fetches this bank's full available history from Plaid. Use this to recover transactions you deleted locally. Existing transactions are not duplicated. This can take a moment for accounts with long history."
+        confirmLabel="Re-import all"
+        onCancel={() => setResyncId(null)}
+        onConfirm={() => {
+          const id = resyncId;
+          setResyncId(null);
+          if (id) resyncItem.mutate(id, {
+            onSuccess: (r) => toast.success(`Re-import complete — ${r.added} transaction${r.added === 1 ? '' : 's'} imported.`),
+            onError: (e) => toast.error(e instanceof Error ? e.message : 'Re-import failed'),
+          });
+        }}
+      />
       <ConfirmDialog
         open={!!unmapCompanyId}
         title="Disconnect this company?"
@@ -201,7 +220,8 @@ export function BankConnectionsPage() {
                     {myAccounts.length > 0 && (
                       <Button variant="secondary" size="sm" onClick={() => navigate('/banking/feed')}>Review Feed</Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => syncItem.mutate(item.id)} loading={syncItem.isPending} title="Sync"><RefreshCw className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => syncItem.mutate(item.id)} loading={syncItem.isPending} title="Sync new transactions"><RefreshCw className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => setResyncId(item.id)} loading={resyncItem.isPending && resyncId === item.id} title="Re-import all transactions (reset sync)"><RotateCcw className="h-4 w-4" /></Button>
                     {unassigned.length > 0 && (
                       <Button variant="secondary" size="sm" onClick={() => setMappingData({ accounts: item.accounts ?? [], hiddenAccountCount: item.hiddenAccountCount || 0 })}>Map</Button>
                     )}

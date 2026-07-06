@@ -306,6 +306,7 @@ export const plaidMocks = () => ({
   useTogglePlaidSync: passthroughMutation,
   usePlaidAccountSuggestions: passthroughQuery({ suggestions: [] }),
   useSyncPlaidItem: passthroughMutation,
+  useResyncPlaidItem: passthroughMutation,
   useCreateUpdateLinkToken: passthroughMutation,
   usePlaidActivity: passthroughQuery({ activity: [] }),
 });
