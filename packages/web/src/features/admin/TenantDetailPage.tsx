@@ -8,7 +8,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen } from 'lucide-react';
+import { useToast } from '../../components/ui/Toaster';
+import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen, CalendarRange } from 'lucide-react';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 
 interface TenantUser {
@@ -46,6 +47,7 @@ export function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   // Delete confirmation state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -59,6 +61,12 @@ export function TenantDetailPage() {
   const [showDeleteTxns, setShowDeleteTxns] = useState(false);
   const [txnConfirmText, setTxnConfirmText] = useState('');
   const [txnError, setTxnError] = useState<string | null>(null);
+  // Date-range transaction delete state.
+  const [showDeleteRange, setShowDeleteRange] = useState(false);
+  const [rangeStart, setRangeStart] = useState('');
+  const [rangeEnd, setRangeEnd] = useState('');
+  const [rangeConfirmText, setRangeConfirmText] = useState('');
+  const [rangeError, setRangeError] = useState<string | null>(null);
   const [templateSlug, setTemplateSlug] = useState('general_business');
   const [coaApplyMsg, setCoaApplyMsg] = useState<string | null>(null);
   const coaTemplateOptions = useCoaTemplateOptions();
@@ -131,6 +139,38 @@ export function TenantDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', id] });
     },
     onError: (err: Error) => setTxnError(err.message || 'Delete failed'),
+  });
+
+  // Preview counts for the date-range delete. Runs only while the modal
+  // is open with both dates set, so the operator sees exactly what will
+  // be removed before confirming.
+  const rangeValid = /^\d{4}-\d{2}-\d{2}$/.test(rangeStart) && /^\d{4}-\d{2}-\d{2}$/.test(rangeEnd) && rangeStart <= rangeEnd;
+  const rangePreview = useQuery({
+    queryKey: ['admin', 'tenants', id, 'range-count', rangeStart, rangeEnd],
+    queryFn: () => apiClient<{ transactionsToDelete: number; feedItemsToDelete: number; reconciliationsToDelete: number }>(
+      `/admin/tenants/${id}/transactions-range-count?startDate=${rangeStart}&endDate=${rangeEnd}`,
+    ),
+    enabled: showDeleteRange && rangeValid,
+  });
+
+  // Delete transactions dated in [start, end] — also purges bank-feed
+  // items by feed_date and deletes overlapping reconciliations; balances
+  // are recomputed server-side.
+  const deleteRangeMutation = useMutation({
+    mutationFn: () => apiClient<{ transactionsDeleted: number; feedItemsDeleted: number; reconciliationsDeleted: number }>(
+      `/admin/tenants/${id}/delete-transactions-range`,
+      { method: 'POST', body: JSON.stringify({ startDate: rangeStart, endDate: rangeEnd }) },
+    ),
+    onSuccess: (r) => {
+      setShowDeleteRange(false);
+      setRangeConfirmText('');
+      setRangeError(null);
+      toast.success(
+        `Deleted ${r.transactionsDeleted} transaction(s), ${r.feedItemsDeleted} bank feed item(s), and ${r.reconciliationsDeleted} reconciliation(s).`,
+      );
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', id] });
+    },
+    onError: (err: Error) => setRangeError(err.message || 'Delete failed'),
   });
 
   const { data: tenant, isLoading, error } = useQuery({
@@ -489,6 +529,42 @@ export function TenantDetailPage() {
             Delete all transactions
           </button>
         </div>
+        {/* Delete transactions in a date range — surgical books edit. */}
+        <div className="p-6 flex items-center justify-between gap-4 border-b border-red-100">
+          <div className="text-sm flex-1">
+            <p className="font-medium text-gray-900">Delete transactions in a date range</p>
+            <p className="text-gray-600 mt-1">
+              Permanently deletes every transaction dated within the range, plus bank-feed items by
+              feed date and any reconciliation whose statement date falls in the range. Account
+              balances are recomputed from the surviving entries. This cannot be undone.
+            </p>
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              <input
+                type="date"
+                aria-label="Start date"
+                value={rangeStart}
+                onChange={(e) => setRangeStart(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+              <span className="text-gray-500">to</span>
+              <input
+                type="date"
+                aria-label="End date"
+                value={rangeEnd}
+                onChange={(e) => setRangeEnd(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <button
+            onClick={() => { setRangeError(null); setRangeConfirmText(''); setShowDeleteRange(true); }}
+            disabled={!rangeValid || tenant.stats.transactionCount === 0}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 border border-red-300 hover:bg-red-50 rounded-lg whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <CalendarRange className="h-4 w-4" />
+            Delete date range
+          </button>
+        </div>
         <div className="p-6 flex items-center justify-between gap-4">
           <div className="text-sm">
             <p className="font-medium text-gray-900">Delete this tenant</p>
@@ -557,6 +633,72 @@ export function TenantDetailPage() {
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg"
               >
                 {deleteTxnsMutation.isPending ? 'Deleting…' : 'Delete all transactions'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete-transactions-in-range confirmation — shows a live
+          preview of what will be removed, then type-to-confirm. */}
+      {showDeleteRange && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => { if (!deleteRangeMutation.isPending) setShowDeleteRange(false); }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Delete transactions in date range?</h3>
+            </div>
+            <div className="text-sm text-gray-700 space-y-2">
+              {rangePreview.isLoading ? (
+                <p>Counting what will be deleted…</p>
+              ) : rangePreview.error ? (
+                <p className="text-red-700">Failed to load preview: {(rangePreview.error as Error).message}</p>
+              ) : rangePreview.data ? (
+                <p>
+                  This will permanently delete{' '}
+                  <strong>{rangePreview.data.transactionsToDelete} transaction(s)</strong>,{' '}
+                  <strong>{rangePreview.data.feedItemsToDelete} bank feed item(s)</strong>, and{' '}
+                  <strong>{rangePreview.data.reconciliationsToDelete} reconciliation(s)</strong> for{' '}
+                  <strong>{tenant.name}</strong> dated{' '}
+                  <span className="font-mono">{rangeStart}</span> …{' '}
+                  <span className="font-mono">{rangeEnd}</span>. Account balances will be recomputed.
+                  This cannot be undone.
+                </p>
+              ) : null}
+            </div>
+            <div className="pt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                To confirm, type <span className="font-mono font-bold text-red-700">{tenant.name}</span> below:
+              </label>
+              <input
+                type="text"
+                value={rangeConfirmText}
+                onChange={(e) => setRangeConfirmText(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none"
+                placeholder={tenant.name}
+                autoFocus
+                disabled={deleteRangeMutation.isPending}
+              />
+            </div>
+            {rangeError && (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">{rangeError}</div>
+            )}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowDeleteRange(false)}
+                disabled={deleteRangeMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setRangeError(null); deleteRangeMutation.mutate(); }}
+                disabled={rangeConfirmText !== tenant.name || deleteRangeMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg"
+              >
+                {deleteRangeMutation.isPending ? 'Deleting…' : 'Delete date range'}
               </button>
             </div>
           </div>
