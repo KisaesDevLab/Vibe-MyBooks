@@ -17,6 +17,7 @@ const TASK_LABELS: Array<{ key: AiTaskKey; label: string; desc: string }> = [
   { key: 'receipt_ocr', label: 'Process uploaded receipts with OCR', desc: 'Extract vendor, amount, and line items from receipts and bills.' },
   { key: 'statement_parsing', label: 'Parse uploaded bank statements', desc: 'Extract transactions from bank statement PDFs and images.' },
   { key: 'document_classification', label: 'Auto-classify uploaded documents', desc: 'Identify whether an attachment is a receipt, invoice, statement, or tax form.' },
+  { key: 'report_summary', label: 'Generate AI report summaries', desc: 'Send summarized report figures (revenue, expenses, net income, KPIs) to the AI provider to draft an executive summary your bookkeeper reviews.' },
 ];
 
 export function CompanyAiSettingsPage() {

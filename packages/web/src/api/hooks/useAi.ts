@@ -702,7 +702,7 @@ export function useAcceptSystemAiDisclosure() {
   });
 }
 
-export type AiTaskKey = 'categorization' | 'receipt_ocr' | 'statement_parsing' | 'document_classification';
+export type AiTaskKey = 'categorization' | 'receipt_ocr' | 'statement_parsing' | 'document_classification' | 'report_summary';
 
 export interface TenantConsentCompanyRow {
   id: string;
