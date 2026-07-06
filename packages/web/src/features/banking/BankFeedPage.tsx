@@ -220,9 +220,13 @@ export function BankFeedPage() {
   };
 
   const handleAiBatchCategorize = () => {
-    const pendingIds = items.filter((i) => i.status === 'pending' && !i.suggestedAccountId).map((i) => i.id);
-    if (pendingIds.length === 0) return;
-    aiBatch.mutate(pendingIds, { onSuccess: () => refetch() });
+    // FIX 4: categorize ALL pending-without-suggestion rows across the whole
+    // dataset (server-side enumeration), not just the page currently loaded.
+    // Respects the active connection filter so a scoped view scopes the run.
+    aiBatch.mutate(
+      { allPending: true, bankConnectionId: connectionFilter || undefined },
+      { onSuccess: () => refetch() },
+    );
   };
 
   const pendingWithoutSuggestion = items.filter((i) => i.status === 'pending' && !i.suggestedAccountId).length;
@@ -290,7 +294,10 @@ export function BankFeedPage() {
         <div className="flex gap-2">
           {aiEnabled && pendingWithoutSuggestion > 0 && selected.size === 0 && (
             <Button size="sm" variant="secondary" onClick={handleAiBatchCategorize} loading={aiBatch.isPending}>
-              <Brain className="h-4 w-4 mr-1" /> AI Categorize ({pendingWithoutSuggestion})
+              {/* The action covers every pending-without-suggestion row across
+                  the dataset (not just this page), so label it "all pending"
+                  rather than the page-local count. */}
+              <Brain className="h-4 w-4 mr-1" /> AI Categorize (all pending)
             </Button>
           )}
           {pendingCount > 0 && selected.size === 0 && (

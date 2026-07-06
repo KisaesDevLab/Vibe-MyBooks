@@ -813,8 +813,16 @@ export function AiConfigPage() {
         {/* Task Assignment */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">Task Assignment</h2>
+          {/* Issue B: bank-feed name cleanup has no separate function key — it
+              runs through the same categorize() path, so it resolves the
+              Categorization provider/model below. Say so, so an admin knows
+              setting Categorization also controls name cleanup. */}
+          <p className="text-xs text-gray-500 -mt-1">
+            The <span className="font-medium text-gray-700">Categorization</span> provider/model also
+            performs bank-feed name cleanup (merchant-name tidying on import) — they share one engine.
+          </p>
           {[
-            { label: 'Categorization', providerField: 'categorizationProvider', modelField: 'categorizationModel' },
+            { label: 'Categorization (also bank-feed name cleanup)', providerField: 'categorizationProvider', modelField: 'categorizationModel' },
             { label: 'OCR / Document Parsing', providerField: 'ocrProvider', modelField: 'ocrModel' },
           ].map((task) => {
             const selectedProvider = form[task.providerField as keyof AiConfigFormState] as string;

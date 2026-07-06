@@ -18,6 +18,10 @@ type AiTaskLabel = 'AI categorization' | 'Receipt OCR' | 'Bill OCR' | 'Statement
 const PROVIDER_FAILED_MSG =
   "Every configured AI provider failed. Check Admin → AI → the function's 'Test this function' button.";
 const CONSENT_REQUIRED_MSG = 'Consent required — accept the AI disclosure on your company before this task can run.';
+// ai_consent_blocked is what the orchestrator throws when the company hasn't
+// opted the specific task in (aiEnabled but the ai_enabled_tasks toggle is
+// off) — the exact H7 regression state. Point the user straight at the fix.
+const CONSENT_BLOCKED_MSG = "AI isn't enabled for this company — turn on the task in Company Settings → AI Processing.";
 const BUDGET_EXCEEDED_MSG = 'Monthly AI budget exceeded. Raise the limit in System Settings → AI.';
 const AI_DISABLED_MSG = 'AI is currently disabled for this workspace.';
 
@@ -25,18 +29,23 @@ const AI_DISABLED_MSG = 'AI is currently disabled for this workspace.';
 // Unrecognised codes fall through to the verbatim server message.
 const REASON_BY_CODE: Record<string, string> = {
   ai_disabled_globally: 'AI processing is disabled by an administrator.',
+  AI_DISABLED: AI_DISABLED_MSG,
   ai_no_provider_configured: 'No provider is configured for this task. An administrator must pick one.',
+  ai_function_disabled: 'This AI function is disabled in Admin → AI ("Enable this function").',
+  // Consent / opt-in states.
   ai_consent_required: CONSENT_REQUIRED_MSG,
   consent_missing: CONSENT_REQUIRED_MSG,
+  ai_consent_blocked: CONSENT_BLOCKED_MSG,
+  // Budget.
   ai_budget_exceeded: BUDGET_EXCEEDED_MSG,
   AI_BUDGET_EXCEEDED: BUDGET_EXCEEDED_MSG,
+  // Provider / parsing failures.
   ai_parse_failed: 'The AI returned non-JSON. Try again, or pick a different provider in System Settings → AI.',
   ai_all_providers_failed: PROVIDER_FAILED_MSG,
   ai_provider_failed: PROVIDER_FAILED_MSG,
   ai_categorization_failed: PROVIDER_FAILED_MSG,
-  ai_function_disabled: 'This AI function is disabled in Admin → AI ("Enable this function").',
+  // Rate limiting / chat.
   AI_RATE_LIMIT: 'Too many AI requests in a short window. Slow down and retry.',
-  AI_DISABLED: AI_DISABLED_MSG,
   CHAT_DISABLED: AI_DISABLED_MSG,
 };
 
@@ -55,7 +64,7 @@ const CODES_WITH_SERVER_DETAIL = new Set(['ai_all_providers_failed', 'ai_parse_f
  *  CODES_WITH_SERVER_DETAIL, append the server message on its own line
  *  rather than replacing it with the fixed friendly copy — that detail
  *  is exactly what the admin needs. */
-function composeAiErrorMessage(label: string, code: string | undefined, serverMessage: string): string {
+export function composeAiErrorMessage(label: string, code: string | undefined, serverMessage: string): string {
   const reason = reasonForCode(code, serverMessage);
   if (code && CODES_WITH_SERVER_DETAIL.has(code) && serverMessage && serverMessage !== reason) {
     return `${label} failed — ${reason}\n${serverMessage}`;
@@ -376,12 +385,35 @@ export function useTestAiFunction() {
   });
 }
 
+// Discriminated outcome of a single categorize() call (FIX 5). 'suggested'
+// persisted a suggestion; 'no_confident_match' means the AI ran but found
+// nothing above the confidence threshold (an honest miss, not a broken
+// button); 'no_description' means there was nothing to categorize.
+export interface CategorizeResult {
+  status?: 'suggested' | 'no_confident_match' | 'no_description';
+  accountId: string | null;
+  reason?: string;
+  [key: string]: unknown;
+}
+
 export function useAiCategorize() {
   const qc = useQueryClient();
+  const toast = useToast();
   const onError = useAiErrorToast('AI categorization');
   return useMutation({
-    mutationFn: (feedItemId: string) => apiClient('/ai/categorize', { method: 'POST', body: JSON.stringify({ feedItemId }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-feed'] }),
+    mutationFn: (feedItemId: string) =>
+      apiClient<CategorizeResult>('/ai/categorize', { method: 'POST', body: JSON.stringify({ feedItemId }) }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['bank-feed'] });
+      // A legitimate no-match returns HTTP 200 with no suggestion — without a
+      // message the Brain button looks like it silently did nothing. Tell the
+      // user the AI actually reviewed it.
+      if (data?.status === 'no_confident_match') {
+        toast.info('AI reviewed this transaction but found no confident category. Pick one manually.');
+      } else if (data?.status === 'no_description') {
+        toast.info('This transaction has no description for the AI to work from.');
+      }
+    },
     onError,
   });
 }
@@ -391,15 +423,29 @@ interface BatchCategorizeRow {
   skipped?: boolean;
 }
 
+// The batch endpoint accepts EITHER an explicit id list (from the selection
+// UI) OR an allPending selector that the server expands to every
+// pending-without-suggestion row — so "AI Categorize" isn't limited to the
+// visible page. A bare string[] is still accepted for the selection path.
+export type BatchCategorizeInput =
+  | string[]
+  | { allPending: true; bankConnectionId?: string };
+
+function batchCategorizeBody(input: BatchCategorizeInput): string {
+  return JSON.stringify(
+    Array.isArray(input) ? { feedItemIds: input } : input,
+  );
+}
+
 export function useAiBatchCategorize() {
   const qc = useQueryClient();
   const toast = useToast();
   const onError = useAiErrorToast('AI categorization');
   return useMutation({
-    mutationFn: (feedItemIds: string[]) =>
+    mutationFn: (input: BatchCategorizeInput) =>
       apiClient<{ results: BatchCategorizeRow[] }>('/ai/categorize/batch', {
         method: 'POST',
-        body: JSON.stringify({ feedItemIds }),
+        body: batchCategorizeBody(input),
       }),
     // The batch endpoint returns HTTP 200 even when every item failed (per-item
     // errors live INSIDE results). Without inspecting them a total failure —
