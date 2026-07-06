@@ -165,6 +165,30 @@ export function useBulkRecleanse() {
   });
 }
 
+/** Result of the "Reprocess Rules" bulk action. Mirrors
+ *  ReprocessRulesResult in packages/api/src/services/bank-feed.service.ts. */
+export interface ReprocessRulesResultDto {
+  processed: number;
+  matched: number;
+  autoCategorized: number;
+  suggestionsUpdated: number;
+  untouched: number;
+}
+
+export function useBulkReprocessRules() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { feedItemIds?: string[]; allPending?: boolean; bankConnectionId?: string }) =>
+      apiClient<ReprocessRulesResultDto>('/banking/feed/bulk-reprocess-rules', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    // autoConfirm rules post ledger transactions, so account balances can
+    // move — invalidate accounts alongside the feed (mirrors bulk-categorize).
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); },
+  });
+}
+
 export function useBulkExclude() {
   const qc = useQueryClient();
   return useMutation({

@@ -4,7 +4,8 @@
 
 import { useState, useEffect } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
-import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
+import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
+import type { ReprocessRulesResultDto } from '../../api/hooks/useBanking';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
@@ -18,7 +19,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
-import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2 } from 'lucide-react';
+import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2, Wand2 } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 const statusColors: Record<string, string> = {
@@ -82,6 +83,7 @@ export function BankFeedPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [matchModalFor, setMatchModalFor] = useState<string | null>(null);
   const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
+  const [showReprocessConfirm, setShowReprocessConfirm] = useState(false);
 
   const debouncedSearch = useDebouncedValue(search);
   const debStartDate = useDebouncedDate(startDate);
@@ -119,6 +121,7 @@ export function BankFeedPage() {
   const bulkCategorize = useBulkCategorize();
   const bulkExclude = useBulkExclude();
   const bulkRecleanse = useBulkRecleanse();
+  const bulkReprocessRules = useBulkReprocessRules();
   const toast = useToast();
   const bulkSetTag = useBulkSetTag();
   const [showBatchSetTag, setShowBatchSetTag] = useState(false);
@@ -226,6 +229,28 @@ export function BankFeedPage() {
   const connections = connectionsData?.connections || [];
   const hasFilters = search || startDate || endDate || connectionFilter || actionableOnly;
 
+  // Result toast for "Reprocess Rules" — built from the server counts so
+  // the message reflects what actually happened, not what was requested.
+  const showReprocessToast = (r: ReprocessRulesResultDto) => {
+    if (r.matched === 0) {
+      toast.info(`No rules matched — ${r.processed} pending item${r.processed === 1 ? '' : 's'} checked.`);
+      return;
+    }
+    toast.success(
+      `Rules matched ${r.matched} of ${r.processed} — ${r.autoCategorized} auto-categorized, ` +
+      `${r.suggestionsUpdated} suggestion${r.suggestionsUpdated === 1 ? '' : 's'} updated.`,
+    );
+  };
+
+  // Honest N for the "reprocess all pending" confirm: the server-side
+  // total is only the count of what will be reprocessed when the pending
+  // filter is active with no search/date narrowing (the connection filter
+  // is fine — it's passed to the mutation). Otherwise skip the number.
+  const allPendingCount =
+    statusFilter === 'pending' && !debouncedSearch && !debStartDate && !debEndDate
+      ? data?.total ?? null
+      : null;
+
   return (
     <div>
       <ConfirmDialog
@@ -240,6 +265,22 @@ export function BankFeedPage() {
           setShowExcludeConfirm(false);
         }}
       />
+      <ConfirmDialog
+        open={showReprocessConfirm}
+        title={allPendingCount !== null
+          ? `Reprocess rules for all ${allPendingCount} pending item${allPendingCount === 1 ? '' : 's'}?`
+          : 'Reprocess rules for all pending items?'}
+        message="Re-runs your bank rules over the pending backlog. Matching rules refresh the suggested category; auto-confirm rules post transactions. Items no rule matches are left unchanged."
+        confirmLabel="Reprocess"
+        onCancel={() => setShowReprocessConfirm(false)}
+        onConfirm={() => {
+          setShowReprocessConfirm(false);
+          bulkReprocessRules.mutate(
+            { allPending: true, bankConnectionId: connectionFilter || undefined },
+            { onSuccess: showReprocessToast },
+          );
+        }}
+      />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900">Bank Feed</h1>
@@ -249,6 +290,11 @@ export function BankFeedPage() {
           {aiEnabled && pendingWithoutSuggestion > 0 && selected.size === 0 && (
             <Button size="sm" variant="secondary" onClick={handleAiBatchCategorize} loading={aiBatch.isPending}>
               <Brain className="h-4 w-4 mr-1" /> AI Categorize ({pendingWithoutSuggestion})
+            </Button>
+          )}
+          {pendingCount > 0 && selected.size === 0 && (
+            <Button size="sm" variant="secondary" onClick={() => setShowReprocessConfirm(true)} loading={bulkReprocessRules.isPending}>
+              <Wand2 className="h-4 w-4 mr-1" /> Reprocess Rules
             </Button>
           )}
         </div>
@@ -391,6 +437,17 @@ export function BankFeedPage() {
                 loading={bulkRecleanse.isPending}
               >
                 <RefreshCw className="h-4 w-4 mr-1" /> Re-cleanse
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => bulkReprocessRules.mutate(
+                  { feedItemIds: [...selected] },
+                  { onSuccess: (r) => { setSelected(new Set()); showReprocessToast(r); } },
+                )}
+                loading={bulkReprocessRules.isPending}
+              >
+                <Wand2 className="h-4 w-4 mr-1" /> Reprocess Rules
               </Button>
               <Button size="sm" variant="secondary" onClick={() => setShowBatchSetTag(true)}>
                 Set Tag…
