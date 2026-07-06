@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { ACTION_TYPES, ACTION_TYPES_DEFERRED, type Action, type ActionType } from '@kis-books/shared';
 import { AccountSelector } from '../../../../components/forms/AccountSelector';
 import { ContactSelector } from '../../../../components/forms/ContactSelector';
+import { LineTagPicker } from '../../../../components/forms/SplitRowV2';
 import { SplitActionEditor } from './SplitActionEditor';
 
 interface Props {
@@ -98,17 +99,15 @@ function ActionPayload({ action, onChange }: { action: Action; onChange: (next: 
         />
       );
     case 'set_tag':
-      // Tags don't have a dedicated picker that fits this form
-      // shape; render a free-text uuid input for now. The
-      // visual builder is the priority — proper tag picker
-      // integration can come later.
+      // Proper tag picker (searchable, name-based) instead of a raw uuid
+      // field. The action stores a tagId string; a cleared picker maps to
+      // '' so the "no tag chosen" state stays representable.
       return (
-        <input
-          type="text"
-          value={action.tagId}
-          onChange={(e) => onChange({ ...action, tagId: e.target.value })}
-          placeholder="Tag uuid"
-          className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm w-full"
+        <LineTagPicker
+          value={action.tagId || null}
+          onChange={(id) => onChange({ ...action, tagId: id ?? '' })}
+          className="w-full"
+          ariaLabel="Tag to assign"
         />
       );
     case 'set_memo':

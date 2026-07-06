@@ -73,6 +73,10 @@ export function BankFeedPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState>({ feedDate: '', description: '', memo: '', contactId: '' });
   const [catAccountId, setCatAccountId] = useState('');
+  // Tag for the expanded single-item categorize row. Initialized from the
+  // item's rule-staged suggested tag when the row is expanded, so a
+  // rule-set tag is pre-selected and posts on categorize.
+  const [catTagId, setCatTagId] = useState<string | null>(null);
   const [batchCatAccountId, setBatchCatAccountId] = useState('');
   const [showBatchCategorize, setShowBatchCategorize] = useState(false);
   const [search, setSearch] = useSessionState('vibe:bank-feed:search', '');
@@ -179,6 +183,7 @@ export function BankFeedPage() {
       contactId: item.suggestedContactId || '',
     });
     setCatAccountId(item.suggestedAccountId || '');
+    setCatTagId(item.suggestedTagId || null);
   };
 
   const handleSaveAndCategorize = async (itemId: string) => {
@@ -193,6 +198,7 @@ export function BankFeedPage() {
       categorize.mutate({
         id: itemId, accountId: catAccountId,
         contactId: editState.contactId || undefined, memo: editState.memo || undefined,
+        tagId: catTagId || undefined,
       }, { onSuccess: () => { setExpandedId(null); } });
     } else {
       refetch();
@@ -492,6 +498,7 @@ export function BankFeedPage() {
                 <SortHeader label="Date" sortKey="feedDate" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Name" sortKey="description" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Category" sortKey="category" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tag</th>
                 <SortHeader label="Amount" sortKey="amount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} align="text-right" />
                 <SortHeader label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -574,6 +581,7 @@ export function BankFeedPage() {
                       {isExpanded ? (
                         <div className="space-y-1">
                           <AccountSelector value={catAccountId} onChange={setCatAccountId} />
+                          <LineTagPicker value={catTagId} onChange={(t) => setCatTagId(t)} className="w-full" />
                           <input value={editState.memo}
                             onChange={(e) => setEditState((s) => ({ ...s, memo: e.target.value }))}
                             className="block w-full rounded border border-gray-300 px-2 py-1 text-sm" placeholder="Memo" />
@@ -585,6 +593,42 @@ export function BankFeedPage() {
                       ) : (
                         <span className="text-gray-900">{item.suggestedAccountName || '—'}</span>
                       )}
+                    </td>
+                    <td className="px-3 py-3 text-sm">
+                      {(() => {
+                        // CATEGORIZED / MATCHED: the tag(s) actually applied on the
+                        // posted transaction's journal lines. One pill when uniform,
+                        // "Multiple" when the lines differ.
+                        const applied = item.lineTags ?? null;
+                        if (applied && applied.length > 0) {
+                          if (applied.length === 1) {
+                            return (
+                              <span className="inline-flex items-center rounded-full bg-primary-50 text-primary-700 px-2 py-0.5 text-xs font-medium">
+                                {applied[0]}
+                              </span>
+                            );
+                          }
+                          return (
+                            <span title={applied.join(', ')}
+                              className="inline-flex items-center rounded-full bg-primary-50 text-primary-700 px-2 py-0.5 text-xs font-medium cursor-help">
+                              Multiple ({applied.length})
+                            </span>
+                          );
+                        }
+                        // PENDING: the rule-staged suggested tag, shown as a subtle
+                        // outlined "suggested" pill so a rule-set tag is visible
+                        // before the user categorizes.
+                        if (item.status === 'pending' && item.suggestedTagName) {
+                          return (
+                            <span title="Suggested by a rule"
+                              className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 text-amber-700 px-2 py-0.5 text-xs font-medium">
+                              <Sparkles className="h-3 w-3" />
+                              {item.suggestedTagName}
+                            </span>
+                          );
+                        }
+                        return <span className="text-gray-300">—</span>;
+                      })()}
                     </td>
                     <td className={`px-3 py-3 text-sm text-right font-mono font-medium whitespace-nowrap ${amt > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {amt > 0 ? '-' : '+'}${Math.abs(amt).toFixed(2)}

@@ -52,7 +52,7 @@ export function useBankFeed(filters?: BankFeedFilters) {
 export function useCategorizeFeedItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...input }: { id: string; accountId: string; contactId?: string; memo?: string }) =>
+    mutationFn: ({ id, ...input }: { id: string; accountId: string; contactId?: string; memo?: string; tagId?: string | null }) =>
       apiClient(`/banking/feed/${id}/categorize`, { method: 'PUT', body: JSON.stringify(input) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); },
   });
