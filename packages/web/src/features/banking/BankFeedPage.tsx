@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
 import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
@@ -91,11 +91,11 @@ export function BankFeedPage() {
   // no next/prev, silently truncating imports larger than that.
   const PAGE_SIZE = 100;
   const [offset, setOffset] = useState(0);
-  // Any filter change invalidates the current offset — otherwise the
-  // user sits on page 3 of a smaller filtered set and sees nothing.
+  // Any filter or sort change invalidates the current offset — otherwise
+  // the user sits on page 3 of a smaller/reordered set and sees nothing.
   useEffect(() => {
     setOffset(0);
-  }, [statusFilter, connectionFilter, debouncedSearch, debStartDate, debEndDate, actionableOnly]);
+  }, [statusFilter, connectionFilter, debouncedSearch, debStartDate, debEndDate, actionableOnly, sortKey, sortDir]);
 
   const { data, isLoading, isError, isFetching, refetch } = useBankFeed({
     status: statusFilter || undefined,
@@ -104,6 +104,10 @@ export function BankFeedPage() {
     endDate: debEndDate || undefined,
     search: debouncedSearch || undefined,
     actionableOnly: actionableOnly || undefined,
+    // Sort is server-side: with pagination, sorting the loaded page only
+    // ordered 100 of N rows (the reported bug).
+    sortBy: sortKey,
+    sortDir,
     limit: PAGE_SIZE,
     offset,
   });
@@ -138,25 +142,11 @@ export function BankFeedPage() {
     }
   };
 
-  const sortedItems = useMemo(() => {
-    const items = [...(data?.data || [])];
-    items.sort((a, b) => {
-      let cmp = 0;
-      switch (sortKey) {
-        case 'feedDate': cmp = a.feedDate.localeCompare(b.feedDate); break;
-        case 'description': cmp = (a.description || '').localeCompare(b.description || ''); break;
-        case 'category': cmp = (a.suggestedAccountName || '').localeCompare(b.suggestedAccountName || ''); break;
-        case 'status': cmp = (a.status || '').localeCompare(b.status || ''); break;
-        case 'amount': cmp = parseFloat(a.amount) - parseFloat(b.amount); break;
-      }
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
-    return items;
-  }, [data?.data, sortKey, sortDir]);
-
   if (firstLoad) return <LoadingSpinner className="py-12" />;
   if (isError) return <ErrorMessage message="Couldn't load the bank feed." onRetry={() => refetch()} />;
-  const items = sortedItems;
+  // Rows arrive server-sorted (sortBy/sortDir are query params) so the
+  // order spans the whole dataset, not just this page.
+  const items = data?.data || [];
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
