@@ -450,6 +450,20 @@ export function useCancelReconciliation() {
   });
 }
 
+// Pull transactions posted after the reconciliation was started into the
+// worksheet (start() snapshots the lines, so a just-added transaction is
+// otherwise invisible). Returns how many rows were added.
+export function useRefreshReconciliation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient<{ added: number }>(`/banking/reconciliations/${id}/refresh`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation'] });
+      qc.invalidateQueries({ queryKey: ['statement-matches'] });
+    },
+  });
+}
+
 // ─── Statement Match Engine (wave 1) ───────────────────────────────
 
 export interface StatementLineSummary {

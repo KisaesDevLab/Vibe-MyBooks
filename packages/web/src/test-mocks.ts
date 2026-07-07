@@ -163,6 +163,7 @@ export const bankingMocks = () => ({
   useCompleteReconciliation: passthroughMutation,
   useUpdateReconciliation: passthroughMutation,
   useCancelReconciliation: passthroughMutation,
+  useRefreshReconciliation: passthroughMutation,
   useUndoReconciliation: passthroughMutation,
 });
 

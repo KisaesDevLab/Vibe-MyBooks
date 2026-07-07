@@ -8,7 +8,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   useStartReconciliation, useReconciliation, useUpdateReconciliationLines, useCompleteReconciliation,
-  useReconciliations, useUpdateReconciliation, useCancelReconciliation,
+  useReconciliations, useUpdateReconciliation, useCancelReconciliation, useRefreshReconciliation,
   useBankStatements, useAutoClearStatement, type BankStatementRow,
   useMatchStatement, useStatementMatches, useConfirmStatementLine, useRejectStatementLine,
   useCreateFromStatementLine,
@@ -27,7 +27,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { useToast } from '../../components/ui/Toaster';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil } from 'lucide-react';
+import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw } from 'lucide-react';
 
 // Open the statement PDF in a new tab via the single-use download token
 // (same pattern as ReportShell's openPdfInTab — window.open can't carry an
@@ -623,6 +623,7 @@ export function ReconciliationPage() {
   const completeRecon = useCompleteReconciliation();
   const updateRecon = useUpdateReconciliation();
   const cancelRecon = useCancelReconciliation();
+  const refreshRecon = useRefreshReconciliation();
   const autoClear = useAutoClearStatement();
   const matchStatement = useMatchStatement();
   const toast = useToast();
@@ -655,6 +656,19 @@ export function ReconciliationPage() {
         onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not update balance.'),
       },
     );
+  };
+
+  const handleRefresh = () => {
+    refreshRecon.mutate(reconId, {
+      onSuccess: (res) => {
+        if (res.added > 0) {
+          toast.success(`Added ${res.added} new transaction${res.added === 1 ? '' : 's'} to the worksheet.`);
+        } else {
+          toast.info('No new transactions to add. (Anything dated after the statement date won’t appear here.)');
+        }
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not refresh transactions.'),
+    });
   };
 
   const handleCancelRecon = (id: string, { resetView }: { resetView: boolean }) => {
@@ -946,6 +960,15 @@ export function ReconciliationPage() {
             title="Showing uncleared rows only — click to show all">
             Uncleared only ✕
           </button>
+        )}
+        {/* Pull in transactions entered after this reconciliation was started —
+            the worksheet is snapshotted at start, so a just-added transaction
+            won't appear until refreshed. */}
+        {!isComplete && (
+          <Button size="sm" variant="secondary" onClick={handleRefresh} loading={refreshRecon.isPending}
+            title="Pull in transactions added since you started this reconciliation">
+            <RefreshCw className="h-4 w-4 mr-1" /> Refresh transactions
+          </Button>
         )}
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search description / type / amount…"
           className="ml-auto rounded-md border-gray-300 text-sm px-3 py-1.5 min-w-[14rem]" />
