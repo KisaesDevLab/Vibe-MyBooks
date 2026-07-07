@@ -30,7 +30,13 @@ export function useTransactions(filters?: TransactionFilters) {
   const qs = params.toString();
   return useQuery({
     queryKey: ['transactions', filters],
-    queryFn: () => apiClient<{ data: Transaction[]; total: number }>(`/transactions${qs ? `?${qs}` : ''}`),
+    queryFn: () => apiClient<{
+      data: Transaction[];
+      total: number;
+      // Grand totals across the whole filtered set (void excluded). `amount`
+      // for the single column; debit/credit when filtered by an account.
+      totals?: { amount: string; debit: string; credit: string };
+    }>(`/transactions${qs ? `?${qs}` : ''}`),
   });
 }
 

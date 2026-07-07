@@ -570,20 +570,23 @@ export function TransactionListPage() {
                     <>
                       {/* GL/register view: this account's debit and credit for
                           the transaction (accountDebit/accountCredit come from
-                          the server only when an account filter is active). */}
+                          the server only when an account filter is active).
+                          Void transactions net to zero, so show 0 (blank). */}
                       <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">
-                        {fmtDC((txn as { accountDebit?: string | null }).accountDebit)}
+                        {fmtDC(txn.status === 'void' ? '0' : (txn as { accountDebit?: string | null }).accountDebit)}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">
-                        {fmtDC((txn as { accountCredit?: string | null }).accountCredit)}
+                        {fmtDC(txn.status === 'void' ? '0' : (txn as { accountCredit?: string | null }).accountCredit)}
                       </td>
                     </>
                   ) : (
                     <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">
                       {(() => {
-                        // displayTotal = total with a server-side fallback to the
-                        // journal-line magnitude (JEs/transfers/imports have no
-                        // document total and used to render as an em dash).
+                        // Void transactions are reversed — show 0, not the
+                        // original magnitude. displayTotal = total with a
+                        // server-side fallback to the journal-line magnitude
+                        // (JEs/transfers/imports have no document total).
+                        if (txn.status === 'void') return usd(0);
                         const amount = txn.displayTotal ?? txn.total;
                         return amount ? usd(parseFloat(amount)) : '—';
                       })()}
@@ -597,6 +600,25 @@ export function TransactionListPage() {
                 </tr>
               ))}
             </tbody>
+            {txns.length > 0 && (
+              <tfoot>
+                {/* Grand total across the whole filtered set (all pages), void
+                    excluded. 8 columns precede the amount(s): checkbox, Date,
+                    Type, No., Payee, Memo, Category, Tag. */}
+                <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
+                  <td colSpan={8} className="px-4 py-3 text-right text-xs text-gray-600 uppercase">Total</td>
+                  {accountFilter ? (
+                    <>
+                      <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">{usd(parseFloat(data?.totals?.debit ?? '0'))}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">{usd(parseFloat(data?.totals?.credit ?? '0'))}</td>
+                    </>
+                  ) : (
+                    <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">{usd(parseFloat(data?.totals?.amount ?? '0'))}</td>
+                  )}
+                  <td className="px-4 py-3" />
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
         {/* Mobile: compact card list — readable without horizontal scroll. */}
@@ -606,9 +628,13 @@ export function TransactionListPage() {
             const categoryLabel = !cats || cats.length === 0 ? null : cats.length === 1 ? cats[0] : '— Split —';
             // Account-filtered: a card can't show two columns, so show the
             // signed net for this account — debit positive, credit negative.
+            // Void transactions are reversed → show 0.
             let amountLabel: string;
             let amountClass = 'text-gray-900';
-            if (accountFilter) {
+            if (txn.status === 'void') {
+              amountLabel = usd(0);
+              amountClass = 'text-gray-400';
+            } else if (accountFilter) {
               const d = parseFloat((txn as { accountDebit?: string | null }).accountDebit ?? '0') || 0;
               const c = parseFloat((txn as { accountCredit?: string | null }).accountCredit ?? '0') || 0;
               const net = d - c;
@@ -643,6 +669,19 @@ export function TransactionListPage() {
               </button>
             );
           })}
+          {/* Mobile grand total (whole filtered set, void excluded). */}
+          {txns.length > 0 && (
+            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold">
+              <span className="text-gray-600 uppercase text-xs">Total</span>
+              {accountFilter ? (
+                <span className="font-mono text-gray-900">
+                  {usd(parseFloat(data?.totals?.debit ?? '0'))} Dr · {usd(parseFloat(data?.totals?.credit ?? '0'))} Cr
+                </span>
+              ) : (
+                <span className="font-mono text-gray-900">{usd(parseFloat(data?.totals?.amount ?? '0'))}</span>
+              )}
+            </div>
+          )}
         </div>
         </>
       )}
