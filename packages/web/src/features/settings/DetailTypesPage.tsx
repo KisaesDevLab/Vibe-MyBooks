@@ -160,6 +160,7 @@ export function DetailTypesPage() {
               Use the arrows to set the presentation order. Grouped reports (P&amp;L, Balance Sheet)
               show custom detail-type groups in this order, after the built-in groups.
             </p>
+            <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 text-left text-gray-600">
@@ -217,6 +218,7 @@ export function DetailTypesPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </>
         )}
       </section>

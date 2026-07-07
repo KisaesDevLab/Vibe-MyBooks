@@ -68,7 +68,7 @@ export function ManualQueueTab({ period }: Props) {
         <strong>{rows.length}</strong> {rows.length === 1 ? 'item is' : 'items are'} waiting for
         you to pick an account or vendor manually. Click "Open in Bank Feed" to categorize.
       </div>
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr className="text-left text-xs uppercase tracking-wider text-gray-500">

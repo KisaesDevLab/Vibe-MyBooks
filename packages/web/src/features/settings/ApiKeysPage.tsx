@@ -192,7 +192,7 @@ export function ApiKeysPage() {
           <p>No API keys. Generate one to connect an AI assistant or automation tool.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>

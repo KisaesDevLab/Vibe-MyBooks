@@ -43,7 +43,7 @@ export function ReportTable({ columns, data, totals, drillContext, returnLabel }
   const returnTo = `${location.pathname}${location.search}`;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200 text-sm">
         <thead className="bg-gray-50">
           <tr>

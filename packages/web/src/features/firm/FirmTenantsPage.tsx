@@ -64,7 +64,7 @@ export function FirmTenantsPage() {
             {active.length === 0 ? (
               <p className="text-xs italic text-gray-500">No active tenants.</p>
             ) : (
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+              <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr className="text-left text-xs uppercase tracking-wider text-gray-500">

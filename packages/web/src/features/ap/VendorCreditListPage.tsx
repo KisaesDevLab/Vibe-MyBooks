@@ -19,7 +19,7 @@ export function VendorCreditListPage() {
         <Button onClick={() => navigate('/vendor-credits/new')}>Enter Vendor Credit</Button>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
         {isLoading ? (
           <LoadingSpinner className="py-12" />
         ) : credits.length === 0 ? (

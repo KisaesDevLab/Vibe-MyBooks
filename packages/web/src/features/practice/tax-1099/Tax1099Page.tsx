@@ -441,7 +441,7 @@ export function Tax1099Page() {
           </p>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -718,7 +718,7 @@ function FilingsHistory({
   return (
     <div className="mt-8">
       <h2 className="text-lg font-semibold text-gray-900 mb-2">Filing history</h2>
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -1609,7 +1609,7 @@ function CorrectionModal({
           )}
 
           {rows.length > 0 && (
-            <div className="border border-gray-200 rounded-md overflow-hidden">
+            <div className="border border-gray-200 rounded-md overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="bg-gray-50">
                   <tr>

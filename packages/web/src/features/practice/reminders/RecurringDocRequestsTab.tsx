@@ -111,7 +111,7 @@ export function RecurringDocRequestsTab() {
           <p className="text-sm text-gray-500">No standing requests yet. Click "New rule" to create one.</p>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>

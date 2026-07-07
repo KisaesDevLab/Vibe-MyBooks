@@ -358,7 +358,7 @@ export function ReportBuilderPage() {
           <p className="text-sm text-gray-500">No reports generated yet.</p>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -1517,13 +1517,13 @@ function BlockRender({
           {!b || b.total === 0 ? (
             <p className="text-xs text-gray-500 italic">Nothing outstanding.</p>
           ) : (
-            <div className="grid grid-cols-5 gap-2 text-xs">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
               <AgingCell label="Current" v={b.current} />
               <AgingCell label="1–30" v={b.days1to30} />
               <AgingCell label="31–60" v={b.days31to60} />
               <AgingCell label="61–90" v={b.days61to90} />
               <AgingCell label="90+" v={b.over90} />
-              <div className="col-span-5 text-right text-gray-700 mt-1">
+              <div className="col-span-2 md:col-span-5 text-right text-gray-700 mt-1">
                 Total <strong>{fmtMoney(b.total)}</strong>
               </div>
             </div>

@@ -518,7 +518,10 @@ export function BankFeedPage() {
           No bank feed items.{hasFilters ? ' Try adjusting your filters.' : ' Import a bank statement or connect a bank to get started.'}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+          {/* TODO(mobile): Bank Feed is intentionally left as a horizontal-scroll
+              table on phones for now; a md:hidden card-list fallback (like the
+              Transactions list) is a future enhancement given this table's width. */}
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

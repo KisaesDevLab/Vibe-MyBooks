@@ -184,7 +184,7 @@ function VendorApSection({ contactId }: { contactId: string }) {
       </div>
 
       {/* Bills */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 border-b font-medium text-sm text-gray-700">Bills</div>
         {billsLoading ? (
           <LoadingSpinner className="py-8" />
@@ -227,7 +227,7 @@ function VendorApSection({ contactId }: { contactId: string }) {
       </div>
 
       {/* Vendor Credits */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 border-b font-medium text-sm text-gray-700">Vendor Credits</div>
         {creditsLoading ? (
           <LoadingSpinner className="py-8" />

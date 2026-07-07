@@ -292,7 +292,7 @@ export function RemindersPage() {
           <p className="text-sm text-gray-500">No reminder schedules yet.</p>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
+        <div className="border border-gray-200 rounded-lg overflow-x-auto mb-6">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -361,7 +361,7 @@ export function RemindersPage() {
           No reminders queued right now. They'll appear here as questions age past the cadence.
         </p>
       ) : (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -467,7 +467,7 @@ function TemplatesSection() {
           <p className="text-sm text-gray-500">No custom templates — defaults will be used.</p>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>

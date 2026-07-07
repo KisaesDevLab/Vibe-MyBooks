@@ -480,7 +480,9 @@ export function TransactionListPage() {
           No transactions found.{hasFilters ? ' Try adjusting your filters.' : ' Create your first transaction.'}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <>
+        {/* Desktop: full table (horizontal-scrolls on medium+ if narrow). */}
+        <div className="hidden md:block bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -569,6 +571,40 @@ export function TransactionListPage() {
             </tbody>
           </table>
         </div>
+        {/* Mobile: compact card list — readable without horizontal scroll. */}
+        <div className="md:hidden space-y-2">
+          {txns.map((txn) => {
+            const cats = (txn as { lineCategories?: string[] | null }).lineCategories ?? null;
+            const categoryLabel = !cats || cats.length === 0 ? null : cats.length === 1 ? cats[0] : '— Split —';
+            const amount = txn.displayTotal ?? txn.total;
+            const amountLabel = amount ? parseFloat(amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '—';
+            return (
+              <button
+                key={txn.id}
+                onClick={() => navigate(`/transactions/${txn.id}`, { state: { returnTo } })}
+                className="w-full text-left bg-white rounded-lg border border-gray-200 shadow-sm p-3 flex flex-col gap-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-gray-500 whitespace-nowrap">{txn.txnDate}</span>
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[txn.status] || ''}`}>
+                    {txn.status}
+                  </span>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-900 truncate">
+                      {txn.contactName || txnTypeLabels[txn.txnType] || txn.txnType}
+                    </div>
+                    {txn.memo && <div className="text-xs text-gray-500 truncate">{txn.memo}</div>}
+                    {categoryLabel && <div className="text-xs text-gray-400 truncate">{categoryLabel}</div>}
+                  </div>
+                  <div className="text-sm text-gray-900 text-right font-mono whitespace-nowrap">{amountLabel}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        </>
       )}
       <Pagination
         total={data?.total ?? 0}

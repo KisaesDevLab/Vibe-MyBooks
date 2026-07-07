@@ -190,7 +190,7 @@ export function AttachmentLibraryPage() {
                 <p className="text-sm">Select a {tab === 'contact' ? 'contact' : 'transaction type'} to view attachments</p>
               </div>
             ) : (
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
                 {/* File table */}
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">

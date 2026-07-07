@@ -388,7 +388,7 @@ function PortalBlockRender({
           <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">
             {payload.type === 'ar_aging' ? 'Receivables aging' : 'Payables aging'}
           </p>
-          <div className="grid grid-cols-5 gap-2 text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
             <AgingCell label="Current" v={b.current} />
             <AgingCell label="1–30" v={b.days1to30} />
             <AgingCell label="31–60" v={b.days31to60} />

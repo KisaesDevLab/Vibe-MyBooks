@@ -131,7 +131,7 @@ export function StaffIpAllowlistPage() {
       </div>
 
       {/* Entries table */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
             Entries ({entries.length})

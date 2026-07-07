@@ -140,8 +140,8 @@ export function EmailSettingsPage() {
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">SMTP Server</h2>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
               <Input label="SMTP Host" value={form.smtpHost} onChange={set('smtpHost')} placeholder="smtp.gmail.com" />
             </div>
             <Input label="Port" value={form.smtpPort} onChange={set('smtpPort')} type="number" />

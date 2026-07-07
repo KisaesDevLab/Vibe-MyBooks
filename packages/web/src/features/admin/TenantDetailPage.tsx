@@ -319,7 +319,7 @@ export function TenantDetailPage() {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
           <Users className="h-5 w-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">
@@ -401,7 +401,7 @@ export function TenantDetailPage() {
       </div>
 
       {/* Companies Table */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
           <Briefcase className="h-5 w-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">

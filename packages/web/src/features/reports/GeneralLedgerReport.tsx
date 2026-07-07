@@ -152,7 +152,7 @@ function GeneralLedgerView({ data }: { data: GLReportData }) {
   const trialBalanceOk = Math.abs(data.totalDebits - data.totalCredits) < 0.01;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
       <div className="px-6 py-4 border-b border-gray-200">
         <h2 className="text-base font-semibold text-gray-800">General Ledger</h2>
         <p className="text-xs text-gray-500 mt-1">

@@ -100,7 +100,7 @@ export function BillListPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
         {isLoading ? (
           <LoadingSpinner className="py-12" />
         ) : isError ? (

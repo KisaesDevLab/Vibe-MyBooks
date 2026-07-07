@@ -41,7 +41,7 @@ export function ValidationResults({ sessionId, importMode, onComplete }: Props) 
       <h3 className="text-lg font-medium mb-4">Validation Results</h3>
 
       {/* Summary bar */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="p-3 bg-gray-50 rounded-lg text-center">
           <p className="text-2xl font-bold text-gray-900">{result.totalRows}</p>
           <p className="text-xs text-gray-500">Total Rows</p>
@@ -64,7 +64,7 @@ export function ValidationResults({ sessionId, importMode, onComplete }: Props) 
       {errors.length > 0 && (
         <div className="mb-6">
           <h4 className="text-sm font-medium text-red-700 mb-2">Errors ({errors.length})</h4>
-          <div className="border border-red-200 rounded-lg overflow-hidden">
+          <div className="border border-red-200 rounded-lg overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-red-50">
                 <tr>
@@ -98,7 +98,7 @@ export function ValidationResults({ sessionId, importMode, onComplete }: Props) 
           <summary className="cursor-pointer text-sm font-medium text-yellow-700 mb-2">
             Warnings ({warnings.length}) — click to expand
           </summary>
-          <div className="border border-yellow-200 rounded-lg overflow-hidden mt-2">
+          <div className="border border-yellow-200 rounded-lg overflow-x-auto mt-2">
             <table className="min-w-full text-sm">
               <thead className="bg-yellow-50">
                 <tr>

@@ -164,6 +164,7 @@ export function InvoiceDetailPage() {
             </div>
           </div>
 
+          <div className="overflow-x-auto">
           <table className="min-w-full text-sm mb-6">
             <thead>
               <tr className="border-b">
@@ -184,6 +185,7 @@ export function InvoiceDetailPage() {
               ))}
             </tbody>
           </table>
+          </div>
 
           <div className="flex justify-end">
             <div className="w-64 space-y-1 text-sm">

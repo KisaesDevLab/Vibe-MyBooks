@@ -105,7 +105,7 @@ export function CompanyProfilePage() {
           <h2 className="text-lg font-semibold text-gray-800">Address</h2>
           <Input label="Address Line 1" value={form.addressLine1} onChange={set('addressLine1')} />
           <Input label="Address Line 2" value={form.addressLine2} onChange={set('addressLine2')} />
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input label="City" value={form.city} onChange={set('city')} />
             <Input label="State" value={form.state} onChange={set('state')} />
             <Input label="ZIP" value={form.zip} onChange={set('zip')} />

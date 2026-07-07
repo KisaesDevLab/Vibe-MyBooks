@@ -154,7 +154,7 @@ export function ContactFormPage() {
           <h2 className="text-lg font-semibold text-gray-800">Billing Address</h2>
           <Input label="Address Line 1" value={form.billingLine1} onChange={set('billingLine1')} />
           <Input label="Address Line 2" value={form.billingLine2} onChange={set('billingLine2')} />
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input label="City" value={form.billingCity} onChange={set('billingCity')} />
             <Input label="State" value={form.billingState} onChange={set('billingState')} />
             <Input label="ZIP" value={form.billingZip} onChange={set('billingZip')} />
@@ -167,7 +167,7 @@ export function ContactFormPage() {
               <h2 className="text-lg font-semibold text-gray-800">Shipping Address</h2>
               <Input label="Address Line 1" value={form.shippingLine1} onChange={set('shippingLine1')} />
               <Input label="Address Line 2" value={form.shippingLine2} onChange={set('shippingLine2')} />
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Input label="City" value={form.shippingCity} onChange={set('shippingCity')} />
                 <Input label="State" value={form.shippingState} onChange={set('shippingState')} />
                 <Input label="ZIP" value={form.shippingZip} onChange={set('shippingZip')} />

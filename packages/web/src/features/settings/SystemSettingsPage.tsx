@@ -557,8 +557,8 @@ export function SystemSettingsPage() {
           <p className="text-sm text-gray-500">
             Used for password resets, user invites, and system notifications. Separate from per-company email used for invoices.
           </p>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
               <Input label="SMTP Host" value={form.smtpHost} onChange={set('smtpHost')} placeholder="smtp.gmail.com" />
             </div>
             <Input label="Port" value={form.smtpPort} onChange={set('smtpPort')} type="number" />

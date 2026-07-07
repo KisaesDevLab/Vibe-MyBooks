@@ -269,7 +269,7 @@ function DetailView({ data }: { data: ExpCatData }) {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
       <div className="px-6 py-4 border-b border-gray-200">
         <h2 className="text-base font-semibold text-gray-800">Expenses by Category</h2>
         <p className="text-xs text-gray-500 mt-1">
@@ -377,7 +377,7 @@ function SummaryView({ data, startDate, endDate }: { data: ExpCatData; startDate
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
           <tr className="border-b border-gray-200">

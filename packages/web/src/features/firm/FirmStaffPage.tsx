@@ -57,7 +57,7 @@ export function FirmStaffPage() {
       {isLoading ? (
         <LoadingSpinner size="md" />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr className="text-left text-xs uppercase tracking-wider text-gray-500">

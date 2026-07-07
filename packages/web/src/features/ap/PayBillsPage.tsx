@@ -236,7 +236,7 @@ export function PayBillsPage() {
 
       {/* Payment setup */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-4">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <AccountSelector
             label="Pay From"
             value={bankAccountId}
@@ -261,7 +261,7 @@ export function PayBillsPage() {
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-4 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
           <DatePicker
             label="Show bills due on or before"
             value={dueOnOrBefore}
@@ -276,6 +276,7 @@ export function PayBillsPage() {
         {bills.length === 0 ? (
           <p className="text-sm text-gray-500">No unpaid bills found.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
               <tr className="border-b">
@@ -325,6 +326,7 @@ export function PayBillsPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -332,6 +334,7 @@ export function PayBillsPage() {
       {filteredCredits.length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-4">
           <h2 className="text-sm font-medium text-gray-700 mb-3">Available Vendor Credits</h2>
+          <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
               <tr className="border-b">
@@ -391,6 +394,7 @@ export function PayBillsPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

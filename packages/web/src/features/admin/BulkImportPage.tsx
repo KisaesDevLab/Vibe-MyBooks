@@ -566,7 +566,7 @@ function PreviewTable({ kind, sampleRows, totalRows }: { kind: ImportKind; sampl
   // parsed total do we say "first N" and reassure that commit imports all.
   const truncated = typeof totalRows === 'number' && totalRows > sampleRows.length;
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
       <h2 className="text-sm font-semibold text-gray-800 px-4 py-3 border-b">
         {truncated
           ? `First ${sampleRows.length} of ${totalRows} parsed rows (all ${totalRows} import on commit)`

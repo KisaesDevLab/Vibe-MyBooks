@@ -40,7 +40,7 @@ export function ReconciliationHistoryPage() {
       ) : !data?.reconciliations.length ? (
         <p className="text-sm text-gray-500">No reconciliations for this account.</p>
       ) : (
-        <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>

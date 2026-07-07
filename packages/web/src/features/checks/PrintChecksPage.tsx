@@ -180,7 +180,7 @@ export function PrintChecksPage() {
         </div>
 
         {/* Print Queue Table */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-700">Checks Queued for Printing</h2>
             {selected.size > 0 && <div className="text-sm font-medium text-primary-700">{selected.size} selected</div>}

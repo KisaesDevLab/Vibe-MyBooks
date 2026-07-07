@@ -133,7 +133,7 @@ export function PayrollHistoryPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
         {isLoading ? (
           <div className="p-8 text-center text-gray-500">Loading...</div>
         ) : sessions.length === 0 ? (
