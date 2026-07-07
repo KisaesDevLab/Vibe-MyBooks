@@ -470,7 +470,6 @@ function AddToBooksModal({
           label={isDeposit ? 'Income category' : 'Expense category'}
           value={accountId}
           onChange={setAccountId}
-          accountTypeFilter={isDeposit ? 'revenue' : 'expense'}
           required
         />
         <ContactSelector label="Contact (optional)" value={contactId} onChange={setContactId} />

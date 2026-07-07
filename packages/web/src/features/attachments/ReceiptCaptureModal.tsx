@@ -205,7 +205,7 @@ export function ReceiptCaptureModal({ onClose }: ReceiptCaptureModalProps) {
                   <MoneyInput label="Tax" value={ocrResult.tax} onChange={(v) => setOcrResult({ ...ocrResult, tax: v })} />
 
                   <hr />
-                  <AccountSelector label="Expense Account" value={expenseAccountId} onChange={setExpenseAccountId} accountTypeFilter="expense" />
+                  <AccountSelector label="Expense Account" value={expenseAccountId} onChange={setExpenseAccountId} />
                   <AccountSelector label="Paid From" value={payFromAccountId} onChange={setPayFromAccountId} accountTypeFilter={['asset', 'liability']} />
                 </div>
               )}

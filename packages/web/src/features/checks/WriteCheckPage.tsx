@@ -228,7 +228,6 @@ export function WriteCheckPage() {
                     <AccountSelector
                       value={line.accountId}
                       onChange={(v) => updateLine(i, 'accountId', v)}
-                      accountTypeFilter="expense"
                     />
                   </td>
                   <td className="px-2 py-1">

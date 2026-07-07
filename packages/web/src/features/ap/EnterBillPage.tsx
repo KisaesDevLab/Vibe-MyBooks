@@ -656,7 +656,6 @@ export function EnterBillPage() {
                     <AccountSelector
                       value={line.accountId}
                       onChange={(v) => updateLine(i, 'accountId', v)}
-                      accountTypeFilter={['expense', 'asset'] as AccountType[]}
                     />
                   </td>
                   <td className="px-2 py-1">

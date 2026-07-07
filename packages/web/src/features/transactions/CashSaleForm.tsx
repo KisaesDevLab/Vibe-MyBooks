@@ -192,7 +192,7 @@ export function CashSaleForm() {
                 const lineAmount = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
                 return (
                   <tr key={i} className="align-top">
-                    <td className="pr-2 py-1"><AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} accountTypeFilter="revenue" /></td>
+                    <td className="pr-2 py-1"><AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} /></td>
                     <td className="px-2 py-1">
                       <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
                         className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />

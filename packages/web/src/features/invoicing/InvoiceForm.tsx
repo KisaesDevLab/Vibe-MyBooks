@@ -354,7 +354,7 @@ export function InvoiceForm() {
                             placeholder="Select item..."
                           />
                         ) : (
-                          <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} accountTypeFilter="revenue" />
+                          <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
                         )}
                       </td>
                       <td className="px-2 py-1">
@@ -415,7 +415,7 @@ export function InvoiceForm() {
                           placeholder="Select item..."
                         />
                       ) : (
-                        <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} accountTypeFilter="revenue" />
+                        <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
                       )}
                     </div>
                     {lines.length > 1 && (

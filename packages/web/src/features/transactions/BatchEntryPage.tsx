@@ -480,15 +480,13 @@ export function BatchEntryPage() {
 
                     // Account dropdown cell
                     if (col.key === 'accountName') {
-                      const accountFilter = txnType === 'expense' || txnType === 'credit_card_charge' || txnType === 'bill' ? 'expense' as const
-                        : txnType === 'deposit' ? 'revenue' as const
-                        : undefined;
+                      // Category column is unrestricted — a batch line may post
+                      // to any account type.
                       return (
                         <td key={col.key} className="px-px" title={cellError?.message}>
                           <AccountSelector
                             value={row.accountId}
                             onChange={(id) => { updateCell(rowIdx, 'accountId', id); }}
-                            accountTypeFilter={accountFilter}
                             compact
                           />
                         </td>
