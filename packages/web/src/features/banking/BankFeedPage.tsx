@@ -452,7 +452,16 @@ export function BankFeedPage() {
                   <Brain className="h-4 w-4 mr-1" /> AI Categorize
                 </Button>
               )}
-              <Button size="sm" onClick={() => bulkApprove.mutate([...selected], { onSuccess: () => setSelected(new Set()) })} loading={bulkApprove.isPending}>
+              <Button size="sm" onClick={() => bulkApprove.mutate([...selected], {
+                onSuccess: (r) => {
+                  setSelected(new Set());
+                  const parts = [`${r.approved} approved`];
+                  if (r.skipped) parts.push(`${r.skipped} skipped (no category)`);
+                  if (r.failed) parts.push(`${r.failed} failed`);
+                  if (r.failed) toast.error(parts.join(' · '));
+                  else toast.success(parts.join(' · '));
+                },
+              })} loading={bulkApprove.isPending}>
                 <CheckCheck className="h-4 w-4 mr-1" /> Approve
               </Button>
               <Button

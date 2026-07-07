@@ -139,7 +139,7 @@ export function useBulkApprove() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (feedItemIds: string[]) =>
-      apiClient('/banking/feed/bulk-approve', { method: 'POST', body: JSON.stringify({ feedItemIds }) }),
+      apiClient<{ approved: number; skipped: number; failed: number }>('/banking/feed/bulk-approve', { method: 'POST', body: JSON.stringify({ feedItemIds }) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); },
   });
 }
