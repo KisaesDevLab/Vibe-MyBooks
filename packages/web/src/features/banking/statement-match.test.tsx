@@ -129,8 +129,11 @@ vi.mock('../../api/client', async () => {
 import { ReconciliationPage } from './ReconciliationPage';
 
 // Enter the worksheet by resuming the in-progress statement reconciliation.
+// The statements table defaults to the "not reconciled" filter, so switch it
+// to "All statuses" to reveal the in-progress statement's Resume button.
 function renderWorksheet() {
   const utils = renderRoute(<ReconciliationPage />);
+  fireEvent.change(screen.getByLabelText('Filter by reconciliation status'), { target: { value: '' } });
   fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
   return utils;
 }

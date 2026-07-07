@@ -107,7 +107,10 @@ describe('ReconciliationPage statements table', () => {
     expect(screen.getByText('$170.00')).toBeTruthy();
     expect(screen.getByText('2 not posted')).toBeTruthy();
     expect(screen.getByText('Ready')).toBeTruthy();
-    expect(screen.getAllByText('Not reconciled').length).toBe(2);
+    // Both seeded statements are not_reconciled (the default filter). Scope to
+    // the status-chip spans so the new "Not reconciled" filter <option> isn't
+    // counted.
+    expect(screen.getAllByText('Not reconciled', { selector: 'span' }).length).toBe(2);
   });
 
   it('shows the coverage gap callout', () => {

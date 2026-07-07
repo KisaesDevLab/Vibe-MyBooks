@@ -63,10 +63,17 @@ function StatementStatusChip({ status }: { status: BankStatementRow['status'] })
 // with derived reconciliation status, readiness, and a one-click Reconcile.
 function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }) {
   const [accountFilter, setAccountFilter] = useSessionState('vibe:reconcile:accountFilter', '');
+  // Default to "not reconciled" so the operator lands on the statements that
+  // still need work; '' = All.
+  const [statusFilter, setStatusFilter] = useSessionState<BankStatementRow['status'] | ''>('vibe:reconcile:statusFilter', 'not_reconciled');
   const { data, isLoading, isError, refetch } = useBankStatements(accountFilter || undefined);
   const startRecon = useStartReconciliation();
   const toast = useToast();
   const [startingId, setStartingId] = useState('');
+
+  const visibleStatements = (data?.statements ?? []).filter(
+    (s) => !statusFilter || s.status === statusFilter,
+  );
 
   const handleReconcile = (stmt: BankStatementRow) => {
     if (stmt.unpostedCount > 0) {
@@ -92,6 +99,17 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
         <div className="w-64">
           <AccountSelector value={accountFilter} onChange={setAccountFilter} accountTypeFilter={['asset', 'liability']} />
         </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as BankStatementRow['status'] | '')}
+          className="rounded-md border-gray-300 text-sm px-3 py-2"
+          aria-label="Filter by reconciliation status"
+        >
+          <option value="">All statuses</option>
+          <option value="not_reconciled">Not reconciled</option>
+          <option value="in_progress">In progress</option>
+          <option value="reconciled">Reconciled</option>
+        </select>
         {accountFilter && (
           <button className="text-xs text-gray-500 hover:text-gray-700 underline" onClick={() => setAccountFilter('')}>
             Clear filter
@@ -125,6 +143,12 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
             </div>
           )}
 
+          {visibleStatements.length === 0 ? (
+            <div className="bg-white rounded-lg border p-6 text-sm text-gray-500">
+              No statements match this filter.{' '}
+              <button className="text-primary-600 hover:underline" onClick={() => setStatusFilter('')}>Show all</button>
+            </div>
+          ) : (
           <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
@@ -138,7 +162,7 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {data.statements.map((s) => (
+                {visibleStatements.map((s) => (
                   <tr key={s.id}>
                     <td className="px-4 py-2">
                       <span className="font-medium text-gray-900">{s.accountName}</span>
@@ -202,6 +226,7 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
               </tbody>
             </table>
           </div>
+          )}
         </>
       )}
     </div>

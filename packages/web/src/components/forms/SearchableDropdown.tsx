@@ -8,8 +8,15 @@ import clsx from 'clsx';
 
 export interface DropdownOption {
   id: string;
+  // `label` is the selected-input display text and the search haystack.
   label: string;
+  // Right-aligned muted badge on line 1 (e.g. account type).
   sublabel?: string;
+  // Two-line list rendering: when set, the list shows `title` on line 1 and
+  // `description` on line 2 (instead of `label` on a single truncated line).
+  // The input still shows `label`. Consumers that omit these render single-line.
+  title?: string;
+  description?: string;
   group?: string;
 }
 
@@ -233,15 +240,22 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
               onClick={() => handleSelect(option.id)}
               onMouseEnter={() => setHighlightIndex(idx)}
               className={clsx(
-                'cursor-pointer flex items-center justify-between',
-                compact ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm',
+                'cursor-pointer',
+                compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2.5 text-sm',
                 idx === highlightIndex ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-50',
                 option.id === value && 'font-medium',
               )}
             >
-              <span className="truncate">{option.label}</span>
-              {option.sublabel && (
-                <span className={clsx('text-gray-400 ml-2 flex-shrink-0', compact ? 'text-[10px]' : 'text-xs')}>{option.sublabel}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate">{option.title ?? option.label}</span>
+                {option.sublabel && (
+                  <span className={clsx('text-gray-400 flex-shrink-0', compact ? 'text-[10px]' : 'text-xs')}>{option.sublabel}</span>
+                )}
+              </div>
+              {option.description && (
+                <div className={clsx('truncate text-gray-500 mt-0.5', compact ? 'text-[10px]' : 'text-xs')}>
+                  {option.description}
+                </div>
               )}
             </div>
           ))}

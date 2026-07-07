@@ -38,7 +38,12 @@ export function AccountSelector({ value, onChange, label, accountTypeFilter, req
 
   const options: DropdownOption[] = filtered.map((a) => ({
     id: a.id,
+    // Selected-input display + search haystack (number and full name).
     label: a.accountNumber ? `${a.accountNumber} — ${a.name}` : a.name,
+    // Two-line list: number + type on line 1, the account name on line 2, so
+    // long names stay legible instead of truncating next to the type badge.
+    title: a.accountNumber || a.name,
+    description: a.accountNumber ? a.name : undefined,
     sublabel: a.accountType,
   }));
 

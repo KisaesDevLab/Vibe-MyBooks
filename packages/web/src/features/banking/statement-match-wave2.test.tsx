@@ -156,8 +156,11 @@ vi.mock('../../api/client', async () => {
 import { ReconciliationPage } from './ReconciliationPage';
 
 // Enter the worksheet by resuming the in-progress statement reconciliation.
+// The statements table defaults to the "not reconciled" filter, so switch it
+// to "All statuses" to reveal the in-progress statement's Resume button.
 function renderWorksheet() {
   const utils = renderRoute(<ReconciliationPage />);
+  fireEvent.change(screen.getByLabelText('Filter by reconciliation status'), { target: { value: '' } });
   fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
   return utils;
 }
@@ -233,10 +236,11 @@ describe('ReconciliationPage statement match wave 2 UI', () => {
     const create = screen.getByRole('button', { name: /Create transaction/i }) as HTMLButtonElement;
     expect(create.disabled).toBe(true); // no category picked yet
 
-    // Pick the expense category through the account dropdown.
+    // Pick the expense category through the account dropdown. The option now
+    // renders two lines (number on top, name below), so click the name.
     const accountInput = screen.getByPlaceholderText('Search accounts...');
     fireEvent.focus(accountInput);
-    fireEvent.click(screen.getByText('6000 — Supplies'));
+    fireEvent.click(screen.getByText('Supplies'));
 
     fireEvent.click(screen.getByRole('button', { name: /Create transaction/i }));
     expect(createMutate).toHaveBeenCalledOnce();
