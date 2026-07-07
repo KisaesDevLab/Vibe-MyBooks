@@ -52,7 +52,12 @@ export function PayrollAccountMappingPage() {
   };
 
   const handleSave = async () => {
-    await saveMutation.mutateAsync({ companyId, mappings: localMappings });
+    // Drop deselected rows (empty string) — the save schema validates each
+    // value as a uuid, so sending '' for an unmapped row 400s the whole PUT.
+    const mappings = Object.fromEntries(
+      Object.entries(localMappings).filter(([, v]) => v),
+    );
+    await saveMutation.mutateAsync({ companyId, mappings });
     setDirty(false);
   };
 

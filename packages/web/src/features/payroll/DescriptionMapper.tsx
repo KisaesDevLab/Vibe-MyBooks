@@ -61,12 +61,17 @@ export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl'
 
     if (entries.length === 0) return;
 
-    await saveMutation.mutateAsync({
-      sessionId,
-      providerKey,
-      mappings: entries,
-    });
-    onComplete();
+    try {
+      await saveMutation.mutateAsync({
+        sessionId,
+        providerKey,
+        mappings: entries,
+      });
+      onComplete();
+    } catch {
+      // The failure is surfaced via saveMutation.error below; swallow the
+      // rejection so it isn't an unhandled promise and we don't advance.
+    }
   };
 
   if (isLoading) {
@@ -162,6 +167,13 @@ export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl'
       {unmappedCount > 0 && (
         <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
           {unmappedCount} description(s) still need to be mapped before posting.
+        </div>
+      )}
+
+      {saveMutation.isError && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          Couldn&apos;t save the mappings:{' '}
+          {saveMutation.error instanceof Error ? saveMutation.error.message : 'Please try again.'}
         </div>
       )}
 
