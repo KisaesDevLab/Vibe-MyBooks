@@ -6,9 +6,18 @@ import { useState, useRef, useEffect } from 'react';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useMe } from '../../api/hooks/useAuth';
 import { apiClient, setTokens } from '../../api/client';
-import { AlertCircle, ChevronDown, Plus, Building2, Check, Users } from 'lucide-react';
+import { AlertCircle, ChevronDown, Plus, Building2, Check, Users, Trash2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { useToast } from '../ui/Toaster';
+
+// Temporarily disabled: "New Company (current)" (create a second company in the
+// current tenant) doesn't behave as intended yet — banking is tenant-wide, so a
+// new company doesn't get its own banking screen, which confuses operators.
+// Hidden until that flow is reworked. Flip to true to restore. "New Company
+// (no owner)" (the practice/client flow) is unaffected.
+const NEW_COMPANY_CURRENT_ENABLED = false;
 
 interface AddCompanyModalProps {
   mode: 'company' | 'client';
@@ -131,7 +140,30 @@ export function CompanySwitcher() {
   const [showAddModal, setShowAddModal] = useState<'company' | 'client' | null>(null);
   const [switchError, setSwitchError] = useState('');
   const [switchingTenantId, setSwitchingTenantId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; businessName: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
+
+  const handleDeleteCompany = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await apiClient(`/company/${deleteTarget.id}`, { method: 'DELETE' });
+      // If we deleted the active company, switch to another one first.
+      if (deleteTarget.id === activeCompanyId) {
+        const next = companies.find((c) => c.id !== deleteTarget.id);
+        if (next) setActiveCompany(next.id);
+      }
+      refreshCompanies();
+      toast.success(`Deleted "${deleteTarget.businessName}".`);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not delete the company.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const accessibleTenants = meData?.accessibleTenants || [];
   const activeTenantId = meData?.activeTenantId;
@@ -300,21 +332,41 @@ export function CompanySwitcher() {
 
             {/* Company list */}
             {companies.map((company) => (
-              <button
+              <div
                 key={company.id}
-                onClick={() => { setActiveCompany(company.id); setIsOpen(false); }}
-                className="w-full flex items-center justify-between px-3 py-2.5 text-sm transition-colors"
+                className="group w-full flex items-center justify-between px-3 py-2.5 text-sm transition-colors"
                 style={{ color: company.id === activeCompanyId ? '#FFFFFF' : '#D1D5DB', backgroundColor: company.id === activeCompanyId ? '#374151' : 'transparent' }}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#374151'; }}
                 onMouseLeave={(e) => { if (company.id !== activeCompanyId) e.currentTarget.style.backgroundColor = ''; }}
               >
-                <span className="truncate">{company.businessName}</span>
-                {company.id === activeCompanyId && <Check className="h-4 w-4 flex-shrink-0" style={{ color: '#60A5FA' }} />}
-              </button>
+                <button
+                  onClick={() => { setActiveCompany(company.id); setIsOpen(false); }}
+                  className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                  style={{ color: 'inherit', backgroundColor: 'transparent' }}
+                >
+                  <span className="truncate">{company.businessName}</span>
+                  {company.id === activeCompanyId && <Check className="h-4 w-4 flex-shrink-0" style={{ color: '#60A5FA' }} />}
+                </button>
+                {/* Owner-only delete for a non-last company. Server also guards
+                    against deleting the last company or one with activity. */}
+                {userRole === 'owner' && companies.length > 1 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: company.id, businessName: company.businessName }); }}
+                    title="Delete company"
+                    aria-label={`Delete ${company.businessName}`}
+                    className="ml-2 flex-shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ backgroundColor: 'transparent' }}
+                  >
+                    <Trash2 className="h-4 w-4" style={{ color: '#F87171' }} />
+                  </button>
+                )}
+              </div>
             ))}
 
             {/* Actions */}
+            {(NEW_COMPANY_CURRENT_ENABLED || canCreateClient) && (
             <div style={{ borderTop: '1px solid #374151' }}>
+              {NEW_COMPANY_CURRENT_ENABLED && (
               <button
                 onClick={() => { setIsOpen(false); setShowAddModal('company'); }}
                 className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors"
@@ -325,6 +377,7 @@ export function CompanySwitcher() {
                 <Plus className="h-4 w-4" />
                 New Company (current)
               </button>
+              )}
               {canCreateClient && (
                 <button
                   onClick={() => { setIsOpen(false); setShowAddModal('client'); }}
@@ -338,11 +391,23 @@ export function CompanySwitcher() {
                 </button>
               )}
             </div>
+            )}
           </div>
         )}
       </div>
 
       {showAddModal && <AddCompanyModal mode={showAddModal} onClose={() => setShowAddModal(null)} onCreated={handleCompanyCreated} />}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete company?"
+        message={`Permanently delete "${deleteTarget?.businessName}" from this tenant? This is only allowed when the company has no transactions, bank feed items, or bank connections. The tenant's chart of accounts (shared across companies) is not affected.`}
+        confirmLabel={deleting ? 'Deleting…' : 'Delete company'}
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteCompany}
+        onCancel={() => { if (!deleting) setDeleteTarget(null); }}
+      />
     </>
   );
 }
