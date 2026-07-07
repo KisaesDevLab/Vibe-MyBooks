@@ -250,4 +250,15 @@ describe('ReconciliationPage statement match wave 2 UI', () => {
       memo: 'MYSTERY FEE',
     });
   });
+
+  it('Confirm all confirms every suggestion at once (top set per group)', () => {
+    renderWorksheet();
+    fireEvent.click(screen.getByRole('button', { name: /Confirm all/i }));
+    expect(confirmMutate).toHaveBeenCalledTimes(2);
+    const payloads = confirmMutate.mock.calls.map((c) => c[0]);
+    // one_to_many → the FIRST exact-sum set; many_to_one → the anchor line +
+    // the other member statement lines.
+    expect(payloads).toContainEqual({ lineId: 'sl-g1', journalLineIds: ['jl-a', 'jl-b', 'jl-c'] });
+    expect(payloads).toContainEqual({ lineId: 'sl-m1', journalLineId: 'jl-100', memberStatementLineIds: ['sl-m2', 'sl-m3'] });
+  });
 });

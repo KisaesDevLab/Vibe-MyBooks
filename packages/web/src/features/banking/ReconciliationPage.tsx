@@ -517,6 +517,29 @@ function AddToBooksModal({
 
 // Suggestions + unmatched statement lines + outstanding chip, driven by the
 // persisted match state (survives reloads).
+// The confirm payload a suggestion resolves to on its own — the top-ranked
+// candidate for a single match, or the FIRST exact-sum set for a grouped one.
+// Used by "Confirm all"; mirrors each card's own Confirm handler. Returns null
+// when a suggestion has nothing to confirm.
+function defaultConfirmPayload(s: StatementMatchSuggestion): ConfirmStatementLinePayload | null {
+  const sl = s.statementLine;
+  if (s.candidates.length > 0 && s.candidates[0]) {
+    return { lineId: sl.id, journalLineId: s.candidates[0].journalLineId };
+  }
+  const g = s.groupCandidates?.[0];
+  if (g && g.journalLines[0]) {
+    if (g.kind === 'one_to_many') {
+      return { lineId: sl.id, journalLineIds: g.journalLines.map((j) => j.journalLineId) };
+    }
+    return {
+      lineId: sl.id,
+      journalLineId: g.journalLines[0].journalLineId,
+      memberStatementLineIds: g.memberStatementLines.filter((m) => m.id !== sl.id).map((m) => m.id),
+    };
+  }
+  return null;
+}
+
 function StatementMatchPanel({
   reconId, isComplete, onShowUncleared,
 }: {
@@ -547,6 +570,37 @@ function StatementMatchPanel({
     });
   };
 
+  // Bulk actions. Payloads are captured up front so the per-confirm refetches
+  // don't shift the list mid-loop. Confirm posts each match (clears the txn);
+  // reject just dismisses the suggestion (recoverable).
+  const handleConfirmAll = () => {
+    const payloads = data.suggestions
+      .map(defaultConfirmPayload)
+      .filter((p): p is ConfirmStatementLinePayload => p !== null);
+    if (payloads.length === 0) return;
+    let failed = 0;
+    let settled = 0;
+    payloads.forEach((p) =>
+      confirmLine.mutate(p, {
+        onError: () => { failed++; },
+        onSettled: () => {
+          settled++;
+          if (settled === payloads.length) {
+            const ok = payloads.length - failed;
+            if (ok > 0) toast.success(`Confirmed ${ok} match${ok === 1 ? '' : 'es'}${failed ? `; ${failed} failed` : ''}.`);
+            else toast.error('Could not confirm the matches.');
+          }
+        },
+      }),
+    );
+  };
+  const handleRejectAll = () => {
+    const ids = data.suggestions.map((s) => s.statementLine.id);
+    ids.forEach((id) => rejectLine.mutate(id));
+    if (ids.length > 0) toast.info(`Rejected ${ids.length} suggestion${ids.length === 1 ? '' : 's'}.`);
+  };
+  const bulkPending = confirmLine.isPending || rejectLine.isPending;
+
   const rejected = data.unmatchedLines.filter((l) => l.matchStatus === 'rejected');
   const unmatched = data.unmatchedLines.filter((l) => l.matchStatus !== 'rejected');
 
@@ -565,9 +619,23 @@ function StatementMatchPanel({
 
       {data.suggestions.length > 0 && (
         <div className="bg-white rounded-lg border shadow-sm p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">
-            Suggested matches ({data.suggestions.length}) — review and confirm
-          </h3>
+          <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+            <h3 className="text-sm font-semibold text-gray-900">
+              Suggested matches ({data.suggestions.length}) — review and confirm
+            </h3>
+            {/* Bulk actions — act on every suggestion at once (each uses its
+                top candidate / first exact-sum set). Per-row buttons remain. */}
+            {!isComplete && data.suggestions.length >= 2 && (
+              <div className="flex gap-2 flex-shrink-0">
+                <Button size="sm" onClick={handleConfirmAll} loading={confirmLine.isPending} disabled={bulkPending}>
+                  <Check className="h-4 w-4 mr-1" /> Confirm all ({data.suggestions.length})
+                </Button>
+                <Button size="sm" variant="secondary" onClick={handleRejectAll} disabled={bulkPending}>
+                  <X className="h-4 w-4 mr-1" /> Reject all
+                </Button>
+              </div>
+            )}
+          </div>
           <div className="space-y-3">
             {data.suggestions.map((s) => (
               <SuggestionCard
