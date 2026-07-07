@@ -243,7 +243,10 @@ export function ExpenseForm() {
               {lines.map((line, i) => (
                 <tr key={i} className="align-top">
                   <td className="pr-2 py-1">
-                    <AccountSelector value={line.expenseAccountId} onChange={(val) => updateLine(i, 'expenseAccountId', val)} accountTypeFilter="expense" required={i === 0} />
+                    {/* No account-type filter: an expense can be booked to any
+                        account (e.g. a prepaid/fixed asset, a liability paydown,
+                        or owner draws), not just expense accounts. */}
+                    <AccountSelector value={line.expenseAccountId} onChange={(val) => updateLine(i, 'expenseAccountId', val)} required={i === 0} />
                   </td>
                   <td className="px-2 py-1">
                     <MoneyInput value={line.amount} onChange={(val) => updateLine(i, 'amount', val)} required={i === 0} />
