@@ -200,7 +200,7 @@ function KpiStatusDot({ status }: { status?: string }) {
   );
 }
 
-function ReportSnapshot({ data, layout }: { data: Record<string, unknown>; layout: unknown[] }) {
+export function ReportSnapshot({ data, layout }: { data: Record<string, unknown>; layout: unknown[] }) {
   const kpiValues = (data['kpis'] as Record<string, unknown>) ?? {};
   const kpiNames = (data['kpi_names'] as Record<string, string>) ?? {};
   const kpiStatus = (data['kpi_status'] as Record<string, string>) ?? {};

@@ -252,6 +252,7 @@ const MagicLinkVerifyPage = lazyNamed(() => import('./features/auth/MagicLinkVer
 const OAuthConsentPage = lazyNamed(() => import('./features/auth/OAuthConsentPage'), 'OAuthConsentPage');
 const FirstRunSetupWizard = lazyNamed(() => import('./features/setup/FirstRunSetupWizard'), 'FirstRunSetupWizard');
 const PublicInvoicePage = lazyNamed(() => import('./features/public/PublicInvoicePage'), 'PublicInvoicePage');
+const PublicReportPage = lazyNamed(() => import('./features/reports/PublicReportPage'), 'PublicReportPage');
 const W9SubmitPage = lazyNamed(() => import('./features/public/W9SubmitPage'), 'W9SubmitPage');
 const SplitRowV2GalleryPage = lazyNamed(() => import('./features/__dev__/SplitRowV2Gallery'), 'SplitRowV2GalleryPage');
 
@@ -296,6 +297,10 @@ export function App() {
           <Route path="/oauth/consent" element={<OAuthConsentPage />} />
           <Route path="/first-run-setup" element={<FirstRunSetupWizard />} />
           <Route path="/pay/:token" element={<PublicInvoicePage />} />
+          {/* Anonymous share link for a published financial report.
+              Backed by /api/reports/public/:token (rate-limited public
+              router). Public — outside the auth guard. */}
+          <Route path="/reports/view/:token" element={<PublicReportPage />} />
           {/* Public W-9 collection — magic-link in URL is the auth.
               Backed by /api/w9/* (rate-limited public router). */}
           <Route path="/w9/:token" element={<W9SubmitPage />} />

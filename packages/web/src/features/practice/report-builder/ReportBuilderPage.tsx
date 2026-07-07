@@ -29,6 +29,8 @@ import {
   AlignJustify,
   Sparkles,
   Archive,
+  Link2,
+  Check,
 } from 'lucide-react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { apiClient, API_BASE, getAccessToken } from '../../../api/client';
@@ -86,6 +88,9 @@ export function ReportBuilderPage() {
   // duplicate / archive / delete / download) is running, that row's
   // action buttons are disabled and re-entry is a no-op.
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Row whose share link was just copied (drives the transient "Copied!"
+  // affordance on the Copy-link button).
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   // Initial-load failure state (distinct from per-action errors) so the
   // page can render a Retry instead of spinning forever.
   const [loadFailed, setLoadFailed] = useState(false);
@@ -195,6 +200,40 @@ export function ReportBuilderPage() {
       URL.revokeObjectURL(url);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Download failed.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Mint (idempotent, server-side) an anonymous share link for a
+  // published report and copy it to the clipboard. Mirrors the invoice
+  // ShareLinkButton: clipboard.writeText with an execCommand fallback for
+  // non-HTTPS origins, plus a transient "Copied!" state.
+  const copyShareLink = async (i: Instance) => {
+    if (busyId) return;
+    setBusyId(i.id);
+    setError(null);
+    try {
+      const { url } = await api<{ url: string }>(
+        `/practice/reports/instances/${i.id}/share-link`,
+        { method: 'POST' },
+      );
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopiedId(i.id);
+      setTimeout(() => setCopiedId((c) => (c === i.id ? null : c)), 2000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create share link.');
     } finally {
       setBusyId(null);
     }
@@ -402,6 +441,18 @@ export function ReportBuilderPage() {
                               <Download className="h-3.5 w-3.5" /> PDF
                             </button>
                           )}
+                          <button
+                            onClick={() => copyShareLink(i)}
+                            disabled={busy}
+                            title="Copy an anonymous client view link"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:underline mr-2 disabled:opacity-50"
+                          >
+                            {copiedId === i.id ? (
+                              <><Check className="h-3.5 w-3.5 text-green-600" /> Copied!</>
+                            ) : (
+                              <><Link2 className="h-3.5 w-3.5" /> Copy link</>
+                            )}
+                          </button>
                           <button
                             onClick={() => duplicateInstance(i)}
                             disabled={busy}
