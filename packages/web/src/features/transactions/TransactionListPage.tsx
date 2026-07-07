@@ -62,6 +62,13 @@ const statusColors: Record<string, string> = {
   void: 'bg-red-100 text-red-700',
 };
 
+const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+// Debit/Credit cell: a positive amount, or blank when zero/absent (register style).
+const fmtDC = (v: string | null | undefined) => {
+  const n = v ? parseFloat(v) : 0;
+  return n ? usd(n) : '';
+};
+
 export function TransactionListPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -497,7 +504,14 @@ export function TransactionListPage() {
                 <SortableTh sortKey="memo" label="Memo" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                 <SortableTh sortKey="category" label="Category" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tag</th>
-                <SortableTh sortKey="amount" label="Amount" align="right" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                {accountFilter ? (
+                  <>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Debit</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Credit</th>
+                  </>
+                ) : (
+                  <SortableTh sortKey="amount" label="Amount" align="right" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                )}
                 <SortableTh sortKey="status" label="Status" align="center" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
@@ -552,15 +566,29 @@ export function TransactionListPage() {
                       );
                     })()}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">
-                    {(() => {
-                      // displayTotal = total with a server-side fallback to the
-                      // journal-line magnitude (JEs/transfers/imports have no
-                      // document total and used to render as an em dash).
-                      const amount = txn.displayTotal ?? txn.total;
-                      return amount ? parseFloat(amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '—';
-                    })()}
-                  </td>
+                  {accountFilter ? (
+                    <>
+                      {/* GL/register view: this account's debit and credit for
+                          the transaction (accountDebit/accountCredit come from
+                          the server only when an account filter is active). */}
+                      <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">
+                        {fmtDC((txn as { accountDebit?: string | null }).accountDebit)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">
+                        {fmtDC((txn as { accountCredit?: string | null }).accountCredit)}
+                      </td>
+                    </>
+                  ) : (
+                    <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">
+                      {(() => {
+                        // displayTotal = total with a server-side fallback to the
+                        // journal-line magnitude (JEs/transfers/imports have no
+                        // document total and used to render as an em dash).
+                        const amount = txn.displayTotal ?? txn.total;
+                        return amount ? usd(parseFloat(amount)) : '—';
+                      })()}
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[txn.status] || ''}`}>
                       {txn.status}
@@ -576,8 +604,20 @@ export function TransactionListPage() {
           {txns.map((txn) => {
             const cats = (txn as { lineCategories?: string[] | null }).lineCategories ?? null;
             const categoryLabel = !cats || cats.length === 0 ? null : cats.length === 1 ? cats[0] : '— Split —';
-            const amount = txn.displayTotal ?? txn.total;
-            const amountLabel = amount ? parseFloat(amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '—';
+            // Account-filtered: a card can't show two columns, so show the
+            // signed net for this account — debit positive, credit negative.
+            let amountLabel: string;
+            let amountClass = 'text-gray-900';
+            if (accountFilter) {
+              const d = parseFloat((txn as { accountDebit?: string | null }).accountDebit ?? '0') || 0;
+              const c = parseFloat((txn as { accountCredit?: string | null }).accountCredit ?? '0') || 0;
+              const net = d - c;
+              amountLabel = usd(net);
+              amountClass = net < 0 ? 'text-red-600' : 'text-gray-900';
+            } else {
+              const amount = txn.displayTotal ?? txn.total;
+              amountLabel = amount ? usd(parseFloat(amount)) : '—';
+            }
             return (
               <button
                 key={txn.id}
@@ -598,7 +638,7 @@ export function TransactionListPage() {
                     {txn.memo && <div className="text-xs text-gray-500 truncate">{txn.memo}</div>}
                     {categoryLabel && <div className="text-xs text-gray-400 truncate">{categoryLabel}</div>}
                   </div>
-                  <div className="text-sm text-gray-900 text-right font-mono whitespace-nowrap">{amountLabel}</div>
+                  <div className={`text-sm text-right font-mono whitespace-nowrap ${amountClass}`}>{amountLabel}</div>
                 </div>
               </button>
             );
