@@ -30,10 +30,17 @@ const statusColors: Record<string, string> = {
   excluded: 'bg-gray-100 text-gray-500',
 };
 
+// Default categorization confidence threshold (ai_config, FIX 5). Suggestions
+// below this are surfaced for review rather than auto-post-eligible, so we
+// flag them with an amber "Review" treatment instead of a neutral "Low".
+const REVIEW_THRESHOLD = 0.5;
+
 function ConfidenceBadge({ score }: { score: number }) {
   if (score >= 0.9) return <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">High</span>;
   if (score >= 0.7) return <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-medium">Medium</span>;
-  return <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">Low</span>;
+  if (score >= REVIEW_THRESHOLD) return <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">Low</span>;
+  // Below threshold — needs a human look before it's posted.
+  return <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium" title="Low confidence — review before approving">Review</span>;
 }
 
 interface EditState {

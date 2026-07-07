@@ -234,7 +234,7 @@ export function AiConfigPage() {
     statementExtractionModel: '',
     autoCategorizeOnImport: true,
     autoOcrOnUpload: true,
-    categorizationConfidenceThreshold: 0.7,
+    categorizationConfidenceThreshold: 0.5, // FIX 5: default lowered 0.70 → 0.50
     maxConcurrentJobs: 5,
     monthlyBudgetLimit: null,
     piiProtectionLevel: 'strict',
