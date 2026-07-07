@@ -98,7 +98,7 @@ export function CloseReviewPage() {
           summary={summary}
         />
       )}
-      {tab === 'findings' && <FindingsTab />}
+      {tab === 'findings' && <FindingsTab period={period} />}
       {tab === 'manual' && <ManualQueueTab period={period} />}
     </div>
   );

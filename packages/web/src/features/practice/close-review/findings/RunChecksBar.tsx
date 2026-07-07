@@ -13,9 +13,11 @@ import {
 import { useFeatureFlag } from '../../../../api/hooks/useFeatureFlag';
 import { Button } from '../../../../components/ui/Button';
 import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog';
+import type { ClosePeriod } from '../ClosePeriodSelector';
 
 interface Props {
   companyId: string | null;
+  period: ClosePeriod;
 }
 
 // Build plan §7.1 + AI expansion phase:
@@ -24,7 +26,7 @@ interface Props {
 //     'judgment'`). Shown only when AI_JUDGMENT_CHECKS_V1 is on.
 //     Confirm dialog reminds the bookkeeper that AI credits will
 //     be consumed.
-export function RunChecksBar({ companyId }: Props) {
+export function RunChecksBar({ companyId, period }: Props) {
   const { data: runsData } = useCheckRuns(5);
   const runChecks = useRunChecks();
   const runAiJudgment = useRunAiJudgment();
@@ -90,7 +92,13 @@ export function RunChecksBar({ companyId }: Props) {
         <Button
           variant="primary"
           size="sm"
-          onClick={() => runChecks.mutate({ companyId: companyId ?? undefined })}
+          onClick={() =>
+            runChecks.mutate({
+              companyId: companyId ?? undefined,
+              periodStart: period.periodStart,
+              periodEnd: period.periodEnd,
+            })
+          }
           disabled={runChecks.isPending}
         >
           {runChecks.isPending ? (

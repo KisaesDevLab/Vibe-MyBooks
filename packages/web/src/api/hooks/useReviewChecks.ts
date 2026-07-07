@@ -45,6 +45,11 @@ export interface FindingsListInput {
   severity?: FindingSeverity;
   checkKey?: string;
   companyId?: string | null;
+  // Close-period scope. Findings stamped with a run period inside
+  // [periodStart, periodEnd) are returned. Included in the query key
+  // so switching months refetches.
+  periodStart?: string;
+  periodEnd?: string;
   cursor?: string;
   limit?: number;
 }
@@ -60,6 +65,8 @@ export function useFindings(input: FindingsListInput) {
   if (input.severity) qs.set('severity', input.severity);
   if (input.checkKey) qs.set('checkKey', input.checkKey);
   if (input.companyId) qs.set('companyId', input.companyId);
+  if (input.periodStart) qs.set('periodStart', input.periodStart);
+  if (input.periodEnd) qs.set('periodEnd', input.periodEnd);
   if (input.cursor) qs.set('cursor', input.cursor);
   if (input.limit) qs.set('limit', String(input.limit));
   return useQuery({
@@ -129,10 +136,14 @@ export interface RunResultClient {
 export function useRunChecks() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { companyId?: string | null }) =>
+    mutationFn: (input: { companyId?: string | null; periodStart?: string; periodEnd?: string }) =>
       apiClient<{ runs: RunResultClient[] }>('/practice/checks/run', {
         method: 'POST',
-        body: JSON.stringify(input.companyId ? { companyId: input.companyId } : {}),
+        body: JSON.stringify({
+          ...(input.companyId ? { companyId: input.companyId } : {}),
+          ...(input.periodStart ? { periodStart: input.periodStart } : {}),
+          ...(input.periodEnd ? { periodEnd: input.periodEnd } : {}),
+        }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['practice', 'checks'] });

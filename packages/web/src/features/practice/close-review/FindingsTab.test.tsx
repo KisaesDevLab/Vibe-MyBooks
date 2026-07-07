@@ -53,6 +53,13 @@ vi.mock('../../../api/hooks/useFeatureFlag', () => ({
 }));
 
 import { FindingsTab } from './FindingsTab';
+import type { ClosePeriod } from './ClosePeriodSelector';
+
+const TEST_PERIOD: ClosePeriod = {
+  label: 'July 2026',
+  periodStart: '2026-07-01T00:00:00.000Z',
+  periodEnd: '2026-08-01T00:00:00.000Z',
+};
 
 beforeEach(() => {
   mockTransition.mockReset();
@@ -99,7 +106,7 @@ beforeEach(() => {
 
 describe('FindingsTab', () => {
   it('renders the run-checks bar and empty state when no findings', () => {
-    renderRoute(<FindingsTab />);
+    renderRoute(<FindingsTab period={TEST_PERIOD} />);
     expect(screen.getByRole('button', { name: /Run checks now/ })).toBeInTheDocument();
     expect(screen.getByText(/No findings match these filters/)).toBeInTheDocument();
   });
@@ -122,7 +129,7 @@ describe('FindingsTab', () => {
         resolutionNote: null,
       },
     ];
-    renderRoute(<FindingsTab />);
+    renderRoute(<FindingsTab period={TEST_PERIOD} />);
     // Filter dropdown also lists the same name; pick the table cell.
     const cell = document.querySelector('table tbody tr td:nth-child(3)');
     expect(cell?.textContent).toContain('Above materiality threshold');
@@ -147,7 +154,7 @@ describe('FindingsTab', () => {
         resolutionNote: null,
       },
     ];
-    renderRoute(<FindingsTab />);
+    renderRoute(<FindingsTab period={TEST_PERIOD} />);
     const row = document.querySelector('table tbody tr');
     expect(row).toBeTruthy();
     fireEvent.click(row!);
@@ -157,7 +164,7 @@ describe('FindingsTab', () => {
   });
 
   it('triggers run-checks mutation when the toolbar button is pressed', () => {
-    renderRoute(<FindingsTab />);
+    renderRoute(<FindingsTab period={TEST_PERIOD} />);
     fireEvent.click(screen.getByRole('button', { name: /Run checks now/ }));
     expect(mockRunChecks).toHaveBeenCalledTimes(1);
   });

@@ -11,6 +11,7 @@ import {
   useFindingsSummary,
 } from '../../../api/hooks/useReviewChecks';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import type { ClosePeriod } from './ClosePeriodSelector';
 import { RunChecksBar } from './findings/RunChecksBar';
 import { FindingsSummary } from './findings/FindingsSummary';
 import { FindingsFilterBar } from './findings/FindingsFilterBar';
@@ -27,7 +28,11 @@ import { FindingDetailDrawer } from './findings/FindingDetailDrawer';
 //   - Drawer with state-transition actions, history, "ignore similar"
 // Defaults to status='open' so the first thing the bookkeeper
 // sees is what still needs their attention.
-export function FindingsTab() {
+interface Props {
+  period: ClosePeriod;
+}
+
+export function FindingsTab({ period }: Props) {
   const { activeCompanyId } = useCompanyContext();
   const [statusFilter, setStatusFilter] = useState<FindingStatus | null>('open');
   const [severityFilter, setSeverityFilter] = useState<FindingSeverity | null>(null);
@@ -42,6 +47,8 @@ export function FindingsTab() {
     severity: severityFilter ?? undefined,
     checkKey: checkFilter ?? undefined,
     companyId: activeCompanyId ?? null,
+    periodStart: period.periodStart,
+    periodEnd: period.periodEnd,
     limit: 100,
   });
 
@@ -74,7 +81,7 @@ export function FindingsTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <RunChecksBar companyId={activeCompanyId ?? null} />
+      <RunChecksBar companyId={activeCompanyId ?? null} period={period} />
       <FindingsSummary
         summary={summaryQ.data}
         activeStatus={statusFilter}
