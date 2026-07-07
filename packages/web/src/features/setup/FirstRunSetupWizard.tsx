@@ -184,7 +184,13 @@ export function FirstRunSetupWizard() {
           }
         }
         if (status.setupComplete && !status.statusCheckFailed) {
+          // The system is already set up and running — never show the
+          // first-run wizard. Bounce straight to login instead of rendering
+          // an intermediate "already complete" card the operator has to
+          // dismiss. (The pending-recovery-key case above is handled first,
+          // so we don't skip an unacknowledged recovery key.)
           setBootstrapState('already-complete');
+          navigate('/login', { replace: true });
           return;
         }
         if (status.statusCheckFailed) {
