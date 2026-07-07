@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../client';
 
 export interface RuleSuggestion {
@@ -27,5 +27,22 @@ export function useRuleSuggestions() {
     queryFn: () =>
       apiClient<{ suggestions: RuleSuggestion[] }>('/practice/conditional-rules/suggestions'),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Permanently dismiss a suggestion. Suggestions carry no id, so we send
+// the identifying (payeePattern, accountId) tuple; the server persists a
+// suppression row that detectSuggestions filters against. Invalidates the
+// suggestions query so the dismissed row drops out of the list.
+export function useDismissRuleSuggestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { payeePattern: string; accountId: string }) =>
+      apiClient<void>('/practice/conditional-rules/suggestions/dismiss', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['practice', 'conditional-rules', 'suggestions'] }),
   });
 }

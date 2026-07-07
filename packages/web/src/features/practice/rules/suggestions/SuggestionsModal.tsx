@@ -4,7 +4,11 @@
 
 import { Lightbulb, X } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
-import { useRuleSuggestions, type RuleSuggestion } from '../../../../api/hooks/useRuleSuggestions';
+import {
+  useRuleSuggestions,
+  useDismissRuleSuggestion,
+  type RuleSuggestion,
+} from '../../../../api/hooks/useRuleSuggestions';
 import { useCreateConditionalRule } from '../../../../api/hooks/useConditionalRules';
 
 interface Props {
@@ -19,6 +23,7 @@ interface Props {
 export function SuggestionsModal({ open, onClose }: Props) {
   const { data, isLoading } = useRuleSuggestions();
   const create = useCreateConditionalRule();
+  const dismiss = useDismissRuleSuggestion();
 
   if (!open) return null;
   const suggestions = data?.suggestions ?? [];
@@ -30,6 +35,18 @@ export function SuggestionsModal({ open, onClose }: Props) {
       actions: s.proposedRule.actions,
     });
   };
+
+  const dismissSuggestion = (s: RuleSuggestion) => {
+    dismiss.mutate({ payeePattern: s.payeePattern, accountId: s.accountId });
+  };
+
+  // Per-row pending flags — the mutations are shared across rows, so key the
+  // spinner/disable on the row currently in flight rather than freezing the
+  // whole list.
+  const isDismissing = (s: RuleSuggestion) =>
+    dismiss.isPending &&
+    dismiss.variables?.payeePattern === s.payeePattern &&
+    dismiss.variables?.accountId === s.accountId;
 
   return (
     <div
@@ -86,13 +103,24 @@ export function SuggestionsModal({ open, onClose }: Props) {
                     {Math.round(s.overrideRate * 100)}%
                   </div>
                 </div>
-                <Button
-                  variant="primary"
-                  onClick={() => createFromSuggestion(s)}
-                  disabled={create.isPending}
-                >
-                  Create rule
-                </Button>
+                <div className="flex flex-col gap-1.5 shrink-0 sm:flex-row">
+                  <Button
+                    variant="primary"
+                    onClick={() => createFromSuggestion(s)}
+                    disabled={create.isPending || dismiss.isPending}
+                  >
+                    Create rule
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => dismissSuggestion(s)}
+                    loading={isDismissing(s)}
+                    disabled={create.isPending || dismiss.isPending}
+                    title="Hide this suggestion permanently"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>

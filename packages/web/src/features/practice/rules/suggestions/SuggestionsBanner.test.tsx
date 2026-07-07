@@ -6,12 +6,14 @@ import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import { renderRoute } from '../../../../test-utils';
 
-const { suggestionsData } = vi.hoisted(() => ({
+const { suggestionsData, dismissMutate } = vi.hoisted(() => ({
   suggestionsData: { data: { suggestions: [] as Array<unknown> } },
+  dismissMutate: vi.fn(),
 }));
 
 vi.mock('../../../../api/hooks/useRuleSuggestions', () => ({
   useRuleSuggestions: () => suggestionsData,
+  useDismissRuleSuggestion: () => ({ mutate: dismissMutate, isPending: false, variables: undefined }),
 }));
 vi.mock('../../../../api/hooks/useConditionalRules', () => ({
   useCreateConditionalRule: () => ({ mutate: vi.fn(), isPending: false }),
@@ -47,6 +49,19 @@ describe('SuggestionsBanner', () => {
     fireEvent.click(screen.getByText(/1 potential rule detected/));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Amazon → Office')).toBeInTheDocument();
+  });
+
+  it('Dismiss button fires the dismissal mutation with the suggestion tuple', () => {
+    dismissMutate.mockClear();
+    suggestionsData.data = {
+      suggestions: [
+        { payeePattern: 'amazon', accountId: 'a', accountName: 'Office', timesConfirmed: 8, overrideRate: 0.05, proposedRule: { name: 'Amazon → Office', conditions: { type: 'leaf', field: 'descriptor', operator: 'contains', value: 'amazon' }, actions: [{ type: 'set_account', accountId: 'a' }] } },
+      ],
+    };
+    renderRoute(<SuggestionsBanner />);
+    fireEvent.click(screen.getByText(/1 potential rule detected/));
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(dismissMutate).toHaveBeenCalledWith({ payeePattern: 'amazon', accountId: 'a' });
   });
 
   it('singular form for one suggestion', () => {
