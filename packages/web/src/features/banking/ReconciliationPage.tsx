@@ -8,6 +8,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   useStartReconciliation, useReconciliation, useUpdateReconciliationLines, useCompleteReconciliation,
+  useReconciliations, useUpdateReconciliation, useCancelReconciliation,
   useBankStatements, useAutoClearStatement, type BankStatementRow,
   useMatchStatement, useStatementMatches, useConfirmStatementLine, useRejectStatementLine,
   useCreateFromStatementLine,
@@ -25,7 +26,8 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { useToast } from '../../components/ui/Toaster';
-import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus } from 'lucide-react';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil } from 'lucide-react';
 
 // Open the statement PDF in a new tab via the single-use download token
 // (same pattern as ReportShell's openPdfInTab — window.open can't carry an
@@ -609,14 +611,26 @@ export function ReconciliationPage() {
   // worksheet filter driven by the outstanding-items chip.
   const [matchResult, setMatchResult] = useState<StatementMatchResult | null>(null);
   const [unclearedOnly, setUnclearedOnly] = useState(false);
+  // Inline edit of the statement ending balance (in-progress recs only).
+  const [editingBalance, setEditingBalance] = useState(false);
+  const [balanceDraft, setBalanceDraft] = useState('');
+  // Confirm before discarding an in-progress reconciliation.
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const startRecon = useStartReconciliation();
   const { data: reconData, isLoading, isError, refetch } = useReconciliation(reconId);
   const updateLines = useUpdateReconciliationLines();
   const completeRecon = useCompleteReconciliation();
+  const updateRecon = useUpdateReconciliation();
+  const cancelRecon = useCancelReconciliation();
   const autoClear = useAutoClearStatement();
   const matchStatement = useMatchStatement();
   const toast = useToast();
+  // On the start screen, surface any in-progress reconciliation for the
+  // chosen account so it can be resumed or discarded — otherwise the start
+  // guard ("already in progress") is a dead end with no way back in.
+  const { data: historyData } = useReconciliations(accountId);
+  const inProgressRecon = historyData?.reconciliations.find((r) => r.status === 'in_progress');
 
   const handleStart = () => {
     startRecon.mutate({
@@ -628,6 +642,30 @@ export function ReconciliationPage() {
 
   const handleToggleLine = (journalLineId: string, isCleared: boolean) => {
     updateLines.mutate({ id: reconId, lines: [{ journalLineId, isCleared }] });
+  };
+
+  const handleSaveBalance = () => {
+    updateRecon.mutate(
+      { id: reconId, statementEndingBalance: balanceDraft },
+      {
+        onSuccess: () => {
+          setEditingBalance(false);
+          toast.success('Ending balance updated.');
+        },
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not update balance.'),
+      },
+    );
+  };
+
+  const handleCancelRecon = (id: string, { resetView }: { resetView: boolean }) => {
+    cancelRecon.mutate(id, {
+      onSuccess: () => {
+        if (resetView) setReconId('');
+        setShowCancelConfirm(false);
+        toast.success('Reconciliation canceled.');
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not cancel reconciliation.'),
+    });
   };
 
   const handleAutoClear = () => {
@@ -689,9 +727,34 @@ export function ReconciliationPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Start Manually</h2>
         <div className="max-w-md bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <AccountSelector label="Bank Account" value={accountId} onChange={setAccountId} accountTypeFilter="asset" required />
+
+          {/* An in-progress reconciliation blocks starting a new one — offer a
+              way back in (resume) or out (cancel) instead of a dead-end error. */}
+          {inProgressRecon && (
+            <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-2">
+              <p className="text-sm text-amber-800">
+                A reconciliation is already in progress for this account
+                {inProgressRecon.createdAt ? ` (started ${new Date(inProgressRecon.createdAt).toLocaleDateString()})` : ''}.
+              </p>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => setReconId(inProgressRecon.id)}>
+                  Resume
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleCancelRecon(inProgressRecon.id, { resetView: false })}
+                  loading={cancelRecon.isPending}
+                >
+                  <X className="h-4 w-4 mr-1" /> Cancel it
+                </Button>
+              </div>
+            </div>
+          )}
+
           <DatePicker label="Statement Date" value={statementDate} onChange={(e) => setStatementDate(e.target.value)} required />
           <MoneyInput label="Statement Ending Balance" value={endingBalance} onChange={setEndingBalance} required />
-          <Button onClick={handleStart} loading={startRecon.isPending} disabled={!accountId || !endingBalance}>
+          <Button onClick={handleStart} loading={startRecon.isPending} disabled={!accountId || !endingBalance || !!inProgressRecon}>
             Start Reconciliation
           </Button>
           {startRecon.isError && (
@@ -717,6 +780,9 @@ export function ReconciliationPage() {
   const isBalanced = Math.abs(diff) < 0.01;
   const m = (n: number) => `$${n.toFixed(2)}`;
   const isComplete = recon.status === 'complete';
+  // Select-all state is derived from the currently-visible (filtered) rows.
+  const allVisibleCleared = view.length > 0 && view.every((l) => l.is_cleared);
+  const someVisibleCleared = view.some((l) => l.is_cleared);
 
   // Cleared vs uncleared totals split by deposits vs payments (+ counts).
   const t = lines.reduce((acc, l) => {
@@ -772,7 +838,34 @@ export function ReconciliationPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="bg-white rounded-lg border p-4 text-center">
           <p className="text-xs text-gray-500 uppercase">Statement Balance</p>
-          <p className="text-lg font-mono font-bold">${parseFloat(recon.statementEndingBalance).toFixed(2)}</p>
+          {editingBalance && !isComplete ? (
+            <div className="mt-1 space-y-1">
+              <MoneyInput value={balanceDraft} onChange={setBalanceDraft} />
+              <div className="flex items-center justify-center gap-1">
+                <Button size="sm" onClick={handleSaveBalance} loading={updateRecon.isPending}>
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setEditingBalance(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-1.5">
+              <p className="text-lg font-mono font-bold">${parseFloat(recon.statementEndingBalance).toFixed(2)}</p>
+              {!isComplete && (
+                <button
+                  type="button"
+                  onClick={() => { setBalanceDraft(recon.statementEndingBalance); setEditingBalance(true); }}
+                  className="text-gray-400 hover:text-gray-700"
+                  aria-label="Edit statement ending balance"
+                  title="Edit ending balance"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div className="bg-white rounded-lg border p-4 text-center">
           <p className="text-xs text-gray-500 uppercase">Beginning</p>
@@ -856,7 +949,26 @@ export function ReconciliationPage() {
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="w-10 px-4 py-2" />
+              <th className="w-10 px-4 py-2">
+                {/* Clear / un-clear every currently-visible row in one call.
+                    Targets the filtered `view`, so it respects the active
+                    deposits/payments/uncleared/search filters. */}
+                <input
+                  type="checkbox"
+                  className="rounded"
+                  disabled={isComplete || view.length === 0 || updateLines.isPending}
+                  checked={allVisibleCleared}
+                  ref={(el) => { if (el) el.indeterminate = someVisibleCleared && !allVisibleCleared; }}
+                  onChange={() =>
+                    updateLines.mutate({
+                      id: reconId,
+                      lines: view.map((l) => ({ journalLineId: l.journal_line_id, isCleared: !allVisibleCleared })),
+                    })
+                  }
+                  aria-label="Select all visible rows"
+                  title={allVisibleCleared ? 'Un-clear all visible rows' : 'Clear all visible rows'}
+                />
+              </th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('date')}>Date{sortArrow('date')}</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('type')}>Type{sortArrow('type')}</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('description')}>Description{sortArrow('description')}</th>
@@ -890,9 +1002,14 @@ export function ReconciliationPage() {
       </div>
 
       {!isComplete && (
-        <Button onClick={() => completeRecon.mutate(reconId)} disabled={!isBalanced} loading={completeRecon.isPending}>
-          Complete Reconciliation
-        </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button onClick={() => completeRecon.mutate(reconId)} disabled={!isBalanced} loading={completeRecon.isPending}>
+            Complete Reconciliation
+          </Button>
+          <Button variant="secondary" onClick={() => setShowCancelConfirm(true)}>
+            <X className="h-4 w-4 mr-1" /> Cancel reconciliation
+          </Button>
+        </div>
       )}
       {isComplete && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800 flex items-center gap-3 flex-wrap">
@@ -902,6 +1019,17 @@ export function ReconciliationPage() {
           </Link>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showCancelConfirm}
+        title="Cancel this reconciliation?"
+        message="This discards the in-progress reconciliation and un-clears every line. Nothing is posted to the ledger, and you can start a new reconciliation afterward. This cannot be undone."
+        confirmLabel="Cancel reconciliation"
+        cancelLabel="Keep working"
+        variant="danger"
+        onConfirm={() => handleCancelRecon(reconId, { resetView: true })}
+        onCancel={() => setShowCancelConfirm(false)}
+      />
     </div>
   );
 }

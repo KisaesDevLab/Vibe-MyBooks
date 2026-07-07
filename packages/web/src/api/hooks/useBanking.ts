@@ -420,6 +420,36 @@ export function useCompleteReconciliation() {
   });
 }
 
+// Edit the statement ending balance on an in-progress reconciliation.
+export function useUpdateReconciliation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, statementEndingBalance }: { id: string; statementEndingBalance: string }) =>
+      apiClient<{ reconciliation: ReconciliationWithLines }>(`/banking/reconciliations/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ statementEndingBalance }),
+      }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['reconciliation', vars.id] });
+    },
+  });
+}
+
+// Cancel (discard) an in-progress reconciliation, freeing the account to start
+// a new one. Refreshes the history list + statements pool (the driving
+// statement is unlinked server-side).
+export function useCancelReconciliation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient(`/banking/reconciliations/${id}/cancel`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation'] });
+      qc.invalidateQueries({ queryKey: ['reconciliations'] });
+      qc.invalidateQueries({ queryKey: ['bank-statements'] });
+    },
+  });
+}
+
 // ─── Statement Match Engine (wave 1) ───────────────────────────────
 
 export interface StatementLineSummary {
