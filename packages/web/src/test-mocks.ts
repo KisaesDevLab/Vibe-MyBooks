@@ -156,6 +156,7 @@ export const bankingMocks = () => ({
   }),
   useConfirmStatementLine: passthroughMutation,
   useRejectStatementLine: passthroughMutation,
+  useExcludeStatementLine: passthroughMutation,
   // Statement Match Engine (wave 2)
   useCreateFromStatementLine: passthroughMutation,
   useStartReconciliation: passthroughMutation,

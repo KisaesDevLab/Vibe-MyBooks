@@ -42,7 +42,8 @@ const matchResult: StatementMatchResult = {
 
 const matchesView: StatementMatchesView = {
   statementId: 'stmt-1',
-  counts: { auto: 2, confirmed: 0, suggested: 1, unmatched: 1, rejected: 0 },
+  counts: { auto: 2, confirmed: 0, suggested: 1, unmatched: 1, rejected: 0, excluded: 0 },
+  excludedLines: [],
   suggestions: [
     {
       statementLine: {

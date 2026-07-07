@@ -538,9 +538,11 @@ export interface StatementMatchResult {
 
 export interface StatementMatchesView {
   statementId: string;
-  counts: { auto: number; confirmed: number; suggested: number; unmatched: number; rejected: number };
+  counts: { auto: number; confirmed: number; suggested: number; unmatched: number; rejected: number; excluded: number };
   suggestions: StatementMatchSuggestion[];
   unmatchedLines: StatementLineSummary[];
+  // OCR-error / non-transaction lines the operator hid (restorable).
+  excludedLines: StatementLineSummary[];
   outstandingCount: number;
 }
 
@@ -623,6 +625,22 @@ export function useRejectStatementLine() {
       apiClient<{ line: StatementLineSummary }>(`/banking/statement-lines/${lineId}/reject`, { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reconciliation'] });
+      qc.invalidateQueries({ queryKey: ['statement-matches'] });
+    },
+  });
+}
+
+// Exclude / restore an OCR-error statement line. `exclude:false` restores it
+// back to the unmatched list.
+export function useExcludeStatementLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ lineId, exclude }: { lineId: string; exclude: boolean }) =>
+      apiClient<{ line: StatementLineSummary }>(
+        `/banking/statement-lines/${lineId}/${exclude ? 'exclude' : 'unexclude'}`,
+        { method: 'POST' },
+      ),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['statement-matches'] });
     },
   });

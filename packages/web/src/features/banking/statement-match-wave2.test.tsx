@@ -22,7 +22,8 @@ const createMutate = vi.fn();
 
 const matchesView: StatementMatchesView = {
   statementId: 'stmt-1',
-  counts: { auto: 0, confirmed: 0, suggested: 2, unmatched: 1, rejected: 0 },
+  counts: { auto: 0, confirmed: 0, suggested: 2, unmatched: 1, rejected: 0, excluded: 0 },
+  excludedLines: [],
   suggestions: [
     {
       // A1: one deposit ↔ 3 receipts, TWO exact-sum sets → picker.

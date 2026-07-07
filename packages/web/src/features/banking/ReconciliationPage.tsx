@@ -11,7 +11,7 @@ import {
   useReconciliations, useUpdateReconciliation, useCancelReconciliation, useRefreshReconciliation,
   useBankStatements, useAutoClearStatement, type BankStatementRow,
   useMatchStatement, useStatementMatches, useConfirmStatementLine, useRejectStatementLine,
-  useCreateFromStatementLine,
+  useExcludeStatementLine, useCreateFromStatementLine,
   type StatementMatchResult, type StatementMatchCandidate, type StatementMatchSuggestion,
   type StatementLineSummary, type StatementGroupCandidate, type ConfirmStatementLinePayload,
 } from '../../api/hooks/useBanking';
@@ -27,7 +27,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { useToast } from '../../components/ui/Toaster';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw } from 'lucide-react';
+import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
 
 // Open the statement PDF in a new tab via the single-use download token
 // (same pattern as ReportShell's openPdfInTab — window.open can't carry an
@@ -550,9 +550,11 @@ function StatementMatchPanel({
   const { data, isLoading, isError, refetch } = useStatementMatches(reconId, true);
   const confirmLine = useConfirmStatementLine();
   const rejectLine = useRejectStatementLine();
+  const excludeLine = useExcludeStatementLine();
   const toast = useToast();
   // Wave 2 Feature B: the statement line the "Add to books" modal is open for.
   const [addToBooksLine, setAddToBooksLine] = useState<StatementLineSummary | null>(null);
+  const [showExcluded, setShowExcluded] = useState(false);
 
   if (isLoading) return <LoadingSpinner className="py-6" />;
   if (isError) return <ErrorMessage message="Couldn't load statement match results." onRetry={() => refetch()} />;
@@ -671,13 +673,58 @@ function StatementMatchPanel({
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">suggestion rejected</span>
                 )}
                 {!isComplete && (
-                  <Button size="sm" variant="ghost" onClick={() => setAddToBooksLine(l)}>
-                    <Plus className="h-4 w-4 mr-1" /> Add to books
-                  </Button>
+                  <>
+                    <Button size="sm" variant="ghost" onClick={() => setAddToBooksLine(l)}>
+                      <Plus className="h-4 w-4 mr-1" /> Add to books
+                    </Button>
+                    {/* Hide an OCR error / non-transaction line (e.g. a $0.00
+                        "Balance Summary" row) so it stops distorting the rec. */}
+                    <Button size="sm" variant="ghost"
+                      onClick={() => excludeLine.mutate({ lineId: l.id, exclude: true }, {
+                        onSuccess: () => toast.success('Line excluded — hidden from this reconciliation.'),
+                        onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not exclude the line.'),
+                      })}
+                      title="Exclude — this line is an OCR error / not a real transaction">
+                      <X className="h-4 w-4 mr-1" /> Exclude
+                    </Button>
+                  </>
                 )}
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Excluded OCR-error lines — hidden from the main list but restorable. */}
+      {data.excludedLines.length > 0 && (
+        <div className="bg-white rounded-lg border shadow-sm p-4">
+          <button
+            onClick={() => setShowExcluded((v) => !v)}
+            className="text-sm font-medium text-gray-600 hover:text-gray-800 flex items-center gap-1"
+          >
+            {showExcluded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            Excluded lines ({data.excludedLines.length}) — hidden OCR errors / non-transactions
+          </button>
+          {showExcluded && (
+            <ul className="divide-y divide-gray-100 text-sm mt-2">
+              {data.excludedLines.map((l: StatementLineSummary) => (
+                <li key={l.id} className="py-1.5 flex flex-wrap items-center gap-2 text-gray-500">
+                  <span className="font-mono">{l.lineDate}</span>
+                  <span className="truncate max-w-[24rem]">{l.description || l.payee || '—'}</span>
+                  <span className="font-mono font-medium ml-auto">{fmtMoney(l.amount)}</span>
+                  {!isComplete && (
+                    <Button size="sm" variant="ghost"
+                      onClick={() => excludeLine.mutate({ lineId: l.id, exclude: false }, {
+                        onSuccess: () => toast.success('Line restored.'),
+                        onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not restore the line.'),
+                      })}>
+                      <RefreshCw className="h-4 w-4 mr-1" /> Restore
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
