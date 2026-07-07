@@ -28,6 +28,7 @@ import {
   Download,
   AlignJustify,
   Sparkles,
+  Archive,
 } from 'lucide-react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { apiClient, API_BASE, getAccessToken } from '../../../api/client';
@@ -409,6 +410,17 @@ export function ReportBuilderPage() {
                           >
                             <Copy className="h-3.5 w-3.5" /> Duplicate
                           </button>
+                          {/* Published → archived is the only valid archive
+                              transition; a published report can't be deleted,
+                              only archived (then duplicated for a new version). */}
+                          <button
+                            onClick={() => setStatus(i.id, 'archived')}
+                            disabled={busy}
+                            title="Archive this published report"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:underline mr-2 disabled:opacity-50"
+                          >
+                            <Archive className="h-3.5 w-3.5" /> Archive
+                          </button>
                         </>
                       ) : (
                         <>
@@ -428,33 +440,31 @@ export function ReportBuilderPage() {
                           </button>
                         </>
                       )}
-                      {i.status !== 'archived' && i.status !== 'published' && (
-                        <button
-                          onClick={() => setStatus(i.id, 'archived')}
-                          disabled={busy}
-                          className="text-xs font-medium text-gray-600 hover:underline mr-2 disabled:opacity-50"
-                        >
-                          Archive
-                        </button>
-                      )}
+                      {/* From archived the only valid move is republish
+                          (→ published, bumps version) — the server rejects
+                          archived → draft. */}
                       {i.status === 'archived' && (
                         <button
-                          onClick={() => setStatus(i.id, 'draft')}
+                          onClick={() => setStatus(i.id, 'published')}
                           disabled={busy}
-                          title="Reopen as draft"
-                          className="text-xs font-medium text-gray-600 hover:underline mr-2 disabled:opacity-50"
+                          title="Republish (new version)"
+                          className="text-xs font-medium text-indigo-700 hover:underline mr-2 disabled:opacity-50"
                         >
-                          Reopen
+                          Republish
                         </button>
                       )}
-                      <button
-                        onClick={() => deleteInstance(i)}
-                        disabled={busy}
-                        title="Delete"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {/* Published reports can't be deleted (server enforces
+                          PUBLISHED_LOCKED) — archive them instead. */}
+                      {i.status !== 'published' && (
+                        <button
+                          onClick={() => deleteInstance(i)}
+                          disabled={busy}
+                          title="Delete"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
