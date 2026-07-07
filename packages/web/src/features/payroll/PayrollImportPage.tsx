@@ -2,10 +2,10 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
-import { usePayrollUpload, usePayrollTemplates } from '../../api/hooks/usePayrollImport';
+import { usePayrollUpload, usePayrollTemplates, usePayrollSession, usePayrollPreview } from '../../api/hooks/usePayrollImport';
 import { ColumnMapper } from './ColumnMapper';
 import { DescriptionMapper } from './DescriptionMapper';
 import { ValidationResults } from './ValidationResults';
@@ -36,6 +36,38 @@ export function PayrollImportPage() {
   const [companionFile, setCompanionFile] = useState<File | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [dragActive, setDragActive] = useState(false);
+
+  // Resume an in-progress import opened from the history page
+  // (/payroll/import?session=<id>). Fetch the session to restore the wizard at
+  // the right step; the step components (mapper/validation/preview) load their
+  // own data by sessionId. Preview is fetched to rehydrate the column mapper's
+  // headers/sample rows (needed for Mode A, which isn't backed by sessionId).
+  const [searchParams] = useSearchParams();
+  const resumeId = searchParams.get('session') || '';
+  const { data: resumeSession } = usePayrollSession(resumeId);
+  const { data: resumePreview } = usePayrollPreview(resumeId);
+
+  useEffect(() => {
+    const sess = resumeSession?.session;
+    if (!sess || sessionId) return;
+    setSessionId(sess.id);
+    setImportMode(sess.importMode || '');
+    // uploaded → still needs mapping; mapped/validated → jump to validation
+    // (from which the user can proceed to preview/post).
+    setStep(sess.status === 'uploaded' ? 'mapping' : 'validation');
+  }, [resumeSession, sessionId]);
+
+  useEffect(() => {
+    if (!resumePreview) return;
+    setUploadResult((prev: unknown) => prev ?? {
+      preview: {
+        headers: resumePreview.headers,
+        sampleRows: resumePreview.rows?.map((r) => r.rawData) ?? [],
+        rowCount: resumePreview.session?.rowCount,
+        importMode: resumePreview.session?.importMode,
+      },
+    });
+  }, [resumePreview]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();

@@ -146,7 +146,7 @@ export function PayrollHistoryPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Pay Period</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">File</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Mode</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Status</th>
@@ -161,8 +161,18 @@ export function PayrollHistoryPage() {
                   const badge = STATUS_BADGES[s.status] || STATUS_BADGES['uploaded']!;
                   return (
                     <tr key={s.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-gray-700">
-                        {new Date(s.createdAt).toLocaleDateString()}
+                      <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                        {/* The dates the payroll RELATES to (pay period / check
+                            date), not when it was imported. Import date shown
+                            secondarily. */}
+                        {s.payPeriodStart && s.payPeriodEnd
+                          ? `${s.payPeriodStart} → ${s.payPeriodEnd}`
+                          : s.checkDate
+                            ? `Check ${s.checkDate}`
+                            : '—'}
+                        <div className="text-[11px] text-gray-400">
+                          Imported {new Date(s.createdAt).toLocaleDateString()}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-900 font-medium truncate max-w-[200px]">
                         {s.originalFilename}
@@ -188,6 +198,16 @@ export function PayrollHistoryPage() {
                       <td className="px-4 py-3 text-right text-gray-600">{s.jeCount}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex gap-2 justify-end">
+                          {/* Resume an in-progress import (not yet posted) —
+                              return to the wizard to finish or review it. */}
+                          {['uploaded', 'mapped', 'validated'].includes(s.status) && (
+                            <Link
+                              to={`/payroll/import?session=${s.id}`}
+                              className="text-xs text-primary-600 hover:text-primary-700"
+                            >
+                              Resume
+                            </Link>
+                          )}
                           {s.status === 'posted' && (
                             <button
                               onClick={() => handleReverse(s.id)}
@@ -196,7 +216,9 @@ export function PayrollHistoryPage() {
                               Reverse
                             </button>
                           )}
-                          {['uploaded', 'mapped', 'failed'].includes(s.status) && (
+                          {/* Anything not yet posted can be deleted (the server
+                              only blocks deleting a posted session). */}
+                          {['uploaded', 'mapped', 'validated', 'failed'].includes(s.status) && (
                             <button
                               onClick={() => handleDelete(s.id)}
                               className="text-xs text-red-600 hover:text-red-700"
