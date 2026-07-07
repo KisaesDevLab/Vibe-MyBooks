@@ -123,6 +123,10 @@ export const bankingMocks = () => ({
   useDisconnectBank: passthroughMutation,
   useBankFeed: () => emptyList,
   useCategorizeFeedItem: passthroughMutation,
+  // Two-phase workflow (assign → approve).
+  useAssignFeedItem: passthroughMutation,
+  useApproveFeedItem: passthroughMutation,
+  useBulkAssign: passthroughMutation,
   usePayrollOverlapCheck: passthroughQuery({ overlaps: [] }),
   useMatchFeedItem: passthroughMutation,
   useMatchCandidates: passthroughQuery({ candidates: [] }),

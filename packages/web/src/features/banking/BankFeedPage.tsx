@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
-import { useBankFeed, useBankConnections, useCategorizeFeedItem, useExcludeFeedItem, useBulkApprove, useBulkCategorize, useBulkExclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
+import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem, useBulkAssign, useExcludeFeedItem, useBulkApprove, useBulkExclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
 import type { ReprocessRulesResultDto } from '../../api/hooks/useBanking';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useSessionState } from '../../hooks/useSessionState';
@@ -25,9 +25,16 @@ import { apiClient } from '../../api/client';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
+  // Staged but not yet posted — a distinct "ready to approve" treatment.
+  assigned: 'bg-purple-100 text-purple-700',
   matched: 'bg-green-100 text-green-700',
   categorized: 'bg-blue-100 text-blue-700',
   excluded: 'bg-gray-100 text-gray-500',
+};
+
+// Human-facing pill labels (the raw status is a terse enum value).
+const statusLabels: Record<string, string> = {
+  assigned: 'Assigned',
 };
 
 // Default categorization confidence threshold (ai_config, FIX 5). Suggestions
@@ -127,10 +134,11 @@ export function BankFeedPage() {
   });
   const { data: connectionsData } = useBankConnections();
   const { data: aiConfig } = useAiConfig();
-  const categorize = useCategorizeFeedItem();
+  const assign = useAssignFeedItem();
+  const approve = useApproveFeedItem();
   const exclude = useExcludeFeedItem();
   const bulkApprove = useBulkApprove();
-  const bulkCategorize = useBulkCategorize();
+  const bulkAssign = useBulkAssign();
   const bulkExclude = useBulkExclude();
   const bulkRecleanse = useBulkRecleanse();
   const bulkReprocessRules = useBulkReprocessRules();
@@ -171,9 +179,12 @@ export function BankFeedPage() {
     });
   };
 
+  // Selectable rows are the actionable ones: pending (assign/exclude) and
+  // assigned (approve/re-assign/exclude). Posted/excluded rows aren't.
+  const isSelectable = (i: BankFeedItem) => i.status === 'pending' || i.status === 'assigned';
+
   const selectAll = () => {
-    const pending = items.filter((i) => i.status === 'pending').map((i) => i.id);
-    setSelected(new Set(pending));
+    setSelected(new Set(items.filter(isSelectable).map((i) => i.id)));
   };
 
   const expandItem = (item: BankFeedItem) => {
@@ -182,18 +193,20 @@ export function BankFeedPage() {
     setEditState({
       feedDate: item.feedDate,
       description: item.description || '',
-      // Prefill from the feed item's memo — Plaid seeds it with the
-      // bank's raw payee text; edits persist on the item and flow onto
-      // the posted transaction. (The provider category hint is shown as
-      // a label, never as the memo.)
-      memo: item.memo || '',
-      contactId: item.suggestedContactId || '',
+      // Prefill from the STAGED assignment when present (re-assigning an
+      // 'assigned' row), else the feed item's memo (Plaid's raw payee text).
+      memo: item.assignedMemo || item.memo || '',
+      contactId: item.assignedContactId || item.suggestedContactId || '',
     });
-    setCatAccountId(item.suggestedAccountId || '');
-    setCatTagId(item.suggestedTagId || null);
+    // Prefer the staged assignment over the AI suggestion so re-opening an
+    // 'assigned' row shows what was staged.
+    setCatAccountId(item.assignedAccountId || item.suggestedAccountId || '');
+    setCatTagId(item.assignedTagId || item.suggestedTagId || null);
   };
 
-  const handleSaveAndCategorize = async (itemId: string) => {
+  // Expanded-editor save action: persist the row edits, then STAGE the
+  // category via assign() — no ledger post happens here (that's Approve).
+  const handleAssign = async (itemId: string) => {
     await apiClient(`/banking/feed/${itemId}`, {
       method: 'PUT',
       body: JSON.stringify({
@@ -202,13 +215,10 @@ export function BankFeedPage() {
       }),
     });
     if (catAccountId) {
-      categorize.mutate({
+      assign.mutate({
         id: itemId, accountId: catAccountId,
-        contactId: editState.contactId || undefined, memo: editState.memo || undefined,
-        // Send an explicit value (id or null), never undefined: the picker
-        // is pre-seeded with the suggested tag, so clearing it means the
-        // user wants NO tag. `null` tells the server to honor that instead
-        // of resurrecting the suggestion (undefined = "no choice" fallback).
+        contactId: editState.contactId || null, memo: editState.memo || null,
+        // Explicit id or null (picker pre-seeded), never undefined.
         tagId: catTagId || null,
       }, { onSuccess: () => { setExpandedId(null); } });
     } else {
@@ -217,14 +227,18 @@ export function BankFeedPage() {
     }
   };
 
+  // Per-row Approve — posts a staged ('assigned') item to the ledger.
+  const handleApprove = (itemId: string) => {
+    approve.mutate(itemId);
+  };
+
+  // "Accept suggestion" now STAGES the AI guess as an assignment (no post),
+  // consistent with the two-phase workflow. Approve is a separate step.
   const handleAcceptSuggestion = async (item: BankFeedItem) => {
     if (!item.suggestedAccountId) return;
-    categorize.mutate({ id: item.id, accountId: item.suggestedAccountId, contactId: item.suggestedContactId || undefined }, {
+    assign.mutate({ id: item.id, accountId: item.suggestedAccountId, contactId: item.suggestedContactId || null, tagId: item.suggestedTagId || null }, {
       onSuccess: () => {
-        // Fire-and-forget AI-learning telemetry. The user's categorization
-        // already succeeded above; this only records the "accepted" signal
-        // for model feedback. Failure here is non-blocking, but log it so
-        // a regression on the telemetry endpoint is debuggable.
+        // Fire-and-forget AI-learning telemetry (the "accepted" signal).
         apiClient('/ai/categorize/accept', {
           method: 'POST',
           body: JSON.stringify({ feedItemId: item.id, accountId: item.suggestedAccountId, contactId: item.suggestedContactId, accepted: true, modified: false }),
@@ -248,6 +262,8 @@ export function BankFeedPage() {
 
   const pendingWithoutSuggestion = items.filter((i) => i.status === 'pending' && !i.suggestedAccountId).length;
   const pendingCount = items.filter((i) => i.status === 'pending').length;
+  // Rows eligible for selection/bulk actions: pending + assigned.
+  const selectableCount = items.filter(isSelectable).length;
   const connections = connectionsData?.connections || [];
   const hasFilters = search || startDate || endDate || connectionFilter || actionableOnly;
 
@@ -362,7 +378,7 @@ export function BankFeedPage() {
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div className="flex items-center gap-2">
-            {(['', 'pending', 'categorized', 'matched', 'excluded'] as const).map((s) => (
+            {(['', 'pending', 'assigned', 'categorized', 'matched', 'excluded'] as const).map((s) => (
               <button key={s} onClick={() => setStatusFilter(s)}
                 className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${statusFilter === s ? 'bg-primary-50 border-primary-300 text-primary-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
                 {s || 'All'}
@@ -393,8 +409,8 @@ export function BankFeedPage() {
               <div className="w-64">
                 <AccountSelector value={batchCatAccountId} onChange={setBatchCatAccountId} />
               </div>
-              <Button size="sm" disabled={!batchCatAccountId} loading={bulkCategorize.isPending}
-                onClick={() => bulkCategorize.mutate(
+              <Button size="sm" disabled={!batchCatAccountId} loading={bulkAssign.isPending}
+                onClick={() => bulkAssign.mutate(
                   { feedItemIds: [...selected], accountId: batchCatAccountId },
                   { onSuccess: () => { setSelected(new Set()); setShowBatchCategorize(false); setBatchCatAccountId(''); } },
                 )}>Apply</Button>
@@ -498,11 +514,11 @@ export function BankFeedPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="w-10 px-3 py-3">
-                  {pendingCount > 0 && (
+                  {selectableCount > 0 && (
                     <input type="checkbox"
-                      checked={selected.size > 0 && selected.size === pendingCount}
-                      ref={(el) => { if (el) el.indeterminate = selected.size > 0 && selected.size < pendingCount; }}
-                      onChange={() => selected.size === pendingCount ? setSelected(new Set()) : selectAll()}
+                      checked={selected.size > 0 && selected.size === selectableCount}
+                      ref={(el) => { if (el) el.indeterminate = selected.size > 0 && selected.size < selectableCount; }}
+                      onChange={() => selected.size === selectableCount ? setSelected(new Set()) : selectAll()}
                       className="rounded border-gray-300 text-primary-600 h-[15px] w-[15px]" />
                   )}
                 </th>
@@ -521,9 +537,9 @@ export function BankFeedPage() {
                 const amt = parseFloat(item.amount);
                 return (
                   <tr key={item.id} className={isExpanded ? 'bg-primary-50/30' : 'hover:bg-gray-50'}
-                    onDoubleClick={() => { if (item.status === 'pending' && !isExpanded) expandItem(item); }}>
+                    onDoubleClick={() => { if (isSelectable(item) && !isExpanded) expandItem(item); }}>
                     <td className="px-3 py-3">
-                      {item.status === 'pending' && (
+                      {isSelectable(item) && (
                         <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggleSelect(item.id)}
                           className="rounded border-gray-300 text-primary-600 h-[15px] w-[15px]" />
                       )}
@@ -601,6 +617,13 @@ export function BankFeedPage() {
                           )}
                           <PayrollOverlapBanner feedItemId={item.id} />
                         </div>
+                      ) : item.status === 'assigned' ? (
+                        // Staged category — visually distinct from a posted
+                        // ('categorized') row: a purple pill = "ready to approve".
+                        <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 text-purple-700 px-2 py-0.5 text-xs font-medium" title="Staged — approve to post">
+                          <Check className="h-3 w-3" />
+                          {item.assignedAccountName || 'Assigned'}
+                        </span>
                       ) : (
                         <span className="text-gray-900">{item.suggestedAccountName || '—'}</span>
                       )}
@@ -626,6 +649,15 @@ export function BankFeedPage() {
                             </span>
                           );
                         }
+                        // ASSIGNED: the human-staged tag, awaiting approval.
+                        if (item.status === 'assigned' && item.assignedTagName) {
+                          return (
+                            <span title="Staged tag — approve to apply"
+                              className="inline-flex items-center rounded-full bg-purple-50 text-purple-700 px-2 py-0.5 text-xs font-medium">
+                              {item.assignedTagName}
+                            </span>
+                          );
+                        }
                         // PENDING: the rule-staged suggested tag, shown as a subtle
                         // outlined "suggested" pill so a rule-set tag is visible
                         // before the user categorizes.
@@ -645,16 +677,18 @@ export function BankFeedPage() {
                       {amt > 0 ? '-' : '+'}${Math.abs(amt).toFixed(2)}
                     </td>
                     <td className="px-3 py-3 text-sm">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[item.status] || ''}`}>
-                        {item.status}
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[item.status] || ''}`}
+                        title={item.status === 'assigned' ? 'Assigned — ready to approve' : undefined}>
+                        {statusLabels[item.status] || item.status}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         {isExpanded ? (
                           <>
-                            <Button size="sm" onClick={() => handleSaveAndCategorize(item.id)} loading={categorize.isPending}>
-                              <Save className="h-3.5 w-3.5 mr-1" /> {catAccountId ? 'Save & Categorize' : 'Save'}
+                            {/* Save + STAGE the category (no ledger post). */}
+                            <Button size="sm" onClick={() => handleAssign(item.id)} loading={assign.isPending}>
+                              <Save className="h-3.5 w-3.5 mr-1" /> {catAccountId ? 'Assign' : 'Save'}
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => setExpandedId(null)}>
                               <X className="h-3.5 w-3.5" />
@@ -663,7 +697,7 @@ export function BankFeedPage() {
                         ) : item.status === 'pending' ? (
                           <>
                             {item.suggestedAccountId && (
-                              <Button size="sm" variant="secondary" onClick={() => handleAcceptSuggestion(item)} loading={categorize.isPending}>
+                              <Button size="sm" variant="secondary" onClick={() => handleAcceptSuggestion(item)} loading={assign.isPending} title="Accept suggestion (stages it)">
                                 <Check className="h-3.5 w-3.5" />
                               </Button>
                             )}
@@ -680,6 +714,21 @@ export function BankFeedPage() {
                             <button onClick={() => setMatchModalFor(item.id)}
                               className="p-1.5 rounded hover:bg-gray-100 text-blue-500 hover:text-blue-700" title="Find existing transaction to match">
                               <Link2 className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => exclude.mutate(item.id)}
+                              className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500" title="Exclude">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : item.status === 'assigned' ? (
+                          <>
+                            {/* Staged → post it to the ledger. */}
+                            <Button size="sm" onClick={() => handleApprove(item.id)} loading={approve.isPending}>
+                              <CheckCheck className="h-3.5 w-3.5 mr-1" /> Approve
+                            </Button>
+                            <button onClick={() => expandItem(item)}
+                              className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-primary-600" title="Re-assign">
+                              <ChevronDown className="h-4 w-4" />
                             </button>
                             <button onClick={() => exclude.mutate(item.id)}
                               className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500" title="Exclude">

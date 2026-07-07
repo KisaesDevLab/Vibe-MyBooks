@@ -6,9 +6,9 @@
 //   - the Tag column shows a "suggested" pill for a PENDING item that
 //     carries a rule-staged suggestedTagName, and the actual applied tag
 //     for a CATEGORIZED item (from lineTags).
-//   - expanding a pending row renders the line tag picker and, on
-//     Save & Categorize, includes the tagId (pre-filled from the item's
-//     suggested tag) in the categorize mutation payload.
+//   - expanding a pending row renders the line tag picker and, on Assign
+//     (two-phase workflow — stages, no post), includes the tagId (pre-filled
+//     from the item's suggested tag) in the assign mutation payload.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
@@ -18,7 +18,7 @@ import {
   aiMocks, plaidMocks, transactionsMocks, passthroughMutation,
 } from '../../test-mocks';
 
-const categorizeMutate = vi.fn();
+const assignMutate = vi.fn();
 
 const feedItems = [
   {
@@ -80,7 +80,7 @@ vi.mock('../../api/hooks/useBanking', () => ({
     isFetching: false,
     refetch: vi.fn(),
   }),
-  useCategorizeFeedItem: () => ({ ...passthroughMutation(), mutate: categorizeMutate }),
+  useAssignFeedItem: () => ({ ...passthroughMutation(), mutate: assignMutate }),
 }));
 vi.mock('../../api/hooks/useAccounts', () => accountsMocks());
 vi.mock('../../api/hooks/useContacts', () => contactsMocks());
@@ -97,7 +97,7 @@ vi.mock('../../api/client', async () => {
 import { BankFeedPage } from './BankFeedPage';
 
 beforeEach(() => {
-  categorizeMutate.mockClear();
+  assignMutate.mockClear();
   sessionStorage.clear();
 });
 
@@ -111,22 +111,23 @@ describe('BankFeedPage — Tag column', () => {
   });
 });
 
-describe('BankFeedPage — categorize with a tag', () => {
-  it('renders the tag picker in the expanded row and sends tagId in the categorize payload', async () => {
+describe('BankFeedPage — assign with a tag', () => {
+  it('renders the tag picker in the expanded row and sends tagId in the assign payload (stages, no post)', async () => {
     renderRoute(<BankFeedPage />);
 
     // Expand the pending row (double-click is wired to expandItem).
     fireEvent.dblClick(screen.getByText('COFFEE SHOP'));
 
-    // The line tag picker renders in the expanded categorize column.
+    // The line tag picker renders in the expanded category column.
     expect(screen.getByLabelText('Tag')).toBeTruthy();
 
-    // Save & Categorize — catAccountId + catTagId were pre-filled from the
-    // item's suggestions, so the mutate payload carries the tag.
-    fireEvent.click(screen.getByRole('button', { name: /save & categorize/i }));
+    // Assign — catAccountId + catTagId were pre-filled from the item's
+    // suggestions, so the mutate payload carries the tag. This STAGES the
+    // assignment (no ledger post); Approve is a separate step.
+    fireEvent.click(screen.getByRole('button', { name: /^assign$/i }));
 
-    await waitFor(() => expect(categorizeMutate).toHaveBeenCalledTimes(1));
-    expect(categorizeMutate.mock.calls[0]![0]).toMatchObject({
+    await waitFor(() => expect(assignMutate).toHaveBeenCalledTimes(1));
+    expect(assignMutate.mock.calls[0]![0]).toMatchObject({
       id: 'item-pending',
       accountId: 'acct-1',
       tagId: 'tag-travel',

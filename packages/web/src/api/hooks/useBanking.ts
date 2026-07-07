@@ -58,6 +58,36 @@ export function useCategorizeFeedItem() {
   });
 }
 
+// Two-phase workflow: ASSIGN stages a category (no ledger post) — only the
+// bank feed changes, so account balances don't move (no accounts invalidate).
+export function useAssignFeedItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string; accountId: string; contactId?: string | null; tagId?: string | null; memo?: string | null }) =>
+      apiClient(`/banking/feed/${id}/assign`, { method: 'PUT', body: JSON.stringify(input) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); },
+  });
+}
+
+// APPROVE posts the staged assignment — balances move, so invalidate accounts.
+export function useApproveFeedItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient(`/banking/feed/${id}/approve`, { method: 'POST' }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); },
+  });
+}
+
+// Bulk ASSIGN — stage the same category across many items (no post).
+export function useBulkAssign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { feedItemIds: string[]; accountId: string; contactId?: string | null; tagId?: string | null; memo?: string | null }) =>
+      apiClient('/banking/feed/bulk-assign', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); },
+  });
+}
+
 export function usePayrollOverlapCheck(feedItemId: string | null) {
   return useQuery({
     queryKey: ['bank-feed', 'payroll-overlap', feedItemId],
