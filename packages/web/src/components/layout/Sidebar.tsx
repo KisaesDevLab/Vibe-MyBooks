@@ -131,6 +131,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/invoices', label: 'Invoices', icon: FileText, resource: 'invoices' },
       { to: '/receive-payment', label: 'Receive Payment', icon: CreditCard, resource: 'receive_payment' },
+      { to: '/banking/deposit', label: 'Bank Deposit', icon: PiggyBank, resource: 'banking' },
       { to: '/daily-sales', label: 'Daily Sales (POS)', icon: Store, resource: 'daily_sales' },
       { to: '/items', label: 'Items', icon: Package, resource: 'items' },
     ],
@@ -163,7 +164,6 @@ const navGroups: NavGroup[] = [
       { to: '/banking', label: 'Banking', icon: Landmark, resource: 'banking' },
       { to: '/banking/statement-upload', label: 'Import Statement', icon: FileUp, resource: 'banking' },
       { to: '/banking/statement-imports', label: 'Statement Processing', icon: History, resource: 'banking' },
-      { to: '/banking/deposit', label: 'Bank Deposit', icon: PiggyBank, resource: 'banking' },
       { to: '/banking/reconcile', label: 'Reconcile', icon: CheckCheck, resource: 'banking' },
       { to: '/banking/reconciliation-history', label: 'Reconcile History', icon: ClipboardCheck, resource: 'banking' },
     ],

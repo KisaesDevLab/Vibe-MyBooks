@@ -5,7 +5,7 @@
 
 import { todayLocalISO } from '../../utils/date';
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   useStartReconciliation, useReconciliation, useUpdateReconciliationLines, useCompleteReconciliation,
   useReconciliations, useUpdateReconciliation, useCancelReconciliation, useRefreshReconciliation,
@@ -27,7 +27,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { useToast } from '../../components/ui/Toaster';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
+import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw, ChevronUp, ChevronDown, FileUp } from 'lucide-react';
 
 // Open the statement PDF in a new tab via the single-use download token
 // (same pattern as ReportShell's openPdfInTab — window.open can't carry an
@@ -62,6 +62,7 @@ function StatementStatusChip({ status }: { status: BankStatementRow['status'] })
 // Statements on file for the tenant (optionally filtered by account), each
 // with derived reconciliation status, readiness, and a one-click Reconcile.
 function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }) {
+  const navigate = useNavigate();
   const [accountFilter, setAccountFilter] = useSessionState('vibe:reconcile:accountFilter', '');
   // Default to "not reconciled" so the operator lands on the statements that
   // still need work; '' = All.
@@ -96,6 +97,9 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
     <div className="mb-8">
       <div className="flex items-center gap-4 mb-3 flex-wrap">
         <h2 className="text-lg font-semibold text-gray-900">Statements on File</h2>
+        <Button variant="secondary" size="sm" onClick={() => navigate('/banking/statement-upload')}>
+          <FileUp className="h-4 w-4 mr-1" /> Import statement (PDF)
+        </Button>
         <div className="w-64">
           <AccountSelector value={accountFilter} onChange={setAccountFilter} accountTypeFilter={['asset', 'liability']} />
         </div>
@@ -122,9 +126,17 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
       ) : isError ? (
         <ErrorMessage message="Couldn't load statements." onRetry={() => refetch()} />
       ) : !data || data.statements.length === 0 ? (
-        <div className="bg-white rounded-lg border p-6 text-sm text-gray-500">
-          No statements on file yet. Import a bank statement (Banking → Import Statement) and it will appear here,
-          ready for one-click reconciliation.
+        <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-10 text-center">
+          <FileUp className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-sm text-gray-600">No statements on file yet.</p>
+          <p className="text-xs text-gray-400 mt-1">
+            Upload a bank statement PDF (or image) — we’ll extract the lines so you can reconcile against your books.
+          </p>
+          <div className="mt-4">
+            <Button onClick={() => navigate('/banking/statement-upload')}>
+              <FileUp className="h-4 w-4 mr-1" /> Upload statement (PDF)
+            </Button>
+          </div>
         </div>
       ) : (
         <>
