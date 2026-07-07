@@ -190,6 +190,9 @@ const ExpensesByCategoryReport = lazyNamed(() => import('./features/reports/Expe
 const GenericReport = lazyNamed(() => import('./features/reports/GenericReport'), 'GenericReport');
 const BudgetVsActualReport = lazyNamed(() => import('./features/reports/BudgetVsActualReport'), 'BudgetVsActualReport');
 const BudgetOverviewReport = lazyNamed(() => import('./features/reports/BudgetOverviewReport'), 'BudgetOverviewReport');
+const ReportPacksListPage = lazyNamed(() => import('./features/reports/packs/ReportPacksListPage'), 'ReportPacksListPage');
+const ReportPackBuilderPage = lazyNamed(() => import('./features/reports/packs/ReportPackBuilderPage'), 'ReportPackBuilderPage');
+const ReportPackRunPage = lazyNamed(() => import('./features/reports/packs/ReportPackRunPage'), 'ReportPackRunPage');
 
 // ─── Admin (super-admin only; rarely loaded) ─────────────────
 const AdminDashboard = lazyNamed(() => import('./features/admin/AdminDashboard'), 'AdminDashboard');
@@ -397,6 +400,10 @@ export function App() {
             <Route path="/budgets" element={<BudgetEditorPage />} />
             <Route path="/budgets/vs-actuals" element={<BudgetVsActualsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/reports/packs" element={<ReportPacksListPage />} />
+            <Route path="/reports/packs/new" element={<ReportPackBuilderPage />} />
+            <Route path="/reports/packs/:id/edit" element={<ReportPackBuilderPage />} />
+            <Route path="/reports/packs/runs/:runId" element={<ReportPackRunPage />} />
             <Route path="/reports/profit-loss" element={<ProfitAndLossReport />} />
             <Route path="/reports/balance-sheet" element={<BalanceSheetReport />} />
             <Route path="/reports/cash-flow" element={<CashFlowReport />} />

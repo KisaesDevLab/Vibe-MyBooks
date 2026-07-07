@@ -3,7 +3,8 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, DollarSign, Users, Landmark, Receipt, BookOpen, Wallet } from 'lucide-react';
+import { BarChart3, DollarSign, Users, Landmark, Receipt, BookOpen, Wallet, Layers, Plus } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
 
 const reportGroups = [
   {
@@ -101,7 +102,28 @@ export function ReportsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Reports</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+        <Button onClick={() => navigate('/reports/packs/new')}>
+          <Plus className="h-4 w-4 mr-1" /> Build Report Pack
+        </Button>
+      </div>
+
+      <button
+        onClick={() => navigate('/reports/packs')}
+        className="w-full text-left bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6 hover:border-primary-300 hover:shadow transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <Layers className="h-6 w-6 text-primary-600" />
+          <div>
+            <h2 className="font-semibold text-gray-800">Report Packs</h2>
+            <p className="text-sm text-gray-500">
+              Bundle several reports into one combined PDF you can reuse and regenerate.
+            </p>
+          </div>
+        </div>
+      </button>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {reportGroups.map((group) => (
           <div key={group.title} className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
