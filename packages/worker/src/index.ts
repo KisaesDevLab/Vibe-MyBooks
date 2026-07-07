@@ -34,6 +34,7 @@ import { startPortalRecurringScheduler, stopPortalRecurringScheduler } from '../
 import { startPortalReminderScheduler, stopPortalReminderScheduler } from '../../api/src/services/portal-reminder-scheduler.service.js';
 import { startRecurringDocRequestScheduler, stopRecurringDocRequestScheduler } from '../../api/src/services/recurring-doc-request-scheduler.service.js';
 import { startAiRetentionScheduler, stopAiRetentionScheduler } from '../../api/src/services/ai-retention.service.js';
+import { startReportPackSweepScheduler, stopReportPackSweepScheduler } from '../../api/src/services/report-pack-sweep.service.js';
 import { startBalanceValidationScheduler } from '../../api/src/services/balance-validation.service.js';
 import { pool } from '../../api/src/db/index.js';
 import { startHeartbeat, closeWorkerHeartbeatClients } from '../../api/src/utils/worker-heartbeat.js';
@@ -41,6 +42,7 @@ import { env } from '../../api/src/config/env.js';
 import { startDocRenderWorker } from './processors/doc-render.processor.js';
 import { startDocExtractWorker } from './processors/doc-extract.processor.js';
 import { startStatementParseWorker } from './processors/statement-parse.processor.js';
+import { startReportPackWorker } from './processors/report-pack.processor.js';
 import { checkPdftoppmAvailable } from '../../api/src/services/extraction/pdf-render.service.js';
 import { healthCheck as extractionHealthCheck } from '../../api/src/services/extraction/qwen-client.service.js';
 import type { Worker } from 'bullmq';
@@ -53,6 +55,7 @@ console.log(`[Worker] Vibe MyBooks worker starting at ${startedAt}`);
 let docRenderWorker: Worker | null = null;
 let docExtractWorker: Worker | null = null;
 let statementParseWorker: Worker | null = null;
+let reportPackWorker: Worker | null = null;
 
 try {
   startBackupScheduler();
@@ -66,7 +69,14 @@ try {
   startRecurringDocRequestScheduler();
   startAiRetentionScheduler();
   startBalanceValidationScheduler();
-  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, review-checks-scheduler, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler, ai-retention-scheduler, balance-validation-scheduler');
+  startReportPackSweepScheduler();
+  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, review-checks-scheduler, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler, ai-retention-scheduler, balance-validation-scheduler, report-pack-sweep-scheduler');
+
+  // Report-pack render worker — always on (bulk PDF export is a core
+  // reports feature). One Chromium per job, merged with pdf-lib, uploaded
+  // as a transient artifact swept by report-pack-sweep-scheduler.
+  reportPackWorker = startReportPackWorker();
+  console.log('[Worker] Report-pack worker registered: report-pack');
 
   // Statement-parse BullMQ worker — always on (statement import is a core
   // feature). Running the detect→OCR→extract→reconcile pipeline here means it
@@ -159,6 +169,7 @@ const shutdown = async (signal: string) => {
     docRenderWorker?.close().catch((err) => console.error('[Worker] doc-render close error:', err)),
     docExtractWorker?.close().catch((err) => console.error('[Worker] doc-extract close error:', err)),
     statementParseWorker?.close().catch((err) => console.error('[Worker] statement-parse close error:', err)),
+    reportPackWorker?.close().catch((err) => console.error('[Worker] report-pack close error:', err)),
   ]);
   stopCloudflaredAlerter();
   stopBackupVerifier();
@@ -167,6 +178,7 @@ const shutdown = async (signal: string) => {
   stopPortalReminderScheduler();
   stopRecurringDocRequestScheduler();
   stopAiRetentionScheduler();
+  stopReportPackSweepScheduler();
   const forceExit = setTimeout(() => {
     console.error('[Worker] shutdown deadline exceeded — forcing exit');
     process.exit(1);
