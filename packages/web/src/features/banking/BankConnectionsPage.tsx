@@ -113,11 +113,21 @@ export function BankConnectionsPage() {
       return;
     }
 
+    // Privacy-safe duplicate warning: this account is already connected under
+    // another tenant on the system. Warn (don't block) — connecting again
+    // double-bills Plaid and duplicates the feed.
+    if (result.connectedElsewhere) {
+      toast.info(
+        'One or more of these accounts is already connected elsewhere on this system. Connecting it again may double Plaid billing and duplicate imported transactions.',
+        { durationMs: 9000 },
+      );
+    }
+
     if (result.item?.id) {
       const detail = await apiClient<PlaidItemDetail>(`/plaid/items/${result.item.id}`);
       setMappingData({ accounts: detail.accounts || [], hiddenAccountCount: detail.hiddenAccountCount || 0 });
     }
-  }, [exchangeToken]);
+  }, [exchangeToken, toast]);
 
   if (legacyLoading || plaidLoading) return <LoadingSpinner className="py-12" />;
   // Both queries are surfaced independently so an admin can tell which

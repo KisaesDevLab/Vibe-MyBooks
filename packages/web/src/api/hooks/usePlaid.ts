@@ -40,6 +40,9 @@ export interface ExchangeTokenResult {
   item: PlaidItem;
   isExisting?: boolean;
   accounts?: PlaidAccount[];
+  // True when one of the linked accounts is already connected under another
+  // tenant on this system (name-hidden, privacy-safe). A warning, not a block.
+  connectedElsewhere?: boolean;
 }
 
 export function useExchangeToken() {
