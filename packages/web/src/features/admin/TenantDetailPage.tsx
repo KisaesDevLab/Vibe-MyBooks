@@ -38,6 +38,7 @@ interface TenantDetail {
   companies: TenantCompany[];
   stats: {
     accountCount: number;
+    nonSystemAccountCount: number;
     contactCount: number;
     transactionCount: number;
   };
@@ -180,7 +181,7 @@ export function TenantDetailPage() {
         tenant: { id: string; name: string; slug: string; createdAt?: string; created_at?: string };
         users: TenantUser[];
         companies: Array<{ id: string; businessName?: string; business_name?: string; name?: string; setupComplete?: boolean; setup_complete?: boolean }>;
-        stats?: { accounts?: string; transactions?: string; contacts?: string };
+        stats?: { accounts?: string; non_system_accounts?: string; transactions?: string; contacts?: string };
       }>(`/admin/tenants/${id}`);
       return {
         id: res.tenant.id,
@@ -196,6 +197,7 @@ export function TenantDetailPage() {
         })),
         stats: {
           accountCount: parseInt(res.stats?.accounts || '0'),
+          nonSystemAccountCount: parseInt(res.stats?.non_system_accounts || '0'),
           contactCount: parseInt(res.stats?.contacts || '0'),
           transactionCount: parseInt(res.stats?.transactions || '0'),
         },
@@ -453,9 +455,9 @@ export function TenantDetailPage() {
           <div className="text-sm flex-1 min-w-[260px]">
             <p className="font-medium text-gray-900">Apply a template</p>
             <p className="text-gray-600 mt-1">
-              {tenant.stats.accountCount === 0
-                ? 'This tenant has no accounts — pick a business-type template to seed its chart of accounts.'
-                : `This tenant already has ${tenant.stats.accountCount} accounts. To apply a different template, delete the chart of accounts first (Danger Zone below — only possible before any transactions).`}
+              {tenant.stats.nonSystemAccountCount === 0
+                ? 'This tenant has no non-system accounts — pick a business-type template to seed its chart of accounts. (System accounts, if any, are kept.)'
+                : `This tenant already has ${tenant.stats.nonSystemAccountCount} non-system accounts. To apply a different template, delete the chart of accounts first (Danger Zone below — only possible before any transactions).`}
             </p>
             {coaApplyMsg && (
               <p className={`mt-1 ${coaApplyMsg.startsWith('Applied') ? 'text-green-700' : 'text-red-700'}`}>{coaApplyMsg}</p>
@@ -463,7 +465,7 @@ export function TenantDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             <select value={templateSlug} onChange={(e) => setTemplateSlug(e.target.value)}
-              disabled={tenant.stats.accountCount > 0}
+              disabled={tenant.stats.nonSystemAccountCount > 0}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400 min-w-[220px]">
               {coaTemplateOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -471,7 +473,7 @@ export function TenantDetailPage() {
             </select>
             <button
               onClick={() => { setCoaApplyMsg(null); applyCoaMutation.mutate(); }}
-              disabled={tenant.stats.accountCount > 0 || applyCoaMutation.isPending}
+              disabled={tenant.stats.nonSystemAccountCount > 0 || applyCoaMutation.isPending}
               className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {applyCoaMutation.isPending ? 'Applying…' : 'Apply template'}
@@ -492,8 +494,9 @@ export function TenantDetailPage() {
           <div className="text-sm">
             <p className="font-medium text-gray-900">Delete chart of accounts</p>
             <p className="text-gray-600 mt-1">
-              Removes all {tenant.stats.accountCount} accounts so a different COA template can be
-              re-seeded. Only available before any transactions are recorded
+              Removes the {tenant.stats.nonSystemAccountCount} non-system accounts so a different COA
+              template can be re-seeded. System accounts (Payments Clearing, A/R, A/P, …) are kept.
+              Only available before any transactions are recorded
               {tenant.stats.transactionCount > 0
                 ? ` — this tenant has ${tenant.stats.transactionCount} transaction(s), so it's blocked.`
                 : '.'}
@@ -502,7 +505,7 @@ export function TenantDetailPage() {
           </div>
           <button
             onClick={() => { setCoaError(null); setShowDeleteCoa(true); }}
-            disabled={tenant.stats.transactionCount > 0 || tenant.stats.accountCount === 0}
+            disabled={tenant.stats.transactionCount > 0 || tenant.stats.nonSystemAccountCount === 0}
             className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 border border-red-300 hover:bg-red-50 rounded-lg whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Trash2 className="h-4 w-4" />
@@ -708,7 +711,7 @@ export function TenantDetailPage() {
       <ConfirmDialog
         open={showDeleteCoa}
         title="Delete chart of accounts?"
-        message={`This deletes all ${tenant.stats.accountCount} accounts for "${tenant.name}". You'll need to re-seed a chart of accounts before recording transactions. This is only allowed because the tenant has no transactions yet.`}
+        message={`This deletes the ${tenant.stats.nonSystemAccountCount} non-system accounts for "${tenant.name}" (system accounts like Payments Clearing, A/R and A/P are kept). You'll need to re-seed a chart of accounts before recording transactions. This is only allowed because the tenant has no transactions yet.`}
         confirmLabel={deleteCoaMutation.isPending ? 'Deleting…' : 'Delete accounts'}
         variant="danger"
         onCancel={() => { if (!deleteCoaMutation.isPending) setShowDeleteCoa(false); }}
