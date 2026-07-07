@@ -9,10 +9,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import type { JournalLine, JournalLineInput } from '@kis-books/shared';
 import { useCreateTransaction, useUpdateTransaction, useTransaction } from '../../api/hooks/useTransactions';
 
+type Basis = 'cash' | 'accrual' | 'both';
+
 interface JournalEntryPayload extends Record<string, unknown> {
   txnType: 'journal_entry';
   txnDate: string;
   memo: string;
+  basis: Basis;
   lines: JournalLineInput[];
   draftAttachmentId?: string;
 }
@@ -57,6 +60,7 @@ export function JournalEntryForm() {
 
   const [txnDate, setTxnDate] = useState(today);
   const [memo, setMemo] = useState('');
+  const [basis, setBasis] = useState<Basis>('both');
   const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()]);
   const [draftId] = useState(() => crypto.randomUUID());
   const [loaded, setLoaded] = useState(false);
@@ -66,6 +70,7 @@ export function JournalEntryForm() {
       const txn = existingData.transaction;
       setTxnDate(txn.txnDate);
       setMemo(txn.memo || '');
+      setBasis((txn.basis as Basis) || 'both');
 
       const txnLines = txn.lines || [];
       if (txnLines.length > 0) {
@@ -117,6 +122,7 @@ export function JournalEntryForm() {
       txnType: 'journal_entry',
       txnDate,
       memo,
+      basis,
       lines: lines.filter((l) => l.accountId).map((l) => ({
         accountId: l.accountId,
         debit: l.debit || '0',
@@ -238,7 +244,23 @@ export function JournalEntryForm() {
           <button type="button" onClick={addLine} className="mt-3 flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700">
             <Plus className="h-4 w-4" /> Add line
           </button>
-          <div className="flex justify-end mt-4 border-t pt-4 text-sm">
+          <div className="flex flex-wrap justify-between items-end gap-4 mt-4 border-t pt-4 text-sm">
+            <div>
+              <label htmlFor="je-basis" className="block text-xs font-medium text-gray-500 uppercase mb-1">Basis</label>
+              <select
+                id="je-basis"
+                value={basis}
+                onChange={(e) => setBasis(e.target.value as Basis)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="both">Both (cash &amp; accrual)</option>
+                <option value="accrual">Accrual only</option>
+                <option value="cash">Cash only</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1 max-w-xs">
+                Which report bases this entry appears on. Use “Accrual only” for adjusting entries (e.g. depreciation) that shouldn’t hit cash-basis reports.
+              </p>
+            </div>
             <div className="space-y-1 text-right">
               <p>Total Debits: <span className="font-mono font-medium">${totalDebits.toFixed(2)}</span></p>
               <p>Total Credits: <span className="font-mono font-medium">${totalCredits.toFixed(2)}</span></p>

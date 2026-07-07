@@ -153,12 +153,14 @@ export function useBulkCategorize() {
   });
 }
 
-// ADR 0XX §7 — bulk set-tag on already-categorized feed items.
+// ADR 0XX §7 — bulk set-tag. Posted items retag their journal lines; pending/
+// assigned items stage the tag (applied when the item is approved/posted).
+export interface BulkSetTagResult { updated: number; failures: Array<{ id: string; error: string }> }
 export function useBulkSetTag() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { feedItemIds: string[]; tagId: string | null }) =>
-      apiClient('/banking/feed/bulk-set-tag', { method: 'POST', body: JSON.stringify(input) }),
+      apiClient<BulkSetTagResult>('/banking/feed/bulk-set-tag', { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); qc.invalidateQueries({ queryKey: ['transactions'] }); },
   });
 }

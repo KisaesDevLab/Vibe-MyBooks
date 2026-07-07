@@ -424,7 +424,12 @@ export function BankFeedPage() {
               <Button size="sm" loading={bulkSetTag.isPending}
                 onClick={() => bulkSetTag.mutate(
                   { feedItemIds: [...selected], tagId: batchSetTagId },
-                  { onSuccess: () => { setSelected(new Set()); setShowBatchSetTag(false); setBatchSetTagId(null); } },
+                  { onSuccess: (r) => {
+                    setSelected(new Set()); setShowBatchSetTag(false); setBatchSetTagId(null);
+                    const failed = r.failures?.length ?? 0;
+                    if (r.updated > 0) toast.success(`Tagged ${r.updated} item${r.updated === 1 ? '' : 's'}${failed ? ` · ${failed} skipped` : ''}.`);
+                    else toast.error(failed ? `Couldn’t tag ${failed} item${failed === 1 ? '' : 's'} — they may already be posted or excluded.` : 'No items tagged.');
+                  } },
                 )}>Apply</Button>
               <Button size="sm" variant="ghost" onClick={() => { setShowBatchSetTag(false); setBatchSetTagId(null); }}>Cancel</Button>
             </div>

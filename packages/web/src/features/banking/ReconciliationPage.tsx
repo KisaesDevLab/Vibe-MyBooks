@@ -897,7 +897,7 @@ export function ReconciliationPage() {
 
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Start Manually</h2>
         <div className="max-w-md bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-          <AccountSelector label="Bank Account" value={accountId} onChange={setAccountId} accountTypeFilter="asset" required />
+          <AccountSelector label="Bank / Credit Card Account" value={accountId} onChange={setAccountId} accountTypeFilter={['asset', 'liability']} required />
 
           {/* An in-progress reconciliation blocks starting a new one — offer a
               way back in (resume) or out (cancel) instead of a dead-end error. */}
