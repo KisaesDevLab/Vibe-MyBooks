@@ -702,7 +702,13 @@ export function ReconciliationPage() {
     if (unclearedOnly) rows = rows.filter((l) => !l.is_cleared);
     if (search.trim()) {
       const q = search.toLowerCase();
-      rows = rows.filter((l) => `${l.description ?? ''} ${l.memo ?? ''} ${l.txn_type ?? ''}`.toLowerCase().includes(q));
+      rows = rows.filter((l) => {
+        // Search text fields AND the amount — both the plain "1500.00" and the
+        // grouped "1,500.00" forms, so a query of 1500, 1500.00 or 1,500 hits.
+        const amt = amountOf(l);
+        const haystack = `${l.description ?? ''} ${l.memo ?? ''} ${l.txn_type ?? ''} ${amt.toFixed(2)} ${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        return haystack.toLowerCase().includes(q);
+      });
     }
     const dir = sortDir === 'asc' ? 1 : -1;
     return [...rows].sort((a, b) => {
@@ -941,7 +947,7 @@ export function ReconciliationPage() {
             Uncleared only ✕
           </button>
         )}
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search description / type…"
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search description / type / amount…"
           className="ml-auto rounded-md border-gray-300 text-sm px-3 py-1.5 min-w-[14rem]" />
       </div>
 
