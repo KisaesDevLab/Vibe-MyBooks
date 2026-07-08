@@ -30,7 +30,8 @@ import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Repeat } from 'lucide-react';
+import { RecurringScheduleModal } from './RecurringScheduleModal';
 
 // `tagId` + `userHasTouchedTag` land with ADR 0XY/0XZ. The stickiness flag
 // is false on newly-created lines so default-tag recomputation is free to
@@ -64,6 +65,7 @@ export function JournalEntryForm() {
   const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()]);
   const [draftId] = useState(() => crypto.randomUUID());
   const [loaded, setLoaded] = useState(false);
+  const [showRecurring, setShowRecurring] = useState(false);
 
   useEffect(() => {
     if (isEdit && existingData?.transaction && !loaded) {
@@ -136,7 +138,9 @@ export function JournalEntryForm() {
       updateTxn.mutate({ id: editId!, ...payload }, { onSuccess: () => navigate(`/transactions/${editId}`) });
     } else {
       payload.draftAttachmentId = draftId;
-      createTxn.mutate(payload, { onSuccess: () => navigate('/transactions') });
+      // Land on the new entry's detail page (not the list) so it can be acted
+      // on right after posting — e.g. "Make recurring".
+      createTxn.mutate(payload, { onSuccess: (res) => navigate(`/transactions/${res.transaction.id}`) });
     }
   };
 
@@ -278,6 +282,11 @@ export function JournalEntryForm() {
             <Button type="submit" disabled={!isBalanced} loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Post Journal Entry'}</Button>
           </ShortcutTooltip>
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/transactions/${editId}` : '/transactions')}>Cancel</Button>
+          {isEdit && (
+            <Button type="button" variant="secondary" onClick={() => setShowRecurring(true)}>
+              <Repeat className="h-4 w-4 mr-1" /> Make recurring
+            </Button>
+          )}
         </div>
 
         {isEdit
@@ -285,6 +294,10 @@ export function JournalEntryForm() {
           : <AttachmentPanel attachableType="draft" attachableId={draftId} />
         }
       </form>
+
+      {isEdit && showRecurring && (
+        <RecurringScheduleModal transactionId={editId!} onClose={() => setShowRecurring(false)} />
+      )}
     </div>
   );
 }

@@ -8,9 +8,10 @@ import { useTransaction, useVoidTransaction, useDuplicateTransaction } from '../
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
-import { ArrowLeft, Copy, Ban, Download, Pencil } from 'lucide-react';
+import { ArrowLeft, Copy, Ban, Download, Pencil, Repeat } from 'lucide-react';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { AskClientAboutTransactionButton } from './AskClientAboutTransactionButton';
+import { RecurringScheduleModal } from './RecurringScheduleModal';
 
 const txnTypeLabels: Record<string, string> = {
   invoice: 'Invoice', customer_payment: 'Payment', cash_sale: 'Cash Sale',
@@ -37,6 +38,7 @@ export function TransactionDetail() {
   const [voidReason, setVoidReason] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState('');
+  const [showRecurring, setShowRecurring] = useState(false);
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
   if (isError || !data) return <ErrorMessage onRetry={() => refetch()} />;
@@ -133,6 +135,11 @@ export function TransactionDetail() {
           <Button variant="secondary" size="sm" onClick={handleDuplicate} loading={duplicateTxn.isPending}>
             <Copy className="h-4 w-4 mr-1" /> Duplicate
           </Button>
+          {txn.status === 'posted' && (
+            <Button variant="secondary" size="sm" onClick={() => setShowRecurring(true)}>
+              <Repeat className="h-4 w-4 mr-1" /> Make recurring
+            </Button>
+          )}
           {txn.status !== 'void' && (
             <AskClientAboutTransactionButton
               transactionId={txn.id}
@@ -235,6 +242,10 @@ export function TransactionDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {showRecurring && (
+        <RecurringScheduleModal transactionId={txn.id} onClose={() => setShowRecurring(false)} />
       )}
     </div>
   );

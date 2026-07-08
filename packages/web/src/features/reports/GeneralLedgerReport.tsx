@@ -32,7 +32,7 @@ interface GLAccount {
   id: string;
   accountNumber: string | null;
   name: string;
-  accountType: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+  accountType: 'asset' | 'liability' | 'equity' | 'revenue' | 'cogs' | 'expense' | 'other_revenue' | 'other_expense';
   normalBalance: 'debit' | 'credit';
   beginningBalance: number;
   lines: GLLine[];
@@ -74,12 +74,18 @@ const TXN_TYPE_LABELS: Record<string, string> = {
   customer_refund: 'REF',
 };
 
+// Full section headers (already plural where natural), in the order the
+// backend returns them: Assets, Liabilities, Equity, Revenue, COGS, Expenses,
+// then Other Revenue / Other Expenses.
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
-  asset: 'Asset',
-  liability: 'Liability',
+  asset: 'Assets',
+  liability: 'Liabilities',
   equity: 'Equity',
   revenue: 'Revenue',
-  expense: 'Expense',
+  cogs: 'Cost of Goods Sold',
+  expense: 'Expenses',
+  other_revenue: 'Other Revenue',
+  other_expense: 'Other Expenses',
 };
 
 // ─── Main component ──────────────────────────────────────────────
@@ -171,7 +177,7 @@ function GeneralLedgerView({ data }: { data: GLReportData }) {
             <div key={acct.id}>
               {showTypeBreak && (
                 <div className="bg-gray-100 px-6 py-2 text-xs font-bold text-gray-600 uppercase tracking-wide">
-                  {ACCOUNT_TYPE_LABELS[acct.accountType] || acct.accountType}s
+                  {ACCOUNT_TYPE_LABELS[acct.accountType] || acct.accountType}
                 </div>
               )}
               <AccountSection account={acct} />
