@@ -530,6 +530,8 @@ export function TenantDetailPage() {
         </div>
       </div>
 
+      <RetainedEarningsCard tenantId={id!} />
+
       {/* Danger Zone — destructive operations live here, separated from
           the rest of the page so they can't be clicked by accident. */}
       <div className="bg-white rounded-lg border-2 border-red-200 shadow-sm overflow-hidden">
@@ -1076,6 +1078,99 @@ function AddFirmUserModal({
             {grant.isPending ? 'Granting…' : 'Grant access'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Super-admin repair for a tenant whose system Retained Earnings account was
+// deleted: pick an equity account and tag it as the system RE (system_tag =
+// 'retained_earnings'). Restores closing-entry targeting, system-account
+// protection, and the named RE row on the balance sheet.
+interface RetainedEarningsAccount { id: string; name: string; accountNumber: string | null; systemTag: string | null; isSystem: boolean }
+function RetainedEarningsCard({ tenantId }: { tenantId: string }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [selected, setSelected] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'tenants', tenantId, 'retained-earnings'],
+    queryFn: () => apiClient<{ current: RetainedEarningsAccount | null; equityAccounts: RetainedEarningsAccount[] }>(
+      `/admin/tenants/${tenantId}/retained-earnings`,
+    ),
+  });
+
+  const designate = useMutation({
+    mutationFn: () => apiClient(`/admin/tenants/${tenantId}/retained-earnings`, {
+      method: 'POST', body: JSON.stringify({ accountId: selected }),
+    }),
+    onSuccess: () => {
+      setSelected(''); setError(null);
+      toast.success('Retained Earnings designated.');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', tenantId, 'retained-earnings'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', tenantId] });
+    },
+    onError: (e: Error) => setError(e.message || 'Could not designate the account'),
+  });
+
+  const current = data?.current ?? null;
+  const equity = data?.equityAccounts ?? [];
+  const label = (a: RetainedEarningsAccount) => `${a.accountNumber ? `${a.accountNumber} — ` : ''}${a.name}`;
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+        <BookOpen className="h-5 w-5 text-gray-600" />
+        <h2 className="text-lg font-semibold text-gray-900">System Retained Earnings</h2>
+      </div>
+      <div className="p-6 space-y-3">
+        {isLoading ? (
+          <LoadingSpinner size="md" />
+        ) : (
+          <>
+            {current ? (
+              <p className="text-sm text-gray-700">
+                Current: <span className="font-medium text-gray-900">{label(current)}</span>{' '}
+                <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">system</span>
+              </p>
+            ) : (
+              <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                No system Retained Earnings account. The balance sheet is showing a <em>calculated</em>
+                {' '}Retained Earnings. Designate an equity account below to restore it.
+              </p>
+            )}
+
+            {equity.length === 0 ? (
+              <p className="text-sm text-gray-500">This tenant has no equity accounts to designate.</p>
+            ) : (
+              <div className="flex items-end gap-2 flex-wrap">
+                <div className="flex-1 min-w-[260px]">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    {current ? 'Reassign to a different equity account' : 'Designate an equity account'}
+                  </label>
+                  <select value={selected} onChange={(e) => { setSelected(e.target.value); setError(null); }}
+                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <option value="">Select an equity account…</option>
+                    {equity.map((a) => (
+                      <option key={a.id} value={a.id} disabled={a.id === current?.id}>
+                        {label(a)}{a.id === current?.id ? ' (current)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={() => { setError(null); designate.mutate(); }}
+                  disabled={!selected || designate.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 rounded-lg whitespace-nowrap"
+                >
+                  {designate.isPending ? 'Saving…' : 'Designate as Retained Earnings'}
+                </button>
+              </div>
+            )}
+            {error && <p className="text-sm text-red-600">{error}</p>}
+          </>
+        )}
       </div>
     </div>
   );
