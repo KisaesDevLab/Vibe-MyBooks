@@ -67,6 +67,7 @@ interface BSComparativeColumn {
 interface BSComparativeRow {
   accountId?: string | null;
   name: string;
+  accountNumber?: string | null;
   values: Array<number | null>;
 }
 
@@ -314,7 +315,7 @@ function ComparativeView({ data, mode = 'detail' }: { data: BSComparativeData; m
   function AccountRow({ row, indent }: { row: BSComparativeRow; indent?: boolean }) {
     return (
       <tr className="border-b border-gray-100 hover:bg-gray-50">
-        <td className={`px-3 py-1.5 text-sm ${indent ? 'pl-8' : ''}`}>{row.name}</td>
+        <td className={`px-3 py-1.5 text-sm ${indent ? 'pl-8' : ''}`}>{row.accountNumber ? `${row.accountNumber} — ` : ''}{row.name}</td>
         {row.values.map((v, j) => {
           const col = columns[j]!;
           const href = bsDrillUrl(row.accountId, col.asOfDate, fyMonth);
