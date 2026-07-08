@@ -664,6 +664,20 @@ function BlockInspector({
             </select>
           </label>
         )}
+        {basisApplies && (
+          <label className="block text-xs">
+            <span className="block text-gray-800 mb-1">Comparison</span>
+            <select
+              value={block['compare'] === 'previous_period' || block['compare'] === 'previous_year' ? String(block['compare']) : ''}
+              onChange={(e) => onChange({ compare: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+            >
+              <option value="">None</option>
+              <option value="previous_period">vs. previous period</option>
+              <option value="previous_year">vs. previous year</option>
+            </select>
+          </label>
+        )}
       </div>
     );
   }
