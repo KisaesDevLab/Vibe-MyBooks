@@ -28,6 +28,10 @@ const PAGE_SIZE = 50;
 const PERSISTED_FILTER_KEYS = ['type', 'status', 'account', 'contact', 'from', 'to', 'tagId', 'q', 'sortBy', 'sortDir'] as const;
 const filterStorageKey = (companyId: string) => `vibe:txn-filters:${companyId}`;
 
+// Sentinel value for the bulk "Set Tag" dropdown that clears the tag (sends
+// setTagId: null) rather than assigning one. Not a real tag id.
+const CLEAR_TAG = '__clear__';
+
 type TxnSortKey = 'date' | 'type' | 'number' | 'payee' | 'memo' | 'category' | 'amount' | 'status';
 
 function SortableTh({ sortKey, label, align, sortBy, sortDir, onSort }: {
@@ -145,7 +149,12 @@ export function TransactionListPage() {
     const input: BulkUpdateTransactionsInput = { txnIds: Array.from(selectedIds) };
     if (bulkCategoryId) input.setCategoryAccountId = bulkCategoryId;
     if (bulkContactId) input.setPayeeContactId = bulkContactId;
-    if (bulkTagId) input.setTagId = bulkTagId;
+    // CLEAR_TAG (null) removes the tag; a real id sets it.
+    if (bulkTagId === CLEAR_TAG) input.setTagId = null;
+    else if (bulkTagId) input.setTagId = bulkTagId;
+    // Scope the tag change to the account the list is filtered by, so a
+    // split / journal entry only tags that line — not every line.
+    if (input.setTagId !== undefined && accountFilter) input.tagAccountId = accountFilter;
     if (
       input.setCategoryAccountId === undefined &&
       input.setPayeeContactId === undefined &&
@@ -518,10 +527,16 @@ export function TransactionListPage() {
             <select value={bulkTagId} onChange={(e) => setBulkTagId(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[200px]">
               <option value="">— No change —</option>
+              <option value={CLEAR_TAG}>— Clear tag —</option>
               {tagsList.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
+            {accountFilter && (
+              <p className="mt-1 text-[11px] text-gray-500 max-w-[200px]">
+                Applies to the filtered account&apos;s line only.
+              </p>
+            )}
           </div>
           <Button size="sm" onClick={applyBulk} loading={bulkUpdate.isPending}
             disabled={!bulkCategoryId && !bulkContactId && !bulkTagId}>Apply</Button>
