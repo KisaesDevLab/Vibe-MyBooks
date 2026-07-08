@@ -2,10 +2,11 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Trash2, UserPlus } from 'lucide-react';
-import type { FirmRole } from '@kis-books/shared';
+import { KeyRound, Trash2, UserPlus } from 'lucide-react';
+import type { FirmRole, FirmUserWithProfile, TenantAccessRole } from '@kis-books/shared';
+import { TENANT_ACCESS_ROLES } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import {
@@ -14,6 +15,8 @@ import {
   useInviteFirmUser,
   useRemoveFirmUser,
   useUpdateFirmUser,
+  useStaffTenantAccess,
+  useSetStaffTenantAccess,
 } from '../../api/hooks/useFirms';
 import { FirmTabs } from './FirmTabs';
 
@@ -31,6 +34,7 @@ export function FirmStaffPage() {
   const remove = useRemoveFirmUser(firmId ?? '');
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [accessTarget, setAccessTarget] = useState<FirmUserWithProfile | null>(null);
 
   if (!firmId) return null;
 
@@ -65,7 +69,7 @@ export function FirmStaffPage() {
                 <th className="px-3 py-2">Display name</th>
                 <th className="px-3 py-2">Firm role</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2 w-16" />
+                <th className="px-3 py-2 w-40" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -116,18 +120,28 @@ export function FirmStaffPage() {
                     </button>
                   </td>
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.confirm(`Remove ${u.email} from this firm?`)) {
-                          remove.mutate(u.id);
-                        }
-                      }}
-                      aria-label={`Remove ${u.email}`}
-                      className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setAccessTarget(u)}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                        title="Grant access to the firm's client tenants"
+                      >
+                        <KeyRound className="h-3.5 w-3.5" /> Tenant access
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Remove ${u.email} from this firm?`)) {
+                            remove.mutate(u.id);
+                          }
+                        }}
+                        aria-label={`Remove ${u.email}`}
+                        className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -146,6 +160,121 @@ export function FirmStaffPage() {
           isPending={invite.isPending}
         />
       )}
+
+      {accessTarget && (
+        <StaffTenantAccessDialog
+          firmId={firmId}
+          firmUser={accessTarget}
+          onClose={() => setAccessTarget(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Grant/revoke a staffer's access across the firm's managed tenants in one
+// place. Each row is a client tenant; check it to grant access with the chosen
+// role, uncheck to revoke. The set is authoritative for the firm's tenants
+// only — the server never touches the user's direct (non-firm) access.
+function StaffTenantAccessDialog({
+  firmId,
+  firmUser,
+  onClose,
+}: {
+  firmId: string;
+  firmUser: FirmUserWithProfile;
+  onClose: () => void;
+}) {
+  const { data, isLoading } = useStaffTenantAccess(firmId, firmUser.id);
+  const save = useSetStaffTenantAccess(firmId);
+  const [error, setError] = useState<string | null>(null);
+
+  // Local editable state: tenantId → { checked, role }. Seeded from the server
+  // rows once they arrive (a granted tenant defaults to 'accountant' display,
+  // but keeps its real role).
+  const [draft, setDraft] = useState<Record<string, { checked: boolean; role: TenantAccessRole }>>({});
+  useEffect(() => {
+    if (!data?.access) return;
+    const next: Record<string, { checked: boolean; role: TenantAccessRole }> = {};
+    for (const row of data.access) {
+      next[row.tenantId] = { checked: row.hasAccess, role: (row.role ?? 'accountant') as TenantAccessRole };
+    }
+    setDraft(next);
+  }, [data]);
+
+  const rows = data?.access ?? [];
+
+  const submit = async () => {
+    setError(null);
+    const access = rows
+      .filter((r) => draft[r.tenantId]?.checked)
+      .map((r) => ({ tenantId: r.tenantId, role: draft[r.tenantId]!.role }));
+    try {
+      await save.mutateAsync({ firmUserId: firmUser.id, access });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save tenant access');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg flex flex-col gap-3 p-5" onClick={(e) => e.stopPropagation()}>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Tenant access</h2>
+          <p className="text-xs text-gray-500">
+            {firmUser.displayName ? `${firmUser.displayName} · ` : ''}{firmUser.email}. Grant access to the firm&apos;s client tenants and pick a role for each.
+          </p>
+        </div>
+
+        {isLoading ? (
+          <LoadingSpinner size="md" />
+        ) : rows.length === 0 ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            This firm has no active managed tenants yet. Assign client tenants to the firm first (Tenants tab), then grant access here.
+          </p>
+        ) : (
+          <div className="max-h-80 overflow-y-auto rounded-md border border-gray-200 divide-y divide-gray-100">
+            {rows.map((r) => {
+              const d = draft[r.tenantId] ?? { checked: r.hasAccess, role: 'accountant' as TenantAccessRole };
+              return (
+                <div key={r.tenantId} className="flex items-center gap-3 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={d.checked}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, [r.tenantId]: { ...d, checked: e.target.checked } }))}
+                    className="h-4 w-4 rounded border-gray-300"
+                    aria-label={`Grant access to ${r.tenantName}`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm text-gray-900">{r.tenantName}</div>
+                    <div className="truncate font-mono text-[11px] text-gray-500">{r.tenantSlug}</div>
+                  </div>
+                  <select
+                    value={d.role}
+                    disabled={!d.checked}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, [r.tenantId]: { ...d, role: e.target.value as TenantAccessRole } }))}
+                    className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs disabled:bg-gray-50 disabled:text-gray-400"
+                  >
+                    {TENANT_ACCESS_ROLES.map((role) => (
+                      <option key={role} value={role}>{role}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {error && <p className="text-xs text-rose-700">{error}</p>}
+
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={submit} disabled={isLoading || save.isPending || rows.length === 0}>
+            {save.isPending ? 'Saving…' : 'Save access'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

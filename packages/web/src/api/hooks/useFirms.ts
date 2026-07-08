@@ -11,6 +11,8 @@ import type {
   FirmUser,
   FirmUserWithProfile,
   InviteFirmUserInput,
+  StaffTenantAccessRow,
+  TenantAccessRole,
   TenantFirmAssignmentWithTenant,
   UpdateFirmInput,
   UpdateFirmUserInput,
@@ -112,6 +114,32 @@ export function useRemoveFirmUser(firmId: string) {
         method: 'DELETE',
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['firms', firmId, 'users'] }),
+  });
+}
+
+// A firm staffer's per-tenant access across the firm's managed tenants —
+// the matrix behind the "Tenant access" dialog on the firm-staff page.
+export function useStaffTenantAccess(firmId: string, firmUserId: string | null) {
+  return useQuery({
+    queryKey: ['firms', firmId, 'users', firmUserId, 'tenant-access'],
+    enabled: !!firmUserId,
+    queryFn: () =>
+      apiClient<{ access: StaffTenantAccessRow[] }>(
+        `/firms/${firmId}/users/${firmUserId}/tenant-access`,
+      ),
+  });
+}
+
+export function useSetStaffTenantAccess(firmId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { firmUserId: string; access: Array<{ tenantId: string; role: TenantAccessRole }> }) =>
+      apiClient<{ access: StaffTenantAccessRow[] }>(
+        `/firms/${firmId}/users/${input.firmUserId}/tenant-access`,
+        { method: 'PUT', body: JSON.stringify({ access: input.access }) },
+      ),
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: ['firms', firmId, 'users', vars.firmUserId, 'tenant-access'] }),
   });
 }
 
