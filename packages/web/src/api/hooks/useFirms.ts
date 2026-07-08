@@ -155,6 +155,19 @@ export function useFirmTenants(firmId: string | null) {
   });
 }
 
+// Tenants the caller may assign to this firm — for a searchable picker instead
+// of a raw-UUID field. Only fetched while the assign dialog is open.
+export function useAssignableTenants(firmId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['firms', firmId, 'assignable-tenants'],
+    enabled,
+    queryFn: () =>
+      apiClient<{ tenants: Array<{ tenantId: string; name: string; slug: string }> }>(
+        `/firms/${firmId}/assignable-tenants`,
+      ),
+  });
+}
+
 export function useAssignTenantToFirm(firmId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -163,7 +176,10 @@ export function useAssignTenantToFirm(firmId: string) {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['firms', firmId, 'tenants'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['firms', firmId, 'tenants'] });
+      qc.invalidateQueries({ queryKey: ['firms', firmId, 'assignable-tenants'] });
+    },
   });
 }
 

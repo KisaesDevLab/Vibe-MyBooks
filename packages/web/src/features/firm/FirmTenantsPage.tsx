@@ -4,10 +4,11 @@
 
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Building, X } from 'lucide-react';
+import { Building, Search, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import {
+  useAssignableTenants,
   useAssignTenantToFirm,
   useFirm,
   useFirmTenants,
@@ -127,6 +128,7 @@ export function FirmTenantsPage() {
 
       {assignOpen && (
         <AssignTenantDialog
+          firmId={firmId}
           onSubmit={async (tenantId, force) => {
             await assign.mutateAsync({ tenantId, force });
             setAssignOpen(false);
@@ -140,22 +142,33 @@ export function FirmTenantsPage() {
 }
 
 function AssignTenantDialog({
+  firmId,
   onSubmit,
   onClose,
   isPending,
 }: {
+  firmId: string;
   onSubmit: (tenantId: string, force: boolean) => Promise<void>;
   onClose: () => void;
   isPending: boolean;
 }) {
-  const [tenantId, setTenantId] = useState('');
+  const { data, isLoading } = useAssignableTenants(firmId, true);
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState<string | null>(null);
   const [force, setForce] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const tenants = data?.tenants ?? [];
+  const q = query.trim().toLowerCase();
+  const matches = q
+    ? tenants.filter((t) => t.name.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q))
+    : tenants;
+
   const handle = async () => {
+    if (!selected) return;
     setError(null);
     try {
-      await onSubmit(tenantId.trim(), force);
+      await onSubmit(selected, force);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Assign failed');
     }
@@ -172,18 +185,56 @@ function AssignTenantDialog({
       >
         <h2 className="text-lg font-semibold text-gray-900">Assign tenant</h2>
         <p className="text-xs text-gray-500">
-          You must have accountant or owner role on the target tenant to assign it.
+          Pick a tenant to bring under this firm. Only tenants you own or are the accountant on (and
+          that aren&apos;t already assigned here) are shown.
         </p>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-gray-700">Tenant ID (UUID)</span>
+
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            value={tenantId}
-            onChange={(e) => setTenantId(e.target.value)}
-            className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-mono"
-            placeholder="00000000-0000-0000-0000-000000000000"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full rounded-md border border-gray-300 bg-white pl-8 pr-2 py-1.5 text-sm"
+            placeholder="Search tenants by name or slug…"
+            autoFocus
           />
-        </label>
+        </div>
+
+        {isLoading ? (
+          <LoadingSpinner size="sm" />
+        ) : tenants.length === 0 ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            No assignable tenants. You can only assign tenants you own or are the accountant on that
+            aren&apos;t already managed by this firm.
+          </p>
+        ) : (
+          <div className="max-h-64 overflow-y-auto rounded-md border border-gray-200 divide-y divide-gray-100">
+            {matches.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-gray-500">No tenants match “{query}”.</p>
+            ) : (
+              matches.map((t) => (
+                <button
+                  key={t.tenantId}
+                  type="button"
+                  onClick={() => setSelected(t.tenantId)}
+                  className={`flex w-full items-center justify-between px-3 py-2 text-left hover:bg-gray-50 ${
+                    selected === t.tenantId ? 'bg-primary-50' : ''
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-gray-900">{t.name}</span>
+                    <span className="block truncate font-mono text-[11px] text-gray-500">{t.slug}</span>
+                  </span>
+                  {selected === t.tenantId && (
+                    <span className="ml-2 text-xs font-medium text-primary-600">Selected</span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
           <span className="text-xs text-gray-700">
@@ -195,7 +246,7 @@ function AssignTenantDialog({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handle} disabled={isPending || !tenantId.trim()}>
+          <Button variant="primary" onClick={handle} disabled={isPending || !selected}>
             {isPending ? 'Assigning…' : 'Assign'}
           </Button>
         </div>

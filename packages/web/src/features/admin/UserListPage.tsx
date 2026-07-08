@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   UserCog,
   Building2,
+  Landmark,
   Plus,
   X,
   Eye,
@@ -48,6 +49,7 @@ export function UserListPage() {
     | null
   >(null);
   const [companyAccessUserId, setCompanyAccessUserId] = useState<string | null>(null);
+  const [tenantAccessUserId, setTenantAccessUserId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ email: '', password: '', displayName: '', tenantId: '', role: 'owner' });
@@ -259,6 +261,15 @@ export function UserListPage() {
         <CompanyAccessModal userId={companyAccessUserId} onClose={() => setCompanyAccessUserId(null)} />
       )}
 
+      {/* Tenant Access Modal — monitor + add/disable which tenants a user can reach */}
+      {tenantAccessUserId && (
+        <TenantAccessModal
+          userId={tenantAccessUserId}
+          userEmail={users?.find((u) => u.id === tenantAccessUserId)?.email ?? ''}
+          onClose={() => setTenantAccessUserId(null)}
+        />
+      )}
+
       {(() => {
         const query = search.toLowerCase().trim();
         const filtered = query
@@ -364,6 +375,13 @@ export function UserListPage() {
                           title={u.isSuperAdmin ? 'Remove Super Admin' : 'Grant Super Admin'}
                         >
                           <ShieldCheck className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setTenantAccessUserId(u.id)}
+                          className="p-1.5 rounded hover:bg-gray-200 text-indigo-600"
+                          title="Manage Tenant Access"
+                        >
+                          <Landmark className="h-4 w-4" />
                         </button>
                         {(u.role === 'accountant' || u.role === 'bookkeeper') && (
                           <button
@@ -550,6 +568,156 @@ function CompanyAccessModal({ userId, onClose }: { userId: string; onClose: () =
           </div>
         )}
         <div className="flex justify-end mt-4">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Monitor and manage which tenants a user can reach: see current access +
+// role, enable/disable per tenant, and add access to another tenant via a
+// searchable picker (no UUID typing).
+function TenantAccessModal({ userId, userEmail, onClose }: { userId: string; userEmail: string; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [addQuery, setAddQuery] = useState('');
+  const [addTenantId, setAddTenantId] = useState<string | null>(null);
+  const [addRole, setAddRole] = useState('accountant');
+  const [error, setError] = useState('');
+
+  const accessKey = ['admin', 'users', userId, 'tenant-access'] as const;
+  const { data, isLoading } = useQuery({
+    queryKey: accessKey,
+    queryFn: () =>
+      apiClient<{ access: Array<{ tenantId: string; tenantName: string; role: string; isActive: boolean }> }>(
+        `/admin/users/${userId}/tenant-access`,
+      ),
+  });
+
+  const { data: tenantOptions } = useQuery({
+    queryKey: ['admin', 'tenants-for-select'],
+    queryFn: async () => (await apiClient<{ tenants: Array<{ id: string; name: string }> }>('/admin/tenants')).tenants,
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: accessKey });
+
+  const toggle = useMutation({
+    mutationFn: (tenantId: string) =>
+      apiClient(`/admin/users/${userId}/toggle-tenant-access`, { method: 'POST', body: JSON.stringify({ tenantId }) }),
+    onSuccess: invalidate,
+  });
+
+  const grant = useMutation({
+    mutationFn: () =>
+      apiClient(`/admin/users/${userId}/grant-tenant-access`, {
+        method: 'POST',
+        body: JSON.stringify({ tenantId: addTenantId, role: addRole }),
+      }),
+    onSuccess: () => { setAddTenantId(null); setAddQuery(''); invalidate(); },
+    onError: (e: Error) => setError(e.message || 'Failed to add access'),
+  });
+
+  const access = data?.access ?? [];
+  const heldIds = new Set(access.map((a) => a.tenantId));
+  const q = addQuery.trim().toLowerCase();
+  // Tenants the user doesn't already have a row for, matching the search.
+  const addable = (tenantOptions ?? [])
+    .filter((t) => !heldIds.has(t.id))
+    .filter((t) => (q ? t.name.toLowerCase().includes(q) : true));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Landmark className="h-5 w-5 text-indigo-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Tenant Access</h3>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+        </div>
+        <p className="-mt-2 text-sm text-gray-500">{userEmail}</p>
+
+        {/* Current access */}
+        {isLoading ? (
+          <div className="py-6 text-center text-gray-400">Loading…</div>
+        ) : access.length === 0 ? (
+          <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-500">This user has no tenant access yet.</p>
+        ) : (
+          <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+            {access.map((a) => (
+              <div key={a.tenantId} className="flex items-center justify-between px-3 py-2">
+                <div className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-gray-900">{a.tenantName}</span>
+                  <span className="text-[11px] text-gray-500">role: {a.role}</span>
+                </div>
+                <button
+                  onClick={() => toggle.mutate(a.tenantId)}
+                  disabled={toggle.isPending}
+                  className={`text-xs font-medium px-3 py-1 rounded-full ${
+                    a.isActive
+                      ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'
+                      : 'bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700'
+                  }`}
+                  title={a.isActive ? 'Disable access' : 'Enable access'}
+                >
+                  {a.isActive ? 'Active' : 'Disabled'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add access */}
+        <div className="rounded-lg border border-gray-200 p-3 flex flex-col gap-2">
+          <p className="text-xs font-semibold text-gray-700">Add access to a tenant</p>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              value={addQuery}
+              onChange={(e) => { setAddQuery(e.target.value); setAddTenantId(null); }}
+              placeholder="Search tenants by name…"
+              className="w-full rounded-md border border-gray-300 bg-white pl-8 pr-2 py-1.5 text-sm"
+            />
+          </div>
+          {addQuery.trim() && (
+            <div className="max-h-40 overflow-y-auto rounded-md border border-gray-200 divide-y divide-gray-100">
+              {addable.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-gray-500">No matching tenants (or already listed above).</p>
+              ) : (
+                addable.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setAddTenantId(t.id)}
+                    className={`block w-full truncate px-3 py-2 text-left text-sm hover:bg-gray-50 ${addTenantId === t.id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-900'}`}
+                  >
+                    {t.name}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-700">Role</label>
+            <select value={addRole} onChange={(e) => setAddRole(e.target.value)} className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm">
+              <option value="owner">owner</option>
+              <option value="accountant">accountant</option>
+              <option value="bookkeeper">bookkeeper</option>
+              <option value="readonly">readonly</option>
+            </select>
+            <button
+              onClick={() => { setError(''); grant.mutate(); }}
+              disabled={!addTenantId || grant.isPending}
+              className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 rounded-lg"
+            >
+              <Plus className="h-4 w-4" /> {grant.isPending ? 'Adding…' : 'Add'}
+            </button>
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+
+        <div className="flex justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">Done</button>
         </div>
       </div>

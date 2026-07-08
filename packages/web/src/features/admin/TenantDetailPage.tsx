@@ -9,7 +9,7 @@ import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
-import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen, CalendarRange } from 'lucide-react';
+import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen, CalendarRange, UserPlus, Search, X } from 'lucide-react';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 
 interface TenantUser {
@@ -78,6 +78,7 @@ export function TenantDetailPage() {
   const [companyDeleteError, setCompanyDeleteError] = useState<string | null>(null);
   const [showDeletePayroll, setShowDeletePayroll] = useState(false);
   const [payrollError, setPayrollError] = useState<string | null>(null);
+  const [showAddFirmUser, setShowAddFirmUser] = useState(false);
 
   const toggleAccessMutation = useMutation({
     mutationFn: (userId: string) =>
@@ -357,6 +358,12 @@ export function TenantDetailPage() {
           <h2 className="text-lg font-semibold text-gray-900">
             Users ({tenant.users.length})
           </h2>
+          <button
+            onClick={() => setShowAddFirmUser(true)}
+            className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-700 border border-primary-300 hover:bg-primary-50 rounded-lg"
+          >
+            <UserPlus className="h-4 w-4" /> Add firm user
+          </button>
         </div>
         {tenant.users.length === 0 ? (
           <div className="p-6 text-center text-gray-500">No users found.</div>
@@ -933,6 +940,143 @@ export function TenantDetailPage() {
           </div>
         </div>
       )}
+
+      {showAddFirmUser && (
+        <AddFirmUserModal
+          tenantId={id!}
+          existingActiveUserIds={new Set(tenant.users.filter((u) => u.isActive).map((u) => u.id))}
+          onClose={() => setShowAddFirmUser(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Grant an existing firm-member user access to THIS tenant. Searchable list of
+// firm users (no UUID typing), a role, and one Grant. Reuses the admin
+// grant-tenant-access endpoint.
+function AddFirmUserModal({
+  tenantId,
+  existingActiveUserIds,
+  onClose,
+}: {
+  tenantId: string;
+  existingActiveUserIds: Set<string>;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [role, setRole] = useState('accountant');
+  const [error, setError] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'firm-users'],
+    queryFn: () =>
+      apiClient<{ users: Array<{ id: string; email: string; displayName: string | null; firmNames: string[] }> }>(
+        '/admin/firm-users',
+      ),
+  });
+
+  const grant = useMutation({
+    mutationFn: () =>
+      apiClient(`/admin/users/${selected}/grant-tenant-access`, {
+        method: 'POST',
+        body: JSON.stringify({ tenantId, role }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', tenantId] });
+      onClose();
+    },
+    onError: (e: Error) => setError(e.message || 'Failed to grant access'),
+  });
+
+  const q = query.trim().toLowerCase();
+  // Firm users who don't already have active access to this tenant.
+  const candidates = (data?.users ?? []).filter((u) => !existingActiveUserIds.has(u.id));
+  const matches = q
+    ? candidates.filter(
+        (u) =>
+          u.email.toLowerCase().includes(q) ||
+          (u.displayName || '').toLowerCase().includes(q) ||
+          u.firmNames.some((f) => f.toLowerCase().includes(q)),
+      )
+    : candidates;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-5 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Add firm user to tenant</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+        </div>
+        <p className="text-xs text-gray-500">Grant a firm staff member access to this tenant. Pick a person and a role.</p>
+
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full rounded-md border border-gray-300 bg-white pl-8 pr-2 py-1.5 text-sm"
+            placeholder="Search firm users by email, name, or firm…"
+            autoFocus
+          />
+        </div>
+
+        {isLoading ? (
+          <LoadingSpinner size="md" />
+        ) : candidates.length === 0 ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            No firm users available to add. (Firm users are members of a firm under Practice → Firm → Staff, who don&apos;t already have active access here.)
+          </p>
+        ) : (
+          <div className="max-h-64 overflow-y-auto rounded-md border border-gray-200 divide-y divide-gray-100">
+            {matches.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-gray-500">No firm users match “{query}”.</p>
+            ) : (
+              matches.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setSelected(u.id)}
+                  className={`flex w-full items-center justify-between px-3 py-2 text-left hover:bg-gray-50 ${selected === u.id ? 'bg-primary-50' : ''}`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-gray-900">{u.displayName || u.email}</span>
+                    <span className="block truncate text-[11px] text-gray-500">
+                      {u.email}{u.firmNames.length ? ` · ${u.firmNames.join(', ')}` : ''}
+                    </span>
+                  </span>
+                  {selected === u.id && <span className="ml-2 text-xs font-medium text-primary-600">Selected</span>}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-medium text-gray-700">Role</label>
+          <select value={role} onChange={(e) => setRole(e.target.value)} className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm">
+            <option value="owner">owner</option>
+            <option value="accountant">accountant</option>
+            <option value="bookkeeper">bookkeeper</option>
+            <option value="readonly">readonly</option>
+          </select>
+        </div>
+
+        {error && <p className="text-xs text-rose-700">{error}</p>}
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+          <button
+            onClick={() => { setError(null); grant.mutate(); }}
+            disabled={!selected || grant.isPending}
+            className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 rounded-lg"
+          >
+            {grant.isPending ? 'Granting…' : 'Grant access'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
