@@ -2,8 +2,9 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useCompanyContext } from '../../providers/CompanyProvider';
 import type { TxnType, TxnStatus, BulkUpdateTransactionsInput } from '@kis-books/shared';
 import { useTransactions, useBulkUpdateTransactions } from '../../api/hooks/useTransactions';
 import { useAccounts } from '../../api/hooks/useAccounts';
@@ -17,6 +18,15 @@ import { ArrowLeft, Plus, Search, X } from 'lucide-react';
 import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 
 const PAGE_SIZE = 50;
+
+// Filter + sort criteria persisted per company so the operator's last-used
+// view is restored when they return to a bare /transactions (sidebar nav) or
+// reopen the tab — instead of re-applying filters every time. Excludes
+// `offset` (never restore a deep page) and `source` (a one-time deep-link
+// landing filter from bulk imports). Scoped by company so account/contact/tag
+// id filters are only ever restored where those ids are valid.
+const PERSISTED_FILTER_KEYS = ['type', 'status', 'account', 'contact', 'from', 'to', 'tagId', 'q', 'sortBy', 'sortDir'] as const;
+const filterStorageKey = (companyId: string) => `vibe:txn-filters:${companyId}`;
 
 type TxnSortKey = 'date' | 'type' | 'number' | 'payee' | 'memo' | 'category' | 'amount' | 'status';
 
@@ -204,6 +214,56 @@ export function TransactionListPage() {
     if (debouncedSearch !== urlSearch) updateParam('q', debouncedSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
+
+  // Persist last-used filters per company, and restore them once when the
+  // operator lands on a bare /transactions. A single effect avoids a
+  // restore/persist race: on the first bare mount it restores and returns
+  // (the restored params persist on the next render); otherwise it saves the
+  // current criteria on every change.
+  const { activeCompanyId } = useCompanyContext();
+  const hydratedForCompany = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    const storageKey = filterStorageKey(activeCompanyId);
+
+    if (hydratedForCompany.current !== activeCompanyId) {
+      hydratedForCompany.current = activeCompanyId;
+      // Any existing view state (a filter, a deep-link `source`, or an offset)
+      // means this is an intentional or linked view — never override it.
+      const hasViewState =
+        PERSISTED_FILTER_KEYS.some((k) => searchParams.get(k)) ||
+        searchParams.get('source') ||
+        searchParams.get('offset');
+      if (!hasViewState) {
+        try {
+          const raw = window.localStorage.getItem(storageKey);
+          if (raw) {
+            const saved = JSON.parse(raw) as Record<string, string>;
+            const entries = Object.entries(saved).filter(([, v]) => v);
+            if (entries.length > 0) {
+              setSearchParams(new URLSearchParams(entries), { replace: true });
+              if (saved['q']) setSearch(saved['q']); // sync the controlled search box
+              return; // restored params persist on the next render
+            }
+          }
+        } catch {
+          /* corrupted entry or storage unavailable — skip restore */
+        }
+      }
+    }
+
+    const snapshot: Record<string, string> = {};
+    for (const k of PERSISTED_FILTER_KEYS) {
+      const v = searchParams.get(k);
+      if (v) snapshot[k] = v;
+    }
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(snapshot));
+    } catch {
+      /* quota exceeded / storage disabled — persistence is best-effort */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId, searchParams]);
 
   const { data, isLoading, isFetching, isError, refetch } = useTransactions({
     txnType: typeFilter || undefined,
@@ -474,7 +534,7 @@ export function TransactionListPage() {
           <span>
             Updated {bulkUpdate.data.updated} transaction{bulkUpdate.data.updated === 1 ? '' : 's'}.
             {bulkUpdate.data.skipped.length > 0
-              ? ` ${bulkUpdate.data.skipped.length} skipped (splits, void, locked, or reconciled).`
+              ? ` ${bulkUpdate.data.skipped.length} skipped (a category change needs a single non-split line, or the transaction is void or in a locked period).`
               : ''}
           </span>
           <button onClick={() => bulkUpdate.reset()} className="text-green-600 hover:text-green-900">

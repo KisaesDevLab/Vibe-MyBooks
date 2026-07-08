@@ -7,7 +7,7 @@ import { screen } from '@testing-library/react';
 import { renderRoute } from '../../test-utils';
 import {
   transactionsMocks, accountsMocks, contactsMocks, tagsMocks, itemsMocks,
-  batchMocks, aiMocks, companyMocks,
+  batchMocks, aiMocks, companyMocks, companyProviderMocks,
 } from '../../test-mocks';
 
 // vi.mock is hoisted above imports. Using the factory helpers from
@@ -21,6 +21,9 @@ vi.mock('../../api/hooks/useItems', () => itemsMocks());
 vi.mock('../../api/hooks/useBatch', () => batchMocks());
 vi.mock('../../api/hooks/useAi', () => aiMocks());
 vi.mock('../../api/hooks/useCompany', () => companyMocks());
+// TransactionListPage restores/persists filters per active company via
+// useCompanyContext(); supply a static context so it doesn't hit the network.
+vi.mock('../../providers/CompanyProvider', () => companyProviderMocks());
 // Some pages (DuplicateReviewPage, RecurringListPage) skip the hook layer
 // and call apiClient directly via inline useQuery. Stub apiClient so those
 // queries resolve to empty data instead of hanging in isLoading.
