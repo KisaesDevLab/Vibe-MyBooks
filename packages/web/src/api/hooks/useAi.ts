@@ -537,8 +537,10 @@ export function useAiParseStatement() {
 // Async statement parse: returns a jobId the caller follows over SSE.
 export function useStartStatementParse() {
   return useMutation({
-    mutationFn: (attachmentId: string) =>
-      apiClient<{ jobId: string }>('/ai/parse/statement', { method: 'POST', body: JSON.stringify({ attachmentId }) }),
+    mutationFn: (input: string | { attachmentId: string; forceOcr?: boolean }) => {
+      const body = typeof input === 'string' ? { attachmentId: input } : input;
+      return apiClient<{ jobId: string }>('/ai/parse/statement', { method: 'POST', body: JSON.stringify(body) });
+    },
   });
 }
 

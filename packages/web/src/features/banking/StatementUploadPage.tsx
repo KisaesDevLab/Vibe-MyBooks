@@ -107,6 +107,9 @@ export function StatementUploadPage() {
   //                    store the statement + its lines for reconciliation
   //                    matching, import nothing into the feed.
   const [importMode, setImportMode] = useState<'bank_feed' | 'reconcile_only'>('bank_feed');
+  // "Force OCR": skip the PDF's embedded-text fast path and OCR every page.
+  // Useful when a statement's text layer is missing or garbled.
+  const [forceOcr, setForceOcr] = useState(false);
   // Live processing stage from the SSE progress stream.
   const [stage, setStage] = useState<string | null>(null);
   const progressCtrl = useRef<AbortController | null>(null);
@@ -227,7 +230,7 @@ export function StatementUploadPage() {
       setParseError('');
       setStage('queued');
       try {
-        const { jobId } = await startParse.mutateAsync(aid);
+        const { jobId } = await startParse.mutateAsync({ attachmentId: aid, forceOcr });
         setParseJobId(jobId);
         const ctrl = new AbortController();
         progressCtrl.current?.abort();
@@ -421,7 +424,7 @@ export function StatementUploadPage() {
       const data = await res.json();
       const aid = data.id || data.attachment?.id;
       if (!aid) return false;
-      await startParse.mutateAsync(aid); // enqueue only (202) — extraction runs in background
+      await startParse.mutateAsync({ attachmentId: aid, forceOcr }); // enqueue only (202) — extraction runs in background
       return true;
     } catch { return false; }
   };
@@ -559,16 +562,32 @@ export function StatementUploadPage() {
       {/* Upload Area — shown whenever we're idle with no results (initial load
           OR after an error), so the user can always (re)pick a file. */}
       {aiEnabled && !parsing && !uploadMutation.isPending && !bgUploading && transactions.length === 0 && !imported && !(isBatch && file) && (
-        <div
-          className={`bg-white rounded-lg border-2 border-dashed p-12 text-center cursor-pointer transition-colors ${isDragging ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400'}`}
-          onClick={() => document.getElementById('statement-input')?.click()}
-          onDragOver={(e) => { e.preventDefault(); if (!isDragging) setIsDragging(true); }}
-          onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-          onDrop={handleDrop}>
-          <input id="statement-input" type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleFileChange} />
-          <FileUp className={`h-12 w-12 mx-auto mb-3 ${isDragging ? 'text-primary-500' : 'text-gray-300'}`} />
-          <p className="text-sm text-gray-600">{isDragging ? 'Drop to upload' : (file ? 'Upload a different statement' : 'Drag & drop bank statements here, or click to browse')}</p>
-          <p className="text-xs text-gray-400 mt-1">PDF or image · AI extracts all transactions automatically · drop multiple files to import a batch</p>
+        <div className="space-y-3">
+          <label className="flex items-start gap-2 cursor-pointer text-sm text-gray-700 w-fit">
+            <input
+              type="checkbox"
+              checked={forceOcr}
+              onChange={(e) => setForceOcr(e.target.checked)}
+              className="mt-0.5 rounded text-primary-600 focus:ring-primary-500"
+            />
+            <span>
+              Force OCR
+              <span className="block text-xs text-gray-400">
+                Re-scan every page instead of reading the PDF’s embedded text. Slower, but use it when extraction misses rows or the statement’s text layer is wrong.
+              </span>
+            </span>
+          </label>
+          <div
+            className={`bg-white rounded-lg border-2 border-dashed p-12 text-center cursor-pointer transition-colors ${isDragging ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400'}`}
+            onClick={() => document.getElementById('statement-input')?.click()}
+            onDragOver={(e) => { e.preventDefault(); if (!isDragging) setIsDragging(true); }}
+            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+            onDrop={handleDrop}>
+            <input id="statement-input" type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleFileChange} />
+            <FileUp className={`h-12 w-12 mx-auto mb-3 ${isDragging ? 'text-primary-500' : 'text-gray-300'}`} />
+            <p className="text-sm text-gray-600">{isDragging ? 'Drop to upload' : (file ? 'Upload a different statement' : 'Drag & drop bank statements here, or click to browse')}</p>
+            <p className="text-xs text-gray-400 mt-1">PDF or image · AI extracts all transactions automatically · drop multiple files to import a batch{forceOcr ? ' · Force OCR on' : ''}</p>
+          </div>
         </div>
       )}
 
