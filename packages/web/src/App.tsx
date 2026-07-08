@@ -94,6 +94,7 @@ const drillToTxn =
 // ─── Settings / company ────────────────────────────────────────
 const CompanyProfilePage = lazyNamed(() => import('./features/company/CompanyProfilePage'), 'CompanyProfilePage');
 const SettingsPage = lazyNamed(() => import('./features/settings/SettingsPage'), 'SettingsPage');
+const ClientSwitcherPage = lazyNamed(() => import('./features/tenants/ClientSwitcherPage'), 'ClientSwitcherPage');
 const SetupWizard = lazyNamed(() => import('./features/company/SetupWizard'), 'SetupWizard');
 const BackupRestorePage = lazyNamed(() => import('./features/settings/BackupRestorePage'), 'BackupRestorePage');
 const AuditLogPage = lazyNamed(() => import('./features/settings/AuditLogPage'), 'AuditLogPage');
@@ -344,6 +345,7 @@ export function App() {
             <Route path="/admin/system" element={<AdminRoute><SystemSettingsPage /></AdminRoute>} />
             <Route path="/admin/coa-templates" element={<AdminRoute><CoaTemplatesPage /></AdminRoute>} />
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/clients" element={<ClientSwitcherPage />} />
             <Route path="/accounts" element={<AccountsListPage />} />
             <Route path="/accounts/:id/register" element={<AccountRegisterPage />} />
             <Route path="/registers" element={<RegistersPage />} />

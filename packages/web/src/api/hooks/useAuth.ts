@@ -74,6 +74,9 @@ export interface AccessibleTenant {
   tenantName: string;
   role?: string;
   isActive?: boolean;
+  // ISO timestamp of when the user last switched into this tenant (null if
+  // never). Backend returns accessibleTenants ordered most-recent-first.
+  lastAccessedAt?: string | null;
 }
 
 export interface MeResponse {

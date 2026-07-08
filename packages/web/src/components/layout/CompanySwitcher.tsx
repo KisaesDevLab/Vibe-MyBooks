@@ -2,7 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useMe } from '../../api/hooks/useAuth';
 import { apiClient, setTokens } from '../../api/client';
@@ -165,9 +166,19 @@ export function CompanySwitcher() {
     }
   };
 
+  const navigate = useNavigate();
   const accessibleTenants = meData?.accessibleTenants || [];
   const activeTenantId = meData?.activeTenantId;
   const hasMultipleTenants = accessibleTenants.length > 1;
+  // The dropdown surfaces only the 10 most-recently-used tenants (the backend
+  // returns them ordered most-recent-first). The active tenant is always shown,
+  // and the full searchable/sortable list lives on the "View all clients" page.
+  const RECENT_LIMIT = 10;
+  const recentTenants = useMemo(() => {
+    const active = accessibleTenants.filter((t) => t.tenantId === activeTenantId);
+    const rest = accessibleTenants.filter((t) => t.tenantId !== activeTenantId);
+    return [...active, ...rest].slice(0, RECENT_LIMIT);
+  }, [accessibleTenants, activeTenantId]);
   const userRole = meData?.user?.role;
   const canCreateClient = userRole === 'accountant' || userRole === 'bookkeeper' || meData?.user?.isSuperAdmin;
 
@@ -292,7 +303,7 @@ export function CompanySwitcher() {
                     <span>{switchError}</span>
                   </div>
                 )}
-                {accessibleTenants.map((t) => {
+                {recentTenants.map((t) => {
                   const isActive = t.tenantId === activeTenantId;
                   const isSwitching = switchingTenantId === t.tenantId;
                   const disabled = isActive || switchingTenantId !== null;
@@ -323,6 +334,16 @@ export function CompanySwitcher() {
                     </button>
                   );
                 })}
+                <button
+                  onClick={() => { setIsOpen(false); navigate('/clients'); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
+                  style={{ color: '#9CA3AF' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#374151'; e.currentTarget.style.color = '#FFFFFF'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = '#9CA3AF'; }}
+                >
+                  <Users className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
+                  <span>View all clients{accessibleTenants.length > RECENT_LIMIT ? ` (${accessibleTenants.length})` : ''}…</span>
+                </button>
                 <div style={{ borderTop: '1px solid #374151' }} />
                 <div className="px-3 py-1.5 text-xs font-semibold uppercase" style={{ color: '#6B7280' }}>
                   {activeTenantName} Companies
