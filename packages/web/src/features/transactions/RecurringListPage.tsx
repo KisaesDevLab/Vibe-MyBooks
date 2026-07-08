@@ -7,10 +7,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Play, Pause, Archive, ArchiveRestore } from 'lucide-react';
+import { Play, Pause, Archive, ArchiveRestore, Pencil } from 'lucide-react';
+import { RecurringScheduleModal, type EditableSchedule } from './RecurringScheduleModal';
 
 interface RecurringSchedule {
-  id: string; templateTransactionId: string; frequency: string;
+  id: string; templateTransactionId: string; name: string | null; frequency: string;
   intervalValue: number; mode: string; startDate: string; endDate: string | null;
   nextOccurrence: string; isActive: boolean; lastPostedAt: string | null;
   archivedAt: string | null;
@@ -43,6 +44,7 @@ export function RecurringListPage() {
 
   const [statusFilter, setStatusFilter] = useState<'all' | Status>('active');
   const [search, setSearch] = useState('');
+  const [editing, setEditing] = useState<EditableSchedule | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('nextOccurrence');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
@@ -59,7 +61,7 @@ export function RecurringListPage() {
     if (statusFilter !== 'all') rows = rows.filter((s) => statusOf(s) === statusFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      rows = rows.filter((s) => `${s.frequency} ${s.mode}`.toLowerCase().includes(q));
+      rows = rows.filter((s) => `${s.name ?? ''} ${s.frequency} ${s.mode}`.toLowerCase().includes(q));
     }
     const dir = sortDir === 'asc' ? 1 : -1;
     return [...rows].sort((a, b) => {
@@ -88,7 +90,7 @@ export function RecurringListPage() {
             {label} ({counts[key]})
           </button>
         ))}
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search frequency / mode…"
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name / frequency / mode…"
           className="ml-auto rounded-md border-gray-300 text-sm px-3 py-1.5 min-w-[14rem]" />
       </div>
 
@@ -101,6 +103,7 @@ export function RecurringListPage() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('frequency')}>Frequency{arrow('frequency')}</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mode</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('nextOccurrence')}>Next Occurrence{arrow('nextOccurrence')}</th>
@@ -114,6 +117,7 @@ export function RecurringListPage() {
                 const st = statusOf(s);
                 return (
                   <tr key={s.id}>
+                    <td className="px-4 py-2 font-medium text-gray-900">{s.name || <span className="text-gray-400 font-normal">Untitled</span>}</td>
                     <td className="px-4 py-2 capitalize">{s.frequency}{s.intervalValue > 1 ? ` (every ${s.intervalValue})` : ''}</td>
                     <td className="px-4 py-2 capitalize">{s.mode}</td>
                     <td className="px-4 py-2">{s.nextOccurrence}</td>
@@ -121,6 +125,11 @@ export function RecurringListPage() {
                     <td className="px-4 py-2 text-center"><span className={`text-xs px-2 py-0.5 rounded-full capitalize ${STATUS_BADGE[st]}`}>{st}</span></td>
                     <td className="px-4 py-2 text-right">
                       <div className="flex gap-2 justify-end">
+                        {st !== 'archived' && (
+                          <Button variant="ghost" size="sm" onClick={() => setEditing({ id: s.id, name: s.name, frequency: s.frequency, intervalValue: s.intervalValue, mode: s.mode, startDate: s.startDate, endDate: s.endDate })}>
+                            <Pencil className="h-3 w-3 mr-1" /> Edit
+                          </Button>
+                        )}
                         {st === 'active' && (
                           <>
                             <Button variant="ghost" size="sm" onClick={() => postNow.mutate(s.id)} loading={postNow.isPending}><Play className="h-3 w-3 mr-1" /> Post Now</Button>
@@ -141,6 +150,10 @@ export function RecurringListPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {editing && (
+        <RecurringScheduleModal schedule={editing} onClose={() => setEditing(null)} />
       )}
     </div>
   );
