@@ -728,10 +728,21 @@ export function BankFeedPage() {
                                 <Brain className="h-4 w-4" />
                               </button>
                             )}
-                            <button onClick={() => setMatchModalFor(item.id)}
-                              className="p-1.5 rounded hover:bg-gray-100 text-blue-500 hover:text-blue-700" title="Find existing transaction to match">
-                              <Link2 className="h-4 w-4" />
-                            </button>
+                            {(item.matchCandidateCount ?? 0) > 0 ? (
+                              // A posted ledger transaction already matches this
+                              // feed item (e.g. a check written in-system) —
+                              // surface it so it's linked, not duplicated.
+                              <button onClick={() => setMatchModalFor(item.id)}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 whitespace-nowrap"
+                                title={`${item.matchCandidateCount} existing ledger transaction${item.matchCandidateCount! > 1 ? 's' : ''} already match this amount — link instead of creating a duplicate`}>
+                                <Link2 className="h-3.5 w-3.5" /> Match{item.matchCandidateCount! > 1 ? ` (${item.matchCandidateCount})` : ''}
+                              </button>
+                            ) : (
+                              <button onClick={() => setMatchModalFor(item.id)}
+                                className="p-1.5 rounded hover:bg-gray-100 text-blue-500 hover:text-blue-700" title="Find existing transaction to match">
+                                <Link2 className="h-4 w-4" />
+                              </button>
+                            )}
                             <button onClick={() => exclude.mutate(item.id)}
                               className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500" title="Exclude">
                               <Trash2 className="h-4 w-4" />
