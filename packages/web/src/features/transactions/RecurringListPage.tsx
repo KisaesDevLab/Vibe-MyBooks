@@ -26,6 +26,17 @@ const STATUS_BADGE: Record<Status, string> = {
 };
 type SortKey = 'frequency' | 'nextOccurrence' | 'lastPostedAt' | 'status';
 
+// Friendly labels for the frequency cell. Semi-monthly is twice a month, so it
+// never shows the "every N" suffix.
+const FREQ_LABELS: Record<string, string> = {
+  daily: 'Daily', weekly: 'Weekly', biweekly: 'Bi-weekly',
+  semimonthly: 'Semi-monthly', monthly: 'Monthly', quarterly: 'Quarterly', annually: 'Annually',
+};
+const freqLabel = (s: { frequency: string; intervalValue: number }) => {
+  const base = FREQ_LABELS[s.frequency] ?? s.frequency;
+  return s.frequency !== 'semimonthly' && s.intervalValue > 1 ? `${base} (every ${s.intervalValue})` : base;
+};
+
 export function RecurringListPage() {
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -118,7 +129,7 @@ export function RecurringListPage() {
                 return (
                   <tr key={s.id}>
                     <td className="px-4 py-2 font-medium text-gray-900">{s.name || <span className="text-gray-400 font-normal">Untitled</span>}</td>
-                    <td className="px-4 py-2 capitalize">{s.frequency}{s.intervalValue > 1 ? ` (every ${s.intervalValue})` : ''}</td>
+                    <td className="px-4 py-2">{freqLabel(s)}</td>
                     <td className="px-4 py-2 capitalize">{s.mode}</td>
                     <td className="px-4 py-2">{s.nextOccurrence}</td>
                     <td className="px-4 py-2 text-gray-500">{s.lastPostedAt ? new Date(s.lastPostedAt).toLocaleDateString() : '—'}</td>

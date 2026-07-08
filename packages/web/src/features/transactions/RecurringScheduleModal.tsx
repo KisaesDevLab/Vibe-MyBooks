@@ -33,10 +33,16 @@ interface RecurringScheduleModalProps {
 const frequencies = [
   { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },
+  { value: 'biweekly', label: 'Bi-weekly (every 2 weeks)' },
+  { value: 'semimonthly', label: 'Semi-monthly (1st & 15th)' },
   { value: 'monthly', label: 'Monthly' },
   { value: 'quarterly', label: 'Quarterly' },
   { value: 'annually', label: 'Annually' },
 ];
+
+// Semi-monthly is inherently twice a month, so the "Every N" multiplier
+// doesn't apply — hide it for that cadence to avoid a misleading no-op.
+const supportsInterval = (frequency: string) => frequency !== 'semimonthly';
 
 function previewOccurrences(startDate: string, frequency: string, interval: number): string[] {
   const d = new Date(startDate);
@@ -48,12 +54,19 @@ function previewOccurrences(startDate: string, frequency: string, interval: numb
   const dates: string[] = [];
   for (let i = 0; i < 5; i++) {
     dates.push(d.toISOString().split('T')[0]!);
+    // Mirrors calculateNextOccurrence in recurring.service.ts. UTC setters so
+    // the preview matches the schedule the server will actually advance.
     switch (frequency) {
-      case 'daily': d.setDate(d.getDate() + step); break;
-      case 'weekly': d.setDate(d.getDate() + 7 * step); break;
-      case 'monthly': d.setMonth(d.getMonth() + step); break;
-      case 'quarterly': d.setMonth(d.getMonth() + 3 * step); break;
-      case 'annually': d.setFullYear(d.getFullYear() + step); break;
+      case 'daily': d.setUTCDate(d.getUTCDate() + step); break;
+      case 'weekly': d.setUTCDate(d.getUTCDate() + 7 * step); break;
+      case 'biweekly': d.setUTCDate(d.getUTCDate() + 14 * step); break;
+      case 'semimonthly':
+        if (d.getUTCDate() >= 15) d.setUTCMonth(d.getUTCMonth() + 1, 1);
+        else d.setUTCDate(15);
+        break;
+      case 'monthly': d.setUTCMonth(d.getUTCMonth() + step); break;
+      case 'quarterly': d.setUTCMonth(d.getUTCMonth() + 3 * step); break;
+      case 'annually': d.setUTCFullYear(d.getUTCFullYear() + step); break;
     }
   }
   return dates;
@@ -106,12 +119,14 @@ export function RecurringScheduleModal({ transactionId, schedule, onClose }: Rec
               {frequencies.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Every</label>
-            <input type="number" min={1} value={intervalValue}
-              onChange={(e) => setIntervalValue(Math.max(1, Number(e.target.value) || 1))}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-          </div>
+          {supportsInterval(frequency) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Every</label>
+              <input type="number" min={1} value={intervalValue}
+                onChange={(e) => setIntervalValue(Math.max(1, Number(e.target.value) || 1))}
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Mode</label>
             <select value={mode} onChange={(e) => setMode(e.target.value)} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
