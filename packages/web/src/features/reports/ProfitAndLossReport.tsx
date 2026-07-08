@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useLocalState, SHOW_ACCT_NUMBERS_KEY } from '../../hooks/useLocalState';
 import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 
 // The /reports/profit-loss endpoint returns two shapes depending on whether
@@ -156,6 +157,7 @@ export function ProfitAndLossReport() {
   // own period's revenue). Mirrored into the PDF/CSV export via
   // ?show_pct=1. Persisted for the tab session.
   const [showPct, setShowPct] = useSessionState('vibe:report-pl:showPct', false);
+  const [showAcctNums, setShowAcctNums] = useLocalState(SHOW_ACCT_NUMBERS_KEY, true);
   const { activeCompanyId } = useCompanyContext();
 
   // Debounced dates: the native date inputs fire a change per segment
@@ -222,18 +224,27 @@ export function ProfitAndLossReport() {
             />
             % of Revenue
           </label>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none" title="Show account numbers on financial reports">
+            <input
+              type="checkbox"
+              checked={showAcctNums}
+              onChange={(e) => setShowAcctNums(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Account #
+          </label>
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (
         isComparative
-          ? <ComparativeView data={data as PLComparativeData} mode={groupMode} showPct={showPct} />
-          : <StandardView data={data as PLStandardData} showPct={showPct} mode={groupMode} />
+          ? <ComparativeView data={data as PLComparativeData} mode={groupMode} showPct={showPct} showAcctNums={showAcctNums} />
+          : <StandardView data={data as PLStandardData} showPct={showPct} mode={groupMode} showAcctNums={showAcctNums} />
       )}
     </ReportShell>
   );
 }
 
-function StandardView({ data, showPct = false, mode = 'detail' }: { data: PLStandardData; showPct?: boolean; mode?: GroupMode }) {
+function StandardView({ data, showPct = false, mode = 'detail', showAcctNums = true }: { data: PLStandardData; showPct?: boolean; mode?: GroupMode; showAcctNums?: boolean }) {
   const navigate = useNavigate();
   // "% of Revenue": each amount as a share of total revenue, one
   // decimal. With zero total revenue every percentage is undefined —
@@ -271,7 +282,7 @@ function StandardView({ data, showPct = false, mode = 'detail' }: { data: PLStan
 
   const Row = ({ r, indent }: { r: PLRow; indent?: boolean }) => (
     <div className={`flex justify-between py-1 text-sm ${indent ? 'pl-4' : ''}`}>
-      <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
+      <span>{showAcctNums && r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
       <span className="flex items-baseline gap-3">
         <DrillAmount accountId={r.accountId} amount={r.amount} />
         <Pct amount={r.amount} />
@@ -356,7 +367,7 @@ function StandardView({ data, showPct = false, mode = 'detail' }: { data: PLStan
   );
 }
 
-function ComparativeView({ data, mode = 'detail', showPct = false }: { data: PLComparativeData; mode?: GroupMode; showPct?: boolean }) {
+function ComparativeView({ data, mode = 'detail', showPct = false, showAcctNums = true }: { data: PLComparativeData; mode?: GroupMode; showPct?: boolean; showAcctNums?: boolean }) {
   const navigate = useNavigate();
   const columns: PLComparativeColumn[] = data.columns;
   const isVarianceCol = (col: PLComparativeColumn) => col.type === 'variance' || col.type === 'percent_variance';
@@ -453,7 +464,7 @@ function ComparativeView({ data, mode = 'detail', showPct = false }: { data: PLC
       <>
         {rows.map((row, i) => (
           <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-            <td className={`px-3 py-1.5 ${indent ? 'pl-8' : ''}`}>{row.accountNumber ? `${row.accountNumber} — ` : ''}{row.account}</td>
+            <td className={`px-3 py-1.5 ${indent ? 'pl-8' : ''}`}>{showAcctNums && row.accountNumber ? `${row.accountNumber} — ` : ''}{row.account}</td>
             {row.values.map((v, j) => {
               const col = columns[j]!;
               const href = drillUrl(row.accountId, col.startDate, col.endDate);

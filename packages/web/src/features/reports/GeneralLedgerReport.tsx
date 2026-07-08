@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useLocalState, SHOW_ACCT_NUMBERS_KEY } from '../../hooks/useLocalState';
 import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
@@ -97,6 +98,7 @@ export function GeneralLedgerReport() {
   const [endDate, setEndDate] = useSessionState('vibe:report-gl:endDate', today.toISOString().split('T')[0]!);
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-gl:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-gl:tagId', '');
+  const [showAcctNums, setShowAcctNums] = useLocalState(SHOW_ACCT_NUMBERS_KEY, true);
   const { activeCompanyId } = useCompanyContext();
 
   // Only query once typed dates are complete and stable.
@@ -127,6 +129,10 @@ export function GeneralLedgerReport() {
           />
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
           <ReportTagFilter value={tagId} onChange={setTagId} />
+          <label className="flex items-center gap-1.5 text-sm text-gray-600" title="Show account numbers on financial reports">
+            <input type="checkbox" checked={showAcctNums} onChange={(e) => setShowAcctNums(e.target.checked)} />
+            Account #
+          </label>
         </div>
       }
     >
@@ -135,7 +141,7 @@ export function GeneralLedgerReport() {
       ) : error ? (
         <div className="text-center py-12 text-red-600">Failed to load general ledger</div>
       ) : data ? (
-        <GeneralLedgerView data={data} />
+        <GeneralLedgerView data={data} showAcctNums={showAcctNums} />
       ) : null}
     </ReportShell>
   );
@@ -143,7 +149,7 @@ export function GeneralLedgerReport() {
 
 // ─── Body view ───────────────────────────────────────────────────
 
-function GeneralLedgerView({ data }: { data: GLReportData }) {
+function GeneralLedgerView({ data, showAcctNums = true }: { data: GLReportData; showAcctNums?: boolean }) {
   if (data.accounts.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-12 text-center">
@@ -180,7 +186,7 @@ function GeneralLedgerView({ data }: { data: GLReportData }) {
                   {ACCOUNT_TYPE_LABELS[acct.accountType] || acct.accountType}
                 </div>
               )}
-              <AccountSection account={acct} />
+              <AccountSection account={acct} showAcctNums={showAcctNums} />
             </div>
           );
         })}
@@ -211,7 +217,7 @@ function GeneralLedgerView({ data }: { data: GLReportData }) {
   );
 }
 
-function AccountSection({ account }: { account: GLAccount }) {
+function AccountSection({ account, showAcctNums = true }: { account: GLAccount; showAcctNums?: boolean }) {
   const navigate = useNavigate();
 
   return (
@@ -219,7 +225,7 @@ function AccountSection({ account }: { account: GLAccount }) {
       {/* Account header */}
       <div className="flex items-baseline justify-between mb-2">
         <h3 className="text-sm font-bold text-gray-900">
-          {account.accountNumber && (
+          {showAcctNums && account.accountNumber && (
             <span className="text-gray-500 font-mono mr-2">{account.accountNumber}</span>
           )}
           {account.name}

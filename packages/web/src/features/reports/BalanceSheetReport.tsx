@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { DEFAULT_BS_LABELS, type BSSectionLabels } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useLocalState, SHOW_ACCT_NUMBERS_KEY } from '../../hooks/useLocalState';
 import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useCompanySettings } from '../../api/hooks/useCompany';
@@ -148,6 +149,8 @@ export function BalanceSheetReport() {
     try { return window.sessionStorage.getItem('vibe:report-bs:groupBy') === 'true'; } catch { return false; }
   })();
   const [groupMode, setGroupMode] = useSessionState<GroupMode>('vibe:report-bs:groupMode', legacyGrouped ? 'grouped' : 'detail');
+  // Shared across financial reports (localStorage): show/hide account numbers.
+  const [showAcctNums, setShowAcctNums] = useLocalState(SHOW_ACCT_NUMBERS_KEY, true);
   const { activeCompanyId } = useCompanyContext();
 
   // Native date inputs fire per-segment while typing — only re-query once
@@ -205,18 +208,22 @@ export function BalanceSheetReport() {
               <option value="condensed">Condensed (group totals)</option>
             </select>
           </label>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600" title="Show account numbers on financial reports">
+            <input type="checkbox" checked={showAcctNums} onChange={(e) => setShowAcctNums(e.target.checked)} />
+            Account #
+          </label>
         </div>
       }>
       {isLoading ? <LoadingSpinner className="py-12" /> : data && (
         isComparative
-          ? <ComparativeView data={data as BSComparativeData} mode={groupMode} />
-          : <StandardView data={data as BSStandardData} mode={groupMode} />
+          ? <ComparativeView data={data as BSComparativeData} mode={groupMode} showAcctNums={showAcctNums} />
+          : <StandardView data={data as BSStandardData} mode={groupMode} showAcctNums={showAcctNums} />
       )}
     </ReportShell>
   );
 }
 
-function StandardView({ data, mode = 'detail' }: { data: BSStandardData; mode?: GroupMode }) {
+function StandardView({ data, mode = 'detail', showAcctNums = true }: { data: BSStandardData; mode?: GroupMode; showAcctNums?: boolean }) {
   const navigate = useNavigate();
   const L = data.labels ?? DEFAULT_BS_LABELS;
   const { data: settingsData } = useCompanySettings();
@@ -241,7 +248,7 @@ function StandardView({ data, mode = 'detail' }: { data: BSStandardData; mode?: 
   // the section header; grouped mode indents group members one further.
   const Row = ({ r, indent = 1 }: { r: BSRow; indent?: 1 | 2 }) => (
     <div className={`flex justify-between py-1 text-sm ${indent === 2 ? 'pl-8' : 'pl-4'}`}>
-      <span>{r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
+      <span>{showAcctNums && r.accountNumber ? `${r.accountNumber} — ` : ''}{r.name}</span>
       {/* Signed: the API now reports L/E in natural (credit-positive)
           convention, so contra balances (Owner Withdraw, overpaid
           cards) render negative and rows foot to the section total.
@@ -294,7 +301,7 @@ function StandardView({ data, mode = 'detail' }: { data: BSStandardData; mode?: 
   );
 }
 
-function ComparativeView({ data, mode = 'detail' }: { data: BSComparativeData; mode?: GroupMode }) {
+function ComparativeView({ data, mode = 'detail', showAcctNums = true }: { data: BSComparativeData; mode?: GroupMode; showAcctNums?: boolean }) {
   const navigate = useNavigate();
   const { data: settingsData } = useCompanySettings();
   const fyMonth = settingsData?.settings?.fiscalYearStartMonth ?? 1;
@@ -315,7 +322,7 @@ function ComparativeView({ data, mode = 'detail' }: { data: BSComparativeData; m
   function AccountRow({ row, indent }: { row: BSComparativeRow; indent?: boolean }) {
     return (
       <tr className="border-b border-gray-100 hover:bg-gray-50">
-        <td className={`px-3 py-1.5 text-sm ${indent ? 'pl-8' : ''}`}>{row.accountNumber ? `${row.accountNumber} — ` : ''}{row.name}</td>
+        <td className={`px-3 py-1.5 text-sm ${indent ? 'pl-8' : ''}`}>{showAcctNums && row.accountNumber ? `${row.accountNumber} — ` : ''}{row.name}</td>
         {row.values.map((v, j) => {
           const col = columns[j]!;
           const href = bsDrillUrl(row.accountId, col.asOfDate, fyMonth);
