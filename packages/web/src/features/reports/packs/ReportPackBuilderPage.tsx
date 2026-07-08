@@ -11,8 +11,11 @@
 // chrome toggles, and a filename template. Save persists the pack; Generate
 // saves then kicks off an async render and navigates to the run page.
 //
-// MVP scope: global defaults only (no per-report options drawer), arrow
-// reorder (no drag), no ad-hoc runs.
+// Per-report options: each report in the pack renders the controls its
+// catalog `ReportOptionSpec` declares (basis, compare, grouping, % of income,
+// tag filter). Values persist to that item's options_json and flow through to
+// rendering. Reports with no options show nothing. Arrow reorder (no drag),
+// no ad-hoc runs.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -26,6 +29,7 @@ import {
   resolveReportDates,
   type ReportDef,
   type PeriodPreset,
+  type ReportPackItemOptions,
 } from '@kis-books/shared';
 import {
   useReportCatalog,
@@ -42,6 +46,7 @@ import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
 import { useToast } from '../../../components/ui/Toaster';
 import { DateRangePicker } from '../DateRangePicker';
+import { ReportTagFilter } from '../ReportTagFilter';
 
 const PRESET_OPTIONS: Array<{ value: PeriodPreset; label: string }> = [
   { value: 'this-month', label: 'This Month' },
@@ -69,6 +74,104 @@ function describeReportDates(
     return dates['as_of_date'] ? `As of ${dates['as_of_date']}` : 'Set an as-of date';
   }
   return 'Live balances';
+}
+
+/**
+ * Per-report options row, driven entirely by the report's catalog
+ * `ReportOptionSpec`. Renders only the controls that spec declares; a report
+ * with no options renders nothing. Empty / default selections are pruned so
+ * options_json stays minimal.
+ */
+function ReportItemOptions({
+  def,
+  options,
+  onChange,
+}: {
+  def: ReportDef;
+  options: ReportPackItemOptions;
+  onChange: (next: ReportPackItemOptions) => void;
+}) {
+  const spec = def.options;
+  const hasAny = spec.basis || spec.compare || spec.groupBy || spec.showPct || spec.tagFilter;
+  if (!hasAny) return null;
+
+  // Merge a patch and drop keys that carry no meaning (undefined / null /
+  // false / '') so the persisted options_json only holds real overrides.
+  const set = (patch: Partial<ReportPackItemOptions>) => {
+    const next: ReportPackItemOptions = { ...options, ...patch };
+    for (const key of Object.keys(next) as Array<keyof ReportPackItemOptions>) {
+      const v = next[key];
+      if (v === undefined || v === null || v === false || v === '') delete next[key];
+    }
+    onChange(next);
+  };
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-2">
+      {spec.basis && (
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          Basis
+          <select
+            value={options.basis ?? ''}
+            onChange={(e) => set({ basis: (e.target.value || undefined) as 'accrual' | 'cash' | undefined })}
+            className="rounded border border-gray-300 px-2 py-1 text-xs"
+            aria-label={`${def.label} basis`}
+          >
+            <option value="">Pack default</option>
+            <option value="accrual">Accrual</option>
+            <option value="cash">Cash</option>
+          </select>
+        </label>
+      )}
+      {spec.groupBy && (
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          Grouping
+          <select
+            value={options.groupBy ?? ''}
+            onChange={(e) => set({ groupBy: (e.target.value || undefined) as 'detail_type' | undefined })}
+            className="rounded border border-gray-300 px-2 py-1 text-xs"
+            aria-label={`${def.label} grouping`}
+          >
+            <option value="">None</option>
+            <option value="detail_type">By detail type</option>
+          </select>
+        </label>
+      )}
+      {spec.compare && (
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            checked={options.compare ?? false}
+            onChange={(e) => set({ compare: e.target.checked })}
+            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            aria-label={`${def.label} compare to prior period`}
+          />
+          Compare to prior period
+        </label>
+      )}
+      {spec.showPct && (
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            checked={options.showPct ?? false}
+            onChange={(e) => set({ showPct: e.target.checked })}
+            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            aria-label={`${def.label} percent of income`}
+          />
+          % of income
+        </label>
+      )}
+      {spec.tagFilter && (
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          Tag
+          <ReportTagFilter
+            value={options.tagId ?? ''}
+            onChange={(tagId) => set({ tagId: tagId || undefined })}
+          />
+        </label>
+      )}
+    </div>
+  );
 }
 
 export function ReportPackBuilderPage() {
@@ -104,6 +207,8 @@ export function ReportPackBuilderPage() {
   const [pageNumbers, setPageNumbers] = useState(true);
   const [filenameTemplate, setFilenameTemplate] = useState('{pack}-{date}');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Per-report options keyed by reportId (a report id is unique within a pack).
+  const [itemOptions, setItemOptions] = useState<Record<string, ReportPackItemOptions>>({});
 
   // Hydrate once from the loaded pack in edit mode.
   const hydrated = useRef(false);
@@ -121,7 +226,11 @@ export function ReportPackBuilderPage() {
     setToc(p.toc);
     setPageNumbers(p.pageNumbers);
     setFilenameTemplate(p.filenameTemplate);
-    setSelectedIds([...p.items].sort((a, b) => a.sortOrder - b.sortOrder).map((it) => it.reportId));
+    const ordered = [...p.items].sort((a, b) => a.sortOrder - b.sortOrder);
+    setSelectedIds(ordered.map((it) => it.reportId));
+    setItemOptions(
+      Object.fromEntries(ordered.map((it) => [it.reportId, it.optionsJson ?? {}])),
+    );
     if (p.periodPreset === 'custom') {
       setRangeStart(p.customRangeStart ?? '');
       setRangeEnd(p.customRangeEnd ?? '');
@@ -196,7 +305,10 @@ export function ReportPackBuilderPage() {
     pageNumbers,
     filenameTemplate: filenameTemplate.trim() || '{pack}-{date}',
     onError: 'skip',
-    items: selectedIds.map((reportId) => ({ reportId })),
+    items: selectedIds.map((reportId) => {
+      const options = itemOptions[reportId];
+      return options && Object.keys(options).length > 0 ? { reportId, options } : { reportId };
+    }),
   });
 
   const savePack = async () => {
@@ -452,6 +564,13 @@ export function ReportPackBuilderPage() {
                         <div className="text-xs text-gray-500">
                           {describeReportDates(def, range, asOfOverride)}
                         </div>
+                        <ReportItemOptions
+                          def={def}
+                          options={itemOptions[reportId] ?? {}}
+                          onChange={(next) =>
+                            setItemOptions((prev) => ({ ...prev, [reportId]: next }))
+                          }
+                        />
                       </div>
                       <button
                         type="button"

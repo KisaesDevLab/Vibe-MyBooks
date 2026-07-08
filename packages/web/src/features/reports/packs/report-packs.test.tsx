@@ -107,6 +107,30 @@ describe('ReportPackBuilderPage', () => {
     expect(screen.getByLabelText(`Remove ${firstReport.label}`)).toBeTruthy();
   });
 
+  it('exposes P&L per-report options (basis, grouping, compare, % of income) once added', () => {
+    renderRoute(<ReportPackBuilderPage />, { route: '/reports/packs/new', path: '/reports/packs/new' });
+
+    // No options are shown until a report is in the pack.
+    expect(screen.queryByLabelText(/Profit & Loss basis/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /Profit & Loss/i }));
+
+    // The P&L catalog spec declares basis + groupBy + compare + showPct + tag.
+    expect(screen.getByLabelText(/Profit & Loss basis/i)).toBeTruthy();
+    expect(screen.getByLabelText(/Profit & Loss grouping/i)).toBeTruthy();
+    expect(screen.getByLabelText(/Profit & Loss compare to prior period/i)).toBeTruthy();
+    expect(screen.getByLabelText(/Profit & Loss percent of income/i)).toBeTruthy();
+  });
+
+  it('shows no options for a report whose spec declares only a tag filter, plus its tag control', () => {
+    renderRoute(<ReportPackBuilderPage />, { route: '/reports/packs/new', path: '/reports/packs/new' });
+
+    // Cash Flow only offers a tag filter — no basis / compare / grouping.
+    fireEvent.click(screen.getByRole('checkbox', { name: /Cash Flow Statement/i }));
+    expect(screen.queryByLabelText(/Cash Flow Statement basis/i)).toBeNull();
+    expect(screen.queryByLabelText(/Cash Flow Statement compare to prior period/i)).toBeNull();
+  });
+
   it('disables adding more reports once the cap is reached', () => {
     // A catalog padded past the cap so we can exercise the 30-report ceiling.
     const padded = Array.from({ length: PACK_MAX_COUNT + 3 }, (_, i) => ({

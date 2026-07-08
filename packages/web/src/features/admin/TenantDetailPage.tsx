@@ -71,6 +71,13 @@ export function TenantDetailPage() {
   const [templateSlug, setTemplateSlug] = useState('general_business');
   const [coaApplyMsg, setCoaApplyMsg] = useState<string | null>(null);
   const coaTemplateOptions = useCoaTemplateOptions();
+  // Company hard-delete (type-to-confirm) + payroll-history purge state.
+  const [deleteCompanyId, setDeleteCompanyId] = useState<string | null>(null);
+  const [deleteCompanyName, setDeleteCompanyName] = useState('');
+  const [companyConfirmText, setCompanyConfirmText] = useState('');
+  const [companyDeleteError, setCompanyDeleteError] = useState<string | null>(null);
+  const [showDeletePayroll, setShowDeletePayroll] = useState(false);
+  const [payrollError, setPayrollError] = useState<string | null>(null);
 
   const toggleAccessMutation = useMutation({
     mutationFn: (userId: string) =>
@@ -140,6 +147,29 @@ export function TenantDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', id] });
     },
     onError: (err: Error) => setTxnError(err.message || 'Delete failed'),
+  });
+
+  // Hard-delete one company (and all its company-scoped data). The backend
+  // refuses to delete a tenant's only company.
+  const deleteCompanyMutation = useMutation({
+    mutationFn: () => apiClient<{ rowsDeleted?: number }>(`/admin/tenants/${id}/companies/${deleteCompanyId}`, { method: 'DELETE' }),
+    onSuccess: (r) => {
+      setDeleteCompanyId(null); setCompanyConfirmText(''); setCompanyDeleteError(null);
+      toast.success(`Company deleted${r.rowsDeleted != null ? ` — ${r.rowsDeleted.toLocaleString()} rows removed` : ''}.`);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', id] });
+    },
+    onError: (err: Error) => setCompanyDeleteError(err.message || 'Delete failed'),
+  });
+
+  // Purge payroll import history (record-only — posted journal entries stay).
+  const deletePayrollMutation = useMutation({
+    mutationFn: () => apiClient<{ sessionCount?: number }>(`/admin/tenants/${id}/payroll-import-history`, { method: 'DELETE' }),
+    onSuccess: (r) => {
+      setShowDeletePayroll(false); setPayrollError(null);
+      toast.success(`Payroll import history deleted${r.sessionCount != null ? ` — ${r.sessionCount} record(s)` : ''}.`);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', id] });
+    },
+    onError: (err: Error) => setPayrollError(err.message || 'Delete failed'),
   });
 
   // Preview counts for the date-range delete. Runs only while the modal
@@ -419,6 +449,7 @@ export function TenantDetailPage() {
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
                   <th className="text-center px-4 py-3 font-medium text-gray-600">Setup Complete</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -435,6 +466,16 @@ export function TenantDetailPage() {
                       >
                         {c.isSetupComplete ? 'Complete' : 'Pending'}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => { setCompanyDeleteError(null); setCompanyConfirmText(''); setDeleteCompanyId(c.id); setDeleteCompanyName(c.name); }}
+                        disabled={tenant.companies.length <= 1}
+                        title={tenant.companies.length <= 1 ? "A tenant's only company can't be deleted — delete the tenant instead." : 'Permanently delete this company and all its data'}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 border border-red-300 hover:bg-red-50 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -568,6 +609,25 @@ export function TenantDetailPage() {
             Delete date range
           </button>
         </div>
+        {/* Delete payroll import history — record-only cleanup. */}
+        <div className="p-6 flex items-center justify-between gap-4 border-b border-red-100">
+          <div className="text-sm">
+            <p className="font-medium text-gray-900">Delete payroll import history</p>
+            <p className="text-gray-600 mt-1">
+              Removes all payroll import-history records for this tenant. The posted journal entries
+              those imports created are <strong>kept</strong> in the ledger — this only clears the
+              import log. This cannot be undone.
+            </p>
+            {payrollError && <p className="text-red-700 mt-1">{payrollError}</p>}
+          </div>
+          <button
+            onClick={() => { setPayrollError(null); setShowDeletePayroll(true); }}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 border border-red-300 hover:bg-red-50 rounded-lg whitespace-nowrap"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete payroll history
+          </button>
+        </div>
         <div className="p-6 flex items-center justify-between gap-4">
           <div className="text-sm">
             <p className="font-medium text-gray-900">Delete this tenant</p>
@@ -636,6 +696,83 @@ export function TenantDetailPage() {
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg"
               >
                 {deleteTxnsMutation.isPending ? 'Deleting…' : 'Delete all transactions'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Company hard-delete confirmation — type the company name to confirm. */}
+      {deleteCompanyId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => { if (!deleteCompanyMutation.isPending) setDeleteCompanyId(null); }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Delete company?</h3>
+            </div>
+            <p className="text-sm text-gray-700">
+              This permanently deletes <strong>{deleteCompanyName}</strong> and <strong>all of its
+              data</strong> — transactions, journal lines, invoices, bills, banking, and any
+              company-scoped accounts and contacts. The tenant and its other companies are kept.
+              This cannot be undone.
+            </p>
+            <div className="pt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                To confirm, type <span className="font-mono font-bold text-red-700">{deleteCompanyName}</span> below:
+              </label>
+              <input
+                type="text"
+                value={companyConfirmText}
+                onChange={(e) => setCompanyConfirmText(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none"
+                placeholder={deleteCompanyName}
+                autoFocus
+                disabled={deleteCompanyMutation.isPending}
+              />
+            </div>
+            {companyDeleteError && (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">{companyDeleteError}</div>
+            )}
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setDeleteCompanyId(null)} disabled={deleteCompanyMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50">Cancel</button>
+              <button onClick={() => { setCompanyDeleteError(null); deleteCompanyMutation.mutate(); }}
+                disabled={companyConfirmText !== deleteCompanyName || deleteCompanyMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg">
+                {deleteCompanyMutation.isPending ? 'Deleting…' : 'Delete company'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payroll import history purge confirmation — record-only. */}
+      {showDeletePayroll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => { if (!deletePayrollMutation.isPending) setShowDeletePayroll(false); }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Delete payroll import history?</h3>
+            </div>
+            <p className="text-sm text-gray-700">
+              This removes every payroll import-history record for <strong>{tenant.name}</strong>. The
+              posted journal entries those imports created stay in the ledger — only the import log is
+              cleared. This cannot be undone.
+            </p>
+            {payrollError && (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">{payrollError}</div>
+            )}
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setShowDeletePayroll(false)} disabled={deletePayrollMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50">Cancel</button>
+              <button onClick={() => { setPayrollError(null); deletePayrollMutation.mutate(); }}
+                disabled={deletePayrollMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-300 rounded-lg">
+                {deletePayrollMutation.isPending ? 'Deleting…' : 'Delete payroll history'}
               </button>
             </div>
           </div>

@@ -176,6 +176,7 @@ async function processRun(runId: string): Promise<void> {
           tagId: options.tagId ?? pack.defaultTagId ?? null,
           groupBy: options.groupBy ?? null,
           showPct: options.showPct ?? false,
+          compare: options.compare ?? false,
         };
 
         const reportData = await renderer(run.tenantId, run.companyId, params, opts);
