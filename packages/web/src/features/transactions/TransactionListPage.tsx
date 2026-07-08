@@ -25,7 +25,7 @@ const PAGE_SIZE = 50;
 // `offset` (never restore a deep page) and `source` (a one-time deep-link
 // landing filter from bulk imports). Scoped by company so account/contact/tag
 // id filters are only ever restored where those ids are valid.
-const PERSISTED_FILTER_KEYS = ['type', 'status', 'account', 'contact', 'from', 'to', 'tagId', 'q', 'sortBy', 'sortDir'] as const;
+const PERSISTED_FILTER_KEYS = ['type', 'status', 'account', 'contact', 'basis', 'from', 'to', 'tagId', 'q', 'sortBy', 'sortDir'] as const;
 const filterStorageKey = (companyId: string) => `vibe:txn-filters:${companyId}`;
 
 // Sentinel value for the bulk "Set Tag" dropdown that clears the tag (sends
@@ -106,6 +106,9 @@ export function TransactionListPage() {
   // where any line carries this tag." Backend implements this via an
   // EXISTS subquery on journal_lines.
   const tagFilter = searchParams.get('tagId') || '';
+  // Report-basis lens: '' (all) | 'cash' | 'accrual'. Filters by each
+  // transaction's basis flag (both always shows), mirroring report inclusion.
+  const basisFilter = (searchParams.get('basis') || '') as '' | 'cash' | 'accrual';
   const urlSearch = searchParams.get('q') || '';
   // Column sort — URL-synced so it survives navigation/refresh. Server-side
   // (sorts the full filtered set, not just the visible page).
@@ -216,6 +219,7 @@ export function TransactionListPage() {
   useEffect(() => { setFromInput(startDate); }, [startDate]);
   useEffect(() => { setToInput(endDate); }, [endDate]);
   const setTagFilter = (v: string) => updateParam('tagId', v);
+  const setBasisFilter = (v: string) => updateParam('basis', v);
   const setOffset = (v: number) => updateParam('offset', v > 0 ? String(v) : '', { resetOffset: false });
 
   // Push the debounced search text into the URL.
@@ -280,6 +284,7 @@ export function TransactionListPage() {
     accountId: accountFilter || undefined,
     contactId: contactFilter || undefined,
     source: sourceFilter || undefined,
+    basis: basisFilter || undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     tagId: tagFilter || undefined,
@@ -358,7 +363,7 @@ export function TransactionListPage() {
     { label: 'Cash Sale', path: '/transactions/new/cash-sale' },
   ];
 
-  const hasFilters = typeFilter || statusFilter || accountFilter || contactFilter || startDate || endDate || tagFilter || search;
+  const hasFilters = typeFilter || statusFilter || accountFilter || contactFilter || basisFilter || startDate || endDate || tagFilter || search;
 
   const clearFilters = () => {
     setSearch('');
@@ -461,6 +466,15 @@ export function TransactionListPage() {
               {tagsList.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1" title="Filters by each transaction's reporting basis. 'both' always shows; a basis-specific adjusting entry only shows on its own basis.">Basis</label>
+            <select value={basisFilter} onChange={(e) => setBasisFilter(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="">All (Cash & Accrual)</option>
+              <option value="cash">Cash basis</option>
+              <option value="accrual">Accrual basis</option>
             </select>
           </div>
         </div>

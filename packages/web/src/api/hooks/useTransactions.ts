@@ -19,6 +19,7 @@ export function useTransactions(filters?: TransactionFilters) {
   // it was previously dropped here so the Tag dropdown did nothing.
   if (filters?.tagId) params.set('tagId', filters.tagId);
   if (filters?.source) params.set('source', filters.source);
+  if (filters?.basis) params.set('basis', filters.basis);
   if (filters?.startDate) params.set('startDate', filters.startDate);
   if (filters?.endDate) params.set('endDate', filters.endDate);
   if (filters?.search) params.set('search', filters.search);
