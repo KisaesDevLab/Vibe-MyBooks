@@ -372,11 +372,25 @@ export function LayoutEditor({
           {!selected ? (
             <p className="text-xs text-gray-500">Select a block to configure it.</p>
           ) : (
-            <BlockInspector
-              block={selected}
-              catalog={catalog}
-              onChange={(patch) => update(selected.id, patch)}
-            />
+            <>
+              {selected.type !== 'page-break' && (
+                <label className="block text-xs mb-3">
+                  <span className="block text-gray-800 mb-1">Header title (optional)</span>
+                  <input
+                    type="text"
+                    value={String(selected['title'] ?? '')}
+                    onChange={(e) => update(selected.id, { title: e.target.value })}
+                    placeholder="Default heading"
+                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  />
+                </label>
+              )}
+              <BlockInspector
+                block={selected}
+                catalog={catalog}
+                onChange={(patch) => update(selected.id, patch)}
+              />
+            </>
           )}
         </aside>
       </div>
