@@ -28,11 +28,11 @@ export function ReconciliationHistoryPage() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Reconciliation History</h1>
       <div className="max-w-xs mb-4">
-        <AccountSelector label="Bank Account" value={accountId} onChange={setAccountId} accountTypeFilter="asset" />
+        <AccountSelector label="Bank / Credit Card Account" value={accountId} onChange={setAccountId} accountTypeFilter={['asset', 'liability']} />
       </div>
 
       {!accountId ? (
-        <p className="text-sm text-gray-500">Select a bank account to view history.</p>
+        <p className="text-sm text-gray-500">Select an account to view history.</p>
       ) : isLoading ? (
         <LoadingSpinner className="py-12" />
       ) : isError ? (
