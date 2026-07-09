@@ -16,9 +16,12 @@ interface AccountSelectorProps {
   accountTypeFilter?: AccountType | AccountType[];
   required?: boolean;
   compact?: boolean;
+  // Grid navigation passthrough (see SearchableDropdown).
+  onNavigate?: (dir: 'next' | 'prev') => void;
+  dataCell?: string;
 }
 
-export function AccountSelector({ value, onChange, label, accountTypeFilter, required, compact }: AccountSelectorProps) {
+export function AccountSelector({ value, onChange, label, accountTypeFilter, required, compact, onNavigate, dataCell }: AccountSelectorProps) {
   // 500 + server-side search-as-you-type: the previous one-shot 200 cap
   // made accounts past the first page unfindable in large COAs (same
   // truncation class as the ContactSelector vendor bug).
@@ -57,6 +60,8 @@ export function AccountSelector({ value, onChange, label, accountTypeFilter, req
       required={required}
       compact={compact}
       onQueryChange={setQuery}
+      onNavigate={onNavigate}
+      dataCell={dataCell}
     />
   );
 }

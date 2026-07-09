@@ -60,6 +60,18 @@ export function useSaveBatch() {
   });
 }
 
+// Suggest the category account to prefill when a contact is picked on a
+// batch line. GET, but exposed as a mutation so it can be fired
+// imperatively on selection (contact default → last-used category).
+export function useSuggestAccountForContact() {
+  return useMutation({
+    mutationFn: (contactId: string) =>
+      apiClient<{ accountId: string | null; source: 'default' | 'recent' | null }>(
+        `/batch/suggest-account?contact_id=${encodeURIComponent(contactId)}`,
+      ),
+  });
+}
+
 export function useParseCsv() {
   return useMutation({
     mutationFn: async (input: { file: File; txnType: string }) => {

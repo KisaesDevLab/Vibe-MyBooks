@@ -39,9 +39,16 @@ interface SearchableDropdownProps {
   // Fallback display label for the selected id when it isn't among
   // `options` (e.g. a saved value outside the current server page).
   selectedLabel?: string;
+  // Grid/spreadsheet navigation. When provided, choosing an option (via
+  // Enter or click) advances focus to the next cell instead of blurring
+  // the input, and Tab / Shift+Tab route through the same handler so a
+  // parent grid can move focus cell-to-cell. `dataCell` stamps the input
+  // with a `data-cell` coordinate the grid can target with `.focus()`.
+  onNavigate?: (dir: 'next' | 'prev') => void;
+  dataCell?: string;
 }
 
-export function SearchableDropdown({ value, onChange, options, placeholder = 'Search...', label, required, className, onAddNew, addNewLabel, compact, onQueryChange, selectedLabel }: SearchableDropdownProps) {
+export function SearchableDropdown({ value, onChange, options, placeholder = 'Search...', label, required, className, onAddNew, addNewLabel, compact, onQueryChange, selectedLabel, onNavigate, dataCell }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [highlightIndex, setHighlightIndex] = useState(0);
@@ -141,7 +148,11 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
     onChange(id);
     setIsOpen(false);
     setSearchAndNotify('');
-    inputRef.current?.blur();
+    // In a grid, hand focus to the next cell so entry keeps flowing
+    // (the reported "hit Enter to pick an account and it loses focus"
+    // bug). Standalone forms keep the original blur-on-select behavior.
+    if (onNavigate) onNavigate('next');
+    else inputRef.current?.blur();
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -177,6 +188,12 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
       case 'Tab':
         setIsOpen(false);
         setSearchAndNotify('');
+        // Route Tab through the grid's cell navigation when wired up so
+        // focus skips the clear button and lands on the adjacent cell.
+        if (onNavigate) {
+          e.preventDefault();
+          onNavigate(e.shiftKey ? 'prev' : 'next');
+        }
         break;
     }
   };

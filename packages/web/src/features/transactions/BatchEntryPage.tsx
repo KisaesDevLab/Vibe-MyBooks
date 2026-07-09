@@ -2,8 +2,8 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent } from 'react';
-import { useValidateBatch, useSaveBatch, useParseCsv } from '../../api/hooks/useBatch';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type KeyboardEvent } from 'react';
+import { useValidateBatch, useSaveBatch, useParseCsv, useSuggestAccountForContact } from '../../api/hooks/useBatch';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2/LineTagPicker';
@@ -169,6 +169,7 @@ export function BatchEntryPage() {
   const validateBatch = useValidateBatch();
   const saveBatch = useSaveBatch();
   const parseCsv = useParseCsv();
+  const suggestAccount = useSuggestAccountForContact();
 
   // Lookup maps for resolving IDs to names
   const { data: accountsData } = useAccounts({ isActive: true, limit: 500, offset: 0 });
@@ -202,6 +203,59 @@ export function BatchEntryPage() {
   }, [baseColumns, columnPrefs]);
   const needsAccount = txnTypes.find((t) => t.value === txnType)?.needsAccount || false;
 
+  // ─── Spreadsheet-style keyboard navigation ───
+  // Every editable cell is stamped with a `data-cell="{row}-{col}"`
+  // coordinate; navigation focuses cells by querying the grid for that
+  // coordinate. This works uniformly across plain inputs and the
+  // portal-rendered account/contact dropdowns.
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const focusCell = useCallback((r: number, c: number): boolean => {
+    const el = gridRef.current?.querySelector<HTMLElement>(`[data-cell="${r}-${c}"]`);
+    if (!el) return false;
+    el.focus();
+    // Select existing text so the next keystroke overwrites, Excel-style.
+    if (el instanceof HTMLInputElement && el.type === 'text') { try { el.select(); } catch { /* noop */ } }
+    return true;
+  }, []);
+
+  // `next`/`prev` walk cell-to-cell wrapping across rows and skipping any
+  // column with no focusable element (e.g. the Tag picker); `up`/`down`
+  // move within the same column. Focus is deferred a frame so it lands
+  // after any selection re-render / row auto-extend has committed.
+  const moveFocus = useCallback((r: number, c: number, dir: 'next' | 'prev' | 'up' | 'down') => {
+    const colCount = columns.length;
+    const candidates: Array<[number, number]> = [];
+    if (dir === 'next' || dir === 'prev') {
+      const step = dir === 'next' ? 1 : -1;
+      let nr = r, nc = c;
+      for (let i = 0; i < colCount * 2 + 2; i++) {
+        nc += step;
+        if (nc >= colCount) { nc = 0; nr += 1; }
+        else if (nc < 0) { nc = colCount - 1; nr -= 1; }
+        if (nr < 0) break;
+        candidates.push([nr, nc]);
+      }
+    } else {
+      const nr = dir === 'down' ? r + 1 : r - 1;
+      if (nr >= 0) candidates.push([nr, c]);
+    }
+    requestAnimationFrame(() => {
+      for (const [tr, tc] of candidates) if (focusCell(tr, tc)) return;
+    });
+  }, [columns.length, focusCell]);
+
+  // Key handler for plain <input> cells. Enter and Tab advance across
+  // the row (wrapping to the next row); Arrow up/down move by column.
+  // Arrow keys are left to the native control on date cells so their
+  // segment steppers still work.
+  const handleCellKey = (e: KeyboardEvent<HTMLInputElement>, r: number, c: number, isDate: boolean) => {
+    if (e.key === 'Enter') { e.preventDefault(); moveFocus(r, c, 'next'); }
+    else if (e.key === 'Tab') { e.preventDefault(); moveFocus(r, c, e.shiftKey ? 'prev' : 'next'); }
+    else if (!isDate && e.key === 'ArrowDown') { e.preventDefault(); moveFocus(r, c, 'down'); }
+    else if (!isDate && e.key === 'ArrowUp') { e.preventDefault(); moveFocus(r, c, 'up'); }
+  };
+
   const updateCell = (rowIdx: number, key: keyof GridRow, value: string) => {
     setRows((prev) => {
       const next = [...prev];
@@ -211,6 +265,33 @@ export function BatchEntryPage() {
         next.push(emptyRow(next.length + 1));
       }
       return next;
+    });
+  };
+
+  // Prefill the Account cell when a contact is picked, without ever
+  // clobbering an account the user already chose. The contact's
+  // configured default expense account fills instantly; otherwise we
+  // ask the server for the most-recently-used category account for that
+  // contact and fill it if the cell is still empty when it returns.
+  const fillAccountIfEmpty = (rowIdx: number, accountId: string) => {
+    setRows((prev) => {
+      const r = prev[rowIdx];
+      if (!r || r.accountId) return prev;
+      const next = [...prev];
+      next[rowIdx] = { ...r, accountId };
+      return next;
+    });
+  };
+
+  const autofillAccountForContact = (rowIdx: number, c: ContactSelection | null) => {
+    if (!c) return;
+    if (rows[rowIdx]?.accountId) return; // never override a user's choice
+    if (c.defaultExpenseAccountId) {
+      fillAccountIfEmpty(rowIdx, c.defaultExpenseAccountId);
+      return;
+    }
+    suggestAccount.mutate(c.id, {
+      onSuccess: (res) => { if (res.accountId) fillAccountIfEmpty(rowIdx, res.accountId); },
     });
   };
 
@@ -416,7 +497,7 @@ export function BatchEntryPage() {
       )}
 
       {/* Grid */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto" onPaste={handlePaste}>
+      <div ref={gridRef} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto" onPaste={handlePaste}>
         <table className="min-w-full text-xs" style={{ borderCollapse: 'collapse' }}>
           <thead className="bg-gray-100 sticky top-0 z-10 border-b border-gray-300">
             <tr>
@@ -443,7 +524,7 @@ export function BatchEntryPage() {
                     {row.status === 'invalid' && <XIcon className="h-3 w-3 text-red-500 inline" />}
                     {row.status === 'warning' && <AlertTriangle className="h-3 w-3 text-amber-500 inline" />}
                   </td>
-                  {columns.map((col) => {
+                  {columns.map((col, colIdx) => {
                     const hasError = errorFields.has(col.key) || errorFields.has(col.key.replace(/([A-Z])/g, '_$1').toLowerCase());
                     const cellError = rowErrors.find((e) => e.field === col.key || e.field === col.key.replace(/([A-Z])/g, '_$1').toLowerCase());
                     const cellBorder = hasError ? 'border-red-400 bg-red-50' : 'border-gray-200';
@@ -470,9 +551,11 @@ export function BatchEntryPage() {
                           <ContactSelector
                             value={row.contactId}
                             onChange={(id) => { updateCell(rowIdx, 'contactId', id); }}
-                            onSelect={(c) => { if (c?.defaultExpenseAccountId && !row.accountId) updateCell(rowIdx, 'accountId', c.defaultExpenseAccountId); }}
+                            onSelect={(c) => autofillAccountForContact(rowIdx, c)}
                             contactTypeFilter={isCustomer ? 'customer' : 'vendor'}
                             compact
+                            dataCell={`${rowIdx}-${colIdx}`}
+                            onNavigate={(dir) => moveFocus(rowIdx, colIdx, dir)}
                           />
                         </td>
                       );
@@ -488,6 +571,8 @@ export function BatchEntryPage() {
                             value={row.accountId}
                             onChange={(id) => { updateCell(rowIdx, 'accountId', id); }}
                             compact
+                            dataCell={`${rowIdx}-${colIdx}`}
+                            onNavigate={(dir) => moveFocus(rowIdx, colIdx, dir)}
                           />
                         </td>
                       );
@@ -496,8 +581,10 @@ export function BatchEntryPage() {
                     return (
                       <td key={col.key} className="px-px" title={cellError?.message}>
                         <input
+                          data-cell={`${rowIdx}-${colIdx}`}
                           value={row[col.key] || ''}
                           onChange={(e) => updateCell(rowIdx, col.key, e.target.value)}
+                          onKeyDown={(e) => handleCellKey(e, rowIdx, colIdx, col.key === 'date' || col.key === 'dueDate')}
                           type={col.key === 'date' || col.key === 'dueDate' ? 'date' : 'text'}
                           className={`w-full px-1.5 py-1 rounded border text-xs ${cellBorder}
                           focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 ${

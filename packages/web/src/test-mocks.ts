@@ -172,6 +172,7 @@ export const batchMocks = () => ({
   useValidateBatch: passthroughMutation,
   useSaveBatch: passthroughMutation,
   useParseCsv: passthroughMutation,
+  useSuggestAccountForContact: passthroughMutation,
 });
 
 export const chatMocks = () => ({
