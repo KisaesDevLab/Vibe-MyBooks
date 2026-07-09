@@ -4,11 +4,11 @@
 
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../../api/client';
+import { apiClient, getAccessToken } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { ShieldCheck, AlertTriangle, CheckCircle, KeyRound, RefreshCw, Trash2 } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, CheckCircle, KeyRound, RefreshCw, Trash2, Download } from 'lucide-react';
 
 interface SecurityStatus {
   sentinelExists: boolean;
@@ -52,6 +52,42 @@ export function InstallationSecurityPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [newRecoveryKey, setNewRecoveryKey] = useState<string | null>(null);
   const [refreshSuccess, setRefreshSuccess] = useState<string | null>(null);
+
+  // Disaster-recovery bundle state.
+  const [drPass, setDrPass] = useState('');
+  const [drBusy, setDrBusy] = useState(false);
+  const [drError, setDrError] = useState<string | null>(null);
+
+  async function downloadDrBundle() {
+    setDrError(null);
+    if (drPass.length < 12) { setDrError('Passphrase must be at least 12 characters.'); return; }
+    setDrBusy(true);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/backup/system/download`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token || ''}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passphrase: drPass }),
+      });
+      if (!res.ok) {
+        let msg = 'Could not create the DR bundle';
+        try { const j = await res.json(); msg = j?.error?.message || msg; } catch { /* non-JSON error body */ }
+        throw new Error(msg);
+      }
+      const disp = res.headers.get('Content-Disposition') || '';
+      const fileName = disp.match(/filename="?([^"]+)"?/)?.[1] || 'vibe-mybooks-dr-bundle.vmb';
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName; a.click();
+      URL.revokeObjectURL(url);
+      setDrPass('');
+    } catch (e) {
+      setDrError((e as Error).message);
+    } finally {
+      setDrBusy(false);
+    }
+  }
 
   // Test recovery key state
   const [testKey, setTestKey] = useState('');
@@ -329,6 +365,31 @@ export function InstallationSecurityPage() {
             {'message' in testResult ? ` — ${testResult.message}` : ''}
           </p>
         ) : null}
+      </section>
+
+      {/* Disaster-recovery bundle */}
+      <section className="rounded-lg border border-gray-200 bg-white p-5 space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-1"><Download className="h-4 w-4" /> Disaster-recovery bundle</h2>
+        <p className="text-sm text-gray-600">
+          Download one encrypted <code>.vmb</code> file with everything needed to rebuild this
+          installation on a new server: all tenants, users, and config <strong>plus the sentinel and
+          recovery files shown above</strong>. Keep a copy off this machine. You&apos;ll need this
+          passphrase to restore it, so store it separately.
+        </p>
+        <Input
+          type="password"
+          placeholder="Bundle passphrase (min 12 characters)"
+          value={drPass}
+          onChange={(e) => { setDrPass(e.target.value); setDrError(null); }}
+        />
+        {drError && <p className="text-sm text-red-700">{drError}</p>}
+        <Button onClick={downloadDrBundle} disabled={drBusy || drPass.length < 12} loading={drBusy}>
+          <Download className="h-4 w-4 mr-1" /> Download DR bundle
+        </Button>
+        <p className="text-xs text-amber-700 flex items-start gap-1">
+          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          This bundle contains every secret and all client data — treat it like a master key and store it encrypted at rest.
+        </p>
       </section>
 
       {/* Password modal */}
