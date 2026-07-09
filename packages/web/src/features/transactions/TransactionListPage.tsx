@@ -8,6 +8,7 @@ import { useCompanyContext } from '../../providers/CompanyProvider';
 import type { TxnType, TxnStatus, BulkUpdateTransactionsInput } from '@kis-books/shared';
 import { useTransactions, useBulkUpdateTransactions } from '../../api/hooks/useTransactions';
 import { useAccounts } from '../../api/hooks/useAccounts';
+import { useCompanySettings } from '../../api/hooks/useCompany';
 import { useContacts } from '../../api/hooks/useContacts';
 import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
@@ -312,6 +313,7 @@ export function TransactionListPage() {
 
   const { data: accountsData } = useAccounts({ limit: 500, isActive: true });
   const accountsList = accountsData?.data || [];
+  const { data: settingsData } = useCompanySettings();
   // Contact list for the filter dropdown. Cheaply covers customers + vendors
   // in one fetch; the backend caps at 500 which is plenty for a solo /
   // small-firm workload.
@@ -349,11 +351,17 @@ export function TransactionListPage() {
       else txns.forEach((t) => next.add(t.id));
       return next;
     });
-  // Category accounts (P&L) for the bulk "Set Category" dropdown — the same
-  // income/expense set the backend treats as a transaction's category.
-  const categoryAccounts = accountsList.filter((a) =>
-    ['revenue', 'other_revenue', 'cogs', 'expense', 'other_expense'].includes(a.accountType),
-  );
+  // Accounts for the bulk "Set Category" dropdown. Honors the tenant's
+  // "Category List in Transactions" preference: 'all' lists every account
+  // (so a deposit can be recategorized to equity, a loan, etc.), 'by_type'
+  // lists only the P&L income/expense set. The backend accepts any in-scope
+  // account and relocates the single non-money category line to it.
+  const categoryFilterMode = settingsData?.settings?.categoryFilterMode || 'by_type';
+  const categoryAccounts = categoryFilterMode === 'all'
+    ? accountsList
+    : accountsList.filter((a) =>
+        ['revenue', 'other_revenue', 'cogs', 'expense', 'other_expense'].includes(a.accountType),
+      );
 
   const newTxnOptions = [
     { label: 'Journal Entry', path: '/transactions/new/journal-entry' },
