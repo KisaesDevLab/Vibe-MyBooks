@@ -13,6 +13,7 @@ import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
+import { BasisSelector } from './BasisSelector';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 // ─── Types matching the buildGeneralLedger response shape ────────
@@ -98,6 +99,7 @@ export function GeneralLedgerReport() {
   const [endDate, setEndDate] = useSessionState('vibe:report-gl:endDate', today.toISOString().split('T')[0]!);
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-gl:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-gl:tagId', '');
+  const [basis, setBasis] = useSessionState<'cash' | 'accrual'>('vibe:report-gl:basis', 'accrual');
   const [showAcctNums, setShowAcctNums] = useLocalState(SHOW_ACCT_NUMBERS_KEY, true);
   const { activeCompanyId } = useCompanyContext();
 
@@ -105,10 +107,10 @@ export function GeneralLedgerReport() {
   const debStartDate = useDebouncedDate(startDate);
   const debEndDate = useDebouncedDate(endDate);
 
-  const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
+  const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}&basis=${basis}`;
 
   const { data, isLoading, error } = useQuery<GLReportData>({
-    queryKey: ['reports', 'general-ledger', debStartDate, debEndDate, activeCompanyId, scope, tagId],
+    queryKey: ['reports', 'general-ledger', debStartDate, debEndDate, activeCompanyId, scope, tagId, basis],
     queryFn: () => apiClient<GLReportData>(`/reports/general-ledger?${queryParams}`),
   });
 
@@ -127,6 +129,7 @@ export function GeneralLedgerReport() {
               setEndDate(e);
             }}
           />
+          <BasisSelector value={basis} onChange={setBasis} />
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
           <ReportTagFilter value={tagId} onChange={setTagId} />
           <label className="flex items-center gap-1.5 text-sm text-gray-600" title="Show account numbers on financial reports">

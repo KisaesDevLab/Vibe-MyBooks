@@ -20,6 +20,7 @@ import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
+import { BasisSelector } from './BasisSelector';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
@@ -146,6 +147,7 @@ export function AccountDetailReport({ config }: { config: AccountDetailConfig })
   const [tagId, setTagId] = useSessionState(ns('tagId'), '');
   const [view, setView] = useSessionState<'detail' | 'summary'>(ns('view'), 'detail');
   const [accountIds, setAccountIds] = useSessionState<string[]>(ns('accountIds'), []);
+  const [basis, setBasis] = useSessionState<'cash' | 'accrual'>(ns('basis'), 'accrual');
   const { activeCompanyId } = useCompanyContext();
 
   const debStartDate = useDebouncedDate(startDate);
@@ -162,10 +164,11 @@ export function AccountDetailReport({ config }: { config: AccountDetailConfig })
   if (tagId) params.set('tag_id', tagId);
   if (accountIds.length > 0) params.set('account_ids', accountIds.join(','));
   if (view === 'detail') params.set('display', 'detail');
+  params.set('basis', basis);
   const queryParams = params.toString();
 
   const { data, isLoading, isError, refetch } = useQuery<ReportData>({
-    queryKey: ['reports', config.endpoint, debStartDate, debEndDate, activeCompanyId, scope, tagId, accountIds, view],
+    queryKey: ['reports', config.endpoint, debStartDate, debEndDate, activeCompanyId, scope, tagId, accountIds, view, basis],
     queryFn: () => apiClient<ReportData>(`/reports/${config.endpoint}?${queryParams}`),
   });
 
@@ -186,6 +189,7 @@ export function AccountDetailReport({ config }: { config: AccountDetailConfig })
               <option value="summary">Summary</option>
             </select>
           </label>
+          <BasisSelector value={basis} onChange={setBasis} />
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
           <ReportTagFilter value={tagId} onChange={setTagId} />
         </div>

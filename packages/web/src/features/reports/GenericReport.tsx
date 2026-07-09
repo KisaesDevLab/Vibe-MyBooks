@@ -10,6 +10,7 @@ import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { ReportTable } from './ReportTable';
 import { DateRangePicker } from './DateRangePicker';
+import { BasisSelector } from './BasisSelector';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -33,6 +34,8 @@ interface GenericReportProps {
   // GL, TB, Transaction Detail, Account Detail, AR/AP Aging,
   // Sales/Expenses-by-X, Invoice/Bill lists, Budget vs. Actuals).
   useTagFilter?: boolean;
+  // Opt-in Cash/Accrual selector (adds ?basis=cash|accrual).
+  useBasis?: boolean;
   extraParams?: Record<string, string>;
   dataKey?: string;
   // Optional totals footer: maps a column key to the response field
@@ -42,7 +45,7 @@ interface GenericReportProps {
   totalsFrom?: Record<string, string>;
 }
 
-export function GenericReport({ title, endpoint, columns, useDateRange = true, useAsOfDate, useTagFilter = false, extraParams, dataKey = 'data', totalsFrom }: GenericReportProps) {
+export function GenericReport({ title, endpoint, columns, useDateRange = true, useAsOfDate, useTagFilter = false, useBasis = false, extraParams, dataKey = 'data', totalsFrom }: GenericReportProps) {
   const today = new Date();
   // Selection criteria persist for the tab session — namespaced per
   // report endpoint so the Trial Balance and AR Aging (etc.) each keep
@@ -52,6 +55,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
   const [asOfDate, setAsOfDate] = useSessionState(`vibe:report-${endpoint}:asOfDate`, today.toISOString().split('T')[0]!);
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>(`vibe:report-${endpoint}:scope`, 'company');
   const [tagId, setTagId] = useSessionState<string>(`vibe:report-${endpoint}:tagId`, '');
+  const [basis, setBasis] = useSessionState<'cash' | 'accrual'>(`vibe:report-${endpoint}:basis`, 'accrual');
   const { activeCompanyId } = useCompanyContext();
 
   // Only query once typed dates are complete and stable (native date
@@ -65,6 +69,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
   if (useAsOfDate) params.set('as_of_date', debAsOfDate);
   if (scope === 'consolidated') params.set('scope', 'consolidated');
   if (useTagFilter && tagId) params.set('tag_id', tagId);
+  if (useBasis) params.set('basis', basis);
 
   // Reports return wildly different shapes per endpoint (P&L vs balance-
   // sheet vs trial-balance vs general-ledger), each with arbitrarily-
@@ -73,7 +78,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
   // since ReportShell does its own runtime shape handling.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['reports', endpoint, debStartDate, debEndDate, debAsOfDate, extraParams, activeCompanyId, scope, tagId],
+    queryKey: ['reports', endpoint, debStartDate, debEndDate, debAsOfDate, extraParams, activeCompanyId, scope, tagId, basis],
     queryFn: () => apiClient<any>(`/reports/${endpoint}?${params.toString()}`),
   });
 
@@ -102,6 +107,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
                 className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
             </div>
           )}
+          {useBasis && <BasisSelector value={basis} onChange={setBasis} />}
           {useTagFilter && <ReportTagFilter value={tagId} onChange={setTagId} />}
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
         </div>

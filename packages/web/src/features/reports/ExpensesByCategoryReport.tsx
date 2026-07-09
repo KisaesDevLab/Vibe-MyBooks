@@ -16,6 +16,7 @@ import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
+import { BasisSelector } from './BasisSelector';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
@@ -182,6 +183,7 @@ export function ExpensesByCategoryReport() {
   const [tagId, setTagId] = useSessionState('vibe:report-expcat:tagId', '');
   const [view, setView] = useSessionState<'detail' | 'summary'>('vibe:report-expcat:view', 'detail');
   const [accountIds, setAccountIds] = useSessionState<string[]>('vibe:report-expcat:accountIds', []);
+  const [basis, setBasis] = useSessionState<'cash' | 'accrual'>('vibe:report-expcat:basis', 'accrual');
   const { activeCompanyId } = useCompanyContext();
 
   // Only query once typed dates are complete and stable.
@@ -200,10 +202,11 @@ export function ExpensesByCategoryReport() {
   if (tagId) params.set('tag_id', tagId);
   if (accountIds.length > 0) params.set('account_ids', accountIds.join(','));
   if (view === 'detail') params.set('display', 'detail');
+  params.set('basis', basis);
   const queryParams = params.toString();
 
   const { data, isLoading, isError, refetch } = useQuery<ExpCatData>({
-    queryKey: ['reports', 'expense-by-category', debStartDate, debEndDate, activeCompanyId, scope, tagId, accountIds, view],
+    queryKey: ['reports', 'expense-by-category', debStartDate, debEndDate, activeCompanyId, scope, tagId, accountIds, view, basis],
     queryFn: () => apiClient<ExpCatData>(`/reports/expense-by-category?${queryParams}`),
   });
 
@@ -235,6 +238,7 @@ export function ExpensesByCategoryReport() {
               <option value="summary">Summary</option>
             </select>
           </label>
+          <BasisSelector value={basis} onChange={setBasis} />
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
           <ReportTagFilter value={tagId} onChange={setTagId} />
         </div>

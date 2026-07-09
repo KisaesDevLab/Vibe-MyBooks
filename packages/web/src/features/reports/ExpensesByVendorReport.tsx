@@ -17,6 +17,7 @@ import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
+import { BasisSelector } from './BasisSelector';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
@@ -38,6 +39,7 @@ export function ExpensesByVendorReport() {
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-expvendor:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-expvendor:tagId', '');
   const [view, setView] = useSessionState<'detail' | 'summary'>('vibe:report-expvendor:view', 'detail');
+  const [basis, setBasis] = useSessionState<'cash' | 'accrual'>('vibe:report-expvendor:basis', 'accrual');
   const { activeCompanyId } = useCompanyContext();
 
   const debStartDate = useDebouncedDate(startDate);
@@ -47,10 +49,11 @@ export function ExpensesByVendorReport() {
   if (scope === 'consolidated') params.set('scope', 'consolidated');
   if (tagId) params.set('tag_id', tagId);
   if (view === 'detail') params.set('display', 'detail');
+  params.set('basis', basis);
   const queryParams = params.toString();
 
   const { data, isLoading, isError, refetch } = useQuery<ReportData>({
-    queryKey: ['reports', 'expense-by-vendor', debStartDate, debEndDate, activeCompanyId, scope, tagId, view],
+    queryKey: ['reports', 'expense-by-vendor', debStartDate, debEndDate, activeCompanyId, scope, tagId, view, basis],
     queryFn: () => apiClient<ReportData>(`/reports/expense-by-vendor?${queryParams}`),
   });
 
@@ -70,6 +73,7 @@ export function ExpensesByVendorReport() {
               <option value="summary">Summary</option>
             </select>
           </label>
+          <BasisSelector value={basis} onChange={setBasis} />
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
           <ReportTagFilter value={tagId} onChange={setTagId} />
         </div>
