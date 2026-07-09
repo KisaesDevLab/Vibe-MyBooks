@@ -3,7 +3,7 @@
 // You may not distribute this software. See LICENSE for terms.
 
 import { useState, type FormEvent } from 'react';
-import type { ContactType } from '@kis-books/shared';
+import type { ContactType, Contact } from '@kis-books/shared';
 import { useContacts, useContact, useCreateContact } from '../../api/hooks/useContacts';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { SearchableDropdown, type DropdownOption } from './SearchableDropdown';
@@ -85,10 +85,23 @@ export function ContactSelector({ value, onChange, onSelect, label, contactTypeF
     setShowAddModal(true);
   };
 
-  const handleCreated = (newId: string) => {
+  // Select the just-created contact directly from the mutation result — not by
+  // re-finding it in a stale `contacts` list after refetch (which never
+  // contained the new id, so onSelect/autofill silently never fired).
+  const handleCreated = (contact: Contact) => {
     setShowAddModal(false);
     setPrefillName('');
-    refetch().then(() => handleChange(newId));
+    onChange(contact.id);
+    if (onSelect) {
+      onSelect({
+        id: contact.id,
+        displayName: contact.displayName,
+        contactType: contact.contactType,
+        defaultExpenseAccountId: contact.defaultExpenseAccountId,
+        defaultTagId: (contact as unknown as { defaultTagId?: string | null }).defaultTagId ?? null,
+      });
+    }
+    refetch(); // refresh the list so a subsequent search finds it
   };
 
   return (
@@ -102,7 +115,6 @@ export function ContactSelector({ value, onChange, onSelect, label, contactTypeF
         required={required}
         compact={compact}
         onAddNew={handleAddNew}
-        addNewLabel={prefillName ? undefined : 'Add new contact...'}
         onQueryChange={setQuery}
         selectedLabel={selectedContact?.displayName}
         onNavigate={onNavigate}
@@ -125,7 +137,7 @@ export function ContactSelector({ value, onChange, onSelect, label, contactTypeF
 interface QuickAddContactModalProps {
   prefillName: string;
   defaultType: ContactType | string;
-  onCreated: (id: string) => void;
+  onCreated: (contact: Contact) => void;
   onClose: () => void;
 }
 
@@ -135,19 +147,28 @@ function QuickAddContactModal({ prefillName, defaultType, onCreated, onClose }: 
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const createContact = useCreateContact();
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    // Surface an in-app error for a missing name instead of relying on the
+    // browser's native `required` bubble, which blocks the submit silently and
+    // reads as "clicked Add Contact but nothing happened".
+    if (!displayName.trim()) {
+      setLocalError('Display name is required.');
+      return;
+    }
+    setLocalError(null);
     createContact.mutate({
       contactType,
-      displayName,
+      displayName: displayName.trim(),
       companyName: companyName || null,
       email: email || null,
       phone: phone || null,
     }, {
-      onSuccess: (data) => onCreated(data.contact.id),
+      onSuccess: (data) => onCreated(data.contact),
     });
   };
 
@@ -161,7 +182,7 @@ function QuickAddContactModal({ prefillName, defaultType, onCreated, onClose }: 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Contact Type</label>
             <div className="flex gap-2">
@@ -185,7 +206,7 @@ function QuickAddContactModal({ prefillName, defaultType, onCreated, onClose }: 
           <Input
             label="Display Name"
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={(e) => { setDisplayName(e.target.value); if (localError) setLocalError(null); }}
             required
             autoFocus
           />
@@ -209,8 +230,8 @@ function QuickAddContactModal({ prefillName, defaultType, onCreated, onClose }: 
             />
           </div>
 
-          {createContact.error && (
-            <p className="text-sm text-red-600">{createContact.error.message}</p>
+          {(localError || createContact.error) && (
+            <p className="text-sm text-red-600">{localError || createContact.error?.message}</p>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
