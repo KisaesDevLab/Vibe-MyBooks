@@ -70,6 +70,7 @@ function samplePack(overrides: Partial<ReportPackListItem> = {}): ReportPackList
     coverPage: true,
     toc: true,
     pageNumbers: true,
+    pageFooter: null,
     filenameTemplate: '{pack}-{date}',
     onError: 'skip',
     createdBy: 'u1',

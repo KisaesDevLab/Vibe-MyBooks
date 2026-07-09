@@ -205,6 +205,7 @@ export function ReportPackBuilderPage() {
   const [coverPage, setCoverPage] = useState(true);
   const [toc, setToc] = useState(true);
   const [pageNumbers, setPageNumbers] = useState(true);
+  const [pageFooter, setPageFooter] = useState('');
   const [filenameTemplate, setFilenameTemplate] = useState('{pack}-{date}');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // Per-report options keyed by reportId (a report id is unique within a pack).
@@ -225,6 +226,7 @@ export function ReportPackBuilderPage() {
     setCoverPage(p.coverPage);
     setToc(p.toc);
     setPageNumbers(p.pageNumbers);
+    setPageFooter(p.pageFooter ?? '');
     setFilenameTemplate(p.filenameTemplate);
     const ordered = [...p.items].sort((a, b) => a.sortOrder - b.sortOrder);
     setSelectedIds(ordered.map((it) => it.reportId));
@@ -303,6 +305,7 @@ export function ReportPackBuilderPage() {
     coverPage,
     toc,
     pageNumbers,
+    pageFooter: pageFooter.trim() || null,
     filenameTemplate: filenameTemplate.trim() || '{pack}-{date}',
     onError: 'skip',
     items: selectedIds.map((reportId) => {
@@ -607,6 +610,16 @@ export function ReportPackBuilderPage() {
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
               Page numbers
             </label>
+            <Input
+              label="Page footer"
+              value={pageFooter}
+              onChange={(e) => setPageFooter(e.target.value)}
+              maxLength={500}
+              placeholder="Printed on every page (optional)"
+            />
+            <p className="text-xs text-gray-500">
+              Prints on every page of the PDF. Leave blank to use your company's default report footer.
+            </p>
             <Input
               label="Filename template"
               value={filenameTemplate}

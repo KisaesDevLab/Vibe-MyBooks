@@ -36,6 +36,7 @@ export interface ReportPack {
   coverPage: boolean;
   toc: boolean;
   pageNumbers: boolean;
+  pageFooter: string | null;
   filenameTemplate: string;
   onError: 'skip' | 'fail';
   createdBy: string;
@@ -106,6 +107,7 @@ export interface ReportPackInput {
   coverPage?: boolean;
   toc?: boolean;
   pageNumbers?: boolean;
+  pageFooter?: string | null;
   filenameTemplate?: string;
   onError?: 'skip' | 'fail';
   items: Array<{ reportId: string; options?: ReportPackItemOptions }>;
