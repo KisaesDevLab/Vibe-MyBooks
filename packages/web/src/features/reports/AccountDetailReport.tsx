@@ -71,6 +71,8 @@ interface DetailLine {
 interface DetailGroup {
   accountId: string; accountNumber: string | null; name: string; accountType: string;
   lines: DetailLine[]; totalDebits: number; totalCredits: number; subtotal: number;
+  // Present on carry-forward (balance-sheet) reports.
+  beginningBalance?: number; endingBalance?: number;
 }
 interface ReportData {
   title: string; startDate: string; endDate: string; data: SummaryRow[];
@@ -255,7 +257,13 @@ function AccountSection({ group }: { group: DetailGroup }) {
           </tr>
         </thead>
         <tbody className="font-mono">
-          {group.lines.length === 0 ? (
+          {group.beginningBalance !== undefined && (
+            <tr className="border-b border-gray-100">
+              <td className="py-1 font-sans italic text-gray-500" colSpan={7}>Beginning Balance</td>
+              <td className="py-1 text-right font-semibold">{fmtMoney(group.beginningBalance)}</td>
+            </tr>
+          )}
+          {group.lines.length === 0 && group.beginningBalance === undefined ? (
             <tr><td colSpan={8} className="py-2 text-center italic text-gray-400 font-sans">No activity in period</td></tr>
           ) : (
             group.lines.map((line) => (
@@ -273,10 +281,12 @@ function AccountSection({ group }: { group: DetailGroup }) {
             ))
           )}
           <tr className="border-t-2 border-gray-300 bg-gray-50">
-            <td className="py-1.5 font-sans font-semibold text-gray-700" colSpan={5}>Total {label}</td>
+            <td className="py-1.5 font-sans font-semibold text-gray-700" colSpan={5}>
+              {group.endingBalance !== undefined ? `Ending Balance ${label}` : `Total ${label}`}
+            </td>
             <td className="py-1.5 text-right font-semibold">{fmtMoney(group.totalDebits)}</td>
             <td className="py-1.5 text-right font-semibold">{fmtMoney(group.totalCredits)}</td>
-            <td className="py-1.5 text-right font-bold text-gray-900">{fmtMoney(group.subtotal)}</td>
+            <td className="py-1.5 text-right font-bold text-gray-900">{fmtMoney(group.endingBalance ?? group.subtotal)}</td>
           </tr>
         </tbody>
       </table>
