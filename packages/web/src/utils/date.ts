@@ -47,6 +47,36 @@ export function fiscalYearRange(fyStartMonth: number, onDate?: string): { start:
   return { start, end };
 }
 
+/**
+ * QuickBooks-style single-key date shortcuts. Given the pressed key and the
+ * field's current value (YYYY-MM-DD, or '' = start from today), returns the
+ * new YYYY-MM-DD value, or null when the key isn't a shortcut (so the caller
+ * lets the keystroke through). Mnemonics match QuickBooks: the first letter
+ * of week/month/year jumps to its start, the trailing consonant to its end.
+ *
+ *   t          Today
+ *   + or =     next day        - or _   previous day
+ *   w          start of week   k        end of week   (Sun–Sat)
+ *   m          start of month  h        end of month
+ *   y          start of year   r        end of year
+ */
+export function dateShortcut(key: string, currentValue: string): string | null {
+  const base = currentValue ? new Date(currentValue + 'T00:00:00') : new Date();
+  if (isNaN(base.getTime())) return null;
+  switch (key.toLowerCase()) {
+    case 't': return todayLocalISO();
+    case '+': case '=': base.setDate(base.getDate() + 1); return toLocalISODate(base);
+    case '-': case '_': base.setDate(base.getDate() - 1); return toLocalISODate(base);
+    case 'w': base.setDate(base.getDate() - base.getDay()); return toLocalISODate(base);
+    case 'k': base.setDate(base.getDate() + (6 - base.getDay())); return toLocalISODate(base);
+    case 'm': return toLocalISODate(new Date(base.getFullYear(), base.getMonth(), 1));
+    case 'h': return toLocalISODate(new Date(base.getFullYear(), base.getMonth() + 1, 0));
+    case 'y': return toLocalISODate(new Date(base.getFullYear(), 0, 1));
+    case 'r': return toLocalISODate(new Date(base.getFullYear(), 11, 31));
+    default: return null;
+  }
+}
+
 /** Month labels rotated to a fiscal start (e.g. 7 → Jul, Aug, … Jun). */
 export function fiscalMonthLabels(fyStartMonth: number): string[] {
   const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

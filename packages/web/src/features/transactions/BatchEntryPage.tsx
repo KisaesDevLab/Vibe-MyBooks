@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { useAccounts } from '../../api/hooks/useAccounts';
 import { useContacts } from '../../api/hooks/useContacts';
 import { Check, X as XIcon, AlertTriangle, Upload, Trash2, CheckCircle, Columns } from 'lucide-react';
+import { dateShortcut } from '../../utils/date';
 
 // The string-valued fields are the ones the grid cells edit directly via
 // CSV paste / keyed updates. `status` / `errors` hold the server-supplied
@@ -578,14 +579,24 @@ export function BatchEntryPage() {
                       );
                     }
 
+                    const isDateCell = col.key === 'date' || col.key === 'dueDate';
                     return (
                       <td key={col.key} className="px-px" title={cellError?.message}>
                         <input
                           data-cell={`${rowIdx}-${colIdx}`}
                           value={row[col.key] || ''}
                           onChange={(e) => updateCell(rowIdx, col.key, e.target.value)}
-                          onKeyDown={(e) => handleCellKey(e, rowIdx, colIdx, col.key === 'date' || col.key === 'dueDate')}
-                          type={col.key === 'date' || col.key === 'dueDate' ? 'date' : 'text'}
+                          onKeyDown={(e) => {
+                            // QBO-style date shortcuts (t / +/- / w k / m h / y r)
+                            // before grid navigation so they aren't swallowed.
+                            if (isDateCell) {
+                              const shortcut = dateShortcut(e.key, row[col.key] || '');
+                              if (shortcut) { e.preventDefault(); updateCell(rowIdx, col.key, shortcut); return; }
+                            }
+                            handleCellKey(e, rowIdx, colIdx, isDateCell);
+                          }}
+                          type={isDateCell ? 'date' : 'text'}
+                          title={isDateCell ? 'Shortcuts: t=today, +/− day, m/h month start/end, y/r year start/end, w/k week start/end' : undefined}
                           className={`w-full px-1.5 py-1 rounded border text-xs ${cellBorder}
                           focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 ${
                             col.key === 'amount' || col.key === 'debit' || col.key === 'credit' ? 'text-right font-mono' : ''
