@@ -218,7 +218,7 @@ function StaffTenantAccessDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg flex flex-col gap-3 p-5" onClick={(e) => e.stopPropagation()}>
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Tenant access</h2>

@@ -70,7 +70,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()} style={{ color: '#111827' }}>
         <h2 className="text-lg font-semibold mb-4">
           {mode === 'client' ? 'New Company (no owner)' : 'New Company (current)'}

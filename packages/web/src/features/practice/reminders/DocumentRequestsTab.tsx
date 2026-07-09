@@ -281,7 +281,7 @@ function ThreadDrawer({ request, onClose }: { request: DocumentRequestSummary; o
   }, [request.id]);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex justify-end z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 flex justify-end z-50">
       <div
         className="bg-white shadow-xl w-full max-w-lg p-5 space-y-3 overflow-y-auto"
         onClick={(e) => e.stopPropagation()}

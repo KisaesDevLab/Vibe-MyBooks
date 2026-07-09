@@ -57,7 +57,7 @@ export function ItemFormModal({ item, onClose }: ItemFormModalProps) {
   const error = createItem.error || updateItem.error;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold">{isEdit ? 'Edit Item' : 'New Item'}</h2>
