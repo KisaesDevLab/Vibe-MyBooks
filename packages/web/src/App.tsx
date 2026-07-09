@@ -188,6 +188,11 @@ const BalanceSheetReport = lazyNamed(() => import('./features/reports/BalanceShe
 const CashFlowReport = lazyNamed(() => import('./features/reports/CashFlowReport'), 'CashFlowReport');
 const GeneralLedgerReport = lazyNamed(() => import('./features/reports/GeneralLedgerReport'), 'GeneralLedgerReport');
 const ExpensesByCategoryReport = lazyNamed(() => import('./features/reports/ExpensesByCategoryReport'), 'ExpensesByCategoryReport');
+const ExpensesByVendorReport = lazyNamed(() => import('./features/reports/ExpensesByVendorReport'), 'ExpensesByVendorReport');
+const RevenuesByCategoryReport = lazyNamed(() => import('./features/reports/AccountDetailReport'), 'RevenuesByCategoryReport');
+const AssetsByAccountReport = lazyNamed(() => import('./features/reports/AccountDetailReport'), 'AssetsByAccountReport');
+const LiabilitiesByAccountReport = lazyNamed(() => import('./features/reports/AccountDetailReport'), 'LiabilitiesByAccountReport');
+const EquityByAccountReport = lazyNamed(() => import('./features/reports/AccountDetailReport'), 'EquityByAccountReport');
 const GenericReport = lazyNamed(() => import('./features/reports/GenericReport'), 'GenericReport');
 const BudgetVsActualReport = lazyNamed(() => import('./features/reports/BudgetVsActualReport'), 'BudgetVsActualReport');
 const BudgetOverviewReport = lazyNamed(() => import('./features/reports/BudgetOverviewReport'), 'BudgetOverviewReport');
@@ -414,8 +419,12 @@ export function App() {
             <Route path="/reports/customer-balance-summary" element={<GenericReport title="Customer Balance Summary" endpoint="customer-balance-summary" useDateRange={false} useTagFilter columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
             <Route path="/reports/customer-balance-detail" element={<GenericReport title="Customer Balance Detail" endpoint="customer-balance-detail" useDateRange={false} useTagFilter columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
             <Route path="/reports/invoice-list" element={<GenericReport title="Invoice List" endpoint="invoice-list" useTagFilter columns={[{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'customer_name',label:'Customer'},{key:'txn_date',label:'Date'},{key:'invoice_status',label:'Status'},{key:'total',label:'Total',align:'right',format:'money'},{key:'balance_due',label:'Balance',align:'right',format:'money'}]} />} />
-            <Route path="/reports/expense-by-vendor" element={<GenericReport title="Expenses by Vendor" endpoint="expense-by-vendor" useTagFilter columns={[{key:'vendor_name',label:'Vendor'},{key:'total',label:'Total',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} />} />
+            <Route path="/reports/expense-by-vendor" element={<ExpensesByVendorReport />} />
             <Route path="/reports/expense-by-category" element={<ExpensesByCategoryReport />} />
+            <Route path="/reports/revenue-by-category" element={<RevenuesByCategoryReport />} />
+            <Route path="/reports/assets-by-account" element={<AssetsByAccountReport />} />
+            <Route path="/reports/liabilities-by-account" element={<LiabilitiesByAccountReport />} />
+            <Route path="/reports/equity-by-account" element={<EquityByAccountReport />} />
             <Route path="/reports/vendor-balance-summary" element={<GenericReport title="Vendor Balance Summary" endpoint="vendor-balance-summary" useDateRange={false} columns={[{key:'display_name',label:'Vendor'},{key:'total_spent',label:'Total Spent',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
             <Route path="/reports/sales-by-customer" element={<GenericReport title="Sales by Customer" endpoint="sales-by-customer" useTagFilter columns={[{key:'customer_name',label:'Customer'},{key:'total',label:'Total',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} />} />
             <Route path="/reports/sales-by-item" element={<GenericReport title="Sales by Item" endpoint="sales-by-item" useTagFilter columns={[{key:'item_sku',label:'SKU'},{key:'item_name',label:'Item'},{key:'txn_count',label:'Txns',align:'right'},{key:'total',label:'Total',align:'right',format:'money'}]} />} />

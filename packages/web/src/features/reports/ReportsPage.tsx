@@ -14,6 +14,9 @@ const reportGroups = [
       { label: 'Profit and Loss', path: '/reports/profit-loss' },
       { label: 'Balance Sheet', path: '/reports/balance-sheet' },
       { label: 'Cash Flow Statement', path: '/reports/cash-flow' },
+      { label: 'Assets by Account', path: '/reports/assets-by-account' },
+      { label: 'Liabilities by Account', path: '/reports/liabilities-by-account' },
+      { label: 'Equity by Account', path: '/reports/equity-by-account' },
     ],
   },
   {
@@ -33,6 +36,7 @@ const reportGroups = [
     reports: [
       { label: 'Sales by Customer', path: '/reports/sales-by-customer' },
       { label: 'Sales by Item', path: '/reports/sales-by-item' },
+      { label: 'Revenues by Category', path: '/reports/revenue-by-category' },
     ],
   },
   {
