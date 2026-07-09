@@ -8,6 +8,7 @@ import { Sidebar } from './Sidebar';
 import { Menu } from 'lucide-react';
 import { ChatFab } from '../../features/chat/ChatFab';
 import { ChatProvider } from '../../features/chat/ChatController';
+import { useMe } from '../../api/hooks/useAuth';
 
 // Desktop sidebar collapse preference — survives sessions. '1' means
 // collapsed to the icons-only rail; anything else (including absent)
@@ -41,6 +42,13 @@ export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readInitialCollapsed);
   const isDesktop = useIsDesktop();
+
+  // Active tenant (organization) name for the header bar. `activeTenantId`
+  // falls back to the user's home tenant; the matching accessibleTenants
+  // entry carries the display name.
+  const { data: me } = useMe();
+  const activeTenantId = me?.activeTenantId ?? me?.user.tenantId;
+  const tenantName = me?.accessibleTenants?.find((t) => t.tenantId === activeTenantId)?.tenantName ?? '';
 
   const toggleSidebar = () => {
     if (isDesktop) {
@@ -111,6 +119,17 @@ export function AppShell() {
           <span className={`text-sm font-semibold text-gray-900 ${collapsed ? '' : 'lg:hidden'}`}>
             Vibe MyBooks
           </span>
+          {/* Active tenant (organization) name, shown in the header on every
+              breakpoint. A divider separates it from the app name when both
+              are visible. */}
+          {tenantName && (
+            <span className="flex items-center gap-3 min-w-0">
+              <span className={`h-4 w-px bg-gray-300 ${collapsed ? '' : 'lg:hidden'}`} aria-hidden="true" />
+              <span className="truncate text-sm font-semibold text-gray-900" title={tenantName}>
+                {tenantName}
+              </span>
+            </span>
+          )}
         </div>
         <div className="p-4 lg:p-6">
           <Outlet />
