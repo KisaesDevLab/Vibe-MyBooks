@@ -140,6 +140,17 @@ export function useReportPacks() {
   });
 }
 
+// Whether the background report-pack worker + Redis are reachable. When they
+// aren't, packs still generate inline in the API — this just surfaces it.
+export function useReportPackWorkerHealth() {
+  return useQuery({
+    queryKey: ['report-packs', 'worker-health'],
+    queryFn: () => apiClient<{ redisReachable: boolean; workerRunning: boolean }>('/reports/packs/worker-health'),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}
+
 export function useReportPack(id: string | undefined) {
   return useQuery({
     queryKey: ['report-packs', id],

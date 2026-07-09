@@ -40,6 +40,7 @@ const packsHolder: { data: { packs: ReportPackListItem[] }; isLoading: boolean; 
 vi.mock('../../../api/hooks/useReportPacks', () => ({
   useReportCatalog: () => catalogHolder,
   useReportPacks: () => packsHolder,
+  useReportPackWorkerHealth: () => ({ data: { redisReachable: true, workerRunning: true } }),
   useReportPack: () => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() }),
   useCreateReportPack: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateReportPack: () => ({ mutateAsync: vi.fn(), isPending: false }),

@@ -17,6 +17,7 @@ import {
   useDeleteReportPack,
   useDuplicateReportPack,
   useCreatePackRun,
+  useReportPackWorkerHealth,
 } from '../../../api/hooks/useReportPacks';
 import { Button } from '../../../components/ui/Button';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
@@ -44,6 +45,7 @@ export function ReportPacksListPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const { data, isLoading, isError, refetch } = useReportPacks();
+  const workerHealth = useReportPackWorkerHealth();
   const deletePack = useDeleteReportPack();
   const duplicatePack = useDuplicateReportPack();
   const createRun = useCreatePackRun();
@@ -82,12 +84,30 @@ export function ReportPacksListPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-2">
         <h1 className="text-2xl font-bold text-gray-900">Report Packs</h1>
         <Button onClick={() => navigate('/reports/packs/new')}>
           <Plus className="h-4 w-4 mr-1" /> New Report Pack
         </Button>
       </div>
+
+      {/* Background-worker health. When the worker/Redis is down, packs still
+          generate — inline in the API — so this is informational, not blocking. */}
+      {workerHealth.data && (
+        workerHealth.data.workerRunning ? (
+          <div className="mb-6 flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="inline-block h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />
+            Background worker online
+          </div>
+        ) : (
+          <div className="mb-6 flex items-center gap-1.5 text-xs text-amber-700">
+            <span className="inline-block h-2 w-2 rounded-full bg-amber-500" aria-hidden="true" />
+            {workerHealth.data.redisReachable
+              ? 'Background worker not running — packs generate in-app (slower for large packs).'
+              : 'Background worker offline — packs generate in-app (slower for large packs).'}
+          </div>
+        )
+      )}
 
       {isLoading ? (
         <LoadingSpinner className="py-16" />
