@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Internal Use License 1.0.0.
 // You may not distribute this software. See LICENSE for terms.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, cloneElement, isValidElement, type ReactElement } from 'react';
 import {
   BarChart,
   Bar,
@@ -1448,12 +1448,16 @@ interface AgingBuckets {
   over90: number;
   total: number;
 }
-interface PlSummary {
+interface PlFigures {
   revenue: number;
   cogs: number;
   grossProfit: number;
   operatingExpense: number;
   netIncome: number;
+}
+interface PlSummary extends PlFigures {
+  prior?: PlFigures;
+  compareLabel?: string;
 }
 interface BsSections {
   currentAssets: number;
@@ -1462,7 +1466,11 @@ interface BsSections {
   currentLiabilities: number;
   longTermLiabilities: number;
 }
-interface BsSummary { assets: number; liabilities: number; equity: number; sections?: BsSections }
+interface BsFigures { assets: number; liabilities: number; equity: number; sections?: BsSections }
+interface BsSummary extends BsFigures {
+  prior?: BsFigures;
+  compareLabel?: string;
+}
 interface PlVsPriorYear { current: PlSummary; prior: PlSummary | null }
 interface BudgetVsActualSummary {
   budgetName: string;
@@ -1510,7 +1518,19 @@ function fmtMoneyTick(v: unknown): string {
   return `${sign}$${Math.round(abs)}`;
 }
 
-function BlockRender({
+// Applies the operator-chosen header title (block.title) over the default
+// section heading, matching the published PDF. Every BlockRenderInner path
+// returns a <Frame title=…>, so we clone it with the custom title.
+function BlockRender({ block, payload }: { block: Record<string, unknown>; payload: BlockPayload | undefined }) {
+  const el = BlockRenderInner({ block, payload });
+  const customTitle = String(block['title'] ?? '').trim();
+  if (customTitle && isValidElement(el) && el.type === Frame) {
+    return cloneElement(el as ReactElement<{ title?: string }>, { title: customTitle });
+  }
+  return el;
+}
+
+function BlockRenderInner({
   block,
   payload,
 }: {
@@ -1874,14 +1894,47 @@ function PlVsPriorChart({ d }: { d: PlVsPriorYear }) {
 }
 
 function PlTable({ p }: { p: PlSummary }) {
+  const lines: Array<{ label: string; k: keyof PlFigures; strong?: boolean; total?: boolean }> = [
+    { label: 'Revenue', k: 'revenue', strong: true },
+    { label: 'COGS', k: 'cogs' },
+    { label: 'Gross Profit', k: 'grossProfit', strong: true },
+    { label: 'Operating Expense', k: 'operatingExpense' },
+    { label: 'Net Income', k: 'netIncome', strong: true, total: true },
+  ];
+  if (p.prior) {
+    const pr = p.prior;
+    return (
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-gray-500">
+            <th />
+            <th className="py-1 text-right font-medium">Current</th>
+            <th className="py-1 text-right font-medium">{p.compareLabel ?? 'Prior'}</th>
+            <th className="py-1 text-right font-medium">Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map(({ label, k, strong, total }) => (
+            <tr key={label} className={total ? 'border-t border-gray-200' : ''}>
+              <td className={`py-1 text-gray-${total ? '900 font-semibold' : '700'}`}>{label}</td>
+              <td className={`py-1 text-right ${strong ? 'font-medium' : ''} ${total ? 'font-bold' : ''}`}>{fmtMoney(p[k])}</td>
+              <td className="py-1 text-right text-gray-600">{fmtMoney(pr[k])}</td>
+              <td className="py-1 text-right text-gray-600">{fmtMoney(p[k] - pr[k])}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
   return (
     <table className="w-full text-sm">
       <tbody>
-        <tr><td className="py-1 text-gray-700">Revenue</td><td className="py-1 text-right font-medium">{fmtMoney(p.revenue)}</td></tr>
-        <tr><td className="py-1 text-gray-700">COGS</td><td className="py-1 text-right">{fmtMoney(p.cogs)}</td></tr>
-        <tr><td className="py-1 text-gray-700">Gross Profit</td><td className="py-1 text-right font-medium">{fmtMoney(p.grossProfit)}</td></tr>
-        <tr><td className="py-1 text-gray-700">Operating Expense</td><td className="py-1 text-right">{fmtMoney(p.operatingExpense)}</td></tr>
-        <tr className="border-t border-gray-200"><td className="py-1 text-gray-900 font-semibold">Net Income</td><td className="py-1 text-right font-bold">{fmtMoney(p.netIncome)}</td></tr>
+        {lines.map(({ label, k, strong, total }) => (
+          <tr key={label} className={total ? 'border-t border-gray-200' : ''}>
+            <td className={`py-1 text-gray-${total ? '900 font-semibold' : '700'}`}>{label}</td>
+            <td className={`py-1 text-right ${strong ? 'font-medium' : ''} ${total ? 'font-bold' : ''}`}>{fmtMoney(p[k])}</td>
+          </tr>
+        ))}
       </tbody>
     </table>
   );
@@ -1980,6 +2033,38 @@ function TbTable({ t }: { t: TbSummary }) {
 // snapshot carries them (F10; older snapshots omit `sections`).
 function BsTable({ b }: { b: BsSummary }) {
   const s = b.sections;
+  if (b.prior) {
+    const ps = b.prior.sections;
+    const row3 = (label: string, cur: number, prv: number, opts?: { indent?: boolean; strong?: boolean }) => (
+      <tr key={label}>
+        <td className={`py-0.5 ${opts?.indent ? 'pl-4 text-xs text-gray-500' : `py-1 text-gray-${opts?.strong ? '900 font-medium' : '700'}`}`}>{label}</td>
+        <td className={`py-0.5 text-right ${opts?.indent ? 'text-xs text-gray-600' : 'py-1 font-medium'}`}>{fmtMoney(cur)}</td>
+        <td className={`py-0.5 text-right ${opts?.indent ? 'text-xs' : 'py-1'} text-gray-600`}>{fmtMoney(prv)}</td>
+        <td className={`py-0.5 text-right ${opts?.indent ? 'text-xs' : 'py-1'} text-gray-600`}>{fmtMoney(cur - prv)}</td>
+      </tr>
+    );
+    return (
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-gray-500">
+            <th /><th className="py-1 text-right font-medium">Current</th>
+            <th className="py-1 text-right font-medium">{b.compareLabel ?? 'Prior'}</th>
+            <th className="py-1 text-right font-medium">Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          {row3('Total Assets', b.assets, b.prior.assets, { strong: true })}
+          {s && ps && row3('Current Assets', s.currentAssets, ps.currentAssets, { indent: true })}
+          {s && ps && row3('Fixed Assets', s.fixedAssets, ps.fixedAssets, { indent: true })}
+          {s && ps && row3('Other Assets', s.otherAssets, ps.otherAssets, { indent: true })}
+          {row3('Total Liabilities', b.liabilities, b.prior.liabilities)}
+          {s && ps && row3('Current Liabilities', s.currentLiabilities, ps.currentLiabilities, { indent: true })}
+          {s && ps && row3('Long-Term Liabilities', s.longTermLiabilities, ps.longTermLiabilities, { indent: true })}
+          {row3('Total Equity', b.equity, b.prior.equity)}
+        </tbody>
+      </table>
+    );
+  }
   const sub = (label: string, v: number) => (
     <tr key={label}>
       <td className="py-0.5 pl-4 text-xs text-gray-500">{label}</td>
