@@ -142,17 +142,17 @@ function CompanyConsentPanel({ companyId }: { companyId: string }) {
           <p className="text-sm font-medium text-gray-900">Revoke AI consent for {disclosure.companyName}?</p>
           <p className="text-xs text-gray-600 mt-1">AI features will stop. Your existing transactions and bookkeeping data are not affected. You can re-accept at any time.</p>
           <div className="mt-3 flex gap-2">
-            <Button variant="secondary" onClick={() => setRevoking(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => { revoke.reset(); setRevoking(false); }}>Cancel</Button>
             <Button
-              onClick={async () => {
-                await revoke.mutateAsync(companyId);
-                setRevoking(false);
-              }}
+              onClick={() => revoke.mutate(companyId, { onSuccess: () => setRevoking(false) })}
               loading={revoke.isPending}
             >
               Revoke consent
             </Button>
           </div>
+          {revoke.error && (
+            <p className="text-xs text-red-700 mt-2">{revoke.error instanceof Error ? revoke.error.message : 'Revoke failed'}</p>
+          )}
         </div>
       )}
 
@@ -176,6 +176,9 @@ function CompanyConsentPanel({ companyId }: { companyId: string }) {
               </label>
             );
           })}
+          {setTasks.error && (
+            <p className="text-xs text-red-700">{setTasks.error instanceof Error ? setTasks.error.message : 'Could not update this AI task.'}</p>
+          )}
         </div>
       )}
 
@@ -198,20 +201,21 @@ function CompanyConsentPanel({ companyId }: { companyId: string }) {
         <CompanyDisclosureModal
           text={disclosure.text}
           aiEnabled={disclosure.aiEnabled && !disclosure.isStale}
-          onClose={() => setShowDisclosure(false)}
-          onAccept={async () => {
-            await accept.mutateAsync(companyId);
-            setShowDisclosure(false);
-          }}
+          onClose={() => { accept.reset(); setShowDisclosure(false); }}
+          // Use mutate with an onSuccess callback (not awaited mutateAsync) so a
+          // rejection populates accept.error and surfaces below instead of being
+          // swallowed — the "Accept and enable does nothing" bug.
+          onAccept={() => accept.mutate(companyId, { onSuccess: () => setShowDisclosure(false) })}
           saving={accept.isPending}
+          error={accept.error instanceof Error ? accept.error.message : null}
         />
       )}
     </div>
   );
 }
 
-function CompanyDisclosureModal({ text, aiEnabled, onClose, onAccept, saving }: {
-  text: string; aiEnabled: boolean; onClose: () => void; onAccept: () => void; saving: boolean;
+function CompanyDisclosureModal({ text, aiEnabled, onClose, onAccept, saving, error }: {
+  text: string; aiEnabled: boolean; onClose: () => void; onAccept: () => void; saving: boolean; error?: string | null;
 }) {
   const [ack, setAck] = useState(aiEnabled);
   return (
@@ -230,6 +234,11 @@ function CompanyDisclosureModal({ text, aiEnabled, onClose, onAccept, saving }: 
               <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
               <span>I consent to AI processing for this company as described above.</span>
             </label>
+          </div>
+        )}
+        {error && (
+          <div className="px-5 pt-2">
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
         <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
