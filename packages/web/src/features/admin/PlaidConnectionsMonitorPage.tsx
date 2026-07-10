@@ -8,7 +8,7 @@ import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toaster';
-import { Landmark, CheckCircle, AlertTriangle, XCircle, Clock, AlertCircle, ChevronRight, ChevronDown, Link2, Link2Off } from 'lucide-react';
+import { Landmark, CheckCircle, AlertTriangle, XCircle, Clock, AlertCircle, ChevronRight, ChevronDown, Link2, Link2Off, Trash2 } from 'lucide-react';
 
 interface PlaidStats {
   totalItems: number;
@@ -180,6 +180,22 @@ export function PlaidConnectionsMonitorPage() {
     onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not unmap the account.'),
   });
 
+  // Remove the whole connection: revokes the Item at PLAID first (billing
+  // stops) and only deletes it here after Plaid confirms. Super-admin passes
+  // deleteConnection's permission gate.
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const removeMutation = useMutation({
+    mutationFn: (itemId: string) =>
+      apiClient(`/plaid/items/${itemId}?deletePendingItems=false`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'plaid-connections'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'plaid-stats'] });
+      toast.success('Connection revoked at Plaid and removed.');
+      setConfirmRemove(null);
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Plaid did not confirm the removal — nothing was deleted.'),
+  });
+
   const toggleRow = (id: string) => setExpanded((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -298,6 +314,27 @@ export function PlaidConnectionsMonitorPage() {
                                   </div>
                                 </div>
                               ))}
+
+                              {/* Danger zone: remove the whole connection. */}
+                              <div className="flex items-center justify-end gap-2 pt-1">
+                                {confirmRemove === conn.id ? (
+                                  <>
+                                    <span className="text-xs text-red-700">
+                                      Revoke this connection at Plaid and remove it (all tenant mappings are deleted)?
+                                    </span>
+                                    <Button size="sm" variant="secondary" onClick={() => setConfirmRemove(null)}>Cancel</Button>
+                                    <Button size="sm" variant="danger"
+                                      loading={removeMutation.isPending}
+                                      onClick={() => removeMutation.mutate(conn.id)}>
+                                      Confirm remove
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button size="sm" variant="ghost" onClick={() => setConfirmRemove(conn.id)}>
+                                    <Trash2 className="h-4 w-4 mr-1 text-red-500" /> Remove connection
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>

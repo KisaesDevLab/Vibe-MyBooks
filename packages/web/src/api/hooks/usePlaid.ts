@@ -82,8 +82,11 @@ export function useUnmapCompany() {
 export function useRemovePlaidItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ itemId, deleteFeedItems }: { itemId: string; deleteFeedItems?: boolean }) =>
-      apiClient(`/plaid/items/${itemId}`, { method: 'DELETE', body: JSON.stringify({ deleteFeedItems }) }),
+    mutationFn: ({ itemId, deletePendingItems }: { itemId: string; deletePendingItems?: boolean }) =>
+      // Query-string param: DELETE bodies are unreliable through proxies, and
+      // the API reads deletePendingItems (the old deleteFeedItems body key was
+      // silently ignored — opted-in pending feed items were never deleted).
+      apiClient(`/plaid/items/${itemId}?deletePendingItems=${deletePendingItems ? 'true' : 'false'}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['plaid'] }),
   });
 }

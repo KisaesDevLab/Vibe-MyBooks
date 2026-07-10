@@ -86,7 +86,7 @@ export function FullDisconnectDialog({ itemId, institutionName, accounts, hidden
         <div className="flex justify-end gap-3 mt-6">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button variant="danger"
-            onClick={async () => { await removeItem.mutateAsync({ itemId, deleteFeedItems: deletePending }); onRemoved(); }}
+            onClick={async () => { await removeItem.mutateAsync({ itemId, deletePendingItems: deletePending }); onRemoved(); }}
             loading={removeItem.isPending}
             disabled={confirmName !== institutionName}>
             Delete Connection

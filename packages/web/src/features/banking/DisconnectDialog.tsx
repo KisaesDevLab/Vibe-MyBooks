@@ -22,7 +22,7 @@ export function DisconnectDialog({ itemId, institutionName, pendingCount = 0, on
   const removeItem = useRemovePlaidItem();
 
   const handleDisconnect = async () => {
-    await removeItem.mutateAsync({ itemId, deleteFeedItems: deletePending });
+    await removeItem.mutateAsync({ itemId, deletePendingItems: deletePending });
     onRemoved();
   };
 
