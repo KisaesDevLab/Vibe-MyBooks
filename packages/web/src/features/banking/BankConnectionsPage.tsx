@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from 'react-plaid-link';
 import type { PlaidAccount, PlaidItem } from '@kis-books/shared';
 import { useBankConnections, useDisconnectBank } from '../../api/hooks/useBanking';
-import { usePlaidItems, useCreateLinkToken, useExchangeToken, useSyncPlaidItem, useResyncPlaidItem, useUnmapCompany, useTogglePlaidSync, usePlaidActivity } from '../../api/hooks/usePlaid';
+import { usePlaidItems, useCreateLinkToken, useCreateUpdateLinkToken, useExchangeToken, useSyncPlaidItem, useResyncPlaidItem, useUnmapCompany, useTogglePlaidSync, usePlaidActivity } from '../../api/hooks/usePlaid';
 import { useToast } from '../../components/ui/Toaster';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -42,6 +42,35 @@ function PlaidLinkButton({ onSuccess }: { onSuccess: (publicToken: string, metad
   });
   if (linkToken && ready) setTimeout(() => open(), 0);
   return <Button size="sm" onClick={startLink} loading={createLink.isPending}><Link2 className="h-4 w-4 mr-1" /> Connect Bank</Button>;
+}
+
+// Repair a broken login via Plaid Link UPDATE MODE: mint an update link
+// token for the item, run Link, then trigger a sync (a successful sync
+// self-heals the item's error status server-side — no webhook required).
+function FixConnectionButton({ itemId, onRepaired }: { itemId: string; onRepaired: () => void }) {
+  const createUpdateLink = useCreateUpdateLinkToken();
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const startFix = async () => {
+    const r = await createUpdateLink.mutateAsync(itemId);
+    setLinkToken(r.linkToken);
+  };
+  const { open, ready } = usePlaidLink({
+    token: linkToken,
+    onSuccess: async () => {
+      setLinkToken(null);
+      // Update mode repairs the existing item — no token exchange needed.
+      // Kick a sync so status heals immediately instead of on the next cycle.
+      try { await apiClient(`/plaid/items/${itemId}/sync`, { method: 'POST', body: JSON.stringify({}) }); } catch { /* scheduler will retry */ }
+      onRepaired();
+    },
+    onExit: () => setLinkToken(null),
+  });
+  if (linkToken && ready) setTimeout(() => open(), 0);
+  return (
+    <Button size="sm" variant="secondary" onClick={startFix} loading={createUpdateLink.isPending}>
+      <Wrench className="h-3.5 w-3.5 mr-1" />Fix Now
+    </Button>
+  );
 }
 
 const statusBadge = (s: string) => {
@@ -194,7 +223,7 @@ export function BankConnectionsPage() {
           {needsAttention.map((item) => (
             <div key={item.id} className="mt-2 flex items-center justify-between">
               <span className="text-sm text-amber-700">{item.institutionName} — {item.errorMessage || item.itemStatus.replace(/_/g, ' ')}</span>
-              <Button size="sm" variant="secondary"><Wrench className="h-3.5 w-3.5 mr-1" />Fix Now</Button>
+              <FixConnectionButton itemId={item.id} onRepaired={() => { toast.success('Connection repaired — syncing now.'); refetch(); }} />
             </div>
           ))}
         </div>
