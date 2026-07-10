@@ -1,6 +1,6 @@
 # Contributing to Vibe MyBooks
 
-Contributions are welcome! By contributing, you agree that your contributions are licensed under the same [PolyForm Internal Use License 1.0.0](../LICENSE) terms as the project.
+Contributions are welcome! By contributing, you agree that your contributions are licensed under the same [PolyForm Small Business License 1.0.0](../LICENSE) terms as the project.
 
 ## Getting Started
 
@@ -49,4 +49,4 @@ Use the [issue templates](https://github.com/KisaesDevLab/Vibe-MyBooks/issues/ne
 
 ## License
 
-All contributions are subject to the [PolyForm Internal Use License 1.0.0](../LICENSE). See [LICENSING_FAQ.md](../docs/LICENSING_FAQ.md) for details.
+All contributions are subject to the [PolyForm Small Business License 1.0.0](../LICENSE). See [LICENSING_FAQ.md](../docs/LICENSING_FAQ.md) for details.

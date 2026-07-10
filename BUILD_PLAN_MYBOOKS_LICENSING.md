@@ -4,7 +4,7 @@
 
 **Repository:** `KisaesDevLab/vibe-mybooks`
 **Stack:** React 18 · TypeScript · Node.js 20 · Express · Drizzle ORM · PostgreSQL 16 · Redis 7 · BullMQ
-**License:** PolyForm Internal Use 1.0.0 (free for internal staff, commercial license for client portal access)
+**License:** PolyForm Small Business 1.0.0 (free for internal staff, commercial license for client portal access)
 **Depends on:** `kisaes-license-portal` at `licensing.kisaes.com`
 
 ---

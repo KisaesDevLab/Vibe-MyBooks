@@ -238,7 +238,7 @@ Every `/practice/*` route additionally redirects to `/` (with toast "Feature not
 
 > If any of these resolve differently than my assumption, I'll revise the plan before implementation.
 
-1. **License header convention for new files.** Plan's executive summary says "Elastic License 2.0 (ELv2)" but existing files all use `// Copyright 2026 Kisaes LLC / Licensed under the PolyForm Internal Use License 1.0.0.` header, and `CLAUDE.md` + pre-commit hook enforce the PolyForm three-line header. The plan's working rule says "Every new file that is copyright-notice-bearing gets the same header the rest of the codebase uses." **My assumption:** use the existing PolyForm header unchanged. The ELv2 framing in the plan applies at the repo-/LICENSE-level, not to per-file notices. Confirm or correct.
+1. **License header convention for new files.** Plan's executive summary says "Elastic License 2.0 (ELv2)" but existing files all use `// Copyright 2026 Kisaes LLC / Licensed under the PolyForm Small Business License 1.0.0.` header, and `CLAUDE.md` + pre-commit hook enforce the PolyForm three-line header. The plan's working rule says "Every new file that is copyright-notice-bearing gets the same header the rest of the codebase uses." **My assumption:** use the existing PolyForm header unchanged. The ELv2 framing in the plan applies at the repo-/LICENSE-level, not to per-file notices. Confirm or correct.
 
 2. **Role vocabulary.** Plan uses `Admin` / `Bookkeeper` / `Reviewer`; codebase has `owner` / `accountant` / `bookkeeper` / `readonly`. **My assumption:** `Firm Admin`≡`owner`, `Bookkeeper`≡`bookkeeper` OR `accountant`, `Reviewer` deferred to Phase 8. `readonly` users see no Practice group. Confirm or correct.
 

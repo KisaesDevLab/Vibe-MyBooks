@@ -3,10 +3,10 @@
 ## General
 
 **Q: What license is Vibe MyBooks under?**
-A: PolyForm Internal Use License 1.0.0. The source code is publicly viewable and free to use for personal or internal business operations, but distribution is not permitted.
+A: PolyForm Small Business License 1.0.0. The source code is publicly viewable and free to use for the benefit of small businesses — companies with fewer than 100 total employees/contractors and under 1,000,000 USD (2019, inflation-adjusted) revenue in the prior tax year. Distribution is permitted as long as recipients also receive the license terms. Larger organizations need a commercial license.
 
 **Q: Is this open source?**
-A: No. The source code is publicly viewable, but PolyForm Internal Use is not an OSI-approved open source license. It's a source-available license that permits use and modification for internal business operations only.
+A: No. The source code is publicly viewable, but PolyForm Small Business is not an OSI-approved open source license. It's a source-available license: qualifying small businesses may use, modify, and distribute it under the license terms; larger organizations need a commercial license.
 
 ## Personal & Business Use
 
@@ -33,13 +33,13 @@ A: That requires a commercial license. See `COMMERCIAL_LICENSE.md` or contact li
 ## Development & Modification
 
 **Q: Can I modify the code for my firm's needs?**
-A: Yes, for your own internal use. You may modify Vibe MyBooks freely as long as the modified software is used only for your own internal business operations.
+A: Yes. You may modify Vibe MyBooks freely for any purpose the license permits (use for the benefit of a qualifying small business).
 
 **Q: Can I share my modified version with another firm?**
-A: No. The PolyForm Internal Use License does not permit distribution of the software, modified or not.
+A: Yes. The PolyForm Small Business License permits distributing the software, including your changes, provided the recipient also gets the license terms and required notices. The receiving firm must itself qualify as a small business (or obtain a commercial license) to use it.
 
 **Q: Can I contribute back to the project?**
-A: Contributions are welcome. By contributing, you agree that your contributions are licensed under the same PolyForm Internal Use License 1.0.0 terms.
+A: Contributions are welcome. By contributing, you agree that your contributions are licensed under the same PolyForm Small Business License 1.0.0 terms.
 
 ## Prohibited Uses
 
@@ -47,7 +47,7 @@ A: Contributions are welcome. By contributing, you agree that your contributions
 A: No. The license restricts use to internal business operations. Hosting Vibe MyBooks as a service for third parties is not permitted without a commercial license.
 
 **Q: Can I redistribute the source code?**
-A: No. Distribution is explicitly prohibited under the PolyForm Internal Use License.
+A: No. Distribution is explicitly prohibited under the PolyForm Small Business License.
 
 **Q: Can I remove the license notices?**
 A: No. All licensing and copyright notices must remain intact.

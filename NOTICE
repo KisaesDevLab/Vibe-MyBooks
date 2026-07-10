@@ -4,12 +4,18 @@ Copyright 2026 Kisaes LLC
 Vibe MyBooks is a self-hosted bookkeeping application for solo
 entrepreneurs, freelancers, and accounting firms.
 
-This product is licensed under the PolyForm Internal Use License 1.0.0.
+This product is licensed under the PolyForm Small Business License 1.0.0.
 See the LICENSE file in the project root for the full license text.
-Distribution of the software is not permitted under this license.
+Use is free for the benefit of small businesses (fewer than 100 total
+employees/contractors and under 1,000,000 USD (2019, inflation-adjusted)
+revenue in the prior tax year). Distribution is permitted provided
+recipients also receive the license terms and this notice.
 
-For commercial licensing inquiries (client-facing portal access),
-see COMMERCIAL_LICENSE.md or contact: licensing@kisaes.com
+Required Notice: Copyright Kisaes LLC
+
+For commercial licensing inquiries (larger organizations or
+client-facing portal access), see COMMERCIAL_LICENSE.md or contact:
+licensing@kisaes.com
 
 ---
 

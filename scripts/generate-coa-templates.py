@@ -1,6 +1,6 @@
 # Copyright 2026 Kisaes LLC
-# Licensed under the PolyForm Internal Use License 1.0.0.
-# You may not distribute this software. See LICENSE for terms.
+# Licensed under the PolyForm Small Business License 1.0.0.
+# Free for small businesses; see LICENSE for terms.
 """Generate packages/shared/src/constants/coa-templates.ts from BusinessCategoryList.xlsx.
 
 The xlsx is the source of truth for per-business-type COAs. This script:

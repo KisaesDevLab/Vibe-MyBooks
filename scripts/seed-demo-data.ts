@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Internal Use License 1.0.0.
-// You may not distribute this software. See LICENSE for terms.
+// Licensed under the PolyForm Small Business License 1.0.0.
+// Free for small businesses; see LICENSE for terms.
 import { db } from '../packages/api/src/db/index.js';
 import { accounts, contacts, tenants } from '../packages/api/src/db/schema/index.js';
 import { eq, and } from 'drizzle-orm';

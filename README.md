@@ -4,7 +4,7 @@
 
 A self-hosted, source-available bookkeeping application for solo entrepreneurs, freelancers, and CPA firms. Ships as a single Docker Compose appliance with everything you need to manage your books.
 
-**License:** PolyForm Internal Use 1.0.0 | **Author:** [Kisaes LLC](https://kisaes.com)
+**License:** PolyForm Small Business 1.0.0 | **Author:** [Kisaes LLC](https://kisaes.com)
 
 ---
 
@@ -314,7 +314,7 @@ Key settings:
 
 ## License Compliance
 
-Vibe MyBooks ships under the PolyForm Internal Use License 1.0.0. Every dependency is scanned to ensure no incompatible licenses (GPL-2.0, AGPL, SSPL, proprietary) enter the tree. The policy is enforced on every pull request and on a weekly schedule.
+Vibe MyBooks ships under the PolyForm Small Business License 1.0.0. Every dependency is scanned to ensure no incompatible licenses (GPL-2.0, AGPL, SSPL, proprietary) enter the tree. The policy is enforced on every pull request and on a weekly schedule.
 
 **Run the audit locally:**
 
@@ -338,12 +338,12 @@ If a transitive dependency pulls in something problematic, pin a different versi
 
 ## License
 
-**PolyForm Internal Use License 1.0.0** — see [LICENSE](LICENSE) for full text.
+**PolyForm Small Business License 1.0.0** — see [LICENSE](LICENSE) for full text.
 
-- Free to use and modify for personal or internal business operations
-- Free for individuals, freelancers, and firms for internal/staff-operated use
-- **Distribution is not permitted** under this license
-- Commercial license required for client-facing portal access — see [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md)
+- Free to use and modify for the benefit of **small businesses** — companies with fewer than 100 total employees/contractors and under 1,000,000 USD (2019, inflation-adjusted) revenue in the prior tax year
+- Free for individuals, freelancers, and small firms, including staff-operated client bookkeeping
+- **Distribution is permitted**, provided recipients also receive the license terms and required notices
+- Commercial license required for larger organizations or client-facing portal access — see [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md)
 
 For licensing questions: licensing@kisaes.com
 

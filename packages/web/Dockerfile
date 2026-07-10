@@ -42,7 +42,7 @@ LABEL org.opencontainers.image.source="https://github.com/KisaesDevLab/Vibe-MyBo
       org.opencontainers.image.title="Vibe MyBooks Web" \
       org.opencontainers.image.description="Vibe MyBooks SPA served via nginx (built Vite bundle)" \
       org.opencontainers.image.vendor="Kisaes LLC" \
-      org.opencontainers.image.licenses="PolyForm-Internal-Use-1.0.0"
+      org.opencontainers.image.licenses="PolyForm-Small-Business-1.0.0"
 
 # SPA fallback: unknown paths fall through to index.html so client-side
 # routing works on refresh. /api and /oauth are proxied to the API

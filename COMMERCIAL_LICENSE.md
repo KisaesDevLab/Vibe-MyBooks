@@ -8,11 +8,11 @@
 
 ## When You Need a Commercial License
 
-A commercial license is required when you **provision access to Vibe MyBooks to third-party end users (clients)** as a standalone product, portal, or service — whether hosted by you, a cloud provider, or any other infrastructure. In short: if your clients have direct login access to an instance you control, you need a commercial license.
+A commercial license is required when your organization **exceeds the PolyForm Small Business limits** (100 or more total employees/contractors, or 1,000,000 USD (2019, inflation-adjusted) or more revenue in the prior tax year), or when you **provision access to Vibe MyBooks to third-party end users (clients)** as a standalone product, portal, or service — whether hosted by you, a cloud provider, or any other infrastructure. In short: if your clients have direct login access to an instance you control, you need a commercial license.
 
 ## When You Do NOT Need a Commercial License
 
-The following uses are **free** under the PolyForm Internal Use License 1.0.0 and do not require a commercial license:
+The following uses are **free** under the PolyForm Small Business License 1.0.0 and do not require a commercial license:
 
 - **Individual use** — personal or business bookkeeping for yourself
 - **Freelancer use** — tracking your own income and expenses
@@ -46,9 +46,9 @@ Pricing is published separately. Contact licensing@kisaes.com for a current quot
 - Right to compete with Kisaes LLC as a SaaS vendor offering Vibe MyBooks as a general-availability hosted product
 - Any rights to sublicense beyond the scope of the purchased tier
 
-## Relationship to the PolyForm Internal Use License
+## Relationship to the PolyForm Small Business License
 
-The PolyForm Internal Use License 1.0.0 (see `LICENSE`) governs all permitted free use of Vibe MyBooks. This Commercial License supplements PolyForm for the specific case of client-facing access. All terms of the PolyForm Internal Use License that are not expressly modified by this Commercial License continue to apply.
+The PolyForm Small Business License 1.0.0 (see `LICENSE`) governs all permitted free use of Vibe MyBooks. This Commercial License supplements PolyForm for the specific case of client-facing access. All terms of the PolyForm Small Business License that are not expressly modified by this Commercial License continue to apply.
 
 ## Contact
 

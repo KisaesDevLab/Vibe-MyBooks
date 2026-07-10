@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Internal Use License 1.0.0.
-// You may not distribute this software. See LICENSE for terms.
+// Licensed under the PolyForm Small Business License 1.0.0.
+// Free for small businesses; see LICENSE for terms.
 
 // BullMQ worker for the `report-pack` queue: one job per report_pack_runs row.
 // The generation itself lives in the API package (report-pack-generate.service)

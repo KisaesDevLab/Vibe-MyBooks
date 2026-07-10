@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Internal Use License 1.0.0.
-// You may not distribute this software. See LICENSE for terms.
+// Licensed under the PolyForm Small Business License 1.0.0.
+// Free for small businesses; see LICENSE for terms.
 
 // F6 — resolve a template's defaultPeriod token into a concrete local
 // date range for the new-instance modal. Uses LOCAL dates, matching how
