@@ -36,6 +36,7 @@ import { startRecurringDocRequestScheduler, stopRecurringDocRequestScheduler } f
 import { startAiRetentionScheduler, stopAiRetentionScheduler } from '../../api/src/services/ai-retention.service.js';
 import { startReportPackSweepScheduler, stopReportPackSweepScheduler } from '../../api/src/services/report-pack-sweep.service.js';
 import { startBalanceValidationScheduler } from '../../api/src/services/balance-validation.service.js';
+import { startPlaidSyncScheduler, stopPlaidSyncScheduler } from '../../api/src/services/plaid-sync-scheduler.service.js';
 import { pool } from '../../api/src/db/index.js';
 import { startHeartbeat, closeWorkerHeartbeatClients } from '../../api/src/utils/worker-heartbeat.js';
 import { env } from '../../api/src/config/env.js';
@@ -69,6 +70,7 @@ try {
   startRecurringDocRequestScheduler();
   startAiRetentionScheduler();
   startBalanceValidationScheduler();
+  startPlaidSyncScheduler();
   startReportPackSweepScheduler();
   console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, review-checks-scheduler, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler, ai-retention-scheduler, balance-validation-scheduler, report-pack-sweep-scheduler');
 
@@ -174,6 +176,7 @@ const shutdown = async (signal: string) => {
   stopCloudflaredAlerter();
   stopBackupVerifier();
   stopCheckScheduler();
+  stopPlaidSyncScheduler();
   stopPortalRecurringScheduler();
   stopPortalReminderScheduler();
   stopRecurringDocRequestScheduler();

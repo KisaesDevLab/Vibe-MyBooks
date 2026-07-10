@@ -196,6 +196,23 @@ export function PlaidConnectionsMonitorPage() {
     onError: (err) => toast.error(err instanceof Error ? err.message : 'Plaid did not confirm the removal — nothing was deleted.'),
   });
 
+  // Escape hatch when Plaid can't confirm (dead token after a cross-host
+  // restore, etc.): local-only removal. Offered only after a normal remove
+  // attempt fails.
+  const forceRemoveMutation = useMutation({
+    mutationFn: (itemId: string) =>
+      apiClient<{ removed: boolean; plaidRevoked: boolean }>(`/admin/plaid/connections/${itemId}/force`, { method: 'DELETE' }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'plaid-connections'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'plaid-stats'] });
+      if (res.plaidRevoked) toast.success('Connection revoked at Plaid and removed.');
+      else toast.success('Removed locally — revoke the item from the Plaid dashboard to stop billing.');
+      setConfirmRemove(null);
+      removeMutation.reset();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Force remove failed.'),
+  });
+
   const toggleRow = (id: string) => setExpanded((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -320,9 +337,18 @@ export function PlaidConnectionsMonitorPage() {
                                 {confirmRemove === conn.id ? (
                                   <>
                                     <span className="text-xs text-red-700">
-                                      Revoke this connection at Plaid and remove it (all tenant mappings are deleted)?
+                                      {removeMutation.isError
+                                        ? 'Plaid could not confirm the removal. Force-remove deletes it here only — revoke it from the Plaid dashboard to stop billing.'
+                                        : 'Revoke this connection at Plaid and remove it (all tenant mappings are deleted)?'}
                                     </span>
-                                    <Button size="sm" variant="secondary" onClick={() => setConfirmRemove(null)}>Cancel</Button>
+                                    <Button size="sm" variant="secondary" onClick={() => { setConfirmRemove(null); removeMutation.reset(); }}>Cancel</Button>
+                                    {removeMutation.isError && (
+                                      <Button size="sm" variant="danger"
+                                        loading={forceRemoveMutation.isPending}
+                                        onClick={() => forceRemoveMutation.mutate(conn.id)}>
+                                        Force remove (local only)
+                                      </Button>
+                                    )}
                                     <Button size="sm" variant="danger"
                                       loading={removeMutation.isPending}
                                       onClick={() => removeMutation.mutate(conn.id)}>
