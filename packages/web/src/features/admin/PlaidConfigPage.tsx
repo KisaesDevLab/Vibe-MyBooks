@@ -24,6 +24,7 @@ export function PlaidConfigPage() {
     secretProduction: '',
     webhookUrl: '',
     maxHistoricalDays: 90,
+    autoSyncHours: null as number | null,
     isActive: true,
   });
   const [saved, setSaved] = useState(false);
@@ -36,6 +37,7 @@ export function PlaidConfigPage() {
         environment: data.environment || 'sandbox',
         webhookUrl: data.webhookUrl || '',
         maxHistoricalDays: data.maxHistoricalDays || 90,
+        autoSyncHours: data.autoSyncHours ?? null,
         isActive: data.isActive ?? true,
       }));
     }
@@ -201,6 +203,25 @@ export function PlaidConfigPage() {
               <option value={365}>1 year</option>
               <option value={730}>2 years</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Automatic Sync Interval</label>
+            <select
+              value={form.autoSyncHours === null ? 'default' : String(form.autoSyncHours)}
+              onChange={(e) => setForm((f) => ({ ...f, autoSyncHours: e.target.value === 'default' ? null : parseInt(e.target.value) }))}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="default">Default (every 6 hours)</option>
+              <option value="1">Every hour</option>
+              <option value="3">Every 3 hours</option>
+              <option value="6">Every 6 hours</option>
+              <option value="12">Every 12 hours</option>
+              <option value="24">Once a day</option>
+              <option value="0">Disabled (webhooks/manual only)</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Background safety net for installations Plaid webhooks can't reach. Webhooks still sync immediately when they arrive.
+            </p>
           </div>
         </div>
 
