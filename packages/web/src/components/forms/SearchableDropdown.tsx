@@ -162,6 +162,15 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
       return;
     }
 
+    // Grid nav: Tab must move to the adjacent cell even when the panel is
+    // closed (e.g. after Escape) — otherwise browser default lands focus on
+    // the ✕ clear button instead of the next cell.
+    if (!isOpen && e.key === 'Tab' && onNavigate) {
+      e.preventDefault();
+      onNavigate(e.shiftKey ? 'prev' : 'next');
+      return;
+    }
+
     if (!isOpen) return;
 
     switch (e.key) {
