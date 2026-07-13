@@ -1492,8 +1492,10 @@ interface TbSummary {
 }
 interface BankBalancesSummary {
   asOfDate: string;
-  accounts: Array<{ name: string; balance: number; isInactive: boolean }>;
+  accounts: Array<{ name: string; balance: number; isInactive: boolean; priorBalance?: number }>;
   totalBalance: number;
+  prior?: { asOfDate: string; totalBalance: number };
+  compareLabel?: string;
 }
 
 function fmtMoney(n: number): string {
@@ -2166,6 +2168,37 @@ function SalesTaxTable({ s }: { s: SalesTaxSummary }) {
 }
 
 function BankBalancesTable({ b }: { b: BankBalancesSummary }) {
+  if (b.prior) {
+    const pr = b.prior;
+    return (
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-gray-500">
+            <th />
+            <th className="py-1 text-right font-medium">Current</th>
+            <th className="py-1 text-right font-medium">{b.compareLabel ?? 'Prior'}</th>
+            <th className="py-1 text-right font-medium">Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          {b.accounts.map((a) => (
+            <tr key={a.name} className="border-b border-gray-100 last:border-0">
+              <td className="py-1 pr-2 text-gray-800">{a.name}</td>
+              <td className="py-1 text-right text-gray-900 font-medium">{fmtMoney(a.balance)}</td>
+              <td className="py-1 text-right text-gray-600">{fmtMoney(a.priorBalance ?? 0)}</td>
+              <td className="py-1 text-right text-gray-600">{fmtMoney(a.balance - (a.priorBalance ?? 0))}</td>
+            </tr>
+          ))}
+          <tr className="border-t border-gray-200 font-semibold">
+            <td className="py-1 text-gray-900">Total</td>
+            <td className="py-1 text-right">{fmtMoney(b.totalBalance)}</td>
+            <td className="py-1 text-right">{fmtMoney(pr.totalBalance)}</td>
+            <td className="py-1 text-right">{fmtMoney(b.totalBalance - pr.totalBalance)}</td>
+          </tr>
+        </tbody>
+      </table>
+    );
+  }
   return (
     <table className="w-full text-sm">
       <tbody>

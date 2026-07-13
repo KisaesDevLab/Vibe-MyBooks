@@ -295,12 +295,18 @@ interface AgingBuckets {
   over90: number;
   total: number;
 }
-interface PlSummary {
+interface PlFigures {
   revenue: number;
   cogs: number;
   grossProfit: number;
   operatingExpense: number;
   netIncome: number;
+}
+// Report-embed blocks may carry a prior-period comparison (configured in
+// the layout editor); when present the tables add Prior / Change columns.
+interface PlSummary extends PlFigures {
+  prior?: PlFigures;
+  compareLabel?: string;
 }
 interface BsSections {
   currentAssets: number;
@@ -309,7 +315,11 @@ interface BsSections {
   currentLiabilities: number;
   longTermLiabilities: number;
 }
-interface BsSummary { assets: number; liabilities: number; equity: number; sections?: BsSections }
+interface BsFigures { assets: number; liabilities: number; equity: number; sections?: BsSections }
+interface BsSummary extends BsFigures {
+  prior?: BsFigures;
+  compareLabel?: string;
+}
 interface PlVsPriorYear { current: PlSummary; prior: PlSummary | null }
 interface BudgetVsActualSummary {
   budgetName: string;
@@ -331,8 +341,10 @@ interface TbSummary {
 }
 interface BankBalancesSummary {
   asOfDate: string;
-  accounts: Array<{ name: string; balance: number; isInactive: boolean }>;
+  accounts: Array<{ name: string; balance: number; isInactive: boolean; priorBalance?: number }>;
   totalBalance: number;
+  prior?: { asOfDate: string; totalBalance: number };
+  compareLabel?: string;
 }
 
 function PortalBlockRender({
@@ -425,25 +437,47 @@ function PortalBlockRender({
       const b = (payload.data as BsSummary) ?? null;
       if (!b) return null;
       const s = b.sections;
-      const sub = (label: string, v: number) => (
+      const pr = b.prior;
+      const ps = pr?.sections;
+      const sub = (label: string, v: number, pv?: number) => (
         <tr key={label}>
           <td className="py-0.5 pl-4 text-xs text-gray-500">{label}</td>
           <td className="py-0.5 text-right text-xs text-gray-600">{fmtMoney(v)}</td>
+          {pr && <td className="py-0.5 text-right text-xs text-gray-500">{pv !== undefined ? fmtMoney(pv) : ''}</td>}
+          {pr && <td className="py-0.5 text-right text-xs text-gray-500">{pv !== undefined ? fmtMoney(v - pv) : ''}</td>}
+        </tr>
+      );
+      const top = (label: string, v: number, pv?: number) => (
+        <tr>
+          <td className="py-1 text-gray-700">{label}</td>
+          <td className="py-1 text-right font-medium">{fmtMoney(v)}</td>
+          {pr && <td className="py-1 text-right text-gray-600">{pv !== undefined ? fmtMoney(pv) : ''}</td>}
+          {pr && <td className="py-1 text-right text-gray-600">{pv !== undefined ? fmtMoney(v - pv) : ''}</td>}
         </tr>
       );
       return (
         <section className="bg-white border border-gray-200 rounded-md p-3">
           <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Balance sheet</p>
           <table className="w-full text-sm">
+            {pr && (
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wide text-gray-500">
+                  <th />
+                  <th className="text-right py-1 font-semibold">Current</th>
+                  <th className="text-right py-1 font-semibold">{b.compareLabel ?? 'Prior'}</th>
+                  <th className="text-right py-1 font-semibold">Change</th>
+                </tr>
+              </thead>
+            )}
             <tbody>
-              <tr><td className="py-1 text-gray-700">Total assets</td><td className="py-1 text-right font-medium">{fmtMoney(b.assets)}</td></tr>
-              {s && sub('Current assets', s.currentAssets)}
-              {s && sub('Fixed assets', s.fixedAssets)}
-              {s && sub('Other assets', s.otherAssets)}
-              <tr><td className="py-1 text-gray-700">Total liabilities</td><td className="py-1 text-right font-medium">{fmtMoney(b.liabilities)}</td></tr>
-              {s && sub('Current liabilities', s.currentLiabilities)}
-              {s && sub('Long-term liabilities', s.longTermLiabilities)}
-              <tr><td className="py-1 text-gray-700">Total equity</td><td className="py-1 text-right font-medium">{fmtMoney(b.equity)}</td></tr>
+              {top('Total assets', b.assets, pr?.assets)}
+              {s && sub('Current assets', s.currentAssets, ps?.currentAssets)}
+              {s && sub('Fixed assets', s.fixedAssets, ps?.fixedAssets)}
+              {s && sub('Other assets', s.otherAssets, ps?.otherAssets)}
+              {top('Total liabilities', b.liabilities, pr?.liabilities)}
+              {s && sub('Current liabilities', s.currentLiabilities, ps?.currentLiabilities)}
+              {s && sub('Long-term liabilities', s.longTermLiabilities, ps?.longTermLiabilities)}
+              {top('Total equity', b.equity, pr?.equity)}
             </tbody>
           </table>
         </section>
@@ -553,20 +587,35 @@ function PortalBlockRender({
     case 'bank_balances': {
       const b = (payload.data as BankBalancesSummary) ?? null;
       if (!b || b.accounts.length === 0) return null;
+      const pr = b.prior;
       return (
         <section className="bg-white border border-gray-200 rounded-md p-3">
           <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Bank account balances</p>
           <table className="w-full text-sm">
+            {pr && (
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wide text-gray-500">
+                  <th className="text-left py-1 font-semibold">Account</th>
+                  <th className="text-right py-1 font-semibold">Current</th>
+                  <th className="text-right py-1 font-semibold">{b.compareLabel ?? 'Prior'}</th>
+                  <th className="text-right py-1 font-semibold">Change</th>
+                </tr>
+              </thead>
+            )}
             <tbody>
               {b.accounts.map((a) => (
                 <tr key={a.name} className="border-b border-gray-100 last:border-0">
                   <td className="py-1 pr-2 text-gray-800">{a.name}</td>
                   <td className="py-1 text-right text-gray-900 font-medium">{fmtMoney(a.balance)}</td>
+                  {pr && <td className="py-1 text-right text-gray-600">{fmtMoney(a.priorBalance ?? 0)}</td>}
+                  {pr && <td className="py-1 text-right text-gray-600">{fmtMoney(a.balance - (a.priorBalance ?? 0))}</td>}
                 </tr>
               ))}
               <tr className="border-t border-gray-200 font-semibold">
                 <td className="py-1 text-gray-900">Total</td>
                 <td className="py-1 text-right">{fmtMoney(b.totalBalance)}</td>
+                {pr && <td className="py-1 text-right">{fmtMoney(pr.totalBalance)}</td>}
+                {pr && <td className="py-1 text-right">{fmtMoney(b.totalBalance - pr.totalBalance)}</td>}
               </tr>
             </tbody>
           </table>
@@ -775,14 +824,35 @@ function PortalPlVsPriorChart({ d }: { d: PlVsPriorYear }) {
 }
 
 function PortalPlTable({ p }: { p: PlSummary }) {
+  const lines: Array<{ label: string; k: keyof PlFigures; strong?: boolean; total?: boolean }> = [
+    { label: 'Revenue', k: 'revenue', strong: true },
+    { label: 'COGS', k: 'cogs' },
+    { label: 'Gross profit', k: 'grossProfit', strong: true },
+    { label: 'Operating expense', k: 'operatingExpense' },
+    { label: 'Net income', k: 'netIncome', strong: true, total: true },
+  ];
+  const pr = p.prior;
   return (
     <table className="w-full text-sm">
+      {pr && (
+        <thead>
+          <tr className="text-[10px] uppercase tracking-wide text-gray-500">
+            <th />
+            <th className="text-right py-1 font-semibold">Current</th>
+            <th className="text-right py-1 font-semibold">{p.compareLabel ?? 'Prior'}</th>
+            <th className="text-right py-1 font-semibold">Change</th>
+          </tr>
+        </thead>
+      )}
       <tbody>
-        <tr><td className="py-1 text-gray-700">Revenue</td><td className="py-1 text-right font-medium">{fmtMoney(p.revenue)}</td></tr>
-        <tr><td className="py-1 text-gray-700">COGS</td><td className="py-1 text-right">{fmtMoney(p.cogs)}</td></tr>
-        <tr><td className="py-1 text-gray-700">Gross profit</td><td className="py-1 text-right font-medium">{fmtMoney(p.grossProfit)}</td></tr>
-        <tr><td className="py-1 text-gray-700">Operating expense</td><td className="py-1 text-right">{fmtMoney(p.operatingExpense)}</td></tr>
-        <tr className="border-t border-gray-200"><td className="py-1 text-gray-900 font-semibold">Net income</td><td className="py-1 text-right font-bold">{fmtMoney(p.netIncome)}</td></tr>
+        {lines.map(({ label, k, strong, total }) => (
+          <tr key={label} className={total ? 'border-t border-gray-200' : ''}>
+            <td className={`py-1 ${total ? 'text-gray-900 font-semibold' : 'text-gray-700'}`}>{label}</td>
+            <td className={`py-1 text-right ${strong ? 'font-medium' : ''} ${total ? 'font-bold' : ''}`}>{fmtMoney(p[k])}</td>
+            {pr && <td className="py-1 text-right text-gray-600">{fmtMoney(pr[k])}</td>}
+            {pr && <td className="py-1 text-right text-gray-600">{fmtMoney(p[k] - pr[k])}</td>}
+          </tr>
+        ))}
       </tbody>
     </table>
   );

@@ -610,6 +610,20 @@ function BlockInspector({
             onChange={(budgetId, budgetName) => onChange({ budgetId, budgetName })}
           />
         )}
+        {name === 'bank_balances' && (
+          <label className="block text-xs">
+            <span className="block text-gray-800 mb-1">Comparison</span>
+            <select
+              value={block['compare'] === 'previous_period' || block['compare'] === 'previous_year' ? String(block['compare']) : ''}
+              onChange={(e) => onChange({ compare: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+            >
+              <option value="">None</option>
+              <option value="previous_period">vs. previous period</option>
+              <option value="previous_year">vs. previous year</option>
+            </select>
+          </label>
+        )}
       </div>
     );
   }
@@ -628,6 +642,9 @@ function BlockInspector({
     // cash-flow statement is direct-method (built from actual cash
     // movements) so it has no basis knob.
     const basisApplies = key === 'profit_loss' || key === 'balance_sheet';
+    // Comparison also applies to bank balances (an as-of snapshot like
+    // the balance sheet) even though it has no basis knob.
+    const compareApplies = basisApplies || key === 'bank_balances';
     return (
       <div className="space-y-2">
         <label className="block text-xs">
@@ -664,7 +681,7 @@ function BlockInspector({
             </select>
           </label>
         )}
-        {basisApplies && (
+        {compareApplies && (
           <label className="block text-xs">
             <span className="block text-gray-800 mb-1">Comparison</span>
             <select
