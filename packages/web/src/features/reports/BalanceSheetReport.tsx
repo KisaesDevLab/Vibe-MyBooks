@@ -174,7 +174,7 @@ export function BalanceSheetReport() {
   return (
     <ReportShell title="Balance Sheet"
       maxWidth={isComparative ? 'max-w-6xl' : 'max-w-3xl'}
-      exportBaseUrl={`${API_BASE}/reports/balance-sheet?${queryParams}`}
+      exportBaseUrl={`${API_BASE}/reports/balance-sheet?${queryParams}${!showAcctNums ? '&account_numbers=0' : ''}`}
       filters={
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">

@@ -118,7 +118,7 @@ export function GeneralLedgerReport() {
     <ReportShell
       title="General Ledger"
       maxWidth="max-w-6xl"
-      exportBaseUrl={`${API_BASE}/reports/general-ledger?${queryParams}`}
+      exportBaseUrl={`${API_BASE}/reports/general-ledger?${queryParams}${!showAcctNums ? '&account_numbers=0' : ''}`}
       filters={
         <div className="flex items-center gap-4 flex-wrap">
           <DateRangePicker

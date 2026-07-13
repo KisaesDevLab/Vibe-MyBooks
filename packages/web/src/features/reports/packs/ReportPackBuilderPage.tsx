@@ -139,14 +139,20 @@ function ReportItemOptions({
       )}
       {spec.compare && (
         <label className="flex items-center gap-1.5 text-xs text-gray-600">
-          <input
-            type="checkbox"
-            checked={options.compare ?? false}
-            onChange={(e) => set({ compare: e.target.checked })}
-            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            aria-label={`${def.label} compare to prior period`}
-          />
-          Compare to prior period
+          Compare
+          <select
+            value={options.compare === true ? 'previous_period' : (options.compare || '')}
+            onChange={(e) => set({ compare: (e.target.value || undefined) as ReportPackItemOptions['compare'] })}
+            className="rounded border border-gray-300 px-2 py-1 text-xs"
+            aria-label={`${def.label} comparison`}
+          >
+            <option value="">None</option>
+            {(spec.compareModes ?? ['previous_period', 'previous_year']).map((m) => (
+              <option key={m} value={m}>
+                {m === 'previous_period' ? 'vs. Previous Period' : m === 'previous_year' ? 'vs. Previous Year' : 'Trend (multi-period)'}
+              </option>
+            ))}
+          </select>
         </label>
       )}
       {spec.showPct && (

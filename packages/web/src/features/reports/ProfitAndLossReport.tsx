@@ -184,7 +184,7 @@ export function ProfitAndLossReport() {
   return (
     <ReportShell title="Profit and Loss"
       maxWidth={isComparative ? 'max-w-6xl' : 'max-w-3xl'}
-      exportBaseUrl={`${API_BASE}/reports/profit-loss?${queryParams}`}
+      exportBaseUrl={`${API_BASE}/reports/profit-loss?${queryParams}${!showAcctNums ? '&account_numbers=0' : ''}`}
       filters={
         <div className="flex items-center gap-4 flex-wrap">
           <DateRangePicker startDate={startDate} endDate={endDate} onChange={(s, e) => { setStartDate(s); setEndDate(e); }} />

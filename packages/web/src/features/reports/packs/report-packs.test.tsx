@@ -120,7 +120,11 @@ describe('ReportPackBuilderPage', () => {
     // The P&L catalog spec declares basis + groupBy + compare + showPct + tag.
     expect(screen.getByLabelText(/Profit & Loss basis/i)).toBeTruthy();
     expect(screen.getByLabelText(/Profit & Loss grouping/i)).toBeTruthy();
-    expect(screen.getByLabelText(/Profit & Loss compare to prior period/i)).toBeTruthy();
+    // Compare is a mode SELECT mirroring the standalone report's selector.
+    const cmp = screen.getByLabelText(/Profit & Loss comparison/i) as HTMLSelectElement;
+    expect(cmp.tagName).toBe('SELECT');
+    const modes = Array.from(cmp.options).map((o) => o.value);
+    expect(modes).toEqual(['', 'previous_period', 'previous_year', 'multi_period']);
     expect(screen.getByLabelText(/Profit & Loss percent of income/i)).toBeTruthy();
   });
 
@@ -130,7 +134,7 @@ describe('ReportPackBuilderPage', () => {
     // Cash Flow only offers a tag filter — no basis / compare / grouping.
     fireEvent.click(screen.getByRole('checkbox', { name: /Cash Flow Statement/i }));
     expect(screen.queryByLabelText(/Cash Flow Statement basis/i)).toBeNull();
-    expect(screen.queryByLabelText(/Cash Flow Statement compare to prior period/i)).toBeNull();
+    expect(screen.queryByLabelText(/Cash Flow Statement comparison/i)).toBeNull();
   });
 
   it('disables adding more reports once the cap is reached', () => {
