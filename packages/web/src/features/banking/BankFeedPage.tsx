@@ -165,32 +165,20 @@ export function BankFeedPage() {
     }
   };
 
-  if (firstLoad) return <LoadingSpinner className="py-12" />;
-  if (isError) return <ErrorMessage message="Couldn't load the bank feed." onRetry={() => refetch()} />;
   // Rows arrive server-sorted (sortBy/sortDir are query params) so the
   // order spans the whole dataset, not just this page.
   const items = data?.data || [];
-
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
 
   // Selectable rows are the actionable ones: pending (assign/exclude) and
   // assigned (approve/re-assign/exclude). Posted/excluded rows aren't.
   const isSelectable = (i: BankFeedItem) => i.status === 'pending' || i.status === 'assigned';
 
-  const selectAll = () => {
-    setSelected(new Set(items.filter(isSelectable).map((i) => i.id)));
-  };
-
   // Selection survives bulk actions so a multi-step workflow (categorize →
   // set tag → approve) doesn't force re-checking the same rows. This prune
   // only removes ids whose row is on this page but no longer actionable
   // (posted/excluded by the last action); ids on other pages are left alone.
+  // NOTE: must stay ABOVE the loading/error early returns — a hook after a
+  // conditional return changes the hook order between renders (React #310).
   useEffect(() => {
     setSelected((prev) => {
       if (prev.size === 0) return prev;
@@ -202,6 +190,21 @@ export function BankFeedPage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
+
+  if (firstLoad) return <LoadingSpinner className="py-12" />;
+  if (isError) return <ErrorMessage message="Couldn't load the bank feed." onRetry={() => refetch()} />;
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelected(new Set(items.filter(isSelectable).map((i) => i.id)));
+  };
 
   const expandItem = (item: BankFeedItem) => {
     if (expandedId === item.id) { setExpandedId(null); return; }
