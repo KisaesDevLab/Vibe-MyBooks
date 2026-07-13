@@ -28,7 +28,9 @@ export function BulkActionMenu({ selectedIds, onClear }: Props) {
     await Promise.all(
       selectedIds.map((id) => update.mutateAsync({ id, patch: { active } })),
     );
-    onClear();
+    // Selection stays — enable/disable is in-place, and keeping the rows
+    // checked lets the user follow up (e.g. re-enable or delete) without
+    // re-selecting.
   };
 
   const removeAll = async () => {

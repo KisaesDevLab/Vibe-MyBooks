@@ -187,6 +187,22 @@ export function BankFeedPage() {
     setSelected(new Set(items.filter(isSelectable).map((i) => i.id)));
   };
 
+  // Selection survives bulk actions so a multi-step workflow (categorize →
+  // set tag → approve) doesn't force re-checking the same rows. This prune
+  // only removes ids whose row is on this page but no longer actionable
+  // (posted/excluded by the last action); ids on other pages are left alone.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const gone = items.filter((i) => prev.has(i.id) && !isSelectable(i));
+      if (gone.length === 0) return prev;
+      const next = new Set(prev);
+      for (const i of gone) next.delete(i.id);
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
   const expandItem = (item: BankFeedItem) => {
     if (expandedId === item.id) { setExpandedId(null); return; }
     setExpandedId(item.id);
@@ -299,7 +315,16 @@ export function BankFeedPage() {
         variant="danger"
         onCancel={() => setShowExcludeConfirm(false)}
         onConfirm={() => {
-          bulkExclude.mutate([...selected], { onSuccess: () => setSelected(new Set()) });
+          // Excluded rows leave the feed — drop exactly the acted ids so a
+          // selection built on another page (if any) survives.
+          const ids = [...selected];
+          bulkExclude.mutate(ids, {
+            onSuccess: () => setSelected((prev) => {
+              const next = new Set(prev);
+              for (const id of ids) next.delete(id);
+              return next;
+            }),
+          });
           setShowExcludeConfirm(false);
         }}
       />
@@ -412,7 +437,7 @@ export function BankFeedPage() {
               <Button size="sm" disabled={!batchCatAccountId} loading={bulkAssign.isPending}
                 onClick={() => bulkAssign.mutate(
                   { feedItemIds: [...selected], accountId: batchCatAccountId },
-                  { onSuccess: () => { setSelected(new Set()); setShowBatchCategorize(false); setBatchCatAccountId(''); } },
+                  { onSuccess: () => { setShowBatchCategorize(false); setBatchCatAccountId(''); } },
                 )}>Apply</Button>
               <Button size="sm" variant="ghost" onClick={() => { setShowBatchCategorize(false); setBatchCatAccountId(''); }}>Cancel</Button>
             </div>
@@ -425,7 +450,7 @@ export function BankFeedPage() {
                 onClick={() => bulkSetTag.mutate(
                   { feedItemIds: [...selected], tagId: batchSetTagId },
                   { onSuccess: (r) => {
-                    setSelected(new Set()); setShowBatchSetTag(false); setBatchSetTagId(null);
+                    setShowBatchSetTag(false); setBatchSetTagId(null);
                     const failed = r.failures?.length ?? 0;
                     if (r.updated > 0) toast.success(`Tagged ${r.updated} item${r.updated === 1 ? '' : 's'}${failed ? ` · ${failed} skipped` : ''}.`);
                     else toast.error(failed ? `Couldn’t tag ${failed} item${failed === 1 ? '' : 's'} — they may already be posted or excluded.` : 'No items tagged.');
@@ -438,12 +463,12 @@ export function BankFeedPage() {
               <BulkSetNameInput
                 value={batchSetName}
                 onChange={setBatchSetName}
-                onEnter={() => bulkSetName.mutate({ feedItemIds: [...selected], name: batchSetName.trim() }, { onSuccess: () => { setSelected(new Set()); setShowBatchSetName(false); setBatchSetName(''); } })}
+                onEnter={() => bulkSetName.mutate({ feedItemIds: [...selected], name: batchSetName.trim() }, { onSuccess: () => { setShowBatchSetName(false); setBatchSetName(''); } })}
               />
               <Button size="sm" loading={bulkSetName.isPending} disabled={!batchSetName.trim()}
                 onClick={() => bulkSetName.mutate(
                   { feedItemIds: [...selected], name: batchSetName.trim() },
-                  { onSuccess: () => { setSelected(new Set()); setShowBatchSetName(false); setBatchSetName(''); } },
+                  { onSuccess: () => { setShowBatchSetName(false); setBatchSetName(''); } },
                 )}>Apply</Button>
               <Button size="sm" variant="ghost" onClick={() => { setShowBatchSetName(false); setBatchSetName(''); }}>Cancel</Button>
             </div>
@@ -453,20 +478,30 @@ export function BankFeedPage() {
                 <FolderInput className="h-4 w-4 mr-1" /> Categorize
               </Button>
               {aiEnabled && (
-                <Button size="sm" variant="secondary" onClick={() => aiBatch.mutate([...selected], { onSuccess: () => { refetch(); setSelected(new Set()); } })} loading={aiBatch.isPending}>
+                <Button size="sm" variant="secondary" onClick={() => aiBatch.mutate([...selected], { onSuccess: () => { refetch(); } })} loading={aiBatch.isPending}>
                   <Brain className="h-4 w-4 mr-1" /> AI Categorize
                 </Button>
               )}
-              <Button size="sm" onClick={() => bulkApprove.mutate([...selected], {
-                onSuccess: (r) => {
-                  setSelected(new Set());
-                  const parts = [`${r.approved} approved`];
-                  if (r.skipped) parts.push(`${r.skipped} skipped (no category)`);
-                  if (r.failed) parts.push(`${r.failed} failed`);
-                  if (r.failed) toast.error(parts.join(' · '));
-                  else toast.success(parts.join(' · '));
-                },
-              })} loading={bulkApprove.isPending}>
+              <Button size="sm" onClick={() => {
+                // Ids that will post (mirror of the server's bulk-approve
+                // rule): staged assignments and pending rows with a
+                // suggestion. These leave the actionable list, so uncheck
+                // them; skipped/failed rows stay checked for the next pass.
+                const willPost = new Set(
+                  items.filter((i) => selected.has(i.id) && (i.status === 'assigned' || (i.status === 'pending' && i.suggestedAccountId))).map((i) => i.id),
+                );
+                bulkApprove.mutate([...selected], {
+                  onSuccess: (r) => {
+                    const failedIds = new Set((r.failures ?? []).map((f) => f.id));
+                    setSelected((prev) => new Set([...prev].filter((id) => !willPost.has(id) || failedIds.has(id))));
+                    const parts = [`${r.approved} approved`];
+                    if (r.skipped) parts.push(`${r.skipped} skipped (no category)`);
+                    if (r.failed) parts.push(`${r.failed} failed`);
+                    if (r.failed) toast.error(parts.join(' · '));
+                    else toast.success(parts.join(' · '));
+                  },
+                });
+              }} loading={bulkApprove.isPending}>
                 <CheckCheck className="h-4 w-4 mr-1" /> Approve
               </Button>
               <Button
@@ -474,7 +509,6 @@ export function BankFeedPage() {
                 variant="secondary"
                 onClick={() => bulkRecleanse.mutate([...selected], {
                   onSuccess: (data) => {
-                    setSelected(new Set());
                     // Subtle degradation warning — the re-cleanse ran, but the
                     // AI step failed and regex-only cleaning was used.
                     if ((data.cleansing?.aiFailed ?? 0) > 0) {
@@ -495,7 +529,7 @@ export function BankFeedPage() {
                 variant="secondary"
                 onClick={() => bulkReprocessRules.mutate(
                   { feedItemIds: [...selected] },
-                  { onSuccess: (r) => { setSelected(new Set()); showReprocessToast(r); } },
+                  { onSuccess: (r) => { showReprocessToast(r); } },
                 )}
                 loading={bulkReprocessRules.isPending}
               >

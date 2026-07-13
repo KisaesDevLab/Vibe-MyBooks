@@ -168,7 +168,8 @@ export function TransactionListPage() {
     }
     bulkUpdate.mutate(input, {
       onSuccess: () => {
-        setSelectedIds(new Set());
+        // Keep the rows checked — a bulk edit is often one of several
+        // passes (set category, then payee, then tag) over the same set.
         setBulkCategoryId('');
         setBulkContactId('');
         setBulkTagId('');

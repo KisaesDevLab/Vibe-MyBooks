@@ -17,6 +17,11 @@ import {
 
 const approveMutate = vi.fn();
 const bulkApproveMutate = vi.fn();
+// Re-cleanse resolves successfully so the selection-persistence test can
+// assert the checkboxes survive an in-place bulk action.
+const bulkRecleanseMutate = vi.fn(
+  (_ids: unknown, opts?: { onSuccess?: (r: unknown) => void }) => opts?.onSuccess?.({ cleansing: { aiFailed: 0 } }),
+);
 
 const feedItems = [
   {
@@ -62,6 +67,7 @@ vi.mock('../../api/hooks/useBanking', () => ({
   }),
   useApproveFeedItem: () => ({ ...passthroughMutation(), mutate: approveMutate }),
   useBulkApprove: () => ({ ...passthroughMutation(), mutate: bulkApproveMutate }),
+  useBulkRecleanse: () => ({ ...passthroughMutation(), mutate: bulkRecleanseMutate }),
 }));
 vi.mock('../../api/hooks/useAccounts', () => accountsMocks());
 vi.mock('../../api/hooks/useContacts', () => contactsMocks());
@@ -108,5 +114,33 @@ describe('BankFeedPage — assigned row', () => {
     fireEvent.click(approveButtons[0]!);
     await waitFor(() => expect(bulkApproveMutate).toHaveBeenCalledTimes(1));
     expect(bulkApproveMutate.mock.calls[0]![0]).toEqual(['item-assigned']);
+  });
+
+  it('selection survives an in-place bulk action (Re-cleanse)', async () => {
+    renderRoute(<BankFeedPage />);
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[checkboxes.length - 1]!);
+    expect(screen.getByText('1 selected')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /re-cleanse/i }));
+    await waitFor(() => expect(bulkRecleanseMutate).toHaveBeenCalledTimes(1));
+    // The bulk toolbar (and the row's checkbox) must still be there —
+    // the action must not reset the selection and force starting over.
+    expect(screen.getByText('1 selected')).toBeTruthy();
+    const after = screen.getAllByRole('checkbox');
+    expect((after[after.length - 1] as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('bulk Approve unchecks the rows that posted', async () => {
+    bulkApproveMutate.mockImplementationOnce(
+      (_ids: unknown, opts?: { onSuccess?: (r: unknown) => void }) =>
+        opts?.onSuccess?.({ approved: 1, skipped: 0, failed: 0, failures: [] }),
+    );
+    renderRoute(<BankFeedPage />);
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[checkboxes.length - 1]!);
+    const approveButtons = screen.getAllByRole('button', { name: /^approve$/i });
+    fireEvent.click(approveButtons[0]!);
+    // The assigned row posted, so it leaves the selection and the toolbar hides.
+    await waitFor(() => expect(screen.queryByText('1 selected')).toBeNull());
   });
 });
