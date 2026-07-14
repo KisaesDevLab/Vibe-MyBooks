@@ -2,6 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
+import { useState } from 'react';
 import { Check, EyeOff, Trash2 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import {
@@ -21,22 +22,39 @@ interface Props {
 export function BulkActionMenu({ selectedIds, onClear }: Props) {
   const update = useUpdateConditionalRule();
   const remove = useDeleteConditionalRule();
+  const [busy, setBusy] = useState(false);
 
   if (selectedIds.length === 0) return null;
 
   const setActive = async (active: boolean) => {
-    await Promise.all(
-      selectedIds.map((id) => update.mutateAsync({ id, patch: { active } })),
-    );
-    // Selection stays — enable/disable is in-place, and keeping the rows
-    // checked lets the user follow up (e.g. re-enable or delete) without
-    // re-selecting.
+    if (busy) return;
+    setBusy(true);
+    try {
+      await Promise.all(
+        selectedIds.map((id) => update.mutateAsync({ id, patch: { active } })),
+      );
+      // Selection stays — enable/disable is in-place, and keeping the rows
+      // checked lets the user follow up (e.g. re-enable or delete) without
+      // re-selecting.
+    } catch {
+      window.alert('Some rules could not be updated — check the list and retry.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const removeAll = async () => {
+    if (busy) return;
     if (!window.confirm(`Delete ${selectedIds.length} rule(s)? This removes their audit history too.`)) return;
-    await Promise.all(selectedIds.map((id) => remove.mutateAsync(id)));
-    onClear();
+    setBusy(true);
+    try {
+      await Promise.all(selectedIds.map((id) => remove.mutateAsync(id)));
+      onClear();
+    } catch {
+      window.alert('Some rules could not be deleted — check the list and retry.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -44,15 +62,15 @@ export function BulkActionMenu({ selectedIds, onClear }: Props) {
       <span className="text-xs font-medium text-indigo-700">
         {selectedIds.length} selected
       </span>
-      <Button variant="secondary" onClick={() => setActive(true)}>
+      <Button variant="secondary" onClick={() => setActive(true)} disabled={busy}>
         <Check className="h-3.5 w-3.5 mr-1" />
         Enable
       </Button>
-      <Button variant="secondary" onClick={() => setActive(false)}>
+      <Button variant="secondary" onClick={() => setActive(false)} disabled={busy}>
         <EyeOff className="h-3.5 w-3.5 mr-1" />
         Disable
       </Button>
-      <Button variant="danger" onClick={removeAll}>
+      <Button variant="danger" onClick={removeAll} disabled={busy}>
         <Trash2 className="h-3.5 w-3.5 mr-1" />
         Delete
       </Button>

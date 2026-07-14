@@ -8,7 +8,7 @@
 //   - selecting rows and clicking the bulk Approve posts the staged items.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { renderRoute } from '../../test-utils';
 import {
   bankingMocks, accountsMocks, contactsMocks, companyMocks, tagsMocks,
@@ -103,7 +103,7 @@ describe('BankFeedPage — assigned row', () => {
     expect(approveMutate.mock.calls[0]![0]).toBe('item-assigned');
   });
 
-  it('selecting the row and clicking bulk Approve posts the staged item', async () => {
+  it('selecting the row and clicking bulk Approve posts the staged item after confirm', async () => {
     renderRoute(<BankFeedPage />);
     // Select the assigned row (checkbox in the first cell).
     const checkboxes = screen.getAllByRole('checkbox');
@@ -112,6 +112,9 @@ describe('BankFeedPage — assigned row', () => {
     // renders above the table, so it's the first Approve in DOM order.
     const approveButtons = screen.getAllByRole('button', { name: /^approve$/i });
     fireEvent.click(approveButtons[0]!);
+    // Approve now confirms first (guards off-screen selections).
+    const dialog = await waitFor(() => screen.getByRole('dialog'));
+    fireEvent.click(within(dialog).getByRole('button', { name: /^approve$/i }));
     await waitFor(() => expect(bulkApproveMutate).toHaveBeenCalledTimes(1));
     expect(bulkApproveMutate.mock.calls[0]![0]).toEqual(['item-assigned']);
   });
@@ -140,6 +143,8 @@ describe('BankFeedPage — assigned row', () => {
     fireEvent.click(checkboxes[checkboxes.length - 1]!);
     const approveButtons = screen.getAllByRole('button', { name: /^approve$/i });
     fireEvent.click(approveButtons[0]!);
+    const dialog = await waitFor(() => screen.getByRole('dialog'));
+    fireEvent.click(within(dialog).getByRole('button', { name: /^approve$/i }));
     // The assigned row posted, so it leaves the selection and the toolbar hides.
     await waitFor(() => expect(screen.queryByText('1 selected')).toBeNull());
   });

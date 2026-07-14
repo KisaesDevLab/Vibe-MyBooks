@@ -34,7 +34,11 @@ export function CloseReviewPage() {
   const bucketWorkflowEnabled = useFeatureFlag('AI_BUCKET_WORKFLOW_V1');
   const periods = useMemo(() => buildClosePeriods(), []);
   const [period, setPeriod] = useState(periods[0]!);
-  const [tab, setTab] = useState<Tab>(bucketWorkflowEnabled === false ? 'findings' : 'buckets');
+  // Default to the Checklist — it's the workflow driver AND it's
+  // flag-independent. (The previous 'buckets' default raced the
+  // feature-flag query: the flag is undefined on first render, so a
+  // flag-off tenant landed on a disabled tab with a blank content area.)
+  const [tab, setTab] = useState<Tab>('checklist');
 
   const { data: summary } = useSummary({
     companyId: activeCompanyId ?? null,

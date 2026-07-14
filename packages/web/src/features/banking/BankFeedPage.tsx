@@ -102,6 +102,7 @@ export function BankFeedPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [matchModalFor, setMatchModalFor] = useState<string | null>(null);
   const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showReprocessConfirm, setShowReprocessConfirm] = useState(false);
 
   const debouncedSearch = useDebouncedValue(search);
@@ -191,6 +192,15 @@ export function BankFeedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
+  // A filter change redefines what the user is looking at — rows selected
+  // under the old filter may be invisible under the new one, and a bulk
+  // action would silently hit them. Selection persists across ACTIONS and
+  // pagination, not across a change of view.
+  useEffect(() => {
+    setSelected(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, search, startDate, endDate, connectionFilter, actionableOnly]);
+
   if (firstLoad) return <LoadingSpinner className="py-12" />;
   if (isError) return <ErrorMessage message="Couldn't load the bank feed." onRetry={() => refetch()} />;
 
@@ -202,8 +212,22 @@ export function BankFeedPage() {
     });
   };
 
-  const selectAll = () => {
-    setSelected(new Set(items.filter(isSelectable).map((i) => i.id)));
+  // Header checkbox works on THIS page's rows only, additively — it must
+  // not silently discard ids selected on other pages (the previous
+  // replace-the-set behavior did exactly that).
+  const selectAllOnPage = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const i of items) if (isSelectable(i)) next.add(i.id);
+      return next;
+    });
+  };
+  const deselectPage = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const i of items) next.delete(i.id);
+      return next;
+    });
   };
 
   const expandItem = (item: BankFeedItem) => {
@@ -329,6 +353,41 @@ export function BankFeedPage() {
             }),
           });
           setShowExcludeConfirm(false);
+        }}
+      />
+      <ConfirmDialog
+        open={showApproveConfirm}
+        title={`Approve ${selected.size} item${selected.size > 1 ? 's' : ''}?`}
+        message={(() => {
+          const offPage = [...selected].filter((id) => !items.some((i) => i.id === id)).length;
+          return offPage > 0
+            ? `Posts every selected item that has a category to the ledger. ${offPage} selected item${offPage === 1 ? ' is' : 's are'} on other pages and not currently visible.`
+            : 'Posts every selected item that has a category to the ledger. Items without a category are skipped.';
+        })()}
+        confirmLabel="Approve"
+        onCancel={() => setShowApproveConfirm(false)}
+        onConfirm={() => {
+          setShowApproveConfirm(false);
+          // Ids that will post (mirror of the server's bulk-approve
+          // rule): staged assignments and pending rows with a
+          // suggestion. These leave the actionable list, so uncheck
+          // them; skipped/failed rows stay checked for the next pass.
+          // Off-page ids are unchecked too — the server posts or skips
+          // them and we can't see their status from here.
+          const skippedOnPage = new Set(
+            items.filter((i) => selected.has(i.id) && i.status === 'pending' && !i.suggestedAccountId).map((i) => i.id),
+          );
+          bulkApprove.mutate([...selected], {
+            onSuccess: (r) => {
+              const failedIds = new Set((r.failures ?? []).map((f) => f.id));
+              setSelected((prev) => new Set([...prev].filter((id) => skippedOnPage.has(id) || failedIds.has(id))));
+              const parts = [`${r.approved} approved`];
+              if (r.skipped) parts.push(`${r.skipped} skipped (no category)`);
+              if (r.failed) parts.push(`${r.failed} failed`);
+              if (r.failed) toast.error(parts.join(' · '));
+              else toast.success(parts.join(' · '));
+            },
+          });
         }}
       />
       <ConfirmDialog
@@ -485,26 +544,7 @@ export function BankFeedPage() {
                   <Brain className="h-4 w-4 mr-1" /> AI Categorize
                 </Button>
               )}
-              <Button size="sm" onClick={() => {
-                // Ids that will post (mirror of the server's bulk-approve
-                // rule): staged assignments and pending rows with a
-                // suggestion. These leave the actionable list, so uncheck
-                // them; skipped/failed rows stay checked for the next pass.
-                const willPost = new Set(
-                  items.filter((i) => selected.has(i.id) && (i.status === 'assigned' || (i.status === 'pending' && i.suggestedAccountId))).map((i) => i.id),
-                );
-                bulkApprove.mutate([...selected], {
-                  onSuccess: (r) => {
-                    const failedIds = new Set((r.failures ?? []).map((f) => f.id));
-                    setSelected((prev) => new Set([...prev].filter((id) => !willPost.has(id) || failedIds.has(id))));
-                    const parts = [`${r.approved} approved`];
-                    if (r.skipped) parts.push(`${r.skipped} skipped (no category)`);
-                    if (r.failed) parts.push(`${r.failed} failed`);
-                    if (r.failed) toast.error(parts.join(' · '));
-                    else toast.success(parts.join(' · '));
-                  },
-                });
-              }} loading={bulkApprove.isPending}>
+              <Button size="sm" onClick={() => setShowApproveConfirm(true)} loading={bulkApprove.isPending}>
                 <CheckCheck className="h-4 w-4 mr-1" /> Approve
               </Button>
               <Button
@@ -568,13 +608,17 @@ export function BankFeedPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="w-10 px-3 py-3">
-                  {selectableCount > 0 && (
-                    <input type="checkbox"
-                      checked={selected.size > 0 && selected.size === selectableCount}
-                      ref={(el) => { if (el) el.indeterminate = selected.size > 0 && selected.size < selectableCount; }}
-                      onChange={() => selected.size === selectableCount ? setSelected(new Set()) : selectAll()}
-                      className="rounded border-gray-300 text-primary-600 h-[15px] w-[15px]" />
-                  )}
+                  {selectableCount > 0 && (() => {
+                    const pageSelected = items.filter((i) => isSelectable(i) && selected.has(i.id)).length;
+                    const allPage = pageSelected === selectableCount;
+                    return (
+                      <input type="checkbox"
+                        checked={pageSelected > 0 && allPage}
+                        ref={(el) => { if (el) el.indeterminate = pageSelected > 0 && !allPage; }}
+                        onChange={() => (allPage ? deselectPage() : selectAllOnPage())}
+                        className="rounded border-gray-300 text-primary-600 h-[15px] w-[15px]" />
+                    );
+                  })()}
                 </th>
                 <SortHeader label="Date" sortKey="feedDate" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Name" sortKey="description" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />

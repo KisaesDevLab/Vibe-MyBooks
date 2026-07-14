@@ -21,6 +21,8 @@ import {
 } from '../../../api/hooks/useReviewChecks';
 import { Button } from '../../../components/ui/Button';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { ErrorMessage } from '../../../components/ui/ErrorMessage';
+import { useToast } from '../../../components/ui/Toaster';
 import type { ClosePeriod } from './ClosePeriodSelector';
 
 const SECTIONS: Array<{ key: CloseChecklistTask['section']; title: string; blurb: string }> = [
@@ -46,24 +48,34 @@ export function ChecklistTab({ period, onOpenFindings }: { period: ClosePeriod; 
   const checklistQ = useCloseChecklist(activeCompanyId ?? null, periodStart, periodEnd);
   const complete = useCompleteChecklistTask();
   const reopen = useReopenChecklistTask();
+  const toast = useToast();
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [note, setNote] = useState('');
 
   if (checklistQ.isLoading) {
     return <div className="flex justify-center py-10"><LoadingSpinner size="lg" /></div>;
   }
+  if (checklistQ.isError) {
+    return <ErrorMessage message="Couldn't load the close checklist." onRetry={() => checklistQ.refetch()} />;
+  }
   const tasks = checklistQ.data?.tasks ?? [];
   const doneCount = tasks.filter((t) => t.done).length;
 
   const signOff = (task: CloseChecklistTask, withNote: string | null) => {
-    complete.mutate({
-      companyId: activeCompanyId ?? null,
-      periodStart,
-      taskKey: task.key,
-      note: withNote,
-    });
-    setNoteFor(null);
-    setNote('');
+    complete.mutate(
+      {
+        companyId: activeCompanyId ?? null,
+        periodStart,
+        taskKey: task.key,
+        note: withNote,
+      },
+      {
+        // Close the note row only on success — a failed sign-off keeps
+        // the typed note so the user can retry instead of retyping.
+        onSuccess: () => { setNoteFor(null); setNote(''); },
+        onError: (err: Error) => toast.error(err.message || 'Could not sign off the task.'),
+      },
+    );
   };
 
   return (
@@ -86,8 +98,8 @@ export function ChecklistTab({ period, onOpenFindings }: { period: ClosePeriod; 
                 return (
                   <li key={task.key} className="flex flex-wrap items-center gap-3 px-4 py-3">
                     {task.done
-                      ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" aria-label="Done" />
-                      : <Circle className="h-5 w-5 shrink-0 text-gray-300" aria-label="Not done" />}
+                      ? <CheckCircle2 role="img" className="h-5 w-5 shrink-0 text-emerald-600" aria-label="Done" />
+                      : <Circle role="img" className="h-5 w-5 shrink-0 text-gray-300" aria-label="Not done" />}
                     <div className="min-w-[220px] flex-1">
                       <div className="text-sm font-medium text-gray-900">{task.label}</div>
                       {task.detail && <div className="text-xs text-gray-500">{task.detail}</div>}
@@ -120,14 +132,17 @@ export function ChecklistTab({ period, onOpenFindings }: { period: ClosePeriod; 
                         <Button
                           size="sm"
                           variant="secondary"
-                          onClick={() => reopen.mutate({ companyId: activeCompanyId ?? null, periodStart, taskKey: task.key })}
-                          loading={reopen.isPending}
+                          onClick={() => reopen.mutate(
+                            { companyId: activeCompanyId ?? null, periodStart, taskKey: task.key },
+                            { onError: (err: Error) => toast.error(err.message || 'Could not reopen the task.') },
+                          )}
+                          loading={reopen.isPending && reopen.variables?.taskKey === task.key}
                         >
                           <Undo2 className="h-3.5 w-3.5 mr-1" />
                           Reopen
                         </Button>
                       ) : !task.done ? (
-                        <Button size="sm" variant="secondary" onClick={() => setNoteFor(task.key)}>
+                        <Button size="sm" variant="secondary" onClick={() => { setNoteFor(task.key); setNote(''); }}>
                           Sign off
                         </Button>
                       ) : null}

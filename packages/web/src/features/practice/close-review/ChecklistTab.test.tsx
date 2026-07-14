@@ -61,7 +61,7 @@ describe('ChecklistTab', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /^sign off$/i })[0]!);
     fireEvent.change(screen.getByLabelText(/Sign-off note/), { target: { value: 'Bank shows zero pending' } });
     fireEvent.click(screen.getByRole('button', { name: /mark done/i }));
-    expect(completeMutate).toHaveBeenCalledWith({
+    expect(completeMutate.mock.calls[0]![0]).toEqual({
       companyId: 'company-1',
       periodStart: '2026-06-01',
       taskKey: 'bank_feed',
@@ -76,7 +76,7 @@ describe('ChecklistTab', () => {
     renderRoute(<ChecklistTab period={PERIOD} onOpenFindings={() => {}} />);
     expect(screen.getByText(/Signed off — All tie\./)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /reopen/i }));
-    expect(reopenMutate).toHaveBeenCalledWith({
+    expect(reopenMutate.mock.calls[0]![0]).toEqual({
       companyId: 'company-1',
       periodStart: '2026-06-01',
       taskKey: 'final_review',

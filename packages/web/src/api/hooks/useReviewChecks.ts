@@ -335,12 +335,12 @@ export interface CloseChecklistTask {
   note: string | null;
 }
 
-const checklistKey = (companyId: string | null, periodStart: string) =>
-  ['practice', 'checks', 'checklist', companyId, periodStart] as const;
+const checklistKey = (companyId: string | null, periodStart: string, periodEnd?: string) =>
+  ['practice', 'checks', 'checklist', companyId, periodStart, periodEnd ?? null] as const;
 
 export function useCloseChecklist(companyId: string | null, periodStart: string, periodEnd: string) {
   return useQuery({
-    queryKey: checklistKey(companyId, periodStart),
+    queryKey: checklistKey(companyId, periodStart, periodEnd),
     queryFn: () => {
       const qs = new URLSearchParams({ periodStart, periodEnd });
       if (companyId) qs.set('companyId', companyId);
@@ -358,7 +358,9 @@ export function useCompleteChecklistTask() {
         body: JSON.stringify(input),
       }),
     onSuccess: (_r, input) => {
-      qc.invalidateQueries({ queryKey: checklistKey(input.companyId ?? null, input.periodStart) });
+      // Prefix match (no periodEnd) — invalidates the period's entry
+      // regardless of which periodEnd variant fetched it.
+      qc.invalidateQueries({ queryKey: ['practice', 'checks', 'checklist', input.companyId ?? null, input.periodStart] });
     },
   });
 }
@@ -372,7 +374,9 @@ export function useReopenChecklistTask() {
         body: JSON.stringify(input),
       }),
     onSuccess: (_r, input) => {
-      qc.invalidateQueries({ queryKey: checklistKey(input.companyId ?? null, input.periodStart) });
+      // Prefix match (no periodEnd) — invalidates the period's entry
+      // regardless of which periodEnd variant fetched it.
+      qc.invalidateQueries({ queryKey: ['practice', 'checks', 'checklist', input.companyId ?? null, input.periodStart] });
     },
   });
 }

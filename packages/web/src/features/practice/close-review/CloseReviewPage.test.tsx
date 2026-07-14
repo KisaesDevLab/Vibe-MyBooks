@@ -31,6 +31,26 @@ vi.mock('../../../api/hooks/useClassificationState', () => ({
   useReclassify: () => ({ mutate: vi.fn(), isPending: false }),
   useVendorEnrichment: () => ({ data: null, isLoading: false, isError: false }),
 }));
+// The Checklist tab is the default, so its hooks (and the Findings
+// tab's, reachable by click) must be stubbed or they issue real
+// fetches in jsdom.
+vi.mock('../../../api/hooks/useReviewChecks', () => ({
+  useCloseChecklist: () => ({ data: { tasks: [] }, isLoading: false, isError: false, refetch: vi.fn() }),
+  useCompleteChecklistTask: () => ({ mutate: vi.fn(), isPending: false }),
+  useReopenChecklistTask: () => ({ mutate: vi.fn(), isPending: false }),
+  useCheckRegistry: () => ({ data: { checks: [] }, isLoading: false }),
+  useFindings: () => ({ data: { rows: [], nextCursor: null }, isLoading: false }),
+  useFinding: () => ({ data: undefined, isLoading: false }),
+  useFindingEvents: () => ({ data: { events: [] }, isLoading: false }),
+  useFindingsSummary: () => ({ data: undefined }),
+  useRunChecks: () => ({ mutate: vi.fn(), isPending: false }),
+  useRunAiJudgment: () => ({ mutate: vi.fn(), isPending: false }),
+  useCheckRuns: () => ({ data: { runs: [] } }),
+  useTransitionFinding: () => ({ mutate: vi.fn(), isPending: false }),
+  useBulkTransitionFindings: () => ({ mutate: vi.fn(), isPending: false }),
+  useSuppressions: () => ({ data: { suppressions: [] } }),
+  useCreateSuppression: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 
 import { CloseReviewPage } from './CloseReviewPage';
 
@@ -52,11 +72,14 @@ describe('CloseReviewPage', () => {
     expect(screen.getByRole('heading', { name: 'Close Review' })).toBeInTheDocument();
   });
 
-  it('renders the three tabs', () => {
+  it('renders the four tabs with Checklist first (and default)', () => {
     renderRoute(<CloseReviewPage />);
+    expect(screen.getByRole('button', { name: 'Checklist' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Buckets' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Findings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Manual Queue' })).toBeInTheDocument();
+    // Default tab content: the checklist progress line renders.
+    expect(screen.getByText(/close tasks done/)).toBeInTheDocument();
   });
 
   it('shows the Thresholds link to /practice/settings', () => {

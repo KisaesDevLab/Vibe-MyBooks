@@ -603,8 +603,8 @@ function PortalBlockRender({
               </thead>
             )}
             <tbody>
-              {b.accounts.map((a) => (
-                <tr key={a.name} className="border-b border-gray-100 last:border-0">
+              {b.accounts.map((a, i) => (
+                <tr key={`${a.name}-${i}`} className="border-b border-gray-100 last:border-0">
                   <td className="py-1 pr-2 text-gray-800">{a.name}</td>
                   <td className="py-1 text-right text-gray-900 font-medium">{fmtMoney(a.balance)}</td>
                   {pr && <td className="py-1 text-right text-gray-600">{fmtMoney(a.priorBalance ?? 0)}</td>}

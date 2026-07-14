@@ -130,6 +130,19 @@ export function TransactionListPage() {
   // Multi-select + bulk-edit state. Selection is a Set of txn ids; the bulk
   // toolbar appears whenever at least one row is selected.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // A filter change redefines the visible set — bulk-editing rows that were
+  // selected under the OLD filter would silently modify invisible ledger
+  // rows. Selection persists across bulk actions and pagination (offset),
+  // not across a change of view.
+  const filterSignature = (() => {
+    const sig = new URLSearchParams(searchParams);
+    sig.delete('offset');
+    return sig.toString();
+  })();
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [filterSignature]);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [bulkContactId, setBulkContactId] = useState('');
   const [bulkTagId, setBulkTagId] = useState('');

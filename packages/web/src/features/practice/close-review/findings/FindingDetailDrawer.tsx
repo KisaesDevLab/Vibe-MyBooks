@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { CheckRegistryEntry, Finding, FindingStatus } from '@kis-books/shared';
 import {
+  useFinding,
   useFindingEvents,
   useTransitionFinding,
   useCreateSuppression,
@@ -74,8 +75,13 @@ const CHECK_GUIDANCE: Record<string, { verify: string; resolveLabel?: string }> 
 //   - history pane reading finding_events
 //   - "Open transaction" deep link when the finding is
 //     transaction-scoped
-export function FindingDetailDrawer({ finding, registry, onClose }: Props) {
-  const eventsQ = useFindingEvents(finding?.id ?? null);
+export function FindingDetailDrawer({ finding: findingProp, registry, onClose }: Props) {
+  const eventsQ = useFindingEvents(findingProp?.id ?? null);
+  // The prop is the row object captured at click time; transitions
+  // invalidate the finding query, so prefer the live copy — otherwise
+  // the drawer keeps showing the old status (and offering Resolve
+  // again) after a successful transition.
+  const liveQ = useFinding(findingProp?.id ?? null);
   const transition = useTransitionFinding();
   const createSuppression = useCreateSuppression();
   const [note, setNote] = useState('');
@@ -85,8 +91,18 @@ export function FindingDetailDrawer({ finding, registry, onClose }: Props) {
   useEffect(() => {
     setNote('');
     setResolutionNote('');
-  }, [finding?.id]);
+  }, [findingProp?.id]);
 
+  // Minimal modal keyboard support: Escape closes. (The drawer is
+  // aria-modal; without this, keyboard users had no way out.)
+  useEffect(() => {
+    if (!findingProp) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [findingProp, onClose]);
+
+  const finding = liveQ.data ?? findingProp;
   if (!finding) return null;
 
   const registryEntry = registry.find((r) => r.checkKey === finding.checkKey);
