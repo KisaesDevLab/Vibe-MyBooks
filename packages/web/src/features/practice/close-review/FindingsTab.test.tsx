@@ -168,4 +168,73 @@ describe('FindingsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /Run checks now/ }));
     expect(mockRunChecks).toHaveBeenCalledTimes(1);
   });
+
+  it('drawer surfaces summary/reason/suggestion and hides raw ids behind Technical details', async () => {
+    findingsStore.rows = [
+      {
+        id: 'f1',
+        tenantId: 't',
+        companyId: 'c',
+        checkKey: 'transaction_above_materiality',
+        transactionId: 'txn-1',
+        vendorId: null,
+        severity: 'low',
+        status: 'open',
+        assignedTo: null,
+        payload: {
+          summary: '2026-07-06 · Acme Corp · $25,000.00',
+          reason: 'This expense is $25,000.00, at or above the materiality threshold.',
+          suggestion: 'Confirm the amount and attach supporting documentation.',
+          total: 25000,
+          auditId: 'aud-123',
+          dedupe_key: 'txn:txn-1',
+        },
+        createdAt: new Date().toISOString(),
+        resolvedAt: null,
+        resolutionNote: null,
+      },
+    ];
+    renderRoute(<FindingsTab period={TEST_PERIOD} />);
+    fireEvent.click(document.querySelector('table tbody tr')!);
+    const dialog = await waitFor(() => screen.getByRole('dialog'));
+    const d = within(dialog);
+    // The reviewer-facing trio is prominent…
+    expect(d.getByText('2026-07-06 · Acme Corp · $25,000.00')).toBeInTheDocument();
+    expect(d.getByText(/Suggested action:/)).toBeInTheDocument();
+    // …the framing line tells them what to decide…
+    expect(d.getByText(/Give this material transaction a second look/)).toBeInTheDocument();
+    // …amounts are formatted as currency in the Details grid…
+    expect(d.getByText('$25,000.00', { selector: 'dd' })).toBeInTheDocument();
+    // …raw identifiers live behind a collapsed Technical details block.
+    expect(d.getByText('Technical details')).toBeInTheDocument();
+    expect(d.getByText('aud-123').closest('details')).toBeTruthy();
+    // The deep link to the transaction renders.
+    expect(d.getByRole('link', { name: /Open transaction/ })).toBeInTheDocument();
+    // Low severity → no resolution-note field (it is never required here).
+    expect(d.queryByPlaceholderText(/Required for high\/critical/)).toBeNull();
+  });
+
+  it('drawer requires a resolution note only for high severity', async () => {
+    findingsStore.rows = [
+      {
+        id: 'f2',
+        tenantId: 't',
+        companyId: 'c',
+        checkKey: 'transaction_above_materiality',
+        transactionId: null,
+        vendorId: null,
+        severity: 'high',
+        status: 'open',
+        assignedTo: null,
+        payload: {},
+        createdAt: new Date().toISOString(),
+        resolvedAt: null,
+        resolutionNote: null,
+      },
+    ];
+    renderRoute(<FindingsTab period={TEST_PERIOD} />);
+    fireEvent.click(document.querySelector('table tbody tr')!);
+    const dialog = await waitFor(() => screen.getByRole('dialog'));
+    expect(within(dialog).getByPlaceholderText(/Required for high\/critical/)).toBeInTheDocument();
+  });
 });

@@ -114,6 +114,10 @@ export function FindingsTable({
 // transaction or vendor id when no specific field is present.
 function ContextSummary({ finding }: { finding: Finding }) {
   const p = (finding.payload ?? {}) as Record<string, unknown>;
+  // Handlers now compose a ready-made one-liner; prefer it.
+  if (typeof p['summary'] === 'string' && (p['summary'] as string).trim() !== '') {
+    return <span className="text-xs">{p['summary'] as string}</span>;
+  }
   const parts: string[] = [];
   if (typeof p['description'] === 'string') parts.push(p['description'] as string);
   if (typeof p['vendorName'] === 'string') parts.push(p['vendorName'] as string);
