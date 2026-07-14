@@ -259,7 +259,24 @@ export function BankConnectionsPage() {
                     {myAccounts.length > 0 && (
                       <Button variant="secondary" size="sm" onClick={() => navigate('/banking/feed')}>Review Feed</Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => syncItem.mutate(item.id)} loading={syncItem.isPending} title="Sync new transactions"><RefreshCw className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => syncItem.mutate(item.id, {
+                      onSuccess: (r) => {
+                        // A silent "nothing happened" is indistinguishable
+                        // from a broken sync — always say what came back.
+                        if (r.skipped) { toast.info('A sync just ran — give it a few seconds and try again.'); return; }
+                        const parts = [`${r.added} new`, `${r.modified} updated`];
+                        if (r.removed) parts.push(`${r.removed} removed`);
+                        let msg = `Sync complete — ${parts.join(', ')}.`;
+                        if (r.refreshRequested && r.added === 0 && r.modified === 0) {
+                          msg += ' The bank was asked for fresh data — if transactions are still missing, sync again in a minute.';
+                        }
+                        if (r.skippedByStartDate) {
+                          msg += ` ${r.skippedByStartDate} older transaction${r.skippedByStartDate === 1 ? ' was' : 's were'} skipped (dated before the sync start date — use Re-import to fetch them).`;
+                        }
+                        toast.success(msg);
+                      },
+                      onError: (e) => toast.error(e instanceof Error ? e.message : 'Sync failed'),
+                    })} loading={syncItem.isPending} title="Sync new transactions"><RefreshCw className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="sm" onClick={() => setResyncId(item.id)} loading={resyncItem.isPending && resyncId === item.id} title="Re-import all transactions (reset sync)"><RotateCcw className="h-4 w-4" /></Button>
                     {unassigned.length > 0 && (
                       <Button variant="secondary" size="sm" onClick={() => setMappingData({ accounts: item.accounts ?? [], hiddenAccountCount: item.hiddenAccountCount || 0 })}>Map</Button>

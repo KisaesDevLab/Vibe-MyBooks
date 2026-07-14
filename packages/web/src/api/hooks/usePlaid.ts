@@ -155,11 +155,28 @@ export function usePlaidAccountSuggestions(accountId: string) {
   });
 }
 
+export interface PlaidSyncResult {
+  added: number;
+  modified: number;
+  removed: number;
+  /** Transactions dated before the mapping's sync start date — the
+   *  cursor advanced past them, so only Full re-import recovers them. */
+  skippedByStartDate?: number;
+  /** True when Plaid accepted an on-demand institution refresh. */
+  refreshRequested?: boolean;
+  /** True when another sync ran within the last 30s and this one deferred. */
+  skipped?: boolean;
+}
+
 export function useSyncPlaidItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (itemId: string) => apiClient(`/plaid/items/${itemId}/sync`, { method: 'POST' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['plaid'] }),
+    mutationFn: (itemId: string) => apiClient<PlaidSyncResult>(`/plaid/items/${itemId}/sync`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaid'] });
+      // New feed items may have landed — refresh the bank feed too.
+      qc.invalidateQueries({ queryKey: ['bank-feed'] });
+    },
   });
 }
 
