@@ -160,6 +160,7 @@ const StatementImportsPage = lazyNamed(() => import('./features/banking/Statemen
 const DailySalesEntriesPage = lazyNamed(() => import('./features/daily-sales/DailySalesEntriesPage'), 'DailySalesEntriesPage');
 const DailySalesEntryPage = lazyNamed(() => import('./features/daily-sales/DailySalesEntryPage'), 'DailySalesEntryPage');
 const DailySalesTemplatesPage = lazyNamed(() => import('./features/daily-sales/DailySalesTemplatesPage'), 'DailySalesTemplatesPage');
+const JournalTemplatesPage = lazyNamed(() => import('./features/transactions/JournalTemplatesPage'), 'JournalTemplatesPage');
 
 // ─── Attachments ─────────────────────────────────────────────
 const AttachmentLibraryPage = lazyNamed(() => import('./features/attachments/AttachmentLibraryPage'), 'AttachmentLibraryPage');
@@ -371,6 +372,7 @@ export function App() {
             <Route path="/transactions/:id/edit/cash-sale" element={<CashSaleForm />} />
             <Route path="/transactions/:id/edit/journal-entry" element={<JournalEntryForm />} />
             <Route path="/transactions/batch" element={<BatchEntryPage />} />
+            <Route path="/transactions/journal-templates" element={<JournalTemplatesPage />} />
             <Route path="/checks/write" element={<WriteCheckPage />} />
             <Route path="/checks/print" element={<PrintChecksPage />} />
             <Route path="/settings/check-printing" element={<CheckPrintSettingsPage />} />

@@ -7,13 +7,14 @@ import { screen } from '@testing-library/react';
 import { renderRoute } from '../../test-utils';
 import {
   transactionsMocks, accountsMocks, contactsMocks, tagsMocks, itemsMocks,
-  batchMocks, aiMocks, companyMocks, companyProviderMocks,
+  batchMocks, aiMocks, companyMocks, companyProviderMocks, jeTemplatesMocks,
 } from '../../test-mocks';
 
 // vi.mock is hoisted above imports. Using the factory helpers from
 // test-mocks keeps per-page test files compact and makes "new hook added"
 // churn a one-line fix rather than N test files.
 vi.mock('../../api/hooks/useTransactions', () => transactionsMocks());
+vi.mock('../../api/hooks/useJeTemplates', () => jeTemplatesMocks());
 vi.mock('../../api/hooks/useAccounts', () => accountsMocks());
 vi.mock('../../api/hooks/useContacts', () => contactsMocks());
 vi.mock('../../api/hooks/useTags', () => tagsMocks());

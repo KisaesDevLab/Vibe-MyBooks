@@ -383,3 +383,12 @@ export const transactionsMocks = () => ({
   useDuplicateTransaction: passthroughMutation,
   useBulkUpdateTransactions: passthroughMutation,
 });
+
+export const jeTemplatesMocks = () => ({
+  useJeTemplates: () => ({ data: { templates: [] }, isLoading: false }),
+  useJeTemplate: () => ({ data: undefined, isLoading: false }),
+  useCreateJeTemplate: passthroughMutation,
+  useUpdateJeTemplate: passthroughMutation,
+  useDeleteJeTemplate: passthroughMutation,
+  useReplaceJeTemplateLines: passthroughMutation,
+});

@@ -5,9 +5,10 @@
 
 import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { JournalLine, JournalLineInput } from '@kis-books/shared';
 import { useCreateTransaction, useUpdateTransaction, useTransaction } from '../../api/hooks/useTransactions';
+import { useJeTemplate } from '../../api/hooks/useJeTemplates';
 
 type Basis = 'cash' | 'accrual' | 'both';
 
@@ -44,6 +45,10 @@ interface Line {
   credit: string;
   tagId: string | null;
   userHasTouchedTag: boolean;
+  // Template-seeded metadata: the side the template prescribed and
+  // whether an amount is mandatory before posting.
+  templateSide?: 'debit' | 'credit';
+  templateRequired?: boolean;
 }
 
 function emptyLine(): Line {
@@ -54,6 +59,12 @@ export function JournalEntryForm() {
   const { id: editId } = useParams<{ id: string }>();
   const isEdit = !!editId;
   const navigate = useNavigate();
+  // ?template=<id> pre-fills the form from a Journal Entry Template
+  // (Transactions → Journal Templates): line descriptions, accounts,
+  // and required flags come from the template; amounts are typed here.
+  const [searchParams] = useSearchParams();
+  const templateId = !isEdit ? (searchParams.get('template') ?? undefined) : undefined;
+  const { data: templateData } = useJeTemplate(templateId);
   const createTxn = useCreateTransaction();
   const updateTxn = useUpdateTransaction();
   const { data: existingData, isLoading: loadingExisting } = useTransaction(editId || '');
@@ -91,6 +102,29 @@ export function JournalEntryForm() {
     }
   }, [isEdit, existingData, loaded]);
 
+  // Seed from the template exactly once (guarded by `loaded`, shared
+  // with the edit path — a form is seeded from a template OR an
+  // existing transaction, never both).
+  useEffect(() => {
+    if (isEdit || loaded || !templateData?.template) return;
+    const tpl = templateData.template;
+    const tplLines = tpl.lines.filter((l) => l.isActive);
+    if (tplLines.length > 0) {
+      setLines(tplLines.map((l) => ({
+        accountId: l.accountId ?? '',
+        description: l.label,
+        debit: '',
+        credit: '',
+        tagId: tpl.defaultTagId ?? null,
+        userHasTouchedTag: false,
+        templateSide: l.normalSide,
+        templateRequired: l.isRequired,
+      })));
+    }
+    if (tpl.memo) setMemo(tpl.memo);
+    setLoaded(true);
+  }, [isEdit, loaded, templateData]);
+
   const updateLine = (index: number, field: keyof Line, value: string) => {
     setLines((prev) => prev.map((l, i) => i === index ? { ...l, [field]: value } : l));
   };
@@ -116,9 +150,15 @@ export function JournalEntryForm() {
     onSave: () => formRef.current?.requestSubmit(),
   });
 
+  // Template lines flagged required must carry an amount before posting.
+  const missingRequired = lines.filter(
+    (l) => l.templateRequired && !(parseFloat(l.debit) > 0 || parseFloat(l.credit) > 0),
+  );
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!isBalanced) return;
+    if (missingRequired.length > 0) return;
 
     const payload: JournalEntryPayload = {
       txnType: 'journal_entry',
@@ -276,10 +316,15 @@ export function JournalEntryForm() {
         </div>
 
         {mutation.error && <p className="text-sm text-red-600">{mutation.error.message}</p>}
+        {missingRequired.length > 0 && (
+          <p className="text-sm text-amber-700">
+            The template requires an amount on: {missingRequired.map((l) => l.description || '(unnamed line)').join(', ')}.
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-3">
           <ShortcutTooltip chord={saveChord}>
-            <Button type="submit" disabled={!isBalanced} loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Post Journal Entry'}</Button>
+            <Button type="submit" disabled={!isBalanced || missingRequired.length > 0} loading={mutation.isPending}>{isEdit ? 'Save Changes' : 'Post Journal Entry'}</Button>
           </ShortcutTooltip>
           <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/transactions/${editId}` : '/transactions')}>Cancel</Button>
           {isEdit && (
