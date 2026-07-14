@@ -70,12 +70,9 @@ x-app-env: &app-env
   COOKIE_SECURE: ${VIBE_MYBOOKS_COOKIE_SECURE:-true}
   EXPECT_WORKER: "true"
   LOG_LEVEL: ${VIBE_MYBOOKS_LOG_LEVEL:-info}
-  # Licensing — defaults to disabled so the appliance ships in a
-  # working state until the operator pastes a key. See addendum
-  # §3.8 footnote.
-  DISABLE_LICENSE_CHECK: ${VIBE_MYBOOKS_DISABLE_LICENSE_CHECK:-1}
-  LICENSE_TOKEN: ${VIBE_MYBOOKS_LICENSE_TOKEN:-}
-  LICENSE_PUBLIC_KEY: ${VIBE_MYBOOKS_LICENSE_PUBLIC_KEY:-}
+  # The boot-time license check was removed in v0.9.111 (PolyForm
+  # Small Business — free for small businesses; the gate only caused
+  # failed installs). No LICENSE_* env plumbing remains.
   # Email — required for password reset, magic links, portal
   # invitations, and reminders sent by the worker. Optional in
   # env.ts (so dev/CI can run without SMTP), but practically
