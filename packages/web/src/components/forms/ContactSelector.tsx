@@ -3,6 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import type { ContactType, Contact } from '@kis-books/shared';
 import { useContacts, useContact, useCreateContact } from '../../api/hooks/useContacts';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
@@ -153,6 +154,12 @@ function QuickAddContactModal({ prefillName, defaultType, onCreated, onClose }: 
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    // CRITICAL: the selector (and so this modal) usually lives inside a
+    // page-level <form> (Expense, Write Check, Enter Bill…). React
+    // synthetic events bubble through the REACT tree — portal or not —
+    // so without stopPropagation the outer form's onSubmit fires too,
+    // submitting/navigating the whole page and losing the user's inputs.
+    e.stopPropagation();
     // Surface an in-app error for a missing name instead of relying on the
     // browser's native `required` bubble, which blocks the submit silently and
     // reads as "clicked Add Contact but nothing happened".
@@ -172,7 +179,11 @@ function QuickAddContactModal({ prefillName, defaultType, onCreated, onClose }: 
     });
   };
 
-  return (
+  // Portaled to <body>: a <form> nested in the page's <form> is invalid
+  // HTML, and native submit behavior of nested forms is what made "Add
+  // Contact" reload the page. (React-tree bubbling is handled separately
+  // by stopPropagation in handleSubmit.)
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -240,6 +251,7 @@ function QuickAddContactModal({ prefillName, defaultType, onCreated, onClose }: 
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

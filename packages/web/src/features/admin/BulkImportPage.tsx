@@ -26,6 +26,7 @@ import { Button } from '../../components/ui/Button';
 import {
   useUploadImport,
   useImportSession,
+  useImportSessions,
   useCommitImport,
   useDeleteImport,
   ImportApiError,
@@ -59,7 +60,78 @@ export function BulkImportPage() {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId?: string }>();
   if (sessionId) return <SessionView id={sessionId} onClose={() => navigate('/imports')} />;
-  return <UploadForm onCreated={(id) => navigate(`/imports/${id}`)} />;
+  return (
+    <div className="space-y-8">
+      <UploadForm onCreated={(id) => navigate(`/imports/${id}`)} />
+      <RecentSessions onOpen={(id) => navigate(`/imports/${id}`)} />
+    </div>
+  );
+}
+
+// ── Recent sessions ───────────────────────────────────────────────
+// The way back to a staged (uploaded/validated) session. The upload
+// duplicate-file guard says "open it and either commit or delete it" —
+// this list is where that happens.
+
+const STATUS_CHIP: Record<string, string> = {
+  uploaded: 'bg-amber-100 text-amber-800',
+  validated: 'bg-amber-100 text-amber-800',
+  committing: 'bg-blue-100 text-blue-700',
+  committed: 'bg-green-100 text-green-700',
+  failed: 'bg-red-100 text-red-700',
+  cancelled: 'bg-gray-100 text-gray-600',
+};
+
+function RecentSessions({ onOpen }: { onOpen: (id: string) => void }) {
+  const { data, isLoading } = useImportSessions();
+  const del = useDeleteImport();
+  const sessions = data?.sessions ?? [];
+  if (isLoading) return <div className="flex justify-center py-6"><LoadingSpinner /></div>;
+  if (sessions.length === 0) return null;
+  const pendingCount = sessions.filter((s) => s.status === 'uploaded' || s.status === 'validated').length;
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+      <div className="px-4 py-3 border-b border-gray-100">
+        <h2 className="text-sm font-semibold text-gray-900">Recent import sessions</h2>
+        <p className="text-xs text-gray-500">
+          {pendingCount > 0
+            ? `${pendingCount} staged session${pendingCount === 1 ? '' : 's'} awaiting commit — open to review, commit, or delete.`
+            : 'Staged sessions block re-uploading the same file until committed or deleted.'}
+        </p>
+      </div>
+      <ul className="divide-y divide-gray-100">
+        {sessions.map((s) => (
+          <li key={s.id} className="px-4 py-3 flex flex-wrap items-center gap-3">
+            <FileText className="h-4 w-4 text-gray-400 shrink-0" />
+            <div className="min-w-[200px] flex-1">
+              <div className="text-sm font-medium text-gray-900">{s.originalFilename}</div>
+              <div className="text-xs text-gray-500">
+                {s.kind} · {s.sourceSystem} · {s.rowCount} rows · {new Date(s.createdAt).toLocaleString()}
+              </div>
+            </div>
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_CHIP[s.status] ?? 'bg-gray-100 text-gray-600'}`}>
+              {s.status}
+            </span>
+            <Button size="sm" variant="secondary" onClick={() => onOpen(s.id)}>Open</Button>
+            {s.status !== 'committed' && s.status !== 'committing' && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  if (confirm(`Delete the staged session for "${s.originalFilename}"? No GL changes occur.`)) {
+                    del.mutate(s.id);
+                  }
+                }}
+                loading={del.isPending && del.variables === s.id}
+              >
+                Delete
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 // ── Friendly error mapping ────────────────────────────────────────
@@ -311,9 +383,26 @@ function UploadForm({ onCreated }: { onCreated: (sessionId: string) => void }) {
         </label>
 
         {upload.error && (
-          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
-            <AlertCircle className="h-4 w-4 mt-0.5" />
-            <span>{describeError(upload.error)}</span>
+          <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700 space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 mt-0.5" />
+              <span>{describeError(upload.error)}</span>
+            </div>
+            {(() => {
+              // The duplicate-file 409 names the blocking session — take
+              // the operator straight to it instead of leaving them to
+              // hunt for it in the sessions list below.
+              const e = upload.error;
+              const existingId =
+                e instanceof ImportApiError && e.code === 'IMPORT_SESSION_ACTIVE'
+                  ? (e.details as { existingSessionId?: string } | undefined)?.existingSessionId
+                  : undefined;
+              return existingId ? (
+                <Button size="sm" variant="secondary" onClick={() => onCreated(existingId)}>
+                  Open the existing session
+                </Button>
+              ) : null;
+            })()}
           </div>
         )}
 

@@ -47,6 +47,7 @@ export function ExpenseForm() {
   const today = todayLocalISO();
 
   const [txnDate, setTxnDate] = useState(today);
+  const [txnNumber, setTxnNumber] = useState('');
   const [contactId, setContactId] = useState('');
   const [payFromAccountId, setPayFromAccountId] = useState('');
   const [memo, setMemo] = useState('');
@@ -59,6 +60,7 @@ export function ExpenseForm() {
     if (isEdit && existingData?.transaction && !loaded) {
       const txn = existingData.transaction;
       setTxnDate(txn.txnDate);
+      setTxnNumber((txn as { txnNumber?: string | null }).txnNumber || '');
       setContactId(txn.contactId || '');
       setMemo(txn.memo || '');
 
@@ -140,6 +142,7 @@ export function ExpenseForm() {
     interface ExpensePayload extends Record<string, unknown> {
       txnType: 'expense';
       txnDate: string;
+      txnNumber?: string;
       contactId?: string;
       payFromAccountId: string;
       lines: ExpensePayloadLine[];
@@ -149,6 +152,7 @@ export function ExpenseForm() {
     const payload: ExpensePayload = {
       txnType: 'expense',
       txnDate,
+      txnNumber: txnNumber.trim() || undefined,
       contactId: contactId || undefined,
       payFromAccountId,
       // Flatten stickiness-tracking state — API only needs tagId.
@@ -171,6 +175,7 @@ export function ExpenseForm() {
         onSuccess: () => {
           if (andNew) {
             setContactId('');
+            setTxnNumber('');
             setMemo('');
             setLines([emptyLine()]);
             setAndNew(false);
@@ -195,8 +200,17 @@ export function ExpenseForm() {
             <ContactSelector label="Payee (Vendor)" value={contactId} onChange={setContactId} contactTypeFilter="vendor"
               onSelect={handleContactSelect} />
           </div>
-          <AccountSelector label="Pay From Account" value={payFromAccountId} onChange={setPayFromAccountId}
-            accountTypeFilter={['asset', 'liability']} required />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <AccountSelector label="Pay From Account" value={payFromAccountId} onChange={setPayFromAccountId}
+              accountTypeFilter={['asset', 'liability']} required />
+            <Input
+              label="Ref no."
+              value={txnNumber}
+              onChange={(e) => setTxnNumber(e.target.value)}
+              maxLength={50}
+              placeholder="Check #, receipt #, confirmation #…"
+            />
+          </div>
           <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
         </div>
 

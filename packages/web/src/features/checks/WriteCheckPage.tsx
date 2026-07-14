@@ -51,6 +51,10 @@ export function WriteCheckPage() {
   const [printedMemo, setPrintedMemo] = useState('');
   const [memo, setMemo] = useState('');
   const [printLater, setPrintLater] = useState(false);
+  // Manual check-number override for hand-written checks (blank = the
+  // company's auto counter assigns the next number). Hidden when
+  // queueing for print — print assigns numbers at print time.
+  const [checkNumber, setCheckNumber] = useState('');
   const [lines, setLines] = useState<ExpenseLine[]>([emptyLine()]);
 
   const amountWords = numberToWords(amount);
@@ -104,6 +108,7 @@ export function WriteCheckPage() {
         printedMemo: printedMemo || undefined,
         memo: memo || undefined,
         printLater: queueForPrint,
+        checkNumber: !queueForPrint && checkNumber.trim() ? Number(checkNumber) : undefined,
         lines: lines
           .filter((l) => l.accountId && l.amount)
           .map((l) => ({
@@ -128,7 +133,7 @@ export function WriteCheckPage() {
       >
         {/* Bank Account & Date */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <AccountSelector
               label="Bank Account"
               value={bankAccountId}
@@ -142,6 +147,16 @@ export function WriteCheckPage() {
               onChange={(e) => setTxnDate(e.target.value)}
               required
             />
+            {!printLater && (
+              <Input
+                label="Check no."
+                type="number"
+                min={1}
+                value={checkNumber}
+                onChange={(e) => setCheckNumber(e.target.value)}
+                placeholder="Blank = next number"
+              />
+            )}
           </div>
         </div>
 
