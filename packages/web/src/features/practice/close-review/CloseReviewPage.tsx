@@ -13,9 +13,10 @@ import { buildClosePeriods, ClosePeriodSelector } from './ClosePeriodSelector';
 import { BucketsTab } from './BucketsTab';
 import { FindingsTab } from './FindingsTab';
 import { ManualQueueTab } from './ManualQueueTab';
+import { ChecklistTab } from './ChecklistTab';
 import { ProgressBar } from './ProgressBar';
 
-type Tab = 'buckets' | 'findings' | 'manual';
+type Tab = 'checklist' | 'buckets' | 'findings' | 'manual';
 
 // Close Review is the Practice tab landing page. Build plan §2.3:
 //   - Company switcher at top (reuses the sidebar one via context)
@@ -74,6 +75,11 @@ export function CloseReviewPage() {
 
       <div className="flex items-center gap-1 border-b border-gray-200">
         <TabButton
+          active={tab === 'checklist'}
+          onClick={() => setTab('checklist')}
+          label="Checklist"
+        />
+        <TabButton
           active={tab === 'buckets'}
           disabled={bucketWorkflowEnabled === false}
           onClick={() => setTab('buckets')}
@@ -91,6 +97,9 @@ export function CloseReviewPage() {
         />
       </div>
 
+      {tab === 'checklist' && (
+        <ChecklistTab period={period} onOpenFindings={() => setTab('findings')} />
+      )}
       {tab === 'buckets' && bucketWorkflowEnabled !== false && (
         <BucketsTab
           companyId={activeCompanyId ?? null}

@@ -320,3 +320,59 @@ export function useDeleteCheckOverride() {
     },
   });
 }
+
+// ── Close checklist ─────────────────────────────────────────────
+
+export interface CloseChecklistTask {
+  key: string;
+  section: 'reconciliations' | 'transactions' | 'review' | 'final';
+  label: string;
+  auto: boolean;
+  done: boolean;
+  detail: string | null;
+  manuallyCompleted: boolean;
+  completedAt: string | null;
+  note: string | null;
+}
+
+const checklistKey = (companyId: string | null, periodStart: string) =>
+  ['practice', 'checks', 'checklist', companyId, periodStart] as const;
+
+export function useCloseChecklist(companyId: string | null, periodStart: string, periodEnd: string) {
+  return useQuery({
+    queryKey: checklistKey(companyId, periodStart),
+    queryFn: () => {
+      const qs = new URLSearchParams({ periodStart, periodEnd });
+      if (companyId) qs.set('companyId', companyId);
+      return apiClient<{ tasks: CloseChecklistTask[] }>(`/practice/checks/checklist?${qs.toString()}`);
+    },
+  });
+}
+
+export function useCompleteChecklistTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { companyId?: string | null; periodStart: string; taskKey: string; note?: string | null }) =>
+      apiClient<{ completed: true }>('/practice/checks/checklist/complete', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (_r, input) => {
+      qc.invalidateQueries({ queryKey: checklistKey(input.companyId ?? null, input.periodStart) });
+    },
+  });
+}
+
+export function useReopenChecklistTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { companyId?: string | null; periodStart: string; taskKey: string }) =>
+      apiClient<{ reopened: true }>('/practice/checks/checklist/reopen', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (_r, input) => {
+      qc.invalidateQueries({ queryKey: checklistKey(input.companyId ?? null, input.periodStart) });
+    },
+  });
+}

@@ -19,6 +19,9 @@ import {
   useTransitionFinding,
   useCreateSuppression,
 } from '../../../../api/hooks/useReviewChecks';
+import { useBulkUpdateTransactions } from '../../../../api/hooks/useTransactions';
+import { ContactSelector } from '../../../../components/forms/ContactSelector';
+import { useToast } from '../../../../components/ui/Toaster';
 import { Button } from '../../../../components/ui/Button';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { SeverityBadge } from './SeverityBadge';
@@ -53,6 +56,13 @@ const CHECK_GUIDANCE: Record<string, { verify: string; resolveLabel?: string }> 
   receipt_amount_mismatch: { verify: 'Reconcile the receipt total against the bank charge.' },
   ai_personal_expense_review: { verify: 'Decide whether this expense is business or personal.' },
   plaid_connection_health: { verify: 'Restore this bank connection so transactions keep importing.' },
+  expense_without_payee: { verify: 'Assign the missing vendor to this expense.' },
+  account_inconsistency_vs_history: { verify: 'Confirm the unusual category for this vendor is intentional — or fix it.' },
+  journal_entry_without_attachment: { verify: 'Attach the document that supports this journal entry.' },
+  new_entities_review: { verify: 'Verify this newly added record is set up correctly and not a duplicate.', resolveLabel: 'Looks correct' },
+  posted_into_reconciled_range: { verify: 'Verify this backdated entry belongs in the already-reconciled window.' },
+  flux_variance: { verify: 'Explain the unusual swing in this account — real change or coding error?' },
+  duplicate_entity_names: { verify: 'Decide whether these two contacts are the same — merge if so.' },
 };
 
 // Build plan §7.3 detail drawer. Slide-in panel with:
@@ -155,6 +165,11 @@ export function FindingDetailDrawer({ finding, registry, onClose }: Props) {
 
           {/* Deep links to the records involved */}
           <FindingLinks finding={finding} />
+
+          {/* Fix-in-place: payee/customer-missing findings get an inline
+              assignment so the correction happens without leaving the
+              review. */}
+          <InlineContactFix finding={finding} />
 
           {/* Remaining payload context, humanized; ids collapse into
               a technical-details disclosure. */}
@@ -357,6 +372,49 @@ function formatValue(key: string, v: unknown): string {
   } catch {
     return String(v);
   }
+}
+
+// Checks whose fix is "assign the missing contact" — those get an
+// inline selector so the correction happens inside the review flow.
+const CONTACT_FIX_CHECKS: Record<string, { label: string; filter: 'vendor' | 'customer' }> = {
+  expense_without_payee: { label: 'Assign vendor', filter: 'vendor' },
+  missing_required_customer: { label: 'Assign customer', filter: 'customer' },
+};
+
+function InlineContactFix({ finding }: { finding: Finding }) {
+  const fix = CONTACT_FIX_CHECKS[finding.checkKey];
+  const bulkUpdate = useBulkUpdateTransactions();
+  const toast = useToast();
+  const [contactId, setContactId] = useState('');
+  if (!fix || !finding.transactionId) return null;
+  const apply = () => {
+    if (!contactId) return;
+    bulkUpdate.mutate(
+      { txnIds: [finding.transactionId!], setPayeeContactId: contactId },
+      {
+        onSuccess: () => {
+          toast.success('Contact assigned — mark the finding resolved when you’re done.');
+          setContactId('');
+        },
+        onError: (err: Error) => toast.error(err.message || 'Could not assign the contact.'),
+      },
+    );
+  };
+  return (
+    <section className="rounded-lg border border-gray-200 bg-white p-3">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        Fix it here
+      </h4>
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <ContactSelector value={contactId} onChange={setContactId} contactTypeFilter={fix.filter} compact />
+        </div>
+        <Button size="sm" onClick={apply} disabled={!contactId} loading={bulkUpdate.isPending}>
+          {fix.label}
+        </Button>
+      </div>
+    </section>
+  );
 }
 
 // The three reviewer-facing payload fields, rendered prominently:
