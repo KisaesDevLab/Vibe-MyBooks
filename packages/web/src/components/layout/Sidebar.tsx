@@ -117,7 +117,10 @@ const navGroups: NavGroup[] = [
       { to: '/registers', label: 'Registers', icon: ScrollText, resource: 'transactions' },
       { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight, resource: 'transactions' },
       { to: '/transactions/batch', label: 'Batch Entry', icon: Grid3X3, resource: 'batch_entry' },
-      { to: '/transactions/journal-templates', label: 'Journal Templates', icon: LayoutTemplate, resource: 'transactions' },
+      // Lands on the ENTRY screen (fill in this period's amounts) — the
+      // everyday task; the template builder is one click away via
+      // "Manage templates".
+      { to: '/transactions/journal-templates/enter', label: 'Journal Templates', icon: LayoutTemplate, resource: 'transactions' },
       { to: '/recurring', label: 'Recurring', icon: Repeat, resource: 'recurring' },
       { to: '/duplicates', label: 'Duplicates', icon: Copy, resource: 'duplicates' },
       // Bulk historical-data import (CoA / contacts / TB / GL from
