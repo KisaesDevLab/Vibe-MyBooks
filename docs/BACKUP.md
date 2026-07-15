@@ -12,6 +12,48 @@ Vibe MyBooks supports two backup formats:
 
 The disaster-recovery bundle (**Admin → Installation Security → Download DR bundle**) is a `.vmx` system package: all tenants, users, configuration, attachment files, and the installation recovery files.
 
+### What a system bundle contains (format `kis-books-system-v2`)
+
+The system bundle is **complete by construction**: every table in the database
+is exported unless it appears on a short, explicit exclusion list, and a unit
+test (`backup-table-plan.test.ts`) fails the build if a new table is neither
+exported nor consciously excluded.
+
+- **Per-tenant data** — every table with a `tenant_id` column, per tenant.
+- **Global data** (`global_tables` section) — every other table whole:
+  Plaid configuration and item access tokens, SMS/2FA provider settings, AI
+  provider configuration, SMTP settings, firm integrations, OAuth grants,
+  passkeys, budget lines/periods, reconciliation lines, payroll import rows,
+  report pack items, global bank rules (`tenant_id IS NULL`), and so on.
+- **Credentials are included verbatim.** Encrypted credential columns
+  (`*_encrypted`) travel as stored; they decrypt on the restored server as
+  long as it has the original `PLAID_ENCRYPTION_KEY` (recovered via
+  `/data/.env.recovery` + your recovery key). The bundle itself is
+  passphrase-encrypted (PBKDF2 + AES-256-GCM), so possession of the file
+  alone reveals nothing. The post-restore checklist probe-decrypts one
+  restored credential and warns if the encryption key doesn't match.
+- **Files beyond receipts** — the bundle packages every upload category:
+  receipt/document attachments, bank-statement extraction sources, portal
+  receipt and Q&A uploads, payroll import files, and generated report PDFs.
+- **Excluded (deliberately):** short-TTL security tokens only — active login
+  sessions, one-time OTP codes, magic links, portal session tokens, password
+  reset tokens, OAuth authorization codes. Users simply sign in again after a
+  restore. Each exclusion is documented in
+  `packages/api/src/services/backup-table-plan.ts`.
+
+**Compatibility:** v1 bundles (`kis-books-system-v1`, pre-v2 releases) still
+restore; current code additionally applies their `system_config` section
+(SMTP settings), which older restore code ignored. v1 bundles simply never
+captured Plaid/SMS credentials, budget lines, or non-attachment files — take
+a fresh bundle after upgrading. Old releases restoring a v2 bundle recover
+tenants/users/tenant data/attachments but skip the new `global_tables` and
+extra file categories.
+
+**Known limitation:** single-tenant backups (Settings → Backup) capture the
+tenant's own tables; child tables without a `tenant_id` column (e.g. budget
+lines) and system-level settings are only in the **system** bundle — use the
+DR bundle for full disaster recovery.
+
 ### Multi-part bundles
 
 A DR bundle larger than the per-part budget (`BACKUP_PART_MAX_MB`, default **90 MB**) downloads as **several `.vmx` part files**:
