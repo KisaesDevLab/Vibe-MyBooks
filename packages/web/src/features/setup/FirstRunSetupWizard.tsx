@@ -44,6 +44,27 @@ async function setupFetch<T>(path: string, options: RequestInit = {}): Promise<T
   return res.json();
 }
 
+// Restore execution is asynchronous server-side: POST /restore/execute-staged
+// answers 202 with a runId immediately and the wizard polls
+// GET /restore/runs/:runId until the run settles. The runId is parked in
+// sessionStorage so a page reload mid-restore resumes polling instead of
+// showing the upload form again (the proxy-timeout failure mode of the old
+// synchronous endpoint).
+const RESTORE_RUN_STORAGE_KEY = 'vmb-restore-run';
+const RESTORE_POLL_INTERVAL_MS = 2500;
+const RESTORE_POLL_MAX_MS = 30 * 60 * 1000; // ~30 min ceiling
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+interface RestoreRunView {
+  runId: string;
+  status: 'running' | 'complete' | 'failed';
+  startedAt: string;
+  finishedAt: string | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
+}
+
 // Four-step happy path. Database, Network, and Security are no longer
 // dedicated steps — they auto-populate from the install script (DB creds
 // minted by install.sh and fetched via /api/setup/db-defaults, secrets
@@ -183,6 +204,15 @@ export function FirstRunSetupWizard() {
             // Fall through to already-complete handling if pending lookup fails.
           }
         }
+        if (status.setupComplete && sessionStorage.getItem(RESTORE_RUN_STORAGE_KEY)) {
+          // A restore kicked off in this browser session finished (that's
+          // what flipped setupComplete) but the operator hasn't seen its
+          // result yet — the run's one-time recovery key would be lost if we
+          // bounced to login here. Stay on the wizard and let the resume
+          // effect below poll the run and render the restore-complete card.
+          setBootstrapState('ready');
+          return;
+        }
         if (status.setupComplete && !status.statusCheckFailed) {
           // The system is already set up and running — never show the
           // first-run wizard. Bounce straight to login instead of rendering
@@ -295,6 +325,69 @@ export function FirstRunSetupWizard() {
     }
   };
 
+  // Guards the polling loop against a component unmount so a stale loop
+  // never writes state into a dead component.
+  const restorePollAbortRef = useRef(false);
+  useEffect(() => {
+    restorePollAbortRef.current = false;
+    return () => {
+      restorePollAbortRef.current = true;
+    };
+  }, []);
+
+  // Poll an async restore run until it settles. Owns the executing/spinner
+  // state for its whole lifetime: callers set nothing after handing over.
+  // On 'complete' the run's `result` is exactly the old synchronous restore
+  // response, so the existing recovery-key + checklist rendering consumes it
+  // unchanged. Transient fetch/5xx errors keep polling — the restore itself
+  // is still running server-side and only a definitive terminal status (or
+  // a 404, meaning the api restarted and lost the run) should stop us.
+  const pollRestoreRun = async (runId: string) => {
+    sessionStorage.setItem(RESTORE_RUN_STORAGE_KEY, runId);
+    setRestoreExecuting(true);
+    setRestoreError('');
+    const startedAt = Date.now();
+    while (!restorePollAbortRef.current) {
+      if (Date.now() - startedAt > RESTORE_POLL_MAX_MS) {
+        // Keep the sessionStorage runId — a reload resumes waiting.
+        setRestoreExecuting(false);
+        setRestoreError(
+          'The restore is still running after 30 minutes. Reload this page to keep waiting, or check the server logs.',
+        );
+        return;
+      }
+      let run: RestoreRunView;
+      try {
+        const res = await fetch(`${SETUP_API}/restore/runs/${encodeURIComponent(runId)}`);
+        if (res.status === 404) {
+          sessionStorage.removeItem(RESTORE_RUN_STORAGE_KEY);
+          setRestoreExecuting(false);
+          setRestoreError('The server restarted during the restore — please retry.');
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        run = (await res.json()) as RestoreRunView;
+      } catch {
+        // Network blip / proxy hiccup / api mid-restart — retry on the next tick.
+        await sleep(RESTORE_POLL_INTERVAL_MS);
+        continue;
+      }
+      if (run.status === 'complete') {
+        sessionStorage.removeItem(RESTORE_RUN_STORAGE_KEY);
+        setRestoreExecuting(false);
+        setRestoreResult(run.result ?? {});
+        return;
+      }
+      if (run.status === 'failed') {
+        sessionStorage.removeItem(RESTORE_RUN_STORAGE_KEY);
+        setRestoreExecuting(false);
+        setRestoreError(run.error || 'Restore failed');
+        return;
+      }
+      await sleep(RESTORE_POLL_INTERVAL_MS);
+    }
+  };
+
   const handleRestoreExecute = async () => {
     if (!restoreStaged?.complete || !restorePassphrase) return;
     setRestoreExecuting(true);
@@ -309,14 +402,55 @@ export function FirstRunSetupWizard() {
         const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
         throw new Error(err.error?.message || 'Restore failed');
       }
-      const data = await res.json();
-      setRestoreResult(data);
+      // 202 — the restore now runs server-side. Poll until it settles so a
+      // proxy timeout can no longer masquerade as a "tenants already exist"
+      // failure on retry. pollRestoreRun owns restoreExecuting from here.
+      const run = (await res.json()) as RestoreRunView;
+      await pollRestoreRun(run.runId);
     } catch (err) {
       setRestoreError(err instanceof Error ? err.message : 'Restore failed');
-    } finally {
       setRestoreExecuting(false);
     }
   };
+
+  // Resume a restore that was in flight when the page reloaded: the runId
+  // survives in sessionStorage, so poll it instead of showing the upload
+  // form. If the stored id 404s (api restart pruned it) but /runs/latest
+  // reports a run that is still running — or completed while we were away —
+  // adopt that run instead; a completed run still carries the one-time
+  // recovery key the operator must see.
+  useEffect(() => {
+    const storedRunId = sessionStorage.getItem(RESTORE_RUN_STORAGE_KEY);
+    if (!storedRunId) return;
+    setRestoreMode(true);
+    (async () => {
+      let runId: string | null = storedRunId;
+      try {
+        const res = await fetch(`${SETUP_API}/restore/runs/${encodeURIComponent(storedRunId)}`);
+        if (res.status === 404) {
+          runId = null;
+          const latestRes = await fetch(`${SETUP_API}/restore/runs/latest`);
+          if (latestRes.ok) {
+            const latest = (await latestRes.json()) as RestoreRunView;
+            if (latest.status === 'running' || latest.status === 'complete') runId = latest.runId;
+          }
+        }
+      } catch {
+        // Can't reach the api right now — still try polling the stored id;
+        // pollRestoreRun retries through transient failures.
+      }
+      if (restorePollAbortRef.current) return;
+      if (!runId) {
+        sessionStorage.removeItem(RESTORE_RUN_STORAGE_KEY);
+        setRestoreError('The server restarted during the restore — please retry.');
+        return;
+      }
+      void pollRestoreRun(runId);
+    })();
+    // Run exactly once on mount; pollRestoreRun/setters are stable for the
+    // component's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [form, setForm] = useState<FormState>({
     // Defaults match the Docker Compose install (the `db` and `redis`
@@ -1262,8 +1396,23 @@ export function FirstRunSetupWizard() {
               </div>
             )}
 
+            {/* Restore in progress — shown while the async run is polled.
+                Also what a reload lands on mid-restore (the resume effect
+                re-enters this state instead of the upload form). */}
+            {step === 0 && restoreMode && restoreExecuting && !restoreResult && (
+              <div className="text-center py-10 space-y-4">
+                <LoadingSpinner />
+                <h2 className="text-lg font-semibold text-gray-800">Restoring your backup…</h2>
+                <p className="text-sm text-gray-500 max-w-md mx-auto">
+                  This can take several minutes for large backups. You can keep this page open —
+                  reloading it is safe; the restore keeps running on the server and this page will
+                  pick it back up.
+                </p>
+              </div>
+            )}
+
             {/* Restore from backup flow */}
-            {step === 0 && restoreMode && !restoreResult && (
+            {step === 0 && restoreMode && !restoreExecuting && !restoreResult && (
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                   <Upload className="h-5 w-5 text-amber-600" />

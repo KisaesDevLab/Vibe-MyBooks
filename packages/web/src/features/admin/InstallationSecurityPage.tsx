@@ -23,6 +23,15 @@ interface SecurityStatus {
   recoveryFileStale: boolean;
   staleFields: string[];
   dbInstallationId: string | null;
+  // Cross-host restores park the SOURCE install's recovery file so the
+  // operator can recover credential encryption with their original key.
+  sourceRecoveryFileExists: boolean;
+}
+
+interface CredentialRecoveryReport {
+  perTable: Record<string, { reencrypted: number; alreadyCurrent: number; unreadable: number }>;
+  totals: { reencrypted: number; alreadyCurrent: number; unreadable: number };
+  sourceKeyOrigin: string;
 }
 
 interface RegenerateResponse {
@@ -106,6 +115,43 @@ export function InstallationSecurityPage() {
       setDrError((e as Error).message);
     } finally {
       setDrBusy(false);
+    }
+  }
+
+  // Credential-encryption recovery state. After a cross-host restore the
+  // stored integration credentials are still ciphered under the OLD server's
+  // key; this flow re-encrypts them under this server's key. The source key
+  // arrives either via the operator's original recovery key (decrypting the
+  // parked source recovery file) or as a directly pasted encryption key.
+  const [credMode, setCredMode] = useState<'recoveryKey' | 'sourceKey'>('recoveryKey');
+  const [credKey, setCredKey] = useState('');
+  const [credPassword, setCredPassword] = useState('');
+  const [credBusy, setCredBusy] = useState(false);
+  const [credError, setCredError] = useState<string | null>(null);
+  const [credReport, setCredReport] = useState<CredentialRecoveryReport | null>(null);
+
+  async function runCredentialRecovery(mode: 'recoveryKey' | 'sourceKey') {
+    setCredError(null);
+    setCredReport(null);
+    setCredBusy(true);
+    try {
+      const body: Record<string, string> = { password: credPassword };
+      if (mode === 'recoveryKey') body['recoveryKey'] = credKey.trim();
+      else body['sourceKey'] = credKey.trim();
+      const report = await apiClient<CredentialRecoveryReport>(
+        '/admin/security/credential-encryption/recover',
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+      setCredReport(report);
+      setCredKey('');
+      setCredPassword('');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'security-status'] });
+    } catch (err) {
+      // 400s carry a user-actionable message (wrong key, no source file,
+      // v1 file without a credential key) — show it verbatim.
+      setCredError((err as Error).message);
+    } finally {
+      setCredBusy(false);
     }
   }
 
@@ -204,6 +250,14 @@ export function InstallationSecurityPage() {
 
   if (isLoading) return <LoadingSpinner />;
   if (!data) return <p>Failed to load security status.</p>;
+
+  // The "Original recovery key" mode only works when the restore parked the
+  // source server's recovery file; without it the pasted-key mode is the
+  // only option, regardless of which toggle state is remembered.
+  const effectiveCredMode = data.sourceRecoveryFileExists ? credMode : 'sourceKey';
+  const credReportRows = credReport
+    ? Object.entries(credReport.perTable).filter(([, v]) => v.reencrypted > 0 || v.unreadable > 0)
+    : [];
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -385,6 +439,113 @@ export function InstallationSecurityPage() {
             {'message' in testResult ? ` — ${testResult.message}` : ''}
           </p>
         ) : null}
+      </section>
+
+      {/* Credential encryption recovery */}
+      <section className="rounded-lg border border-gray-200 bg-white p-5 space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-1">
+          <KeyRound className="h-4 w-4" /> Credential encryption
+        </h2>
+        <p className="text-sm text-gray-600">
+          After a restore from another server, stored integration credentials (Plaid, SMS, AI keys,
+          storage tokens) may still be encrypted under the old server&apos;s key. Provide that key
+          here to re-encrypt them under this server&apos;s key. Nothing is modified unless the key
+          checks out.
+        </p>
+
+        {data.sourceRecoveryFileExists && (
+          <div className="inline-flex rounded-md border border-gray-300 overflow-hidden text-sm" role="radiogroup" aria-label="Source key input mode">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={effectiveCredMode === 'recoveryKey'}
+              onClick={() => { setCredMode('recoveryKey'); setCredKey(''); setCredError(null); }}
+              className={`px-3 py-1.5 ${effectiveCredMode === 'recoveryKey' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              Original recovery key
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={effectiveCredMode === 'sourceKey'}
+              onClick={() => { setCredMode('sourceKey'); setCredKey(''); setCredError(null); }}
+              className={`px-3 py-1.5 border-l border-gray-300 ${effectiveCredMode === 'sourceKey' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              Source encryption key
+            </button>
+          </div>
+        )}
+
+        {effectiveCredMode === 'recoveryKey' ? (
+          <>
+            <p className="text-sm text-gray-600">
+              Enter the recovery key from the <strong>original</strong> server. The restore brought
+              its recovery file along, so that key can unlock the old credential-encryption key.
+            </p>
+            <Input
+              placeholder="RKVMB-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+              value={credKey}
+              onChange={(e) => { setCredKey(e.target.value); setCredError(null); }}
+              className="font-mono"
+            />
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-gray-600">
+              Paste the old server&apos;s <code>PLAID_ENCRYPTION_KEY</code> value (from its{' '}
+              <code>/data/config/.env</code>).
+            </p>
+            <Input
+              placeholder="Old server's PLAID_ENCRYPTION_KEY"
+              value={credKey}
+              onChange={(e) => { setCredKey(e.target.value); setCredError(null); }}
+              className="font-mono"
+            />
+          </>
+        )}
+        <Input
+          type="password"
+          placeholder="Current password"
+          value={credPassword}
+          onChange={(e) => { setCredPassword(e.target.value); setCredError(null); }}
+        />
+        {credError && <p className="text-sm text-red-700">{credError}</p>}
+        <Button
+          onClick={() => runCredentialRecovery(effectiveCredMode)}
+          disabled={credBusy || !credKey.trim() || !credPassword}
+          loading={credBusy}
+        >
+          Recover credentials
+        </Button>
+
+        {credReport && (
+          <div className="rounded-md bg-green-50 border border-green-300 p-3 space-y-2">
+            <p className="text-sm text-green-800 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 flex-shrink-0" />
+              Re-encrypted {credReport.totals.reencrypted} credential
+              {credReport.totals.reencrypted === 1 ? '' : 's'}
+              {credReport.totals.alreadyCurrent > 0 && ` — ${credReport.totals.alreadyCurrent} already current`}
+              {credReport.totals.unreadable > 0 && ` — ${credReport.totals.unreadable} unreadable`}
+            </p>
+            {credReportRows.length > 0 && (
+              <ul className="text-xs font-mono text-gray-700 space-y-0.5">
+                {credReportRows.map(([table, counts]) => (
+                  <li key={table}>
+                    {table}: {counts.reencrypted} re-encrypted
+                    {counts.unreadable > 0 ? `, ${counts.unreadable} unreadable` : ''}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {credReport.totals.unreadable > 0 && (
+              <p className="text-xs text-amber-700 flex items-start gap-1">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                Unreadable entries could not be decrypted with either key — re-enter those
+                credentials in their integration settings.
+              </p>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Disaster-recovery bundle */}
