@@ -52,7 +52,10 @@ interface StatementCheck {
 // (a credit) can never be tagged as check 1234, while a paid-checks section
 // listing debits as "#1042" still gets the payee affordance.
 const CHECK_NUMBER_RE = /\b(?:CHECK|CHK|CK|DRAFT)\s*(?:NO\.?|#)?\s*(\d{1,7})\b/i;
-const BARE_CHECK_NUMBER_RE = /#\s*(\d{1,7})\b/;
+// Anchored like the server's HASH_ONLY: the "#" must start the token
+// (start-of-string or after whitespace), so "ACH PMT REF#1042" and
+// "POS STORE#1042" are NOT mistaken for check 1042.
+const BARE_CHECK_NUMBER_RE = /(?:^|\s)#\s*(\d{1,7})\b/;
 
 // Prefer check data already carried on the parse-result row; otherwise
 // recover the number from the description text.
