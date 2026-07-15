@@ -6,6 +6,7 @@
 import { todayLocalISO } from '../../utils/date';
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   useStartReconciliation, useReconciliation, useUpdateReconciliationLines, useCompleteReconciliation,
   useReconciliations, useUpdateReconciliation, useCancelReconciliation, useRefreshReconciliation,
@@ -14,6 +15,7 @@ import {
   useExcludeStatementLine, useCreateFromStatementLine,
   type StatementMatchResult, type StatementMatchCandidate, type StatementMatchSuggestion,
   type StatementLineSummary, type StatementGroupCandidate, type ConfirmStatementLinePayload,
+  type StatementMatchesView,
 } from '../../api/hooks/useBanking';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
@@ -552,6 +554,16 @@ function defaultConfirmPayload(s: StatementMatchSuggestion): ConfirmStatementLin
   return null;
 }
 
+// STATEMENT_CHECK_PAYEE_V2 — report from POST /banking/check-payees/backfill.
+interface CheckPayeeBackfillReport {
+  scannedTransactions: number;
+  payeesApplied: number;
+  contactsLinked: number;
+  fromStatementLines: number;
+  fromPayrollRegister: number;
+  rescan?: { statementsScanned: number; checksRead: number; payeesApplied: number };
+}
+
 function StatementMatchPanel({
   reconId, isComplete, onShowUncleared,
 }: {
@@ -564,13 +576,79 @@ function StatementMatchPanel({
   const rejectLine = useRejectStatementLine();
   const excludeLine = useExcludeStatementLine();
   const toast = useToast();
+  const qc = useQueryClient();
   // Wave 2 Feature B: the statement line the "Add to books" modal is open for.
   const [addToBooksLine, setAddToBooksLine] = useState<StatementLineSummary | null>(null);
   const [showExcluded, setShowExcluded] = useState(false);
+  // STATEMENT_CHECK_PAYEE_V2 — inline "Set payee" editor for check lines with
+  // no payee, plus the "Backfill check payees" tool + its confirm dialog.
+  const [payeeEditLineId, setPayeeEditLineId] = useState<string | null>(null);
+  const [payeeDraft, setPayeeDraft] = useState('');
+  const [showBackfillConfirm, setShowBackfillConfirm] = useState(false);
+  const [backfillRescan, setBackfillRescan] = useState(false);
+  const setPayee = useMutation({
+    mutationFn: ({ lineId, payee }: { lineId: string; payee: string }) =>
+      apiClient<{ line: StatementLineSummary; transactionUpdated: boolean }>(
+        `/banking/statement-lines/${lineId}/payee`,
+        { method: 'PATCH', body: JSON.stringify({ payee }) },
+      ),
+  });
+  const backfill = useMutation({
+    mutationFn: (rescan: boolean) =>
+      apiClient<CheckPayeeBackfillReport>('/banking/check-payees/backfill', {
+        method: 'POST', body: JSON.stringify({ rescan }),
+      }),
+  });
 
   if (isLoading) return <LoadingSpinner className="py-6" />;
   if (isError) return <ErrorMessage message="Couldn't load statement match results." onRetry={() => refetch()} />;
   if (!data) return null;
+
+  const handleSavePayee = (lineId: string) => {
+    const payee = payeeDraft.trim();
+    if (!payee) return;
+    setPayee.mutate({ lineId, payee }, {
+      onSuccess: ({ line, transactionUpdated }) => {
+        // Patch the returned line into the cached match view in place — no
+        // refetch needed, the payee is the only thing that changed.
+        qc.setQueryData<StatementMatchesView>(['statement-matches', reconId], (prev) => prev && ({
+          ...prev,
+          suggestions: prev.suggestions.map((s) => (s.statementLine.id === line.id ? { ...s, statementLine: line } : s)),
+          unmatchedLines: prev.unmatchedLines.map((l) => (l.id === line.id ? line : l)),
+          excludedLines: prev.excludedLines.map((l) => (l.id === line.id ? line : l)),
+        }));
+        setPayeeEditLineId(null);
+        setPayeeDraft('');
+        toast.success(transactionUpdated
+          ? 'Payee saved — also stamped onto the matched transaction.'
+          : 'Payee saved.');
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not set the payee.'),
+    });
+  };
+
+  const handleBackfill = () => {
+    setShowBackfillConfirm(false);
+    backfill.mutate(backfillRescan, {
+      onSuccess: (r) => {
+        // Payees may have landed on statement lines / transactions shown here.
+        qc.invalidateQueries({ queryKey: ['statement-matches'] });
+        qc.invalidateQueries({ queryKey: ['reconciliation'] });
+        const parts = [
+          `${r.scannedTransactions} check transaction${r.scannedTransactions === 1 ? '' : 's'} scanned`,
+          `${r.payeesApplied} payee${r.payeesApplied === 1 ? '' : 's'} applied`,
+          `${r.contactsLinked} contact${r.contactsLinked === 1 ? '' : 's'} linked`,
+          `${r.fromStatementLines} from statement lines`,
+          `${r.fromPayrollRegister} from payroll register`,
+        ];
+        if (r.rescan) {
+          parts.push(`re-scan: ${r.rescan.statementsScanned} statements, ${r.rescan.checksRead} checks read, ${r.rescan.payeesApplied} payees applied`);
+        }
+        toast.success(`Backfill complete — ${parts.join(' · ')}.`);
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Check-payee backfill failed.'),
+    });
+  };
 
   const handleConfirm = (payload: ConfirmStatementLinePayload) => {
     confirmLine.mutate(payload, {
@@ -620,16 +698,28 @@ function StatementMatchPanel({
 
   return (
     <div className="space-y-4 mb-4">
-      {/* Outstanding items — in the books, not on the statement. */}
-      {data.outstandingCount > 0 && (
-        <button
-          onClick={onShowUncleared}
-          className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
-          title="In your books, not on the statement — outstanding checks / deposits in transit. Click to filter the worksheet to uncleared rows."
+      {/* Panel header: outstanding chip + check-payee backfill tool. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Outstanding items — in the books, not on the statement. */}
+        {data.outstandingCount > 0 && (
+          <button
+            onClick={onShowUncleared}
+            className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+            title="In your books, not on the statement — outstanding checks / deposits in transit. Click to filter the worksheet to uncleared rows."
+          >
+            {data.outstandingCount} outstanding item{data.outstandingCount === 1 ? '' : 's'} — in your books, not on the statement
+          </button>
+        )}
+        <Button
+          size="sm" variant="secondary" className="ml-auto"
+          onClick={() => setShowBackfillConfirm(true)}
+          loading={backfill.isPending}
+          disabled={backfill.isPending}
+          title="Fill payees onto posted check transactions that have a check number but no payee — from statement lines and the payroll check register"
         >
-          {data.outstandingCount} outstanding item{data.outstandingCount === 1 ? '' : 's'} — in your books, not on the statement
-        </button>
-      )}
+          <Wand2 className="h-4 w-4 mr-1" /> Backfill check payees
+        </Button>
+      </div>
 
       {data.suggestions.length > 0 && (
         <div className="bg-white rounded-lg border shadow-sm p-4">
@@ -686,6 +776,42 @@ function StatementMatchPanel({
                 )}
                 {!isComplete && (
                   <>
+                    {/* STATEMENT_CHECK_PAYEE_V2 — a check line with no payee:
+                        let the operator type the name off the check image. */}
+                    {l.checkNumber && !l.payee && (
+                      payeeEditLineId === l.id ? (
+                        <span className="flex items-center gap-1">
+                          <input
+                            autoFocus
+                            value={payeeDraft}
+                            onChange={(e) => setPayeeDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSavePayee(l.id);
+                              if (e.key === 'Escape') { setPayeeEditLineId(null); setPayeeDraft(''); }
+                            }}
+                            placeholder="Payee name"
+                            aria-label={`Payee for check ${l.checkNumber}`}
+                            className="rounded-md border-gray-300 text-sm px-2 py-1 w-40"
+                          />
+                          <Button size="sm" onClick={() => handleSavePayee(l.id)}
+                            disabled={!payeeDraft.trim()} loading={setPayee.isPending}
+                            title="Save payee">
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost"
+                            onClick={() => { setPayeeEditLineId(null); setPayeeDraft(''); }}
+                            title="Cancel">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </span>
+                      ) : (
+                        <Button size="sm" variant="ghost"
+                          onClick={() => { setPayeeEditLineId(l.id); setPayeeDraft(''); }}
+                          title="This check has no payee — set who it was written to">
+                          <Pencil className="h-4 w-4 mr-1" /> Set payee
+                        </Button>
+                      )
+                    )}
                     <Button size="sm" variant="ghost" onClick={() => setAddToBooksLine(l)}>
                       <Plus className="h-4 w-4 mr-1" /> Add to books
                     </Button>
@@ -742,6 +868,37 @@ function StatementMatchPanel({
 
       {addToBooksLine && (
         <AddToBooksModal line={addToBooksLine} onClose={() => setAddToBooksLine(null)} />
+      )}
+
+      {/* Confirm the check-payee backfill (with the optional slow re-scan). */}
+      {showBackfillConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">Backfill check payees?</h3>
+            <p className="text-sm text-gray-600">
+              Fills payees onto posted check transactions that have a check number but no payee or contact,
+              using payees already read from statement lines and the payroll check register.
+            </p>
+            <label className="flex items-start gap-2 cursor-pointer text-sm text-gray-700">
+              <input
+                type="checkbox"
+                className="mt-0.5 rounded"
+                checked={backfillRescan}
+                onChange={(e) => setBackfillRescan(e.target.checked)}
+              />
+              <span>
+                Also re-scan stored statements (slower)
+                <span className="block text-xs text-gray-500">
+                  Re-reads check images from statement PDFs already on file to harvest payees older imports never read.
+                </span>
+              </span>
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setShowBackfillConfirm(false)}>Cancel</Button>
+              <Button onClick={handleBackfill}>Run backfill</Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
