@@ -27,6 +27,38 @@ interface ParsedTransaction {
   balance?: string;
   selected: boolean;
   duplicate: boolean;
+  // STATEMENT_CHECK_PAYEE_V2 — the row's check number (from the parse result
+  // or recovered from the description) and the user-editable payee, seeded
+  // from the job result's check-image reads. Carried into the import body.
+  checkNumber?: string;
+  checkPayee: string;
+}
+
+// A payee read off a check image in the parse result (correlated to its row
+// by check number). Mirrors the server's StatementCheckImage shape.
+interface StatementCheck {
+  checkNumber: string;
+  payee: string;
+  amount?: string;
+}
+
+// Same regex family the server uses to spot check rows in descriptions:
+// "CHECK 1234", "CHK #1234", "CK NO. 1234", "DRAFT 1234" — or a bare "#1234".
+const CHECK_NUMBER_RE = /\b(?:CHECK|CHK|CK|DRAFT)\s*(?:NO\.?|#)?\s*(\d{1,7})\b/i;
+const BARE_CHECK_NUMBER_RE = /#\s*(\d{1,7})\b/;
+
+// Prefer check data already carried on the parse-result row; otherwise
+// recover the number from the description text.
+function deriveCheckNumber(row: { [key: string]: unknown }, description: string): string | undefined {
+  const carried = row['checkNumber'];
+  if (typeof carried === 'string' && /^\d{1,7}$/.test(carried.trim())) {
+    return carried.trim();
+  }
+  if (typeof carried === 'number' && Number.isFinite(carried) && carried > 0) {
+    return String(carried);
+  }
+  const m = CHECK_NUMBER_RE.exec(description) ?? BARE_CHECK_NUMBER_RE.exec(description);
+  return m?.[1];
 }
 
 // A valid RFC-4122 v4 UUID that works in non-secure contexts (HTTP/LAN), where
@@ -134,14 +166,27 @@ export function StatementUploadPage() {
 
   // Map a terminal parse result into the review table + metadata.
   const applyResult = (result: ParsedStatement) => {
-    setTransactions((result.transactions ?? []).map((t) => ({
-      date: t.date,
-      description: t.description,
-      amount: t.amount,
-      type: t.type === 'credit' ? 'credit' : 'debit',
-      selected: true,
-      duplicate: false,
-    })));
+    // Payees read off check images in the parse result, keyed by the
+    // numeric check number (leading zeros normalized away on both sides).
+    const checks = (result as ParsedStatement & { checks?: StatementCheck[] }).checks ?? [];
+    const payeeByCheckNumber = new Map<string, string>();
+    for (const c of checks) {
+      const n = Number(c.checkNumber);
+      if (Number.isFinite(n) && n > 0 && c.payee) payeeByCheckNumber.set(String(n), c.payee);
+    }
+    setTransactions((result.transactions ?? []).map((t) => {
+      const checkNumber = deriveCheckNumber(t, t.description);
+      return {
+        date: t.date,
+        description: t.description,
+        amount: t.amount,
+        type: t.type === 'credit' ? 'credit' : 'debit',
+        selected: true,
+        duplicate: false,
+        checkNumber,
+        checkPayee: checkNumber ? (payeeByCheckNumber.get(String(Number(checkNumber))) ?? '') : '',
+      } satisfies ParsedTransaction;
+    }));
     setMetadata({
       accountNumber: result.accountNumberMasked,
       period: result.statementPeriod,
@@ -324,6 +369,10 @@ export function StatementUploadPage() {
               cleanedName: p?.cleanedName ?? undefined,
               suggestedAccountId: p?.suggestedAccountId ?? undefined,
               tagId: p?.tagId ?? undefined,
+              // STATEMENT_CHECK_PAYEE_V2 — the row's check number + the
+              // (possibly edited) payee; blank payees are omitted.
+              checkNumber: t.checkNumber ?? undefined,
+              checkPayee: t.checkNumber && t.checkPayee.trim() ? t.checkPayee.trim() : undefined,
             };
           }),
         }),
@@ -501,6 +550,12 @@ export function StatementUploadPage() {
 
   const toggleRow = (idx: number) => {
     setTransactions((txns) => txns.map((t, i) => i === idx ? { ...t, selected: !t.selected } : t));
+  };
+
+  // Edit the payee carried with a check row (seeded from the check-image read,
+  // blank when the parse couldn't read one).
+  const setCheckPayee = (idx: number, value: string) => {
+    setTransactions((txns) => txns.map((t, i) => (i === idx ? { ...t, checkPayee: value } : t)));
   };
 
   const selectedCount = transactions.filter((t) => t.selected && !t.duplicate).length;
@@ -783,6 +838,7 @@ export function StatementUploadPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Description</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-600">Amount</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Type</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Check # / Payee</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Suggested Category</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-600">Balance</th>
                 </tr>
@@ -811,6 +867,23 @@ export function StatementUploadPage() {
                       {txn.type === 'credit' ? '+' : '-'}${parseFloat(txn.amount).toFixed(2)}
                     </td>
                     <td className="px-4 py-2 text-gray-500 capitalize">{txn.type}</td>
+                    <td className="px-4 py-2">
+                      {txn.checkNumber ? (
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-gray-500 whitespace-nowrap">#{txn.checkNumber}</span>
+                          <input
+                            type="text"
+                            value={txn.checkPayee}
+                            onChange={(e) => setCheckPayee(idx, e.target.value)}
+                            placeholder="Payee"
+                            aria-label={`Payee for check ${txn.checkNumber}`}
+                            className="rounded-md border-gray-300 text-sm px-2 py-1 w-36"
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-2">
                       {previewByIndex[idx] ? (
                         previewByIndex[idx]!.suggestedAccountName ? (
