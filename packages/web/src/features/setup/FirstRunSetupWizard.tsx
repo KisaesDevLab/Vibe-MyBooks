@@ -213,58 +213,97 @@ export function FirstRunSetupWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Restore from backup state
+  // Restore from backup state. A disaster-recovery backup may arrive as one
+  // classic file (.vmb / .vmx) or as SEVERAL .vmx part files (multi-part —
+  // see vmx-package.ts). Every file goes through /restore/stage, which
+  // validates it against the passphrase and parks it server-side; once the
+  // series is complete, /restore/execute-staged assembles and restores it.
   const [restoreMode, setRestoreMode] = useState(false);
-  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoreFiles, setRestoreFiles] = useState<File[]>([]);
   const [restorePassphrase, setRestorePassphrase] = useState('');
   const [showRestorePassphrase, setShowRestorePassphrase] = useState(false);
-  const [restoreValidation, setRestoreValidation] = useState<Record<string, unknown> | null>(null);
-  const [restoreValidating, setRestoreValidating] = useState(false);
+  const [restoreFileStatus, setRestoreFileStatus] = useState<
+    Array<{ name: string; size: number; status: 'pending' | 'uploading' | 'staged' | 'error'; error?: string }>
+  >([]);
+  const [restoreStaged, setRestoreStaged] = useState<{
+    backupId: string;
+    partCount: number | null;
+    received: number[];
+    complete: boolean;
+  } | null>(null);
+  const [restoreStaging, setRestoreStaging] = useState(false);
   const [restoreExecuting, setRestoreExecuting] = useState(false);
   const [restoreResult, setRestoreResult] = useState<Record<string, unknown> | null>(null);
   const [restoreError, setRestoreError] = useState('');
   const restoreFileRef = useRef<HTMLInputElement>(null);
 
   const handleRestoreFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setRestoreFile(e.target.files?.[0] ?? null);
-    setRestoreValidation(null);
+    const files = Array.from(e.target.files ?? []);
+    setRestoreFiles(files);
+    setRestoreFileStatus(files.map((f) => ({ name: f.name, size: f.size, status: 'pending' })));
+    setRestoreStaged(null);
     setRestoreResult(null);
     setRestoreError('');
   };
 
-  const handleRestoreValidate = async () => {
-    if (!restoreFile || !restorePassphrase) return;
-    setRestoreValidating(true);
+  // Upload every selected file to /restore/stage sequentially. Each part is
+  // fully validated server-side (passphrase + authenticated inventory), so a
+  // bad file fails its own upload with a precise message instead of poisoning
+  // the final restore.
+  const handleRestoreStage = async () => {
+    if (restoreFiles.length === 0 || !restorePassphrase) return;
+    setRestoreStaging(true);
     setRestoreError('');
+    let lastSummary: typeof restoreStaged = null;
     try {
-      const formData = new FormData();
-      formData.append('file', restoreFile);
-      formData.append('passphrase', restorePassphrase);
-      const res = await fetch(`${SETUP_API}/restore/validate`, { method: 'POST', body: formData });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: { message: 'Validation failed' } }));
-        throw new Error(err.error?.message || 'Validation failed');
+      for (let i = 0; i < restoreFiles.length; i++) {
+        const file = restoreFiles[i]!;
+        setRestoreFileStatus((s) => s.map((x, j) => (j === i ? { ...x, status: 'uploading' } : x)));
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('passphrase', restorePassphrase);
+        const res = await fetch(`${SETUP_API}/restore/stage`, { method: 'POST', body: formData });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: { message: 'Upload failed' } }));
+          const message = err.error?.message || 'Upload failed';
+          setRestoreFileStatus((s) => s.map((x, j) => (j === i ? { ...x, status: 'error', error: message } : x)));
+          throw new Error(`${file.name}: ${message}`);
+        }
+        const summary = await res.json();
+        setRestoreFileStatus((s) => s.map((x, j) => (j === i ? { ...x, status: 'staged' } : x)));
+        lastSummary = summary;
+        setRestoreStaged(summary);
+        // Mixing files from different backups is a hard error server-side per
+        // series, but a classic file among parts would silently start a
+        // SECOND session — catch that here.
+        if (i > 0 && restoreFiles.length > 1 && summary.classic) {
+          throw new Error(`${file.name}: not part of a multi-part backup — restore it on its own.`);
+        }
       }
-      const data = await res.json();
-      setRestoreValidation(data);
+      if (lastSummary && !lastSummary.complete) {
+        const have = lastSummary.received.length;
+        setRestoreError(
+          lastSummary.partCount === null
+            ? `Uploaded ${have} part(s), but the final part of this backup is missing. Select ALL of the backup's files and try again.`
+            : `Uploaded ${have} of ${lastSummary.partCount} parts. Add the missing part file(s) and stage again.`,
+        );
+      }
     } catch (err) {
-      setRestoreError(err instanceof Error ? err.message : 'Validation failed');
+      setRestoreError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
-      setRestoreValidating(false);
+      setRestoreStaging(false);
     }
   };
 
   const handleRestoreExecute = async () => {
-    if (!restoreFile || !restorePassphrase) return;
+    if (!restoreStaged?.complete || !restorePassphrase) return;
     setRestoreExecuting(true);
     setRestoreError('');
     try {
-      const formData = new FormData();
-      formData.append('file', restoreFile);
-      formData.append('passphrase', restorePassphrase);
-      const res = await fetch(`${SETUP_API}/restore/execute`, {
+      const res = await fetch(`${SETUP_API}/restore/execute-staged`, {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backupId: restoreStaged.backupId, passphrase: restorePassphrase }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
@@ -1217,7 +1256,7 @@ export function FirstRunSetupWizard() {
                   >
                     <Upload className="h-6 w-6 text-amber-600 mb-2" />
                     <h3 className="font-semibold text-gray-900 group-hover:text-amber-700">Restore from backup</h3>
-                    <p className="text-xs text-gray-500 mt-1">Upload a .vmb backup file from a previous installation.</p>
+                    <p className="text-xs text-gray-500 mt-1">Upload backup files (.vmx / .vmb) from a previous installation — including multi-part disaster-recovery bundles.</p>
                   </button>
                 </div>
               </div>
@@ -1231,7 +1270,9 @@ export function FirstRunSetupWizard() {
                   Restore from Backup
                 </h2>
                 <p className="text-sm text-gray-500">
-                  Upload a .vmb backup file and enter the passphrase to restore your data.
+                  Upload your backup and enter its passphrase. A disaster-recovery bundle may be
+                  several <code className="bg-gray-100 px-1 rounded">.vmx</code> part files — select{' '}
+                  <strong>all of them at once</strong>.
                 </p>
 
                 {restoreError && (
@@ -1242,17 +1283,33 @@ export function FirstRunSetupWizard() {
 
                 <div className="space-y-3 max-w-md">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Backup File (.vmb)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Backup File(s) (.vmx, .vmb)</label>
                     <input
                       ref={restoreFileRef}
                       type="file"
-                      accept=".vmb,.kbk"
+                      accept=".vmx,.vmb,.kbk"
+                      multiple
                       onChange={handleRestoreFileChange}
                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border file:border-gray-300 file:text-sm file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
                     />
                   </div>
 
-                  {restoreFile && (
+                  {restoreFileStatus.length > 0 && (
+                    <ul className="space-y-1 text-sm">
+                      {restoreFileStatus.map((f) => (
+                        <li key={f.name} className="flex items-center gap-2">
+                          {f.status === 'staged' && <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />}
+                          {f.status === 'uploading' && <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />}
+                          {f.status === 'error' && <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />}
+                          {f.status === 'pending' && <span className="h-4 w-4 shrink-0 rounded-full border-2 border-gray-300" />}
+                          <span className="truncate text-gray-700">{f.name}</span>
+                          <span className="ml-auto text-xs text-gray-400">{(f.size / (1024 * 1024)).toFixed(1)} MB</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {restoreFiles.length > 0 && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Passphrase</label>
                       <div className="relative">
@@ -1271,42 +1328,33 @@ export function FirstRunSetupWizard() {
                     </div>
                   )}
 
-                  {!restoreValidation && (
+                  {!restoreStaged?.complete && (
                     <div className="flex gap-3">
-                      <Button variant="secondary" onClick={() => { setRestoreMode(false); setRestoreFile(null); setRestorePassphrase(''); }}>
+                      <Button variant="secondary" onClick={() => { setRestoreMode(false); setRestoreFiles([]); setRestoreFileStatus([]); setRestoreStaged(null); setRestorePassphrase(''); }}>
                         Back
                       </Button>
-                      <Button onClick={handleRestoreValidate} loading={restoreValidating}
-                        disabled={!restoreFile || !restorePassphrase}>
-                        Validate Backup
+                      <Button onClick={handleRestoreStage} loading={restoreStaging}
+                        disabled={restoreFiles.length === 0 || !restorePassphrase}>
+                        Upload &amp; Validate
                       </Button>
                     </div>
                   )}
 
-                  {/* Validation result */}
-                  {restoreValidation && (
+                  {/* Staged and complete — ready to restore */}
+                  {restoreStaged?.complete && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <ShieldCheck className="h-5 w-5 text-green-600" />
                         <span className="font-semibold text-green-800">Backup Validated</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                        <span className="text-gray-600">Type:</span>
-                        <span className="text-gray-900 capitalize">{String(restoreValidation['backup_type'])} backup</span>
-                        <span className="text-gray-600">Version:</span>
-                        <span className="text-gray-900">{String((restoreValidation['metadata'] as Record<string, unknown>)?.['source_version'] || 'unknown')}</span>
-                        <span className="text-gray-600">Created:</span>
-                        <span className="text-gray-900">{new Date(String((restoreValidation['metadata'] as Record<string, unknown>)?.['created_at'] || '')).toLocaleDateString()}</span>
-                        <span className="text-gray-600">Companies:</span>
-                        <span className="text-gray-900">{String((restoreValidation['metadata'] as Record<string, unknown>)?.['tenant_count'] || 1)}</span>
-                        <span className="text-gray-600">Users:</span>
-                        <span className="text-gray-900">{String((restoreValidation['metadata'] as Record<string, unknown>)?.['user_count'] || 0)}</span>
-                        <span className="text-gray-600">Transactions:</span>
-                        <span className="text-gray-900">{Number((restoreValidation['metadata'] as Record<string, unknown>)?.['transaction_count'] || 0).toLocaleString()}</span>
-                      </div>
-
+                      <p className="text-sm text-gray-700">
+                        {restoreStaged.partCount === 1
+                          ? 'Backup file uploaded and verified against your passphrase.'
+                          : `All ${restoreStaged.partCount} parts uploaded and verified against your passphrase.`}
+                        {' '}Restoring will load this data into the empty installation.
+                      </p>
                       <div className="mt-4 flex gap-3">
-                        <Button variant="secondary" onClick={() => { setRestoreValidation(null); }}>
+                        <Button variant="secondary" onClick={() => { setRestoreStaged(null); setRestoreFileStatus((s) => s.map((x) => ({ ...x, status: 'pending' }))); }}>
                           Back
                         </Button>
                         <Button onClick={handleRestoreExecute} loading={restoreExecuting}>
@@ -1327,6 +1375,34 @@ export function FirstRunSetupWizard() {
                   <h2 className="text-lg font-semibold text-gray-800">Restore Complete</h2>
                 </div>
                 <p className="text-sm text-gray-600">{String(restoreResult['message'])}</p>
+
+                {/* Cross-host restores mint a NEW recovery key for this server.
+                    It is shown exactly once — losing it means losing the
+                    headless .env-recovery path, so it must never be silently
+                    dropped here. */}
+                {typeof restoreResult['recoveryKey'] === 'string' && restoreResult['recoveryKey'] && (
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-5 w-5 text-amber-600" />
+                      <span className="font-semibold text-amber-900">Save your NEW recovery key</span>
+                    </div>
+                    <p className="text-sm text-amber-900/80">
+                      This server issued a new recovery key during the restore. It is displayed{' '}
+                      <strong>only this once</strong> — store it with your other credentials before continuing.
+                    </p>
+                    <p className="font-mono text-lg tracking-wider bg-white border border-amber-200 rounded p-3 break-all select-all">
+                      {String(restoreResult['recoveryKey'])}
+                    </p>
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        try { await navigator.clipboard.writeText(String(restoreResult['recoveryKey'])); } catch { /* ignore */ }
+                      }}
+                    >
+                      Copy to clipboard
+                    </Button>
+                  </div>
+                )}
 
                 {/* Checklist */}
                 {restoreResult['checklist'] != null && (
