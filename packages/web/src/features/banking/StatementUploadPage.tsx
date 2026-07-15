@@ -47,12 +47,16 @@ interface StatementCheck {
 // Deliberately NO bare "#NNN" fallback here: descriptions like
 // "DEPOSIT REF #1234" or "INVOICE #1234" are not checks, and tagging them
 // lets a deposit's row data override the real check 1234's image-read
-// payee on import. Only explicit check prefixes qualify in the preview.
+// payee on import. Explicit check prefixes always qualify; a bare "#NNN"
+// counts ONLY on debit rows — checks are money out, so "DEPOSIT REF #1234"
+// (a credit) can never be tagged as check 1234, while a paid-checks section
+// listing debits as "#1042" still gets the payee affordance.
 const CHECK_NUMBER_RE = /\b(?:CHECK|CHK|CK|DRAFT)\s*(?:NO\.?|#)?\s*(\d{1,7})\b/i;
+const BARE_CHECK_NUMBER_RE = /#\s*(\d{1,7})\b/;
 
 // Prefer check data already carried on the parse-result row; otherwise
 // recover the number from the description text.
-function deriveCheckNumber(row: { [key: string]: unknown }, description: string): string | undefined {
+function deriveCheckNumber(row: { [key: string]: unknown }, description: string, txnType?: string): string | undefined {
   const carried = row['checkNumber'];
   if (typeof carried === 'string' && /^\d{1,7}$/.test(carried.trim())) {
     return carried.trim();
@@ -60,7 +64,8 @@ function deriveCheckNumber(row: { [key: string]: unknown }, description: string)
   if (typeof carried === 'number' && Number.isFinite(carried) && carried > 0) {
     return String(carried);
   }
-  const m = CHECK_NUMBER_RE.exec(description);
+  const m = CHECK_NUMBER_RE.exec(description) ??
+    (txnType === 'debit' ? BARE_CHECK_NUMBER_RE.exec(description) : null);
   return m?.[1];
 }
 
@@ -178,7 +183,7 @@ export function StatementUploadPage() {
       if (Number.isFinite(n) && n > 0 && c.payee) payeeByCheckNumber.set(String(n), c.payee);
     }
     setTransactions((result.transactions ?? []).map((t) => {
-      const checkNumber = deriveCheckNumber(t, t.description);
+      const checkNumber = deriveCheckNumber(t, t.description, t.type);
       return {
         date: t.date,
         description: t.description,
