@@ -51,11 +51,14 @@ interface StatementCheck {
 // counts ONLY on debit rows — checks are money out, so "DEPOSIT REF #1234"
 // (a credit) can never be tagged as check 1234, while a paid-checks section
 // listing debits as "#1042" still gets the payee affordance.
-const CHECK_NUMBER_RE = /\b(?:CHECK|CHK|CK|DRAFT)\s*(?:NO\.?|#)?\s*(\d{1,7})\b/i;
+// Mirror the server's parseCheckNumber (utils/check-number.ts) exactly,
+// including the leading-zero skip (0*), so a row the server tags as a check
+// always shows the payee affordance here.
+const CHECK_NUMBER_RE = /\b(?:CHECK|CHK|CK|DRAFT)\b\s*(?:NO\.?|NUMBER|#)?\s*0*(\d{1,7})\b/i;
 // Anchored like the server's HASH_ONLY: the "#" must start the token
 // (start-of-string or after whitespace), so "ACH PMT REF#1042" and
 // "POS STORE#1042" are NOT mistaken for check 1042.
-const BARE_CHECK_NUMBER_RE = /(?:^|\s)#\s*(\d{1,7})\b/;
+const BARE_CHECK_NUMBER_RE = /(?:^|\s)#\s*0*(\d{1,7})\b/;
 
 // Prefer check data already carried on the parse-result row; otherwise
 // recover the number from the description text.
