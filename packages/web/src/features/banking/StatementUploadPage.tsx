@@ -72,7 +72,9 @@ function deriveCheckNumber(row: { [key: string]: unknown }, description: string,
   }
   const m = CHECK_NUMBER_RE.exec(description) ??
     (txnType === 'debit' ? BARE_CHECK_NUMBER_RE.exec(description) : null);
-  return m?.[1];
+  // Match the server: a captured "0" (e.g. "CHECK 0000000") is not a check.
+  if (m && Number(m[1]) > 0) return m[1];
+  return undefined;
 }
 
 // A valid RFC-4122 v4 UUID that works in non-secure contexts (HTTP/LAN), where
