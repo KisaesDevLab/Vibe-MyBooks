@@ -2,9 +2,9 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient, getAccessToken } from '../../api/client';
+import { apiClient, getAccessToken, API_BASE } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Paperclip, Download, Trash2, Eye, X, ChevronRight, User, FileText, FolderOpen } from 'lucide-react';
@@ -38,12 +38,64 @@ function isPreviewable(mime: string | null): boolean {
   return mime.startsWith('image/') || mime === 'application/pdf';
 }
 
-function downloadUrl(id: string, inline?: boolean): string {
+// The download route only accepts a Bearer header or a single-use ?_dl=
+// token — the legacy ?token=<JWT> query auth this page used to rely on was
+// removed (it leaked full access tokens into URLs/history/logs). So all
+// reads here go through an authorized fetch: blobs for previews/thumbnails
+// via object URLs, and the save-file flow via URL.createObjectURL (same
+// pattern as DataExportPage).
+async function fetchAttachmentBlob(id: string, inline = false): Promise<Blob> {
   const token = getAccessToken();
-  const params = new URLSearchParams();
-  if (token) params.set('token', token);
-  if (inline) params.set('inline', '1');
-  return `/api/v1/attachments/${id}/download?${params.toString()}`;
+  const res = await fetch(`${API_BASE}/attachments/${id}/download${inline ? '?inline=1' : ''}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Download failed');
+  return res.blob();
+}
+
+function saveBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Fetches an attachment as a blob and exposes it as an object URL usable in
+// <img>/<iframe> src. Revokes the URL on id change / unmount.
+function useAttachmentObjectUrl(id: string | null): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!id) {
+      setUrl(null);
+      return;
+    }
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    fetchAttachmentBlob(id, true)
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setUrl(null);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setUrl(null);
+    };
+  }, [id]);
+  return url;
+}
+
+function AttachmentThumb({ id }: { id: string }) {
+  const url = useAttachmentObjectUrl(id);
+  if (!url) return <Paperclip className="h-4 w-4 text-gray-400 flex-shrink-0" />;
+  return <img src={url} alt="" className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0" />;
 }
 
 function fmtSize(bytes: number | null): string {
@@ -59,7 +111,11 @@ export function AttachmentLibraryPage() {
   const [tab, setTab] = useState<Tab>('contact');
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const previewUrl = useAttachmentObjectUrl(previewId);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attachments', 'library'],
@@ -68,7 +124,15 @@ export function AttachmentLibraryPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient(`/attachments/${id}`, { method: 'DELETE' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attachments'] }),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['attachments'] });
+      setSelectedIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    },
   });
 
   const all = data?.data || [];
@@ -105,6 +169,48 @@ export function AttachmentLibraryPage() {
   const toggleGroup = (key: string) => {
     setExpandedGroup(expandedGroup === key ? null : key);
     setPreviewId(null);
+    setSelectedIds(new Set());
+    setBulkError(null);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSingleDownload = (a: LibraryAttachment) => {
+    fetchAttachmentBlob(a.id)
+      .then((blob) => saveBlob(blob, a.fileName || 'download'))
+      .catch(() => setBulkError('Download failed'));
+  };
+
+  const handleBulkDownload = async () => {
+    if (selectedIds.size === 0 || bulkDownloading) return;
+    setBulkDownloading(true);
+    setBulkError(null);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_BASE}/attachments/bulk-download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ attachmentIds: Array.from(selectedIds) }),
+      });
+      if (!res.ok) throw new Error('ZIP download failed');
+      const blob = await res.blob();
+      saveBlob(blob, `attachments-${new Date().toISOString().slice(0, 10)}.zip`);
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : 'ZIP download failed');
+    } finally {
+      setBulkDownloading(false);
+    }
   };
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
@@ -114,6 +220,14 @@ export function AttachmentLibraryPage() {
 
   const groups = tab === 'contact' ? byContact.map(([key, { name, items }]) => ({ key, label: name, items, count: items.length }))
     : byType.map(([key, items]) => ({ key, label: txnTypeLabels[key] || key, items, count: items.length }));
+
+  const currentItems = groups.find((g) => g.key === expandedGroup)?.items ?? [];
+  const allSelected = currentItems.length > 0 && currentItems.every((a) => selectedIds.has(a.id));
+  const someSelected = currentItems.some((a) => selectedIds.has(a.id));
+
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(currentItems.map((a) => a.id)));
+  };
 
   return (
     <div className="space-y-4">
@@ -126,7 +240,7 @@ export function AttachmentLibraryPage() {
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
         <button
-          onClick={() => { setTab('contact'); setExpandedGroup(null); setPreviewId(null); }}
+          onClick={() => { setTab('contact'); setExpandedGroup(null); setPreviewId(null); setSelectedIds(new Set()); setBulkError(null); }}
           className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
             tab === 'contact' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
           }`}
@@ -135,7 +249,7 @@ export function AttachmentLibraryPage() {
           By Contact
         </button>
         <button
-          onClick={() => { setTab('type'); setExpandedGroup(null); setPreviewId(null); }}
+          onClick={() => { setTab('type'); setExpandedGroup(null); setPreviewId(null); setSelectedIds(new Set()); setBulkError(null); }}
           className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
             tab === 'type' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
           }`}
@@ -191,10 +305,41 @@ export function AttachmentLibraryPage() {
               </div>
             ) : (
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+                {/* Bulk actions bar */}
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-3 px-4 py-2 bg-primary-50 border-b border-primary-100 text-sm">
+                    <span className="font-medium text-primary-700">{selectedIds.size} selected</span>
+                    <button
+                      onClick={handleBulkDownload}
+                      disabled={bulkDownloading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 text-white rounded-md text-xs font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {bulkDownloading ? 'Preparing…' : 'Download ZIP'}
+                    </button>
+                    <button
+                      onClick={() => setSelectedIds(new Set())}
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      Clear
+                    </button>
+                    {bulkError && <span className="text-xs text-red-600">{bulkError}</span>}
+                  </div>
+                )}
                 {/* File table */}
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-4 py-2 w-8">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          checked={allSelected}
+                          ref={(el) => { if (el) el.indeterminate = !allSelected && someSelected; }}
+                          onChange={toggleSelectAll}
+                          aria-label="Select all files"
+                        />
+                      </th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">File</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
                       {tab === 'contact' && (
@@ -209,16 +354,21 @@ export function AttachmentLibraryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {groups.find((g) => g.key === expandedGroup)?.items.map((a) => (
+                    {currentItems.map((a) => (
                       <tr key={a.id} className={`hover:bg-gray-50 ${previewId === a.id ? 'bg-primary-50' : ''}`}>
+                        <td className="px-4 py-2 w-8">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            checked={selectedIds.has(a.id)}
+                            onChange={() => toggleSelect(a.id)}
+                            aria-label={`Select ${a.fileName}`}
+                          />
+                        </td>
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             {a.mimeType?.startsWith('image/') ? (
-                              <img
-                                src={downloadUrl(a.id, true)}
-                                alt=""
-                                className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
-                              />
+                              <AttachmentThumb id={a.id} />
                             ) : (
                               <Paperclip className="h-4 w-4 text-gray-400 flex-shrink-0" />
                             )}
@@ -253,9 +403,9 @@ export function AttachmentLibraryPage() {
                                 <Eye className="h-4 w-4" />
                               </button>
                             )}
-                            <a href={downloadUrl(a.id)} className="text-gray-400 hover:text-primary-600" title="Download">
+                            <button onClick={() => handleSingleDownload(a)} className="text-gray-400 hover:text-primary-600" title="Download">
                               <Download className="h-4 w-4" />
-                            </a>
+                            </button>
                             <button onClick={() => deleteMutation.mutate(a.id)} className="text-gray-400 hover:text-red-500" title="Delete">
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -276,15 +426,17 @@ export function AttachmentLibraryPage() {
                       </button>
                     </div>
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                      {previewAttachment.mimeType.startsWith('image/') ? (
+                      {!previewUrl ? (
+                        <LoadingSpinner className="py-12" />
+                      ) : previewAttachment.mimeType.startsWith('image/') ? (
                         <img
-                          src={downloadUrl(previewAttachment.id, true)}
+                          src={previewUrl}
                           alt={previewAttachment.fileName}
                           className="max-w-full max-h-[500px] object-contain mx-auto p-2"
                         />
                       ) : previewAttachment.mimeType === 'application/pdf' ? (
                         <iframe
-                          src={downloadUrl(previewAttachment.id, true)}
+                          src={previewUrl}
                           title={previewAttachment.fileName}
                           className="w-full h-[600px]"
                         />
