@@ -1404,6 +1404,19 @@ export function FirstRunSetupWizard() {
                   </div>
                 )}
 
+                {/* Same-host restores carry the original .env.recovery back
+                    from the bundle — the key the operator already saved
+                    keeps working, so there is nothing new to write down. */}
+                {restoreResult['recoveryKeyPreserved'] === true && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-2">
+                    <ShieldCheck className="h-5 w-5 text-green-600 mt-0.5" />
+                    <p className="text-sm text-green-900">
+                      Your existing recovery key remains valid — the recovery file was restored from the backup.
+                      No new key was issued.
+                    </p>
+                  </div>
+                )}
+
                 {/* Checklist */}
                 {restoreResult['checklist'] != null && (
                   <RestoreChecklist items={restoreResult['checklist'] as Record<string, { status: string; message: string }>} />
