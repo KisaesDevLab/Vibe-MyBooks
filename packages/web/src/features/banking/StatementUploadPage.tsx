@@ -44,8 +44,11 @@ interface StatementCheck {
 
 // Same regex family the server uses to spot check rows in descriptions:
 // "CHECK 1234", "CHK #1234", "CK NO. 1234", "DRAFT 1234" — or a bare "#1234".
+// Deliberately NO bare "#NNN" fallback here: descriptions like
+// "DEPOSIT REF #1234" or "INVOICE #1234" are not checks, and tagging them
+// lets a deposit's row data override the real check 1234's image-read
+// payee on import. Only explicit check prefixes qualify in the preview.
 const CHECK_NUMBER_RE = /\b(?:CHECK|CHK|CK|DRAFT)\s*(?:NO\.?|#)?\s*(\d{1,7})\b/i;
-const BARE_CHECK_NUMBER_RE = /#\s*(\d{1,7})\b/;
 
 // Prefer check data already carried on the parse-result row; otherwise
 // recover the number from the description text.
@@ -57,7 +60,7 @@ function deriveCheckNumber(row: { [key: string]: unknown }, description: string)
   if (typeof carried === 'number' && Number.isFinite(carried) && carried > 0) {
     return String(carried);
   }
-  const m = CHECK_NUMBER_RE.exec(description) ?? BARE_CHECK_NUMBER_RE.exec(description);
+  const m = CHECK_NUMBER_RE.exec(description);
   return m?.[1];
 }
 
