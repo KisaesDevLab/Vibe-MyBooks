@@ -74,13 +74,33 @@ export function InstallationSecurityPage() {
         try { const j = await res.json(); msg = j?.error?.message || msg; } catch { /* non-JSON error body */ }
         throw new Error(msg);
       }
-      const disp = res.headers.get('Content-Disposition') || '';
-      const fileName = disp.match(/filename="?([^"]+)"?/)?.[1] || 'vibe-mybooks-dr-bundle.vmb';
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fileName; a.click();
-      URL.revokeObjectURL(url);
+      const contentType = res.headers.get('Content-Type') || '';
+      if (contentType.includes('application/json')) {
+        // Multi-part bundle: the server answered with the part list instead
+        // of a stream. Download each part sequentially — every file must be
+        // kept together; restore needs the complete set.
+        const info = (await res.json()) as { parts: Array<{ fileName: string; size: number }> };
+        for (const part of info.parts) {
+          const pRes = await fetch(
+            `${import.meta.env.BASE_URL}api/v1/backup/system/parts/${encodeURIComponent(part.fileName)}`,
+            { headers: { Authorization: `Bearer ${token || ''}` } },
+          );
+          if (!pRes.ok) throw new Error(`Failed to download ${part.fileName}`);
+          const blob = await pRes.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = part.fileName; a.click();
+          URL.revokeObjectURL(url);
+        }
+      } else {
+        const disp = res.headers.get('Content-Disposition') || '';
+        const fileName = disp.match(/filename="?([^"]+)"?/)?.[1] || 'vibe-mybooks-dr-bundle.vmx';
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = fileName; a.click();
+        URL.revokeObjectURL(url);
+      }
       setDrPass('');
     } catch (e) {
       setDrError((e as Error).message);

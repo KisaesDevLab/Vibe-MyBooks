@@ -6,10 +6,27 @@ Vibe MyBooks supports two backup formats:
 
 | Format | Extension | Encryption | Portability |
 |--------|-----------|------------|-------------|
-| **Portable** | `.vmb` | AES-256-GCM with user passphrase (PBKDF2) | Restorable on any Vibe MyBooks instance |
+| **System package** | `.vmx` | AES-256-GCM per entry, key from user passphrase (PBKDF2) | Restorable on any Vibe MyBooks instance; includes attachment files |
+| **Portable (DB-only)** | `.vmb` | AES-256-GCM with user passphrase (PBKDF2) | Restorable on any Vibe MyBooks instance; database rows only |
 | **Legacy** | `.kbk` | AES-256-GCM with server `BACKUP_ENCRYPTION_KEY` | Requires the same server encryption key |
 
-Portable backups (`.vmb`) are the recommended format. They are encrypted with a passphrase you choose, so they can be restored on any instance without needing the original server's encryption key.
+The disaster-recovery bundle (**Admin → Installation Security → Download DR bundle**) is a `.vmx` system package: all tenants, users, configuration, attachment files, and the installation recovery files.
+
+### Multi-part bundles
+
+A DR bundle larger than the per-part budget (`BACKUP_PART_MAX_MB`, default **90 MB**) downloads as **several `.vmx` part files**:
+
+```
+kis-books-backup-<timestamp>.part01of03.vmx
+kis-books-backup-<timestamp>.part02of03.vmx
+kis-books-backup-<timestamp>.part03of03.vmx
+```
+
+The default budget keeps every part under common proxy upload limits (e.g. Cloudflare's 100 MB request cap), so a restore works through your public hostname from anywhere.
+
+- **Keep every part together — all parts are required to restore.** The restore refuses to run with any part missing and says exactly which ones it lacks.
+- Every part is individually encrypted and carries an authenticated inventory; a corrupted, tampered, or mismatched part is detected and named during upload.
+- All parts share one passphrase (the one you set when creating the bundle).
 
 ## Creating Backups
 
@@ -58,8 +75,18 @@ Configure under **Settings > File Storage** or via the admin panel. Remote backu
 - For `.kbk` files: the `BACKUP_ENCRYPTION_KEY` must match the one used when the backup was created
 - For `.vmb` files: only the passphrase is needed (no server key required)
 
+### Restoring on a Fresh Server (Disaster Recovery)
+
+On a brand-new install, open the first-run wizard (`/first-run-setup`) and choose **Restore from backup**:
+
+1. Select **all** of the bundle's files at once (one `.vmx`/`.vmb`, or every `.partNNofMM.vmx` file)
+2. Enter the backup passphrase
+3. Click **Upload & Validate** — each part is verified as it uploads
+4. Click **Restore Now** once every part is staged
+5. **Save the new recovery key** shown on the completion screen
+
 ### Cross-Host Restore
-Portable `.vmb` backups can be restored on a different server. When a cross-host restore is detected:
+Passphrase-encrypted backups (`.vmx`/`.vmb`) can be restored on a different server. When a cross-host restore is detected:
 - A new installation sentinel and recovery key are generated
 - The response includes the new recovery key — **save it immediately**
 - Audit log records the host change
