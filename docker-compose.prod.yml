@@ -17,7 +17,7 @@
 # fresh code while the api lags or vice versa.
 #
 # Usage (single-app appliance, against a tagged release):
-#   sudo mkdir -p /var/lib/vibe/mybooks/{postgres-data,redis-data,uploads,backups}
+#   sudo mkdir -p /var/lib/vibe/mybooks/{postgres-data,redis-data,uploads,backups,data}
 #   echo "VIBE_MYBOOKS_VERSION=1.4" >> .env
 #   docker compose -f docker-compose.prod.yml pull
 #   docker compose -f docker-compose.prod.yml up -d
@@ -98,6 +98,13 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env (64 hex chars — `openssl rand -hex 32`). The installer mints one automatically.}
       PLAID_ENCRYPTION_KEY: ${PLAID_ENCRYPTION_KEY:?PLAID_ENCRYPTION_KEY must be set in .env (64 hex chars — `openssl rand -hex 32`). Wraps all encrypted-at-rest data, not only Plaid.}
     volumes:
+      # /data root carries installation-identity state (.sentinel, .host-id,
+      # .env.recovery, config/.initialized) — without this mount those files
+      # sit on the container layer and are destroyed on every recreate,
+      # silently invalidating the operator's recovery key. uploads/backups
+      # stay as separate binds so host tooling keeps its existing paths;
+      # Docker mounts by target depth, so the nested binds layer over /data.
+      - /var/lib/vibe/mybooks/data:/data:z
       - /var/lib/vibe/mybooks/uploads:/data/uploads:z
       - /var/lib/vibe/mybooks/backups:/data/backups:z
       - ts-socket:/var/run/tailscale:ro
@@ -148,6 +155,9 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env (64 hex chars — `openssl rand -hex 32`).}
       PLAID_ENCRYPTION_KEY: ${PLAID_ENCRYPTION_KEY:?PLAID_ENCRYPTION_KEY must be set in .env (64 hex chars — `openssl rand -hex 32`).}
     volumes:
+      # Same /data mount as the api — the worker runs the same services code
+      # and must see the same host-id/sentinel/recovery files.
+      - /var/lib/vibe/mybooks/data:/data:z
       - /var/lib/vibe/mybooks/uploads:/data/uploads:z
       - /var/lib/vibe/mybooks/backups:/data/backups:z
     depends_on:

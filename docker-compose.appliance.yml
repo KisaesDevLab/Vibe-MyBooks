@@ -113,6 +113,11 @@ services:
     environment:
       <<: *app-env
     volumes:
+      # /data root carries installation-identity state (.sentinel, .host-id,
+      # .env.recovery, config/.initialized); without a volume it lives on the
+      # container layer and every recreate silently invalidates the recovery
+      # key. The nested uploads bind layers over it (mounted by target depth).
+      - vibe-mybooks-data:/data
       - vibe-mybooks-uploads:/data/uploads
     depends_on:
       migrate:
@@ -171,6 +176,11 @@ services:
     environment:
       <<: *app-env
     volumes:
+      # /data root carries installation-identity state (.sentinel, .host-id,
+      # .env.recovery, config/.initialized); without a volume it lives on the
+      # container layer and every recreate silently invalidates the recovery
+      # key. The nested uploads bind layers over it (mounted by target depth).
+      - vibe-mybooks-data:/data
       - vibe-mybooks-uploads:/data/uploads
     depends_on:
       migrate:
@@ -215,3 +225,8 @@ volumes:
   # `.appliance/manifest.json` `backup.volumes`.
   vibe-mybooks-uploads:
     name: vibe-mybooks-uploads
+  # Installation-identity files (recovery key file, sentinel, host-id).
+  # Add to `.appliance/manifest.json` `backup.volumes` alongside uploads
+  # so Duplicati snapshots it.
+  vibe-mybooks-data:
+    name: vibe-mybooks-data
