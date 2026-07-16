@@ -490,6 +490,17 @@ export function FirstRunSetupWizard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ backupId: restoreStaged.backupId, passphrase: restorePassphrase }),
       });
+      // 409 — a restore is already in progress (e.g. this page reloaded
+      // mid-request so no runId was stored and the operator clicked Start
+      // again). The body still carries that in-flight run's id; adopt and
+      // poll it rather than dead-ending on an error.
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        if (body && typeof body.runId === 'string') {
+          await pollRestoreRun(body.runId);
+          return;
+        }
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
         throw new Error(err.error?.message || 'Restore failed');
@@ -537,6 +548,15 @@ export function FirstRunSetupWizard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: localSelectedId, passphrase: localPassphrase }),
       });
+      // 409 — a restore is already in progress; the body carries that
+      // in-flight run's id. Adopt and poll it rather than erroring out.
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        if (body && typeof body.runId === 'string') {
+          await pollRestoreRun(body.runId);
+          return;
+        }
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
         throw new Error(err.error?.message || 'Restore failed');
@@ -586,6 +606,15 @@ export function FirstRunSetupWizard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...remotePayload(), keys: bundle.keys, passphrase: remotePassphrase }),
       });
+      // 409 — a restore is already in progress; the body carries that
+      // in-flight run's id. Adopt and poll it rather than erroring out.
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        if (body && typeof body.runId === 'string') {
+          await pollRestoreRun(body.runId);
+          return;
+        }
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
         throw new Error(err.error?.message || 'Restore failed');
