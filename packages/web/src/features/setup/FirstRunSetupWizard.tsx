@@ -2007,10 +2007,62 @@ export function FirstRunSetupWizard() {
             {step === 0 && restoreResult && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                  <h2 className="text-lg font-semibold text-gray-800">Restore Complete</h2>
+                  {restoreResult['partial'] === true
+                    ? <AlertTriangle className="h-6 w-6 text-amber-600" />
+                    : <CheckCircle className="h-6 w-6 text-green-600" />}
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    {restoreResult['partial'] === true ? 'Restore Completed With Issues' : 'Restore Complete'}
+                  </h2>
                 </div>
-                <p className="text-sm text-gray-600">{String(restoreResult['message'])}</p>
+                <p className={`text-sm ${restoreResult['partial'] === true ? 'text-amber-900' : 'text-gray-600'}`}>
+                  {String(restoreResult['message'])}
+                </p>
+
+                {/* A partial restore committed what it could but dropped rows/files.
+                    It MUST be shown as a non-green, itemized warning — never let a
+                    firm believe all their data returned when it did not. */}
+                {restoreResult['partial'] === true && (() => {
+                  const tables = restoreResult['tables'] as
+                    { failures?: Record<string, { failed: number; sampleErrors?: string[] }> } | undefined;
+                  const rowFailures = Object.entries(tables?.failures ?? {});
+                  const files = restoreResult['files'] as { perTable?: Record<string, { failed: number }> } | null | undefined;
+                  const fileFailures = Object.entries(files?.perTable ?? {}).filter(([, v]) => (v?.failed ?? 0) > 0);
+                  return (
+                    <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-amber-600" />
+                        <span className="font-semibold text-amber-900">Not everything was restored</span>
+                      </div>
+                      <p className="text-sm text-amber-900/80">
+                        The restore saved what it could, but the items below could <strong>not</strong> be
+                        restored. Review them before relying on this data — do not assume the restore was complete.
+                      </p>
+                      {rowFailures.length > 0 && (
+                        <div className="text-sm text-amber-900">
+                          <p className="font-medium">Rows not restored:</p>
+                          <ul className="list-disc pl-5 space-y-1 mt-1">
+                            {rowFailures.map(([t, s]) => (
+                              <li key={t}>
+                                <span className="font-mono">{t}</span>: {s.failed} row(s)
+                                {s.sampleErrors?.[0] ? ` — ${s.sampleErrors[0]}` : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {fileFailures.length > 0 && (
+                        <div className="text-sm text-amber-900">
+                          <p className="font-medium">Files not restored:</p>
+                          <ul className="list-disc pl-5 space-y-1 mt-1">
+                            {fileFailures.map(([t, v]) => (
+                              <li key={t}><span className="font-mono">{t}</span>: {v.failed} file(s)</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Cross-host restores mint a NEW recovery key for this server.
                     It is shown exactly once — losing it means losing the
