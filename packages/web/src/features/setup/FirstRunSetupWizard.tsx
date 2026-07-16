@@ -296,6 +296,11 @@ export function FirstRunSetupWizard() {
   const [restoreFiles, setRestoreFiles] = useState<File[]>([]);
   const [restorePassphrase, setRestorePassphrase] = useState('');
   const [showRestorePassphrase, setShowRestorePassphrase] = useState(false);
+  // Optional: the operator's original recovery key. On a cross-host restore
+  // (a backup from a different server), entering it here re-encrypts the
+  // restored credentials (API keys, SMTP, SMS, …) under THIS box's key
+  // automatically — no separate Admin trip, no hunting the dead server's key.
+  const [restoreRecoveryKey, setRestoreRecoveryKey] = useState('');
   const [restoreFileStatus, setRestoreFileStatus] = useState<
     Array<{ name: string; size: number; status: 'pending' | 'uploading' | 'staged' | 'error'; error?: string }>
   >([]);
@@ -488,7 +493,7 @@ export function FirstRunSetupWizard() {
       const res = await fetch(`${SETUP_API}/restore/execute-staged`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ backupId: restoreStaged.backupId, passphrase: restorePassphrase }),
+        body: JSON.stringify({ backupId: restoreStaged.backupId, passphrase: restorePassphrase, recoveryKey: restoreRecoveryKey.trim() || undefined }),
       });
       // 409 — a restore is already in progress (e.g. this page reloaded
       // mid-request so no runId was stored and the operator clicked Start
@@ -546,7 +551,7 @@ export function FirstRunSetupWizard() {
       const res = await fetch(`${SETUP_API}/restore/local/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: localSelectedId, passphrase: localPassphrase }),
+        body: JSON.stringify({ id: localSelectedId, passphrase: localPassphrase, recoveryKey: restoreRecoveryKey.trim() || undefined }),
       });
       // 409 — a restore is already in progress; the body carries that
       // in-flight run's id. Adopt and poll it rather than erroring out.
@@ -604,7 +609,7 @@ export function FirstRunSetupWizard() {
       const res = await fetch(`${SETUP_API}/restore/remote/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...remotePayload(), keys: bundle.keys, passphrase: remotePassphrase }),
+        body: JSON.stringify({ ...remotePayload(), keys: bundle.keys, passphrase: remotePassphrase, recoveryKey: restoreRecoveryKey.trim() || undefined }),
       });
       // 409 — a restore is already in progress; the body carries that
       // in-flight run's id. Adopt and poll it rather than erroring out.
@@ -1724,6 +1729,28 @@ export function FirstRunSetupWizard() {
                           {showRestorePassphrase ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
+
+                      {/* Recovery key — only needed when restoring a backup from
+                          a DIFFERENT server. Entering it re-encrypts the restored
+                          credentials (API keys, SMTP, SMS) for this box during the
+                          restore, so they work immediately. */}
+                      <div className="mt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Recovery key <span className="font-normal text-gray-400">(optional — for a backup from another server)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={restoreRecoveryKey}
+                          onChange={(e) => setRestoreRecoveryKey(e.target.value)}
+                          placeholder="RKVMB-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+                          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Restoring onto a different server than the one that made the backup? Enter the
+                          recovery key you saved at that server&apos;s setup, and your saved credentials
+                          (API keys, email, SMS) will be restored automatically. Leave blank for a same-server restore.
+                        </p>
+                      </div>
                     </div>
                   )}
 
@@ -2104,6 +2131,48 @@ export function FirstRunSetupWizard() {
                     </p>
                   </div>
                 )}
+
+                {/* Cross-host credential recovery outcome. */}
+                {(() => {
+                  const cr = restoreResult['credentialRecovery'] as
+                    { attempted: boolean; reencrypted: number; error?: string } | null | undefined;
+                  const crossHost = restoreResult['crossHostRestore'] === true;
+                  if (cr?.attempted && !cr.error) {
+                    return (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-2">
+                        <ShieldCheck className="h-5 w-5 text-green-600 mt-0.5" />
+                        <p className="text-sm text-green-900">
+                          Restored credentials re-encrypted for this server ({cr.reencrypted} value{cr.reencrypted === 1 ? '' : 's'}).
+                          Your API keys, email, and SMS settings are ready to use.
+                        </p>
+                      </div>
+                    );
+                  }
+                  if (cr?.attempted && cr.error) {
+                    return (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-2">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                        <p className="text-sm text-amber-900">
+                          Automatic credential recovery didn&apos;t complete ({cr.error}). Your credentials
+                          were restored but need re-encrypting — retry in <strong>Admin → Installation Security</strong> with your recovery key.
+                        </p>
+                      </div>
+                    );
+                  }
+                  if (crossHost && !cr) {
+                    return (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-2">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                        <p className="text-sm text-amber-900">
+                          This backup came from a different server, so your saved credentials (API keys, email, SMS)
+                          are encrypted under that server&apos;s key. Re-run with your recovery key, or restore them in{' '}
+                          <strong>Admin → Installation Security</strong>.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Checklist */}
                 {restoreResult['checklist'] != null && (
