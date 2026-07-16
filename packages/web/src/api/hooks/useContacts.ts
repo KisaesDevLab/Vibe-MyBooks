@@ -41,6 +41,18 @@ export function useCreateContact() {
   });
 }
 
+export function useBulkUpdateContactType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { ids: string[]; contactType: 'customer' | 'vendor' | 'both' }) =>
+      apiClient<{ updated: number }>('/contacts/bulk-type', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+  });
+}
+
 export function useUpdateContact() {
   const queryClient = useQueryClient();
   return useMutation({
