@@ -65,6 +65,50 @@ interface RestoreRunView {
   error: string | null;
 }
 
+// Alternative restore sources (besides uploading files). All three funnel
+// into the same async-run polling (pollRestoreRun) once the server answers
+// 202 with a runId.
+type RestoreSource = 'upload' | 'local' | 'remote';
+
+interface LocalRestoreRoot {
+  key: string; // 'backups' | 'drive'
+  dir: string;
+  present: boolean;
+}
+
+interface LocalRestoreBundle {
+  id: string;
+  root: string; // 'backups' | 'drive'
+  label: string;
+  kind: 'single' | 'multipart';
+  partCount: number;
+  size: number;
+  modifiedAt: string;
+}
+
+interface RemoteRestoreBundle {
+  id: string;
+  label: string;
+  keys: string[];
+  partCount: number;
+  size: number;
+  modifiedAt: string;
+}
+
+// Human-readable byte size. The existing upload UI hard-codes a MB divisor;
+// this handles the wider range a full backup bundle can span.
+function formatBytes(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+  return `${(n / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatModified(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+}
+
 // Four-step happy path. Database, Network, and Security are no longer
 // dedicated steps — they auto-populate from the install script (DB creds
 // minted by install.sh and fetched via /api/setup/db-defaults, secrets
@@ -267,6 +311,54 @@ export function FirstRunSetupWizard() {
   const [restoreError, setRestoreError] = useState('');
   const restoreFileRef = useRef<HTMLInputElement>(null);
 
+  // Restore source selector. "upload" is the original flow and stays the
+  // default; the two alternatives (a backup already sitting on the server /
+  // a mounted drive, or a remote B2 bucket) reuse the SAME pollRestoreRun
+  // machinery once their execute endpoint answers 202.
+  const [restoreSource, setRestoreSource] = useState<RestoreSource>('upload');
+
+  // Local / mounted-drive source.
+  const [localRoots, setLocalRoots] = useState<LocalRestoreRoot[]>([]);
+  const [localBundles, setLocalBundles] = useState<LocalRestoreBundle[]>([]);
+  const [localListLoading, setLocalListLoading] = useState(false);
+  const [localListError, setLocalListError] = useState('');
+  const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
+  const [localPassphrase, setLocalPassphrase] = useState('');
+  const [showLocalPassphrase, setShowLocalPassphrase] = useState(false);
+
+  // Remote Backblaze B2 source. Credentials are entered now and reused for
+  // both the list and the execute call — never persisted.
+  const [remoteForm, setRemoteForm] = useState({
+    bucket: '',
+    endpoint: '',
+    keyId: '',
+    applicationKey: '',
+    region: '',
+    prefix: 'backups/',
+  });
+  const [remoteBundles, setRemoteBundles] = useState<RemoteRestoreBundle[]>([]);
+  const [remoteListLoading, setRemoteListLoading] = useState(false);
+  const [remoteListError, setRemoteListError] = useState('');
+  const [remoteSelectedId, setRemoteSelectedId] = useState<string | null>(null);
+  const [remotePassphrase, setRemotePassphrase] = useState('');
+  const [showRemotePassphrase, setShowRemotePassphrase] = useState(false);
+  const [showRemoteAppKey, setShowRemoteAppKey] = useState(false);
+
+  const setRemote = (field: keyof typeof remoteForm) => (e: ChangeEvent<HTMLInputElement>) =>
+    setRemoteForm((r) => ({ ...r, [field]: e.target.value }));
+
+  // Common B2 payload for both list + execute — trimmed, with optional
+  // fields omitted when blank.
+  const remotePayload = () => ({
+    provider: 'b2' as const,
+    bucket: remoteForm.bucket.trim(),
+    endpoint: remoteForm.endpoint.trim(),
+    keyId: remoteForm.keyId.trim(),
+    applicationKey: remoteForm.applicationKey,
+    ...(remoteForm.region.trim() ? { region: remoteForm.region.trim() } : {}),
+    ...(remoteForm.prefix.trim() ? { prefix: remoteForm.prefix.trim() } : {}),
+  });
+
   const handleRestoreFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     setRestoreFiles(files);
@@ -398,6 +490,17 @@ export function FirstRunSetupWizard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ backupId: restoreStaged.backupId, passphrase: restorePassphrase }),
       });
+      // 409 — a restore is already in progress (e.g. this page reloaded
+      // mid-request so no runId was stored and the operator clicked Start
+      // again). The body still carries that in-flight run's id; adopt and
+      // poll it rather than dead-ending on an error.
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        if (body && typeof body.runId === 'string') {
+          await pollRestoreRun(body.runId);
+          return;
+        }
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
         throw new Error(err.error?.message || 'Restore failed');
@@ -412,6 +515,126 @@ export function FirstRunSetupWizard() {
       setRestoreExecuting(false);
     }
   };
+
+  // --- Local / mounted-drive source ------------------------------------
+  const handleLocalList = async () => {
+    setLocalListLoading(true);
+    setLocalListError('');
+    try {
+      const res = await fetch(`${SETUP_API}/restore/local/list`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: 'Failed to list backups' } }));
+        throw new Error(err.error?.message || 'Failed to list backups');
+      }
+      const data = (await res.json()) as { roots?: LocalRestoreRoot[]; bundles?: LocalRestoreBundle[] };
+      setLocalRoots(data.roots ?? []);
+      setLocalBundles(data.bundles ?? []);
+      // Drop a stale selection if the refreshed list no longer contains it.
+      setLocalSelectedId((id) => (id && (data.bundles ?? []).some((b) => b.id === id) ? id : null));
+    } catch (err) {
+      setLocalListError(err instanceof Error ? err.message : 'Failed to list backups');
+    } finally {
+      setLocalListLoading(false);
+    }
+  };
+
+  const handleLocalExecute = async () => {
+    if (!localSelectedId || !localPassphrase) return;
+    setRestoreExecuting(true);
+    setRestoreError('');
+    try {
+      const res = await fetch(`${SETUP_API}/restore/local/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: localSelectedId, passphrase: localPassphrase }),
+      });
+      // 409 — a restore is already in progress; the body carries that
+      // in-flight run's id. Adopt and poll it rather than erroring out.
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        if (body && typeof body.runId === 'string') {
+          await pollRestoreRun(body.runId);
+          return;
+        }
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
+        throw new Error(err.error?.message || 'Restore failed');
+      }
+      // 202 — identical async-run body as the upload flow. Hand off to the
+      // shared poller, which owns restoreExecuting / restoreResult from here.
+      const run = (await res.json()) as RestoreRunView;
+      await pollRestoreRun(run.runId);
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : 'Restore failed');
+      setRestoreExecuting(false);
+    }
+  };
+
+  // --- Remote Backblaze B2 source --------------------------------------
+  const handleRemoteList = async () => {
+    setRemoteListLoading(true);
+    setRemoteListError('');
+    setRemoteBundles([]);
+    setRemoteSelectedId(null);
+    try {
+      const res = await fetch(`${SETUP_API}/restore/remote/list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(remotePayload()),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: 'Failed to list backups' } }));
+        throw new Error(err.error?.message || 'Failed to list backups');
+      }
+      const data = (await res.json()) as { bundles?: RemoteRestoreBundle[] };
+      setRemoteBundles(data.bundles ?? []);
+    } catch (err) {
+      setRemoteListError(err instanceof Error ? err.message : 'Failed to list backups');
+    } finally {
+      setRemoteListLoading(false);
+    }
+  };
+
+  const handleRemoteExecute = async (bundle: RemoteRestoreBundle) => {
+    if (!remotePassphrase) return;
+    setRestoreExecuting(true);
+    setRestoreError('');
+    try {
+      const res = await fetch(`${SETUP_API}/restore/remote/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...remotePayload(), keys: bundle.keys, passphrase: remotePassphrase }),
+      });
+      // 409 — a restore is already in progress; the body carries that
+      // in-flight run's id. Adopt and poll it rather than erroring out.
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        if (body && typeof body.runId === 'string') {
+          await pollRestoreRun(body.runId);
+          return;
+        }
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: 'Restore failed' } }));
+        throw new Error(err.error?.message || 'Restore failed');
+      }
+      const run = (await res.json()) as RestoreRunView;
+      await pollRestoreRun(run.runId);
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : 'Restore failed');
+      setRestoreExecuting(false);
+    }
+  };
+
+  // Auto-list local backups whenever the operator opens that tab. The
+  // Refresh button re-runs the same handler.
+  useEffect(() => {
+    if (restoreMode && restoreSource === 'local') {
+      void handleLocalList();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreMode, restoreSource]);
 
   // Resume a restore that was in flight when the page reloaded: the runId
   // survives in sessionStorage, so poll it instead of showing the upload
@@ -1418,17 +1641,44 @@ export function FirstRunSetupWizard() {
                   <Upload className="h-5 w-5 text-amber-600" />
                   Restore from Backup
                 </h2>
-                <p className="text-sm text-gray-500">
-                  Upload your backup and enter its passphrase. A disaster-recovery bundle may be
-                  several <code className="bg-gray-100 px-1 rounded">.vmx</code> part files — select{' '}
-                  <strong>all of them at once</strong>.
-                </p>
+
+                {/* Restore-source selector. "Upload files" is the original
+                    flow and stays the default; the other two reuse the same
+                    async-run polling once their execute endpoint answers 202. */}
+                <div className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1">
+                  {([
+                    ['upload', 'Upload files'],
+                    ['local', 'From this server / drive'],
+                    ['remote', 'From Backblaze B2'],
+                  ] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => { setRestoreSource(key); setRestoreError(''); }}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                        restoreSource === key
+                          ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
 
                 {restoreError && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                     {restoreError}
                   </div>
                 )}
+
+                {restoreSource === 'upload' && (
+                <>
+                <p className="text-sm text-gray-500">
+                  Upload your backup and enter its passphrase. A disaster-recovery bundle may be
+                  several <code className="bg-gray-100 px-1 rounded">.vmx</code> part files — select{' '}
+                  <strong>all of them at once</strong>.
+                </p>
 
                 <div className="space-y-3 max-w-md">
                   <div>
@@ -1513,6 +1763,243 @@ export function FirstRunSetupWizard() {
                     </div>
                   )}
                 </div>
+                </>
+                )}
+
+                {/* From this server / mounted drive — restore a backup that
+                    already lives on the box, no upload required. */}
+                {restoreSource === 'local' && (
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm text-gray-500">
+                        Restore directly from a backup already on this server or a mounted drive —
+                        nothing to upload.
+                      </p>
+                      <Button variant="secondary" size="sm" onClick={handleLocalList} loading={localListLoading}>
+                        <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+                      </Button>
+                    </div>
+
+                    {localListError && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                        {localListError}
+                      </div>
+                    )}
+
+                    {/* Per-root detection note. */}
+                    <div className="space-y-1">
+                      {localRoots.map((root) => {
+                        const rootLabel = root.key === 'drive' ? 'External drive' : 'Server backups';
+                        return (
+                          <p key={root.key} className="text-xs text-gray-500">
+                            {rootLabel} (<code className="bg-gray-100 px-1 rounded">{root.dir}</code>):{' '}
+                            {root.present ? (
+                              <span className="text-green-600 font-medium">detected</span>
+                            ) : (
+                              <span className="text-gray-400">not detected</span>
+                            )}
+                          </p>
+                        );
+                      })}
+                    </div>
+
+                    {localListLoading && localBundles.length === 0 ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <LoadingSpinner size="sm" /> Scanning for backups…
+                      </div>
+                    ) : localBundles.length === 0 ? (
+                      <p className="text-sm text-gray-500 italic">
+                        No backups found on this server or a mounted drive.
+                      </p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {localBundles.map((b) => {
+                          const selected = localSelectedId === b.id;
+                          return (
+                            <li key={b.id}>
+                              <button
+                                type="button"
+                                onClick={() => setLocalSelectedId(selected ? null : b.id)}
+                                className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                                  selected ? 'border-primary-400 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium text-gray-800 truncate">{b.label}</span>
+                                  <span className="text-xs text-gray-400 whitespace-nowrap">{formatBytes(b.size)}</span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-gray-500">
+                                  <span>{b.root === 'drive' ? 'External drive' : 'Server backups'}</span>
+                                  <span>·</span>
+                                  <span>{formatModified(b.modifiedAt)}</span>
+                                  {b.kind === 'multipart' && (
+                                    <>
+                                      <span>·</span>
+                                      <span>multipart — {b.partCount} parts</span>
+                                    </>
+                                  )}
+                                </div>
+                              </button>
+
+                              {selected && (
+                                <div className="mt-2 space-y-3 max-w-md pl-1">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Passphrase</label>
+                                    <div className="relative">
+                                      <input
+                                        type={showLocalPassphrase ? 'text' : 'password'}
+                                        value={localPassphrase}
+                                        onChange={(e) => setLocalPassphrase(e.target.value)}
+                                        placeholder="Enter backup passphrase"
+                                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                      />
+                                      <button type="button" onClick={() => setShowLocalPassphrase(!showLocalPassphrase)}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                        {showLocalPassphrase ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <Button onClick={handleLocalExecute} loading={restoreExecuting} disabled={!localPassphrase}>
+                                    Restore this backup
+                                  </Button>
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {/* From Backblaze B2 — enter bucket creds now, list, pick, restore. */}
+                {restoreSource === 'remote' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-500">
+                      Restore from a Backblaze B2 bucket. Enter your bucket credentials to list the
+                      backups it holds — the credentials are used for this restore only and never saved.
+                    </p>
+
+                    <div className="space-y-3 max-w-md">
+                      <Input label="Bucket" value={remoteForm.bucket} onChange={setRemote('bucket')} />
+                      <Input
+                        label="Endpoint"
+                        value={remoteForm.endpoint}
+                        onChange={setRemote('endpoint')}
+                        placeholder="s3.us-west-000.backblazeb2.com"
+                      />
+                      <Input label="Key ID" value={remoteForm.keyId} onChange={setRemote('keyId')} />
+                      <div className="space-y-1">
+                        <label className="block text-sm font-medium text-gray-700">Application key</label>
+                        <div className="relative">
+                          <input
+                            type={showRemoteAppKey ? 'text' : 'password'}
+                            value={remoteForm.applicationKey}
+                            onChange={setRemote('applicationKey')}
+                            autoComplete="off"
+                            className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                          <button type="button" onClick={() => setShowRemoteAppKey(!showRemoteAppKey)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            {showRemoteAppKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input label="Region (optional)" value={remoteForm.region} onChange={setRemote('region')} />
+                        <Input label="Prefix" value={remoteForm.prefix} onChange={setRemote('prefix')} />
+                      </div>
+                      <Button
+                        variant="secondary"
+                        onClick={handleRemoteList}
+                        loading={remoteListLoading}
+                        disabled={!remoteForm.bucket || !remoteForm.endpoint || !remoteForm.keyId || !remoteForm.applicationKey}
+                      >
+                        List backups
+                      </Button>
+                    </div>
+
+                    {remoteListError && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                        {remoteListError}
+                      </div>
+                    )}
+
+                    {!remoteListLoading && !remoteListError && remoteBundles.length === 0 && (
+                      <p className="text-xs text-gray-400">
+                        List backups to see what&apos;s available in this bucket.
+                      </p>
+                    )}
+
+                    {remoteBundles.length > 0 && (
+                      <ul className="space-y-2">
+                        {remoteBundles.map((b) => {
+                          const selected = remoteSelectedId === b.id;
+                          return (
+                            <li key={b.id}>
+                              <button
+                                type="button"
+                                onClick={() => setRemoteSelectedId(selected ? null : b.id)}
+                                className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                                  selected ? 'border-primary-400 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium text-gray-800 truncate">{b.label}</span>
+                                  <span className="text-xs text-gray-400 whitespace-nowrap">{formatBytes(b.size)}</span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-gray-500">
+                                  <span>{formatModified(b.modifiedAt)}</span>
+                                  {b.partCount > 1 && (
+                                    <>
+                                      <span>·</span>
+                                      <span>multipart — {b.partCount} parts</span>
+                                    </>
+                                  )}
+                                </div>
+                              </button>
+
+                              {selected && (
+                                <div className="mt-2 space-y-3 max-w-md pl-1">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Passphrase</label>
+                                    <div className="relative">
+                                      <input
+                                        type={showRemotePassphrase ? 'text' : 'password'}
+                                        value={remotePassphrase}
+                                        onChange={(e) => setRemotePassphrase(e.target.value)}
+                                        placeholder="Enter backup passphrase"
+                                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                      />
+                                      <button type="button" onClick={() => setShowRemotePassphrase(!showRemotePassphrase)}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                        {showRemotePassphrase ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <Button onClick={() => handleRemoteExecute(b)} loading={restoreExecuting} disabled={!remotePassphrase}>
+                                    Restore
+                                  </Button>
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {(restoreSource === 'local' || restoreSource === 'remote') && (
+                  <div className="pt-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => { setRestoreMode(false); setRestoreSource('upload'); }}
+                    >
+                      Back
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
