@@ -259,7 +259,7 @@ export function PortalLayout() {
       </main>
 
       <footer className="border-t border-gray-200 bg-white py-4 text-center text-xs text-gray-500">
-        Powered by Vibe MyBooks
+        Powered by VibeMyFirm
       </footer>
     </div>
   );

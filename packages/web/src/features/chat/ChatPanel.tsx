@@ -18,6 +18,7 @@ import type { ChatMessage as ChatMessageType } from '../../api/hooks/useChat';
 import { ChatMessage } from './ChatMessage';
 import { deriveScreenContext } from './screenContext';
 import { useChatController } from './ChatController';
+import { useBranding } from '../../api/hooks/useBranding';
 
 interface ChatPanelProps {
   open: boolean;
@@ -42,6 +43,7 @@ interface ChatPanelProps {
  */
 export function ChatPanel({ open, onClose }: ChatPanelProps) {
   const location = useLocation();
+  const { appName } = useBranding();
   const screenCtx = useMemo(() => deriveScreenContext(location.pathname), [location.pathname]);
   const { prefill, autoSendOnNextOpen, consumePrefill } = useChatController();
 
@@ -169,7 +171,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
               <Sparkles className="h-5 w-5 text-purple-600" />
             )}
             <h2 className="font-semibold text-gray-800 truncate">
-              {showHistory ? 'Conversations' : 'Vibe MyBooks Assistant'}
+              {showHistory ? 'Conversations' : `${appName} Assistant`}
             </h2>
           </div>
           <div className="flex items-center gap-1">
@@ -297,7 +299,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   rows={2}
-                  placeholder="Ask about Vibe MyBooks or accounting…"
+                  placeholder={`Ask about ${appName} or accounting…`}
                   className="flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   disabled={sendMessage.isPending}
                 />

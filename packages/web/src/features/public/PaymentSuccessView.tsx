@@ -40,7 +40,7 @@ export function PaymentSuccessView({ invoice, paidAmount }: Props) {
             Remaining balance: ${remaining.toFixed(2)}
           </div>
         )}
-        <p className="text-xs text-gray-400 mt-6">Powered by Vibe MyBooks</p>
+        <p className="text-xs text-gray-400 mt-6">Powered by VibeMyFirm</p>
       </div>
     </div>
   );

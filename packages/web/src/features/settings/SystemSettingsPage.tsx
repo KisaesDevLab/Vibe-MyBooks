@@ -1136,8 +1136,9 @@ export function SystemSettingsPage() {
               placeholder="Vibe MyBooks"
             />
             <p className="mt-1 text-xs text-gray-500">
-              Shown in the sidebar header. Leave blank to use the default ("Vibe MyBooks"). When set to a
-              custom name, a small "powered by VibeMB.com" footer is added to the sidebar.
+              Shown throughout the app — sidebar, headers, browser tab, login page, and outbound emails.
+              Leave blank to use the default ("Vibe MyBooks"). When set to a custom name, a small
+              "powered by VibeMyFirm" footer is added to the sidebar.
             </p>
           </div>
           <Input label="Application URL" value={form.applicationUrl} onChange={set('applicationUrl')} placeholder="https://books.example.com" />

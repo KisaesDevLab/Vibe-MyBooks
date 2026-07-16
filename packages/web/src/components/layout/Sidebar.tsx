@@ -546,13 +546,13 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
           <div className="mt-2 px-3 text-center text-[11px]" style={{ color: '#6B7280' }}>
             powered by{' '}
             <a
-              href="https://VibeMB.com"
+              href="https://www.vibemyfirm.com"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:underline"
               style={{ color: '#9CA3AF' }}
             >
-              VibeMB.com
+              VibeMyFirm
             </a>
           </div>
         )}
