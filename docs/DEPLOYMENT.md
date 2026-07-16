@@ -17,11 +17,14 @@ npx tsx scripts/generate-secrets.ts
 cp .env.production.example .env
 # Edit .env with your generated secrets and SMTP config
 
-# 3. Build and start
+# 3. Create the data directories, then start
+sudo mkdir -p /var/lib/vibe/mybooks/{postgres-data,redis-data,uploads,backups,data}
+sudo chown -R 1001:1001 /var/lib/vibe/mybooks/{uploads,backups,data}
 docker compose -f docker-compose.prod.yml up -d
 
-# 4. Open http://your-server:3001
-# Complete the setup wizard
+# 4. Open the web UI and complete the setup wizard:
+#      http://your-server:5173/setup
+#    (The web UI is on 5173; the API on 3001 serves only /health and /api/*.)
 ```
 
 ## One-Line Install
@@ -51,10 +54,10 @@ On first launch, Vibe MyBooks presents a setup wizard that:
 
 Use Nginx, Caddy, or Traefik as a reverse proxy in front of the app container. Set `CORS_ORIGIN` in `.env` to your domain.
 
-Example Caddy config:
+Point the proxy at the **web** container (port 5173), which serves the UI and proxies `/api` to the API internally. Example Caddy config:
 ```
 your-domain.com {
-  reverse_proxy localhost:3001
+  reverse_proxy localhost:5173
 }
 ```
 
@@ -65,7 +68,7 @@ Create passphrase-encrypted `.vmb` backups from **Settings > Backup & Restore** 
 
 ### CLI Backup
 ```bash
-docker exec kisbooks-app sh scripts/backup.sh
+docker compose exec api sh scripts/backup.sh
 ```
 
 ### Automated Backups
@@ -76,9 +79,14 @@ See [BACKUP.md](BACKUP.md) for restore procedures and disaster recovery.
 
 ## Updating
 
+The production stack **pulls** prebuilt images from GHCR — there is no local build step. The one-line updater does the pull+recreate for you:
+```bash
+curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.sh | bash -s -- --update
+```
+Or manually:
 ```bash
 git pull
-docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 # Migrations run automatically on startup
 ```

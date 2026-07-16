@@ -32,6 +32,10 @@ The installer clones this repo via `git`, so it must be on `PATH`.
 | **macOS** | Preinstalled via Xcode Command Line Tools. If missing: run `xcode-select --install` or `brew install git`. |
 | **Windows** | `winget install --id Git.Git -e --source winget` (works on Win 10 2004+ / Win 11 out of the box). Fallback: download the installer from [git-scm.com/download/win](https://git-scm.com/download/win). |
 
+### Other command-line tools
+
+The Linux/macOS installer also uses **openssl** (to generate secrets), **curl** (to fetch the script and check readiness), and **sudo/root** (to create the data directories under `/var/lib/vibe/mybooks`). These are preinstalled on almost every system; if the installer reports one missing, install it with your package manager (e.g. `sudo apt-get install -y openssl curl`).
+
 ### Sanity check
 
 Before running the installer, confirm in your terminal:
@@ -39,6 +43,7 @@ Before running the installer, confirm in your terminal:
 2. `docker info` succeeds.
 3. `docker compose version` prints `v2.x` or higher.
 4. `git --version` prints a version number.
+5. `openssl version` and `curl --version` both print a version (Linux/macOS installer).
 
 ---
 
@@ -54,7 +59,9 @@ curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scri
 irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.ps1 | iex
 ```
 
-This clones the repo into `~/vibe-mybooks` (`%USERPROFILE%\vibe-mybooks` on Windows), generates a `.env` with random secure secrets, **pulls the pre-built production image** from `ghcr.io/kisaesdevlab/vibe-mybooks`, and starts the app. The image contains the compiled API + web bundle, so there's no local TypeScript build — first run takes about as long as your connection needs to fetch ~300 MB. Open **http://localhost:3001** when it's ready and complete the first-run setup wizard.
+This clones the repo into `~/vibe-mybooks` (`%USERPROFILE%\vibe-mybooks` on Windows), creates the data directories under `/var/lib/vibe/mybooks`, generates a `.env` with random secure secrets, **pulls the pre-built production image** from `ghcr.io/kisaesdevlab/vibe-mybooks`, and starts the app. The image contains the compiled API + web bundle, so there's no local TypeScript build — first run takes about as long as your connection needs to fetch ~300 MB. Open the web app at **http://localhost:5173** when it's ready and complete the first-run setup wizard at **http://localhost:5173/setup**.
+
+> The web UI (and the setup wizard) is served on port **5173**; the API listens on **3001** and serves only `/health` and `/api/*` — opening `http://localhost:3001` in a browser returns an error, that's expected. **Save the one-time recovery key** the wizard shows (`RKVMB-…`) somewhere off this machine — it's the only way to recover your encryption keys after a disaster.
 
 > **Pin a version** by adding `VIBE_MYBOOKS_VERSION=1.4` (or any published tag, including `main-<sha>` or a full `v1.4.2`) to your `.env` before running the installer. Defaults to `latest`. The legacy `VIBE_MYBOOKS_TAG` env name is still honored as a fallback for already-deployed installations. Browse published images at [ghcr.io/kisaesdevlab — Vibe-MyBooks packages](https://github.com/orgs/KisaesDevLab/packages?repo_name=Vibe-MyBooks).
 
@@ -71,6 +78,14 @@ curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scri
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.ps1))) -update
 ```
+
+> **Recovery key across the storage-layout change:** releases up to v0.9.118 kept the identity files (`/data/.env.recovery`, `.sentinel`, `.host-id`) on the container's throwaway layer; v0.9.119+ persists all of `/data` on a host bind mount. The updater above automatically copies those files onto the host bind **before** the first recreate, so your recovery key survives. If you update **manually** (`docker compose pull && up -d`) from a pre-v0.9.119 install, first copy them out yourself:
+> ```bash
+> for f in .env.recovery .sentinel .host-id .db-fingerprint config/.initialized; do
+>   docker cp "$(docker compose ps -q api):/data/$f" "/var/lib/vibe/mybooks/data/$f" 2>/dev/null
+> done
+> ```
+> If you already lost it, regenerate a new one in **Admin → Security → Regenerate recovery key** (your data is safe as long as `.env` is intact) and store it off the machine.
 
 ### Stop / start manually
 

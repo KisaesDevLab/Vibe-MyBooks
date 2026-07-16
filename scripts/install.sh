@@ -20,7 +20,14 @@ set -euo pipefail
 REPO="https://github.com/KisaesDevLab/Vibe-MyBooks.git"
 INSTALL_DIR="${VIBE_MYBOOKS_DIR:-$HOME/vibe-mybooks}"
 COMPOSE_FILE="docker-compose.prod.yml"
+# APP_PORT   → the API (health + /api). VITE_PORT / WEB_PORT → the web UI and
+# the first-run setup wizard, which is what a human opens in a browser.
 APP_PORT="${APP_PORT:-3001}"
+WEB_PORT="${WEB_PORT:-5173}"
+# Host directory tree the production compose binds into the containers. Created
+# and owned below so a fresh box doesn't fail with an opaque permission error.
+DATA_ROOT="${VIBE_MYBOOKS_DATA_ROOT:-/var/lib/vibe/mybooks}"
+APP_UID=1001  # the in-container `app` user the api/worker drop to (see Dockerfile)
 UPDATE_MODE=false
 
 for arg in "$@"; do
@@ -32,6 +39,49 @@ done
 info()    { echo -e "\033[0;36m[Vibe MyBooks]\033[0m $1"; }
 success() { echo -e "\033[0;32m[Vibe MyBooks]\033[0m $1"; }
 error()   { echo -e "\033[0;31m[Vibe MyBooks ERROR]\033[0m $1"; }
+
+# Root escalation for writing under $DATA_ROOT (usually /var/lib). Empty when we
+# already run as root or sudo isn't available (best-effort; failures are warned).
+SUDO=""
+if [ "$(id -u)" -ne 0 ] && command -v sudo &>/dev/null; then SUDO="sudo"; fi
+
+# Preserve the installation-identity files across the ephemeral→bind /data change.
+#
+# Releases up to v0.9.118 bind-mounted only /data/uploads and /data/backups, so
+# /data/.env.recovery, /data/.sentinel, /data/.host-id, /data/.db-fingerprint and
+# /data/config/.initialized lived on the container's THROWAWAY layer. v0.9.119+
+# bind-mounts all of /data — the correct fix — but the first recreate under the
+# new mount shadows the ephemeral /data with an empty host dir, DISCARDING those
+# files. Losing .env.recovery invalidates the operator's recovery key; losing the
+# sentinel/host-id trips the reset-detection guard. So, if the currently running
+# api container is still on the old ephemeral layout, copy those files onto the
+# host bind BEFORE recreating. (The api entrypoint chowns /data to the app user
+# on boot, so copied root-owned files are normalized automatically.)
+preserve_identity_files() {
+  local cid
+  cid=$(docker compose -f "$COMPOSE_FILE" ps -q api 2>/dev/null | head -1)
+  [ -z "$cid" ] && return 0   # nothing running → fresh install, nothing to save
+  # If the running container already bind-mounts /data, it's already migrated.
+  local has_bind
+  has_bind=$(docker inspect "$cid" \
+    --format '{{range .Mounts}}{{if eq .Destination "/data"}}yes{{end}}{{end}}' 2>/dev/null)
+  [ "$has_bind" = "yes" ] && return 0
+
+  info "Preserving installation identity (recovery key, sentinel) across the storage change..."
+  $SUDO mkdir -p "$DATA_ROOT/data/config"
+  local f saved=0
+  for f in .env.recovery .sentinel .host-id .db-fingerprint config/.initialized; do
+    # docker cp runs via the daemon (root), so it can write under $DATA_ROOT.
+    if docker cp "$cid:/data/$f" "$DATA_ROOT/data/$f" 2>/dev/null; then
+      info "  preserved /data/$f"; saved=$((saved + 1))
+    fi
+  done
+  if [ "$saved" -gt 0 ]; then
+    success "Preserved $saved identity file(s) — your recovery key survives this update."
+  else
+    info "No legacy identity files found to preserve (already migrated, or never set up)."
+  fi
+}
 
 # ─── Check prerequisites ──────────────────────────────────────
 info "Checking prerequisites..."
@@ -68,11 +118,21 @@ fi
 
 if ! command -v git &>/dev/null; then
   error "git is not installed."
-  echo "  Install git from: https://git-scm.com/downloads"
+  echo "  Install git:  Debian/Ubuntu: sudo apt-get install -y git   |   Fedora: sudo dnf install -y git   |   macOS: xcode-select --install"
   exit 1
 fi
 
-info "Docker and git are ready."
+# openssl mints the secrets below; curl runs the readiness probe. Both ship on
+# most systems, but check up front so we fail with a fix instead of mid-run.
+for tool in openssl curl; do
+  if ! command -v "$tool" &>/dev/null; then
+    error "$tool is not installed (needed to $([ "$tool" = openssl ] && echo 'generate secrets' || echo 'check readiness'))."
+    echo "  Install:  Debian/Ubuntu: sudo apt-get install -y $tool   |   Fedora: sudo dnf install -y $tool   |   macOS: preinstalled"
+    exit 1
+  fi
+done
+
+info "Docker, git, openssl and curl are ready."
 
 # ─── Port availability check ──────────────────────────────────
 # Catch the common "something's already on 3001" case before we clone,
@@ -143,12 +203,16 @@ if [ "$UPDATE_MODE" = true ]; then
     exit 1
   }
 
+  # Save the recovery key / sentinel BEFORE recreating, in case this update is
+  # the one that moves /data from the container layer onto a host bind mount.
+  preserve_identity_files
+
   info "Pulling latest image..."
   docker compose -f "$COMPOSE_FILE" pull
   docker compose -f "$COMPOSE_FILE" up -d
 
   success "Update complete!"
-  success "Vibe MyBooks is running at http://localhost:$APP_PORT"
+  success "Vibe MyBooks is running at http://localhost:$WEB_PORT"
   exit 0
 fi
 
@@ -199,7 +263,10 @@ PLAID_ENCRYPTION_KEY=$PLAID_ENCRYPTION_KEY
 # Runtime
 NODE_ENV=production
 PORT=$APP_PORT
-CORS_ORIGIN=http://localhost:$APP_PORT
+VITE_PORT=$WEB_PORT
+# The browser talks to the web UI on WEB_PORT, so that is the CORS origin the
+# API must allow — NOT the API's own port.
+CORS_ORIGIN=http://localhost:$WEB_PORT
 
 # Email (SMTP) — fill in to enable outbound mail
 SMTP_HOST=
@@ -231,6 +298,31 @@ else
   info "Existing .env found — keeping it."
 fi
 
+# ─── Create the host data directories ─────────────────────────
+# The production compose binds these absolute paths into the containers. If
+# they don't exist Docker creates them as root:root, which the api entrypoint
+# then chowns for /data — but pre-creating with the right owner avoids a
+# first-boot permission error on hosts with restrictive /var/lib perms or
+# SELinux/AppArmor. Best-effort: a failure here is not fatal (the entrypoint
+# self-heals /data on most hosts), so we warn and continue.
+info "Preparing data directories under $DATA_ROOT..."
+if $SUDO mkdir -p \
+     "$DATA_ROOT/postgres-data" "$DATA_ROOT/redis-data" \
+     "$DATA_ROOT/uploads" "$DATA_ROOT/backups" "$DATA_ROOT/data" 2>/dev/null; then
+  # Postgres/Redis images self-chown their own dirs; the app dirs must be owned
+  # by the in-container app user (UID $APP_UID) so uploads/backups/recovery write.
+  $SUDO chown -R "$APP_UID:$APP_UID" \
+     "$DATA_ROOT/uploads" "$DATA_ROOT/backups" "$DATA_ROOT/data" 2>/dev/null || true
+  success "Data directories ready at $DATA_ROOT"
+else
+  info "Could not pre-create $DATA_ROOT (need root/sudo). Continuing — the"
+  info "container will create and chown /data itself on first boot."
+fi
+
+# Reinstalling over an existing (possibly legacy-layout) stack recreates the
+# containers too, so preserve the recovery key / sentinel first here as well.
+preserve_identity_files
+
 # ─── Pull image and start ─────────────────────────────────────
 info "Pulling Vibe MyBooks image (first run downloads ~300 MB)..."
 docker compose -f "$COMPOSE_FILE" pull
@@ -257,10 +349,13 @@ echo ""
 if [ "$READY" = true ]; then
   success "Vibe MyBooks is ready!"
   echo ""
-  echo "  Open:  http://localhost:$APP_PORT"
-  echo "  Dir:   $INSTALL_DIR"
+  echo "  Open the app:   http://localhost:$WEB_PORT"
+  echo "  First-run setup: http://localhost:$WEB_PORT/setup"
+  echo "  Install dir:    $INSTALL_DIR"
   echo ""
-  echo "  First run? Visit http://localhost:$APP_PORT/setup to complete the wizard."
+  echo "  IMPORTANT: the setup wizard shows a one-time RECOVERY KEY (RKVMB-…)."
+  echo "  Write it down and store it off this machine — it is the only way to"
+  echo "  recover your encryption keys after a disaster. It is not shown again."
   echo ""
   echo "  To stop:    cd $INSTALL_DIR && docker compose -f $COMPOSE_FILE down"
   echo "  To update:  curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.sh | bash -s -- --update"
@@ -268,5 +363,5 @@ if [ "$READY" = true ]; then
 else
   error "Services did not become ready within 3 minutes."
   error "Check logs: cd $INSTALL_DIR && docker compose -f $COMPOSE_FILE logs"
-  error "Try opening http://localhost:$APP_PORT manually."
+  error "Once healthy, open the app at http://localhost:$WEB_PORT (setup: /setup)."
 fi
