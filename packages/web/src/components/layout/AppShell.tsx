@@ -9,6 +9,7 @@ import { Menu } from 'lucide-react';
 import { ChatFab } from '../../features/chat/ChatFab';
 import { ChatProvider } from '../../features/chat/ChatController';
 import { useMe } from '../../api/hooks/useAuth';
+import { useBranding } from '../../api/hooks/useBranding';
 
 // Desktop sidebar collapse preference — survives sessions. '1' means
 // collapsed to the icons-only rail; anything else (including absent)
@@ -42,6 +43,7 @@ export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readInitialCollapsed);
   const isDesktop = useIsDesktop();
+  const { appName } = useBranding();
 
   // Active tenant (organization) name for the header bar. `activeTenantId`
   // falls back to the user's home tenant; the matching accessibleTenants
@@ -117,7 +119,7 @@ export function AppShell() {
           {/* App name shows on mobile (drawer closed) and on desktop when
               the rail hides the sidebar's own title — never twice. */}
           <span className={`text-sm font-semibold text-gray-900 ${collapsed ? '' : 'lg:hidden'}`}>
-            Vibe MyBooks
+            {appName}
           </span>
           {/* Active tenant (organization) name, shown in the header on every
               breakpoint. A divider separates it from the app name when both

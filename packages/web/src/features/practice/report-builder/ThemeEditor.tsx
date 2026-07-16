@@ -29,7 +29,7 @@ const DEFAULT_THEME: Theme = {
   secondaryColor: '#0ea5e9',
   font: 'Inter',
   headerText: '',
-  footerText: 'Powered by Vibe MyBooks',
+  footerText: 'Powered by VibeMyFirm',
   brandingLogoUrl: '',
 };
 

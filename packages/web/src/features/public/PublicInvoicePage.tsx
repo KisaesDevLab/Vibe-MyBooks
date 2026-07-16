@@ -300,7 +300,7 @@ export function PublicInvoicePage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 mt-6">
-          Powered by Vibe MyBooks
+          Powered by VibeMyFirm
         </p>
       </div>
     </div>

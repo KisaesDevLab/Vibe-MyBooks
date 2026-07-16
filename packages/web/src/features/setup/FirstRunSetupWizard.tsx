@@ -1395,9 +1395,9 @@ export function FirstRunSetupWizard() {
                 const win = window.open('', '_blank', 'width=500,height=400');
                 if (!win) return;
                 win.document.write(
-                  `<html><head><title>KIS Books Recovery Key</title></head>` +
+                  `<html><head><title>Recovery Key</title></head>` +
                     `<body style="font-family:monospace;padding:2em;">` +
-                    `<h2>KIS Books Recovery Key</h2>` +
+                    `<h2>Recovery Key</h2>` +
                     `<p style="font-size:1.5em;letter-spacing:0.1em;background:#fef3c7;padding:1em;border:2px solid #f59e0b;">${recoveryKey}</p>` +
                     `</body></html>`,
                 );
@@ -2793,9 +2793,9 @@ export function FirstRunSetupWizard() {
                               const win = window.open('', '_blank', 'width=500,height=400');
                               if (!win) return;
                               win.document.write(
-                                `<html><head><title>KIS Books Recovery Key</title></head>` +
+                                `<html><head><title>Recovery Key</title></head>` +
                                   `<body style="font-family:monospace;padding:2em;">` +
-                                  `<h2>KIS Books Recovery Key</h2>` +
+                                  `<h2>Recovery Key</h2>` +
                                   `<p>Installation date: ${new Date().toLocaleString()}</p>` +
                                   `<p style="font-size:1.5em;letter-spacing:0.1em;background:#fef3c7;padding:1em;border:2px solid #f59e0b;">${recoveryKey}</p>` +
                                   `<p>Keep this in a secure location. It is the only way to recover your .env file if it is lost.</p>` +

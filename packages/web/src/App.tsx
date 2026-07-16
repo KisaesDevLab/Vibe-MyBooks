@@ -5,6 +5,7 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useDocumentTitleBranding } from './api/hooks/useBranding';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { AdminRoute } from './components/layout/AdminRoute';
@@ -284,9 +285,16 @@ function LoadingFallback() {
   );
 }
 
+/** Syncs the browser tab title to the white-label app name (pre- and post-login). */
+function BrandingTitleSync() {
+  useDocumentTitleBranding();
+  return null;
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <BrandingTitleSync />
       <ToastProvider>
       <DiagnosticRouter>
       <CompanyProvider>
