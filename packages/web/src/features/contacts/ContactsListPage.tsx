@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ContactType } from '@kis-books/shared';
-import { useContacts, useDeactivateContact, useExportContacts } from '../../api/hooks/useContacts';
+import { useContacts, useDeactivateContact, useExportContacts, useBulkUpdateContactType } from '../../api/hooks/useContacts';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -31,12 +31,15 @@ export function ContactsListPage() {
   const [offset, setOffset] = useState(0);
   const [showImport, setShowImport] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
+  // Bulk-select for changing customer/vendor/both type on many contacts at once.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Reset offset on any filter change so the user isn't stranded on a page
-  // that no longer exists in the filtered set.
-  const setTypeTab = (v: ContactType | '') => { setTypeTabRaw(v); setOffset(0); };
-  const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
-  const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); };
+  // that no longer exists in the filtered set. Also clear the selection so a
+  // bulk action can't hit rows the user can no longer see.
+  const setTypeTab = (v: ContactType | '') => { setTypeTabRaw(v); setOffset(0); setSelected(new Set()); };
+  const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); setSelected(new Set()); };
+  const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); setSelected(new Set()); };
 
   // Typing stays responsive; the query fires only once the search text
   // is stable for ~400ms instead of on every keystroke.
@@ -53,11 +56,27 @@ export function ContactsListPage() {
   const { data, isLoading, isError, refetch } = useContacts(filters);
   const deactivateContact = useDeactivateContact();
   const exportContacts = useExportContacts();
+  const bulkType = useBulkUpdateContactType();
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
   if (isError) return <ErrorMessage onRetry={() => refetch()} />;
 
   const contacts = data?.data || [];
+  const allOnPageSelected = contacts.length > 0 && contacts.every((c) => selected.has(c.id));
+  const toggleOne = (id: string) => setSelected((s) => {
+    const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+  const toggleAllOnPage = () => setSelected((s) => {
+    const n = new Set(s);
+    if (allOnPageSelected) contacts.forEach((c) => n.delete(c.id));
+    else contacts.forEach((c) => n.add(c.id));
+    return n;
+  });
+  const applyBulkType = (contactType: ContactType) => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    bulkType.mutate({ ids, contactType }, { onSuccess: () => setSelected(new Set()) });
+  };
 
   return (
     <div>
@@ -123,6 +142,19 @@ export function ContactsListPage() {
         </select>
       </div>
 
+      {/* Bulk action bar — change customer/vendor/both on the selected rows. */}
+      {selected.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-4 py-2">
+          <span className="text-sm font-medium text-gray-700">{selected.size} selected</span>
+          <span className="text-sm text-gray-500">— set type to:</span>
+          <Button size="sm" variant="secondary" disabled={bulkType.isPending} onClick={() => applyBulkType('customer')}>Customer</Button>
+          <Button size="sm" variant="secondary" disabled={bulkType.isPending} onClick={() => applyBulkType('vendor')}>Vendor</Button>
+          <Button size="sm" variant="secondary" disabled={bulkType.isPending} onClick={() => applyBulkType('both')}>Both</Button>
+          {bulkType.isPending && <span className="text-sm text-gray-500">Saving…</span>}
+          <button type="button" className="ml-auto text-sm text-gray-500 hover:text-gray-700" onClick={() => setSelected(new Set())}>Clear</button>
+        </div>
+      )}
+
       {/* Table */}
       {contacts.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-500">
@@ -133,6 +165,15 @@ export function ContactsListPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all on this page"
+                    checked={allOnPageSelected}
+                    onChange={toggleAllOnPage}
+                    className="rounded border-gray-300"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
@@ -145,9 +186,18 @@ export function ContactsListPage() {
               {contacts.map((contact) => (
                 <tr
                   key={contact.id}
-                  className="hover:bg-gray-50 cursor-pointer"
+                  className={`hover:bg-gray-50 cursor-pointer ${selected.has(contact.id) ? 'bg-primary-50' : ''}`}
                   onClick={() => navigate(`/contacts/${contact.id}`)}
                 >
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${contact.displayName}`}
+                      checked={selected.has(contact.id)}
+                      onChange={() => toggleOne(contact.id)}
+                      className="rounded border-gray-300"
+                    />
+                  </td>
                   <td className="px-6 py-3 text-sm font-medium text-gray-900">{contact.displayName}</td>
                   <td className="px-6 py-3 text-sm text-gray-500 capitalize">{contact.contactType}</td>
                   <td className="px-6 py-3 text-sm text-gray-500">{contact.email || '—'}</td>

@@ -23,6 +23,7 @@ vi.mock('../../api/hooks/useContacts', () => ({
   useUpdateContact: (...a: unknown[]) => useUpdateContactMock(...a),
   useDeactivateContact: (...a: unknown[]) => useDeactivateContactMock(...a),
   useExportContacts: (...a: unknown[]) => useExportContactsMock(...a),
+  useBulkUpdateContactType: () => passthroughMutation,
   useMergeContacts: () => passthroughMutation,
   useImportContacts: () => passthroughMutation,
   useContactTransactions: (...a: unknown[]) => useContactTransactionsMock(...a),
