@@ -20,7 +20,14 @@ set -euo pipefail
 REPO="https://github.com/KisaesDevLab/Vibe-MyBooks.git"
 INSTALL_DIR="${VIBE_MYBOOKS_DIR:-$HOME/vibe-mybooks}"
 COMPOSE_FILE="docker-compose.prod.yml"
+# APP_PORT   → the API (health + /api). VITE_PORT / WEB_PORT → the web UI and
+# the first-run setup wizard, which is what a human opens in a browser.
 APP_PORT="${APP_PORT:-3001}"
+WEB_PORT="${WEB_PORT:-5173}"
+# Host directory tree the production compose binds into the containers. Created
+# and owned below so a fresh box doesn't fail with an opaque permission error.
+DATA_ROOT="${VIBE_MYBOOKS_DATA_ROOT:-/var/lib/vibe/mybooks}"
+APP_UID=1001  # the in-container `app` user the api/worker drop to (see Dockerfile)
 UPDATE_MODE=false
 
 for arg in "$@"; do
@@ -68,11 +75,21 @@ fi
 
 if ! command -v git &>/dev/null; then
   error "git is not installed."
-  echo "  Install git from: https://git-scm.com/downloads"
+  echo "  Install git:  Debian/Ubuntu: sudo apt-get install -y git   |   Fedora: sudo dnf install -y git   |   macOS: xcode-select --install"
   exit 1
 fi
 
-info "Docker and git are ready."
+# openssl mints the secrets below; curl runs the readiness probe. Both ship on
+# most systems, but check up front so we fail with a fix instead of mid-run.
+for tool in openssl curl; do
+  if ! command -v "$tool" &>/dev/null; then
+    error "$tool is not installed (needed to $([ "$tool" = openssl ] && echo 'generate secrets' || echo 'check readiness'))."
+    echo "  Install:  Debian/Ubuntu: sudo apt-get install -y $tool   |   Fedora: sudo dnf install -y $tool   |   macOS: preinstalled"
+    exit 1
+  fi
+done
+
+info "Docker, git, openssl and curl are ready."
 
 # ─── Port availability check ──────────────────────────────────
 # Catch the common "something's already on 3001" case before we clone,
@@ -148,7 +165,7 @@ if [ "$UPDATE_MODE" = true ]; then
   docker compose -f "$COMPOSE_FILE" up -d
 
   success "Update complete!"
-  success "Vibe MyBooks is running at http://localhost:$APP_PORT"
+  success "Vibe MyBooks is running at http://localhost:$WEB_PORT"
   exit 0
 fi
 
@@ -199,7 +216,10 @@ PLAID_ENCRYPTION_KEY=$PLAID_ENCRYPTION_KEY
 # Runtime
 NODE_ENV=production
 PORT=$APP_PORT
-CORS_ORIGIN=http://localhost:$APP_PORT
+VITE_PORT=$WEB_PORT
+# The browser talks to the web UI on WEB_PORT, so that is the CORS origin the
+# API must allow — NOT the API's own port.
+CORS_ORIGIN=http://localhost:$WEB_PORT
 
 # Email (SMTP) — fill in to enable outbound mail
 SMTP_HOST=
@@ -231,6 +251,31 @@ else
   info "Existing .env found — keeping it."
 fi
 
+# ─── Create the host data directories ─────────────────────────
+# The production compose binds these absolute paths into the containers. If
+# they don't exist Docker creates them as root:root, which the api entrypoint
+# then chowns for /data — but pre-creating with the right owner avoids a
+# first-boot permission error on hosts with restrictive /var/lib perms or
+# SELinux/AppArmor. Best-effort: a failure here is not fatal (the entrypoint
+# self-heals /data on most hosts), so we warn and continue.
+info "Preparing data directories under $DATA_ROOT..."
+SUDO=""
+if [ "$(id -u)" -ne 0 ]; then
+  if command -v sudo &>/dev/null; then SUDO="sudo"; fi
+fi
+if $SUDO mkdir -p \
+     "$DATA_ROOT/postgres-data" "$DATA_ROOT/redis-data" \
+     "$DATA_ROOT/uploads" "$DATA_ROOT/backups" "$DATA_ROOT/data" 2>/dev/null; then
+  # Postgres/Redis images self-chown their own dirs; the app dirs must be owned
+  # by the in-container app user (UID $APP_UID) so uploads/backups/recovery write.
+  $SUDO chown -R "$APP_UID:$APP_UID" \
+     "$DATA_ROOT/uploads" "$DATA_ROOT/backups" "$DATA_ROOT/data" 2>/dev/null || true
+  success "Data directories ready at $DATA_ROOT"
+else
+  info "Could not pre-create $DATA_ROOT (need root/sudo). Continuing — the"
+  info "container will create and chown /data itself on first boot."
+fi
+
 # ─── Pull image and start ─────────────────────────────────────
 info "Pulling Vibe MyBooks image (first run downloads ~300 MB)..."
 docker compose -f "$COMPOSE_FILE" pull
@@ -257,10 +302,13 @@ echo ""
 if [ "$READY" = true ]; then
   success "Vibe MyBooks is ready!"
   echo ""
-  echo "  Open:  http://localhost:$APP_PORT"
-  echo "  Dir:   $INSTALL_DIR"
+  echo "  Open the app:   http://localhost:$WEB_PORT"
+  echo "  First-run setup: http://localhost:$WEB_PORT/setup"
+  echo "  Install dir:    $INSTALL_DIR"
   echo ""
-  echo "  First run? Visit http://localhost:$APP_PORT/setup to complete the wizard."
+  echo "  IMPORTANT: the setup wizard shows a one-time RECOVERY KEY (RKVMB-…)."
+  echo "  Write it down and store it off this machine — it is the only way to"
+  echo "  recover your encryption keys after a disaster. It is not shown again."
   echo ""
   echo "  To stop:    cd $INSTALL_DIR && docker compose -f $COMPOSE_FILE down"
   echo "  To update:  curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.sh | bash -s -- --update"
@@ -268,5 +316,5 @@ if [ "$READY" = true ]; then
 else
   error "Services did not become ready within 3 minutes."
   error "Check logs: cd $INSTALL_DIR && docker compose -f $COMPOSE_FILE logs"
-  error "Try opening http://localhost:$APP_PORT manually."
+  error "Once healthy, open the app at http://localhost:$WEB_PORT (setup: /setup)."
 fi
