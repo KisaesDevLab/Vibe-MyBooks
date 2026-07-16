@@ -40,6 +40,49 @@ info()    { echo -e "\033[0;36m[Vibe MyBooks]\033[0m $1"; }
 success() { echo -e "\033[0;32m[Vibe MyBooks]\033[0m $1"; }
 error()   { echo -e "\033[0;31m[Vibe MyBooks ERROR]\033[0m $1"; }
 
+# Root escalation for writing under $DATA_ROOT (usually /var/lib). Empty when we
+# already run as root or sudo isn't available (best-effort; failures are warned).
+SUDO=""
+if [ "$(id -u)" -ne 0 ] && command -v sudo &>/dev/null; then SUDO="sudo"; fi
+
+# Preserve the installation-identity files across the ephemeral→bind /data change.
+#
+# Releases up to v0.9.118 bind-mounted only /data/uploads and /data/backups, so
+# /data/.env.recovery, /data/.sentinel, /data/.host-id, /data/.db-fingerprint and
+# /data/config/.initialized lived on the container's THROWAWAY layer. v0.9.119+
+# bind-mounts all of /data — the correct fix — but the first recreate under the
+# new mount shadows the ephemeral /data with an empty host dir, DISCARDING those
+# files. Losing .env.recovery invalidates the operator's recovery key; losing the
+# sentinel/host-id trips the reset-detection guard. So, if the currently running
+# api container is still on the old ephemeral layout, copy those files onto the
+# host bind BEFORE recreating. (The api entrypoint chowns /data to the app user
+# on boot, so copied root-owned files are normalized automatically.)
+preserve_identity_files() {
+  local cid
+  cid=$(docker compose -f "$COMPOSE_FILE" ps -q api 2>/dev/null | head -1)
+  [ -z "$cid" ] && return 0   # nothing running → fresh install, nothing to save
+  # If the running container already bind-mounts /data, it's already migrated.
+  local has_bind
+  has_bind=$(docker inspect "$cid" \
+    --format '{{range .Mounts}}{{if eq .Destination "/data"}}yes{{end}}{{end}}' 2>/dev/null)
+  [ "$has_bind" = "yes" ] && return 0
+
+  info "Preserving installation identity (recovery key, sentinel) across the storage change..."
+  $SUDO mkdir -p "$DATA_ROOT/data/config"
+  local f saved=0
+  for f in .env.recovery .sentinel .host-id .db-fingerprint config/.initialized; do
+    # docker cp runs via the daemon (root), so it can write under $DATA_ROOT.
+    if docker cp "$cid:/data/$f" "$DATA_ROOT/data/$f" 2>/dev/null; then
+      info "  preserved /data/$f"; saved=$((saved + 1))
+    fi
+  done
+  if [ "$saved" -gt 0 ]; then
+    success "Preserved $saved identity file(s) — your recovery key survives this update."
+  else
+    info "No legacy identity files found to preserve (already migrated, or never set up)."
+  fi
+}
+
 # ─── Check prerequisites ──────────────────────────────────────
 info "Checking prerequisites..."
 
@@ -160,6 +203,10 @@ if [ "$UPDATE_MODE" = true ]; then
     exit 1
   }
 
+  # Save the recovery key / sentinel BEFORE recreating, in case this update is
+  # the one that moves /data from the container layer onto a host bind mount.
+  preserve_identity_files
+
   info "Pulling latest image..."
   docker compose -f "$COMPOSE_FILE" pull
   docker compose -f "$COMPOSE_FILE" up -d
@@ -259,10 +306,6 @@ fi
 # SELinux/AppArmor. Best-effort: a failure here is not fatal (the entrypoint
 # self-heals /data on most hosts), so we warn and continue.
 info "Preparing data directories under $DATA_ROOT..."
-SUDO=""
-if [ "$(id -u)" -ne 0 ]; then
-  if command -v sudo &>/dev/null; then SUDO="sudo"; fi
-fi
 if $SUDO mkdir -p \
      "$DATA_ROOT/postgres-data" "$DATA_ROOT/redis-data" \
      "$DATA_ROOT/uploads" "$DATA_ROOT/backups" "$DATA_ROOT/data" 2>/dev/null; then
@@ -275,6 +318,10 @@ else
   info "Could not pre-create $DATA_ROOT (need root/sudo). Continuing — the"
   info "container will create and chown /data itself on first boot."
 fi
+
+# Reinstalling over an existing (possibly legacy-layout) stack recreates the
+# containers too, so preserve the recovery key / sentinel first here as well.
+preserve_identity_files
 
 # ─── Pull image and start ─────────────────────────────────────
 info "Pulling Vibe MyBooks image (first run downloads ~300 MB)..."

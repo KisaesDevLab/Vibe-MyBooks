@@ -79,6 +79,14 @@ curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scri
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scripts/install.ps1))) -update
 ```
 
+> **Recovery key across the storage-layout change:** releases up to v0.9.118 kept the identity files (`/data/.env.recovery`, `.sentinel`, `.host-id`) on the container's throwaway layer; v0.9.119+ persists all of `/data` on a host bind mount. The updater above automatically copies those files onto the host bind **before** the first recreate, so your recovery key survives. If you update **manually** (`docker compose pull && up -d`) from a pre-v0.9.119 install, first copy them out yourself:
+> ```bash
+> for f in .env.recovery .sentinel .host-id .db-fingerprint config/.initialized; do
+>   docker cp "$(docker compose ps -q api):/data/$f" "/var/lib/vibe/mybooks/data/$f" 2>/dev/null
+> done
+> ```
+> If you already lost it, regenerate a new one in **Admin → Security → Regenerate recovery key** (your data is safe as long as `.env` is intact) and store it off the machine.
+
 ### Stop / start manually
 
 After install, the app lives at `~/vibe-mybooks`. From there:
