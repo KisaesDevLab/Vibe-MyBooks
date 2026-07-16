@@ -61,6 +61,12 @@ export function SystemSettingsPage() {
     retentionMonthly: '12',
     retentionYearly: '7',
     lastRun: '',
+    // DB-only schedule + local mirror
+    dbSchedule: 'none',
+    dbLastRun: '',
+    localMirrorDir: '',
+    scheduledPassphrase: '',
+    hasScheduledPassphrase: false,
     // S3 fields (bucket/endpoint/region/prefix are shared with B2)
     s3Bucket: '', s3Region: 'us-east-1', s3Endpoint: '', s3AccessKeyId: '', s3SecretAccessKey: '', s3Prefix: 'backups/',
     // Backblaze B2 fields
@@ -147,6 +153,10 @@ export function SystemSettingsPage() {
             retentionMonthly: bd.backupRemoteRetentionMonthly || '12',
             retentionYearly: bd.backupRemoteRetentionYearly || '7',
             lastRun: bd.backupLastRun || '',
+            dbSchedule: bd.backupDbSchedule || 'none',
+            dbLastRun: bd.backupDbLastRun || '',
+            localMirrorDir: bd.backupLocalMirrorDir || '',
+            hasScheduledPassphrase: !!bd.hasScheduledPassphrase,
             s3Bucket: pc.bucket || '', s3Region: pc.region || 'us-east-1',
             s3Endpoint: pc.endpoint || '', s3AccessKeyId: pc.accessKeyId || '',
             s3Prefix: pc.prefix || 'backups/',
@@ -354,10 +364,18 @@ export function SystemSettingsPage() {
           backupRemoteRetentionWeekly: backupRemote.retentionWeekly,
           backupRemoteRetentionMonthly: backupRemote.retentionMonthly,
           backupRemoteRetentionYearly: backupRemote.retentionYearly,
+          backupDbSchedule: backupRemote.dbSchedule,
+          backupLocalMirrorDir: backupRemote.localMirrorDir,
+          // Omit scheduledPassphrase when blank so a re-save never wipes the
+          // stored (encrypted) value — the backend preserves omitted/blank.
+          ...(backupRemote.scheduledPassphrase ? { scheduledPassphrase: backupRemote.scheduledPassphrase } : {}),
           providerConfig: backupRemote.provider !== 'none' ? providerConfig : undefined,
         }),
       });
       if (!res.ok) throw new Error('Failed to save');
+      if (backupRemote.scheduledPassphrase) {
+        setBackupRemote((b) => ({ ...b, scheduledPassphrase: '', hasScheduledPassphrase: true }));
+      }
       setBackupSaveStatus('saved');
       setTimeout(() => setBackupSaveStatus('idle'), 3000);
     } catch (err) {
@@ -1061,6 +1079,41 @@ export function SystemSettingsPage() {
               </div>
             </div>
           )}
+
+          {/* Scheduled backup passphrase */}
+          <div className="border-t border-gray-100 pt-4 space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Scheduled backup passphrase</label>
+            <input type="password" value={backupRemote.scheduledPassphrase} onChange={setBackup('scheduledPassphrase')}
+              placeholder={backupRemote.hasScheduledPassphrase ? '•••• Set — leave blank to keep' : 'Passphrase used to encrypt scheduled backups'}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            <p className="text-xs text-gray-500">
+              Used to encrypt automated (scheduled) backups. {backupRemote.hasScheduledPassphrase ? 'Set — leave blank to keep the existing passphrase.' : 'Leave blank if not using scheduled backups.'}
+            </p>
+          </div>
+
+          {/* Daily database-only backup */}
+          <div className="border-t border-gray-100 pt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Daily database-only backup</label>
+            <select value={backupRemote.dbSchedule} onChange={setBackup('dbSchedule')}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="none">None</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              A lighter DB-only backup on this cadence, in addition to the full backup schedule above.
+              {backupRemote.dbLastRun && ` Last run: ${new Date(backupRemote.dbLastRun).toLocaleString()}`}
+            </p>
+          </div>
+
+          {/* Local mirror directory */}
+          <div className="border-t border-gray-100 pt-4">
+            <Input label="Local mirror directory" value={backupRemote.localMirrorDir} onChange={setBackup('localMirrorDir')}
+              placeholder="/data/backup-mirror" />
+            <p className="mt-1 text-xs text-gray-500">
+              Extra local path each backup is copied to (e.g. an external drive mounted at /data/backup-mirror). Leave blank to disable.
+            </p>
+          </div>
 
           {/* Save Backup Remote Config */}
           <div className="flex items-center gap-3 pt-2">
