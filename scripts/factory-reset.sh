@@ -82,7 +82,7 @@ echo "  ✓ Database reset"
 #    throwaway container that mounts the same /data volume (api/worker are down).
 echo "  Removing installation identity and user data..."
 docker compose run --rm --no-deps --entrypoint sh api -c '
-  rm -f  /data/.sentinel /data/.host-id /data/.env.recovery
+  rm -f  /data/.sentinel /data/.host-id /data/.env.recovery /data/.db-fingerprint
   rm -rf /data/config /data/generated /data/cache
   rm -rf /data/uploads/* /data/uploads/.[!.]* 2>/dev/null || true
   rm -rf /data/backups/* /data/backups/.[!.]* 2>/dev/null || true
