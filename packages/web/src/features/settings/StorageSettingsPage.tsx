@@ -126,6 +126,13 @@ export function StorageSettingsPage() {
       <h1 className="text-2xl font-bold text-gray-900 mb-2">File Storage</h1>
       <p className="text-sm text-gray-500 mb-6">Choose where your uploaded files are stored.</p>
 
+      {data?.localDisabled && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 max-w-2xl text-sm text-blue-800">
+          Local disk storage has been disabled by your administrator — files are stored on{' '}
+          {PROVIDER_INFO[data.systemDefault]?.label || data.systemDefault} unless you connect your own provider below.
+        </div>
+      )}
+
       {/* Active Provider */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6 max-w-2xl">
         <div className="flex items-center justify-between mb-3">

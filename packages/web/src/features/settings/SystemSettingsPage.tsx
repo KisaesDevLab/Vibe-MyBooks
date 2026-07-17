@@ -97,6 +97,15 @@ export function SystemSettingsPage() {
   const [fsSaveError, setFsSaveError] = useState('');
   const [fsTestStatus, setFsTestStatus] = useState<'idle' | 'testing' | 'healthy' | 'error'>('idle');
   const [fsTestError, setFsTestError] = useState('');
+  interface FsMigration {
+    status: 'idle' | 'running' | 'completed' | 'failed' | 'cancelled';
+    provider: string | null;
+    totalFiles: number; processed: number; migrated: number;
+    alreadyRemote: number; missingLocal: number; failed: number;
+    completedAt: string | null;
+  }
+  const [fsMigration, setFsMigration] = useState<FsMigration | null>(null);
+  const [fsMigrateError, setFsMigrateError] = useState('');
 
   const GFS_PRESETS: Record<string, { daily: string; weekly: string; monthly: string; yearly: string }> = {
     recommended: { daily: '14', weekly: '8', monthly: '12', yearly: '7' },
@@ -484,6 +493,46 @@ export function SystemSettingsPage() {
     }
   };
 
+  const refreshFsMigration = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/storage/system-migrate/status`, { headers: authHeaders });
+      if (res.ok) setFsMigration(await res.json());
+    } catch { /* transient — next poll retries */ }
+  };
+
+  useEffect(() => { refreshFsMigration(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll while a migration is running so the progress bar advances.
+  useEffect(() => {
+    if (fsMigration?.status !== 'running') return;
+    const t = setTimeout(refreshFsMigration, 2000);
+    return () => clearTimeout(t);
+  }, [fsMigration]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleMigrateFileStorage = async () => {
+    setFsMigrateError('');
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/storage/system-migrate`, { method: 'POST', headers: authHeaders });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error?.message || `Failed to start (HTTP ${res.status})`);
+      }
+      // Placeholder until the first status poll lands, so the button
+      // disables and the progress section appears immediately.
+      setFsMigration({ status: 'running', provider: fileStorage.provider, totalFiles: 0, processed: 0, migrated: 0, alreadyRemote: 0, missingLocal: 0, failed: 0, completedAt: null });
+      setTimeout(refreshFsMigration, 750);
+    } catch (err) {
+      setFsMigrateError(err instanceof Error ? err.message : 'Failed to start migration');
+    }
+  };
+
+  const handleCancelFsMigration = async () => {
+    try {
+      await fetch(`${import.meta.env.BASE_URL}api/v1/admin/storage/system-migrate/cancel`, { method: 'POST', headers: authHeaders });
+      setTimeout(refreshFsMigration, 750);
+    } catch { /* status poll will reflect reality */ }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaveStatus('saving');
@@ -855,9 +904,51 @@ export function SystemSettingsPage() {
           </div>
           <p className="text-xs text-gray-500">
             Test Connection verifies the last-saved configuration (save first). Applies to all tenants that
-            haven't configured their own storage. Existing files remain on local disk and are still served;
-            migrate them per tenant from Settings &gt; File Storage.
+            haven't configured their own storage. While a remote provider is active, tenant-level local
+            storage is disabled.
           </p>
+
+          {fileStorage.provider !== 'local' && (
+            <div className="border-t border-gray-100 pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Migrate existing local files</p>
+                  <p className="text-xs text-gray-500">
+                    Copies every file still on the server's disk (attachments, receipts, extracted pages,
+                    report PDFs) to the remote provider, for all tenants using the system default.
+                    Safe to re-run — files already on the remote are skipped.
+                  </p>
+                </div>
+                {fsMigration?.status === 'running' ? (
+                  <Button type="button" variant="secondary" onClick={handleCancelFsMigration}>Cancel</Button>
+                ) : (
+                  <Button type="button" variant="secondary" onClick={handleMigrateFileStorage}>Migrate Now</Button>
+                )}
+              </div>
+              {fsMigrateError && <p className="text-sm text-red-600">{fsMigrateError}</p>}
+              {fsMigration?.status === 'running' && (
+                <div>
+                  <div className="bg-blue-100 rounded-full h-2">
+                    <div className="bg-blue-600 rounded-full h-2 transition-all"
+                      style={{ width: `${fsMigration.totalFiles > 0 ? (fsMigration.processed / fsMigration.totalFiles) * 100 : 0}%` }} />
+                  </div>
+                  <p className="text-xs text-blue-700 mt-1">
+                    {fsMigration.processed} of {fsMigration.totalFiles} files — {fsMigration.migrated} uploaded,{' '}
+                    {fsMigration.alreadyRemote} already remote{fsMigration.failed > 0 ? `, ${fsMigration.failed} failed` : ''}
+                  </p>
+                </div>
+              )}
+              {fsMigration && fsMigration.status !== 'running' && fsMigration.status !== 'idle' && (
+                <p className={`text-xs ${fsMigration.status === 'completed' && fsMigration.failed === 0 ? 'text-green-600' : 'text-amber-700'}`}>
+                  Last migration {fsMigration.status}
+                  {fsMigration.completedAt ? ` ${new Date(fsMigration.completedAt).toLocaleString()}` : ''}:{' '}
+                  {fsMigration.migrated} uploaded, {fsMigration.alreadyRemote} already remote,{' '}
+                  {fsMigration.missingLocal} not found locally, {fsMigration.failed} failed
+                  {' '}(of {fsMigration.totalFiles}).
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Backup Section */}
