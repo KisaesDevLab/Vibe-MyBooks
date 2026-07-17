@@ -8,7 +8,8 @@ import { ChevronRight } from 'lucide-react';
 import type { PracticeFeatureFlagKey } from '@kis-books/shared';
 import { useMe } from '../../api/hooks/useAuth';
 import { useFeatureFlag } from '../../api/hooks/useFeatureFlag';
-import { PRACTICE_NAV_CATALOG, type StaffRole } from '../../hooks/usePracticeVisibility';
+import { useFirms } from '../../api/hooks/useFirms';
+import { PRACTICE_NAV_CATALOG, isPracticeStaff, type StaffRole } from '../../hooks/usePracticeVisibility';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 interface PracticeLayoutProps {
@@ -28,10 +29,11 @@ interface PracticeLayoutProps {
 // label so a path edit propagates automatically.
 export function PracticeLayout({ flag, minRole, children }: PracticeLayoutProps) {
   const { data: meData, isLoading: meLoading } = useMe();
+  const { data: firmsData, isLoading: firmsLoading } = useFirms();
   const flagEnabled = useFeatureFlag(flag);
   const location = useLocation();
 
-  if (meLoading || flagEnabled === undefined) {
+  if (meLoading || firmsLoading || flagEnabled === undefined) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <LoadingSpinner size="lg" />
@@ -53,6 +55,14 @@ export function PracticeLayout({ flag, minRole, children }: PracticeLayoutProps)
 
   // Readonly sees no Practice children at all.
   if (role === 'readonly' || !role) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Practice is a staff surface — a bare tenant owner with no firm
+  // membership (self-signup client) gets bounced even on deep links.
+  // Mirrors filterPracticeNav's isPracticeStaff gate.
+  const isSuperAdmin = !!(meData?.user as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  if (!isPracticeStaff(role, isSuperAdmin, (firmsData?.firms ?? []).length > 0)) {
     return <Navigate to="/" replace />;
   }
 

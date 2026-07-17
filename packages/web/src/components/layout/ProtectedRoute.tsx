@@ -16,7 +16,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const token = getAccessToken();
   const location = useLocation();
   const { isLoading: meLoading, isError: meError, data: meData, fetchStatus: meFetchStatus } = useMe();
-  const { data: companyData, isLoading: companyLoading } = useCompany();
+  const { data: companyData, isLoading: companyLoading, fetchStatus: companyFetchStatus } = useCompany();
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -36,8 +36,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
-  // Wait for company data
-  if (companyLoading) {
+  // Wait for company data — but never spin on a query that isn't
+  // actually fetching (same guard as the `me` branch above; a paused or
+  // stranded query must not hold the full-screen spinner forever).
+  if (companyLoading && companyFetchStatus !== 'idle') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />

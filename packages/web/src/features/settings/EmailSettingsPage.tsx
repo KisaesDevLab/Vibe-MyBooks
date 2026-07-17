@@ -14,6 +14,7 @@ interface SmtpSettings {
   smtpUser: string;
   smtpPass: string;
   smtpFrom: string;
+  smtpFromName?: string;
   configured: boolean;
   passwordConfigured?: boolean;
 }
@@ -25,6 +26,7 @@ export function EmailSettingsPage() {
     smtpUser: '',
     smtpPass: '',
     smtpFrom: '',
+    smtpFromName: '',
   });
 
   const [loading, setLoading] = useState(true);
@@ -47,6 +49,7 @@ export function EmailSettingsPage() {
           // the field blank on save = keep the stored value.
           smtpPass: '',
           smtpFrom: data.smtpFrom || '',
+          smtpFromName: data.smtpFromName || '',
         });
         setPasswordConfigured(!!data.passwordConfigured);
       } catch {
@@ -72,6 +75,7 @@ export function EmailSettingsPage() {
           username: form.smtpUser,
           password: form.smtpPass,
           from: form.smtpFrom,
+          ...(form.smtpFromName ? { fromName: form.smtpFromName } : {}),
         }),
       });
       if (result.success) {
@@ -101,6 +105,7 @@ export function EmailSettingsPage() {
           // "keep the existing one". Sending '' would wipe it.
           ...(form.smtpPass ? { smtpPass: form.smtpPass } : {}),
           smtpFrom: form.smtpFrom,
+          smtpFromName: form.smtpFromName,
         }),
       });
       setSaveStatus('saved');
@@ -178,6 +183,7 @@ export function EmailSettingsPage() {
                       smtpUser: form.smtpUser,
                       smtpPass: null,
                       smtpFrom: form.smtpFrom,
+                      smtpFromName: form.smtpFromName,
                     }),
                   });
                   setPasswordConfigured(false);
@@ -188,7 +194,10 @@ export function EmailSettingsPage() {
               </button>
             )}
           </div>
-          <Input label="From Address" value={form.smtpFrom} onChange={set('smtpFrom')} type="email" placeholder="noreply@yourcompany.com" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="From Address" value={form.smtpFrom} onChange={set('smtpFrom')} type="email" placeholder="noreply@yourcompany.com" />
+            <Input label="From Name (optional)" value={form.smtpFromName} onChange={set('smtpFromName')} placeholder="Your Company" />
+          </div>
 
           <div className="flex items-center gap-3">
             <Button type="button" variant="secondary" onClick={handleTest} loading={testStatus === 'testing'} disabled={!form.smtpHost}>

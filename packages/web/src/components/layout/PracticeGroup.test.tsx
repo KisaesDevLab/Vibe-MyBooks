@@ -13,6 +13,10 @@ import { renderRoute } from '../../test-utils';
 // in this file.
 const meResult = { data: undefined as unknown };
 const flagsResult = { data: undefined as unknown };
+// Firm membership feeds the practice-staff gate: bookkeeper/accountant
+// roles qualify on their own, so an empty firm list keeps the legacy
+// test expectations; owner-role tests set a membership explicitly.
+const firmsResult = { data: { firms: [] as unknown[] } as unknown };
 
 vi.mock('../../api/hooks/useAuth', () => ({
   useMe: () => meResult,
@@ -21,6 +25,10 @@ vi.mock('../../api/hooks/useAuth', () => ({
 vi.mock('../../api/hooks/useFeatureFlag', () => ({
   useFeatureFlags: () => flagsResult,
   useFeatureFlag: () => undefined,
+}));
+
+vi.mock('../../api/hooks/useFirms', () => ({
+  useFirms: () => firmsResult,
 }));
 
 // Import AFTER the mocks so PracticeGroup picks up the stubs.
@@ -48,6 +56,10 @@ function buildFlags(enabledKeys: readonly PracticeFeatureFlagKey[]): FeatureFlag
   return { flags };
 }
 
+function setFirmMembership(isMember: boolean) {
+  firmsResult.data = { firms: isMember ? [{ id: 'f1', name: 'Firm', slug: 'firm' }] : [] };
+}
+
 function setMe(user: { role: string; userType?: 'staff' | 'client'; isSuperAdmin?: boolean }) {
   meResult.data = {
     user: {
@@ -71,6 +83,7 @@ function setFlags(enabled: readonly PracticeFeatureFlagKey[]) {
 beforeEach(() => {
   meResult.data = undefined;
   flagsResult.data = undefined;
+  firmsResult.data = { firms: [] };
 });
 
 describe('PracticeGroup', () => {
@@ -110,8 +123,17 @@ describe('PracticeGroup', () => {
     expect(screen.queryByText('Reminders')).toBeNull();
   });
 
-  it('shows owner-tier items for owner role with flags on', () => {
+  it('renders nothing for a bare owner with no firm membership (self-signup client)', () => {
     setMe({ role: 'owner' });
+    setFirmMembership(false);
+    setFlags(['CLOSE_REVIEW_V1', 'CLIENT_PORTAL_V1']);
+    const { container } = renderRoute(<PracticeGroup />);
+    expect(container.querySelector('[data-testid="practice-group"]')).toBeNull();
+  });
+
+  it('shows owner-tier items for a firm-member owner with flags on', () => {
+    setMe({ role: 'owner' });
+    setFirmMembership(true);
     setFlags(['CLIENT_PORTAL_V1', 'REMINDERS_V1']);
     renderRoute(<PracticeGroup />);
     expect(screen.getByText('Client Portal')).toBeInTheDocument();
@@ -120,6 +142,7 @@ describe('PracticeGroup', () => {
 
   it('hides all items when flags are disabled, even for owner', () => {
     setMe({ role: 'owner' });
+    setFirmMembership(true);
     setFlags([]);
     const { container } = renderRoute(<PracticeGroup />);
     // showGroup is false when no items pass — group not rendered.
@@ -128,6 +151,7 @@ describe('PracticeGroup', () => {
 
   it('renders both Close Cycle and Client Communication dividers when mixed items visible', () => {
     setMe({ role: 'owner' });
+    setFirmMembership(true);
     setFlags(['CLOSE_REVIEW_V1', 'CLIENT_PORTAL_V1']);
     renderRoute(<PracticeGroup />);
     expect(screen.getByText('Close Cycle')).toBeInTheDocument();
@@ -136,6 +160,7 @@ describe('PracticeGroup', () => {
 
   it('has aria-expanded on the toggle button', () => {
     setMe({ role: 'owner' });
+    setFirmMembership(true);
     setFlags(['CLOSE_REVIEW_V1']);
     renderRoute(<PracticeGroup />);
     const button = screen.getByRole('button', { name: /Collapse Practice menu|Expand Practice menu/ });
