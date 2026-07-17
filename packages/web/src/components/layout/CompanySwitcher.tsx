@@ -8,7 +8,7 @@ import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useMe } from '../../api/hooks/useAuth';
 import { apiClient, setTokens } from '../../api/client';
 import { AlertCircle, ChevronDown, Plus, Building2, Check, Users, Trash2 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { useToast } from '../ui/Toaster';
@@ -21,9 +21,11 @@ import { useToast } from '../ui/Toaster';
 const NEW_COMPANY_CURRENT_ENABLED = false;
 
 interface AddCompanyModalProps {
-  mode: 'company' | 'client';
+  mode: 'company' | 'client' | 'owned';
   onClose: () => void;
-  onCreated: (companyId?: string) => void;
+  /** companyId for same-tenant creates; tenantId for new-tenant creates
+   *  ('owned' mode, so the switcher can jump straight into it). */
+  onCreated: (companyId?: string, tenantId?: string) => void;
 }
 
 function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
@@ -54,6 +56,13 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
           body: JSON.stringify({ companyName: name, entityType, businessType, systemAccountsOnly }),
         });
         onCreated();
+      } else if (mode === 'owned') {
+        // Self-service: new tenant owned by the current user
+        const data = await apiClient<{ tenantId: string }>('/auth/create-tenant', {
+          method: 'POST',
+          body: JSON.stringify({ companyName: name, entityType, businessType, systemAccountsOnly }),
+        });
+        onCreated(undefined, data.tenantId);
       } else {
         // Create company in current tenant
         const data = await apiClient<{ company: { id: string } }>('/company/create', {
@@ -73,7 +82,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
     <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()} style={{ color: '#111827' }}>
         <h2 className="text-lg font-semibold mb-4">
-          {mode === 'client' ? 'New Company (no owner)' : 'New Company (current)'}
+          {mode === 'client' ? 'New Company (no owner)' : mode === 'owned' ? 'New Business (separate books)' : 'New Company (current)'}
         </h2>
         <div className="space-y-3">
           <div>
@@ -103,7 +112,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
               ))}
             </select>
           </div>
-          {mode === 'client' && (
+          {(mode === 'client' || mode === 'owned') && (
             <>
               <label className="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" checked={systemAccountsOnly}
@@ -115,7 +124,9 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
                 </span>
               </label>
               <p className="text-xs text-gray-500">
-                This creates a new company with its own workspace{systemAccountsOnly ? '' : ' and chart of accounts'}. No users are added — you can invite an owner or bookkeeper from Settings &gt; Team after switching to it.
+                {mode === 'owned'
+                  ? 'This creates a fully separate business with its own books, users, and settings — you’ll be its owner and switched into it right away. To add a second company that shares this business’s books, use "New Company (current)" instead.'
+                  : <>This creates a new company with its own workspace{systemAccountsOnly ? '' : ' and chart of accounts'}. No users are added — you can invite an owner or bookkeeper from Settings &gt; Team after switching to it.</>}
               </p>
             </>
           )}
@@ -138,7 +149,7 @@ export function CompanySwitcher() {
   const { data: meData } = useMe();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
-  const [showAddModal, setShowAddModal] = useState<'company' | 'client' | null>(null);
+  const [showAddModal, setShowAddModal] = useState<'company' | 'client' | 'owned' | null>(null);
   const [switchError, setSwitchError] = useState('');
   const [switchingTenantId, setSwitchingTenantId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; businessName: string } | null>(null);
@@ -182,6 +193,16 @@ export function CompanySwitcher() {
   const userRole = meData?.user?.role;
   const canCreateClient = userRole === 'accountant' || userRole === 'bookkeeper' || meData?.user?.isSuperAdmin;
 
+  // Self-service tenant creation — server decides (instance toggle, owner
+  // role, per-user cap); the button only renders when allowed. The POST
+  // re-checks server-side, so this is purely an affordance gate.
+  const { data: tenantCreation } = useQuery<{ allowed: boolean; used: number; limit: number }>({
+    queryKey: ['tenant-creation-eligibility'],
+    queryFn: () => apiClient<{ allowed: boolean; used: number; limit: number }>('/auth/create-tenant/eligibility'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const canCreateOwned = tenantCreation?.allowed === true;
+
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: MouseEvent) => {
@@ -193,11 +214,16 @@ export function CompanySwitcher() {
 
   if (companies.length === 0 && !hasMultipleTenants) return null;
 
-  const handleCompanyCreated = (newCompanyId?: string) => {
+  const handleCompanyCreated = (newCompanyId?: string, newTenantId?: string) => {
     setShowAddModal(null);
     if (newCompanyId) {
       refreshCompanies();
       setActiveCompany(newCompanyId);
+    } else if (newTenantId) {
+      // Owned tenant created — land the user directly in their new
+      // business (the switch does a full-page reload, which also
+      // refreshes the tenant list and the eligibility count).
+      handleSwitchTenant(newTenantId);
     } else {
       // Client created — refresh me to get updated tenant list
       queryClient.invalidateQueries({ queryKey: ['me'] });
@@ -385,8 +411,20 @@ export function CompanySwitcher() {
             ))}
 
             {/* Actions */}
-            {(NEW_COMPANY_CURRENT_ENABLED || canCreateClient) && (
+            {(NEW_COMPANY_CURRENT_ENABLED || canCreateClient || canCreateOwned) && (
             <div style={{ borderTop: '1px solid #374151' }}>
+              {canCreateOwned && (
+                <button
+                  onClick={() => { setIsOpen(false); setShowAddModal('owned'); }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors"
+                  style={{ color: '#60A5FA' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#374151'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; }}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Business (separate books)
+                </button>
+              )}
               {NEW_COMPANY_CURRENT_ENABLED && (
               <button
                 onClick={() => { setIsOpen(false); setShowAddModal('company'); }}
