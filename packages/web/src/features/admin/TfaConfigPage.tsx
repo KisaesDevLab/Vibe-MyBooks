@@ -79,6 +79,12 @@ export function TfaConfigPage() {
         codeLength: data.codeLength ?? 6,
         maxAttempts: data.maxAttempts ?? 5,
         lockoutDurationMinutes: data.lockoutDurationMinutes ?? 15,
+        // Passwordless — without these the toggles reset to false on
+        // every load and saves appeared to revert.
+        passkeysEnabled: data.passkeysEnabled ?? false,
+        magicLinkEnabled: data.magicLinkEnabled ?? false,
+        magicLinkExpiryMinutes: data.magicLinkExpiryMinutes ?? 15,
+        magicLinkMaxAttempts: data.magicLinkMaxAttempts ?? 3,
       }));
     }
   }, [data]);
