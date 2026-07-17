@@ -51,6 +51,23 @@ export function TfaConfigPage() {
     },
   });
 
+  // Self-service tenant creation ("New Business (separate books)") —
+  // same one-click-save pattern as the registration toggle above.
+  const { data: tenantCreationCfg } = useQuery<{ selfServiceTenantCreation: boolean; selfServiceTenantLimit: number }>({
+    queryKey: ['admin', 'tenant-creation-config'],
+    queryFn: () => apiClient<{ selfServiceTenantCreation: boolean; selfServiceTenantLimit: number }>('/admin/tenant-creation-config'),
+  });
+  const [tenantLimitDraft, setTenantLimitDraft] = useState<string | null>(null);
+  const updateTenantCreation = useMutation({
+    mutationFn: (body: { selfServiceTenantCreation: boolean; selfServiceTenantLimit?: number }) =>
+      apiClient('/admin/tenant-creation-config', { method: 'PUT', body: JSON.stringify(body) }),
+    onSuccess: () => {
+      setTenantLimitDraft(null);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenant-creation-config'] });
+      queryClient.invalidateQueries({ queryKey: ['tenant-creation-eligibility'] });
+    },
+  });
+
   const [form, setForm] = useState({
     isEnabled: false,
     allowedMethods: ['email', 'totp'] as string[],
@@ -269,6 +286,49 @@ export function TfaConfigPage() {
               </p>
             </div>
           </label>
+
+          <label className="flex items-center gap-3 cursor-pointer border-t border-gray-100 pt-4">
+            <input type="checkbox"
+              checked={tenantCreationCfg?.selfServiceTenantCreation ?? false}
+              onChange={(e) => updateTenantCreation.mutate({
+                selfServiceTenantCreation: e.target.checked,
+              })}
+              disabled={updateTenantCreation.isPending || !tenantCreationCfg}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4" />
+            <div>
+              <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                Let users create additional businesses (separate books)
+                <span className={`inline-block h-2 w-2 rounded-full ${
+                  (tenantCreationCfg?.selfServiceTenantCreation ?? false) ? 'bg-green-500' : 'bg-gray-300'
+                }`} />
+              </span>
+              <p className="text-xs text-gray-500">
+                Adds a &quot;New Business (separate books)&quot; option to the company switcher for
+                business owners. Each new business is fully isolated — its own users, settings,
+                and books. Accountant/bookkeeper client creation is separate and unaffected.
+              </p>
+            </div>
+          </label>
+
+          {(tenantCreationCfg?.selfServiceTenantCreation ?? false) && (
+            <div className="flex items-center gap-2 pl-7">
+              <label className="text-sm text-gray-700">Max businesses per user</label>
+              <input type="number" min={0} max={1000}
+                value={tenantLimitDraft ?? String(tenantCreationCfg?.selfServiceTenantLimit ?? 3)}
+                onChange={(e) => setTenantLimitDraft(e.target.value)}
+                onBlur={() => {
+                  const n = Number.parseInt(tenantLimitDraft ?? '', 10);
+                  if (tenantLimitDraft === null || !Number.isInteger(n) || n < 0) { setTenantLimitDraft(null); return; }
+                  if (n === (tenantCreationCfg?.selfServiceTenantLimit ?? 3)) { setTenantLimitDraft(null); return; }
+                  updateTenantCreation.mutate({
+                    selfServiceTenantCreation: tenantCreationCfg?.selfServiceTenantCreation ?? false,
+                    selfServiceTenantLimit: n,
+                  });
+                }}
+                className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm" />
+              <span className="text-xs text-gray-500">total owned, including their first. 0 = unlimited.</span>
+            </div>
+          )}
         </div>
 
         {/* Passwordless Methods */}
