@@ -20,6 +20,7 @@ export function SystemSettingsPage() {
     smtpUser: '',
     smtpPass: '',
     smtpFrom: '',
+    smtpFromName: '',
   });
 
   const [loading, setLoading] = useState(true);
@@ -129,6 +130,7 @@ export function SystemSettingsPage() {
             smtpPort: String(data.smtpPort || 587),
             smtpUser: data.smtpUser || '',
             smtpFrom: data.smtpFrom || '',
+            smtpFromName: data.smtpFromName || '',
           }));
           setSmtpPasswordConfigured(!!data.smtpPasswordConfigured);
         } else {
@@ -297,6 +299,7 @@ export function SystemSettingsPage() {
           username: form.smtpUser,
           password: form.smtpPass,
           from: form.smtpFrom,
+          ...(form.smtpFromName ? { fromName: form.smtpFromName } : {}),
           testEmail: testEmail || undefined,
         }),
       });
@@ -499,6 +502,7 @@ export function SystemSettingsPage() {
           smtpUser: form.smtpUser,
           ...(form.smtpPass ? { smtpPass: form.smtpPass } : {}),
           smtpFrom: form.smtpFrom,
+          smtpFromName: form.smtpFromName,
         }),
       });
       if (!smtpRes.ok) throw new Error('Failed to save SMTP settings');
@@ -611,6 +615,7 @@ export function SystemSettingsPage() {
                       smtpUser: form.smtpUser,
                       smtpPass: null,
                       smtpFrom: form.smtpFrom,
+                      smtpFromName: form.smtpFromName,
                     }),
                   });
                   setSmtpPasswordConfigured(false);
@@ -621,7 +626,10 @@ export function SystemSettingsPage() {
               </button>
             )}
           </div>
-          <Input label="From Address" value={form.smtpFrom} onChange={set('smtpFrom')} type="email" placeholder="noreply@example.com" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="From Address" value={form.smtpFrom} onChange={set('smtpFrom')} type="email" placeholder="noreply@example.com" />
+            <Input label="From Name (optional)" value={form.smtpFromName} onChange={set('smtpFromName')} placeholder="Vibe MyBooks" />
+          </div>
 
           <div className="border-t pt-4 space-y-3">
             <Input label="Send Test Email To (optional)" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} type="email" placeholder="admin@example.com" />
