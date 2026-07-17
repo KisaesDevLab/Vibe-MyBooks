@@ -99,4 +99,37 @@ describe('RulesPage', () => {
     fireEvent.change(statusSelect, { target: { value: 'active' } });
     expect(screen.queryByText('Inactive Rule')).toBeNull();
   });
+
+  describe('banking variant (non-firm users)', () => {
+    const mineRule = { ...sampleRule, id: 'mine-1', name: 'My Coffee Rule', scope: 'tenant_user' as const };
+    const firmRule = { ...sampleRule, id: 'firm-1', name: 'Firm Payroll Rule', scope: 'tenant_firm' as const };
+    const globalRule = { ...sampleRule, id: 'global-1', name: 'Global Bank Fee Rule', scope: 'global_firm' as const };
+
+    it('hides global_firm rules entirely', () => {
+      listFn.mockReturnValue({ rules: [mineRule, firmRule, globalRule], firmId: null, firmRole: null });
+      renderRoute(<RulesPage variant="banking" />);
+      expect(screen.getByText('My Coffee Rule')).toBeInTheDocument();
+      expect(screen.getByText('Firm Payroll Rule')).toBeInTheDocument();
+      expect(screen.queryByText('Global Bank Fee Rule')).toBeNull();
+    });
+
+    it('lets the user edit their own Mine rule but makes Firm rows read-only', () => {
+      listFn.mockReturnValue({ rules: [mineRule, firmRule], firmId: null, firmRole: null });
+      renderRoute(<RulesPage variant="banking" />);
+      // Mine row: edit + delete available.
+      expect(screen.getByRole('button', { name: 'Edit My Coffee Rule' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Delete My Coffee Rule' })).toBeInTheDocument();
+      // Firm row: view-only — no edit/delete affordances.
+      expect(screen.queryByRole('button', { name: 'Edit Firm Payroll Rule' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Delete Firm Payroll Rule' })).toBeNull();
+    });
+
+    it('shows the tier filter without a Global option', () => {
+      listFn.mockReturnValue({ rules: [mineRule], firmId: null, firmRole: null });
+      renderRoute(<RulesPage variant="banking" />);
+      const tierSelect = screen.getByLabelText('Tier') as HTMLSelectElement;
+      const options = Array.from(tierSelect.options).map((o) => o.value);
+      expect(options).toEqual(['all', 'mine', 'firm']);
+    });
+  });
 });

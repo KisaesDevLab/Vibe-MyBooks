@@ -29,6 +29,16 @@ interface Props {
   onPromote?: (rule: RuleWithStats) => void;
   onDemote?: (rule: RuleWithStats) => void;
   onFork?: (rule: RuleWithStats) => void;
+  // Per-row write gate. When provided and it returns false for a
+  // row, the edit / delete / active-toggle affordances are hidden
+  // (the row is view-only). Used by the Banking→Rules view where a
+  // non-firm user may author their Mine rules but only view Firm-
+  // tier rows. Defaults to always-editable (unchanged behavior).
+  canEditRule?: (rule: RuleWithStats) => boolean;
+  // Allow drag-to-reorder. Defaults true. Off for the read-only-ish
+  // Banking view (reordering rewrites priorities the server would
+  // reject for non-authorable tiers).
+  canReorder?: boolean;
 }
 
 // Phase 5a §5.1 — sortable + drag-reorderable rules table.
@@ -46,7 +56,10 @@ export function RulesTable({
   onPromote,
   onDemote,
   onFork,
+  canEditRule,
+  canReorder = true,
 }: Props) {
+  const isEditable = (rule: RuleWithStats): boolean => (canEditRule ? canEditRule(rule) : true);
   // Per-tier action availability mirrors the server-side gates:
   //   - promote tenant_user → tenant_firm: any firm role on the tenant
   //   - promote tenant_firm → global_firm: firm_admin
@@ -148,7 +161,7 @@ export function RulesTable({
             return (
               <tr
                 key={r.id}
-                draggable={sortBy === 'priority'}
+                draggable={sortBy === 'priority' && canReorder}
                 onDragStart={() => setDraggingId(r.id)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => handleDrop(r.id)}
@@ -159,7 +172,7 @@ export function RulesTable({
                 )}
               >
                 <td className="px-2 py-2 text-gray-400">
-                  {sortBy === 'priority' && <GripVertical className="h-4 w-4 cursor-grab" />}
+                  {sortBy === 'priority' && canReorder && <GripVertical className="h-4 w-4 cursor-grab" />}
                 </td>
                 <td className="px-2 py-2">
                   <input
@@ -184,16 +197,27 @@ export function RulesTable({
                   <TierBadge scope={r.scope} forked={!!r.forkedFromGlobalId} />
                 </td>
                 <td className="px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={() => update.mutate({ id: r.id, patch: { active: !r.active } })}
-                    className={clsx(
-                      'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
-                      r.active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500',
-                    )}
-                  >
-                    {r.active ? 'Active' : 'Inactive'}
-                  </button>
+                  {isEditable(r) ? (
+                    <button
+                      type="button"
+                      onClick={() => update.mutate({ id: r.id, patch: { active: !r.active } })}
+                      className={clsx(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                        r.active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500',
+                      )}
+                    >
+                      {r.active ? 'Active' : 'Inactive'}
+                    </button>
+                  ) : (
+                    <span
+                      className={clsx(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                        r.active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500',
+                      )}
+                    >
+                      {r.active ? 'Active' : 'Inactive'}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-xs text-gray-600">
                   {r.stats?.lastFiredAt ? new Date(r.stats.lastFiredAt).toLocaleDateString() : '—'}
@@ -243,26 +267,30 @@ export function RulesTable({
                         <GitBranch className="h-3.5 w-3.5" />
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => onEdit(r)}
-                      aria-label={`Edit ${r.name}`}
-                      className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.confirm(`Delete rule "${r.name}"? This removes its audit history too.`)) {
-                          remove.mutate(r.id);
-                        }
-                      }}
-                      aria-label={`Delete ${r.name}`}
-                      className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {isEditable(r) && (
+                      <button
+                        type="button"
+                        onClick={() => onEdit(r)}
+                        aria-label={`Edit ${r.name}`}
+                        className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {isEditable(r) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete rule "${r.name}"? This removes its audit history too.`)) {
+                            remove.mutate(r.id);
+                          }
+                        }}
+                        aria-label={`Delete ${r.name}`}
+                        className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

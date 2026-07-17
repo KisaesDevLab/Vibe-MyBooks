@@ -55,6 +55,7 @@ import {
   Plug,
   FileSpreadsheet,
   CheckCheck,
+  Wand2,
   ClipboardCheck,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -66,6 +67,8 @@ import { FirmGroup } from './FirmGroup';
 import type { LucideIcon } from 'lucide-react';
 import type { ResourceKey } from '@kis-books/shared';
 import { usePermissions } from '../../api/hooks/usePermissions';
+import { useFirms } from '../../api/hooks/useFirms';
+import { isPracticeStaff, type StaffRole } from '../../hooks/usePracticeVisibility';
 
 interface NavItem {
   to: string;
@@ -80,6 +83,11 @@ interface NavItem {
   // the user has at least `view` on it (see usePermissions). Only
   // affects restricted bookkeepers; everyone else resolves to full/view.
   resource?: ResourceKey;
+  // When true the item is shown ONLY to non-practice-staff users (a
+  // bare tenant owner / self-signup client). Practice staff reach the
+  // same feature via the Practice menu, so we don't double-list it.
+  // Used by Banking → Rules.
+  nonStaffOnly?: boolean;
 }
 
 interface NavGroup {
@@ -170,6 +178,9 @@ const navGroups: NavGroup[] = [
       { to: '/banking/statement-imports', label: 'Statement Processing', icon: History, resource: 'banking' },
       { to: '/banking/reconcile', label: 'Reconcile', icon: CheckCheck, resource: 'banking' },
       { to: '/banking/reconciliation-history', label: 'Reconcile History', icon: ClipboardCheck, resource: 'banking' },
+      // Non-firm users only — staff manage rules from Practice → Rules.
+      // The route (BankingRulesRoute) redirects staff there anyway.
+      { to: '/banking/rules', label: 'Rules', icon: Wand2, resource: 'banking', nonStaffOnly: true },
     ],
   },
   {
@@ -413,6 +424,12 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
   const isSuperAdmin = meData?.user?.isSuperAdmin === true;
   const userRole = meData?.user?.role;
   const isAccountantRole = userRole === 'accountant' || userRole === 'bookkeeper';
+  const { data: firmsData } = useFirms();
+  // Practice staff (super admin, accountant/bookkeeper, or a firm
+  // member) reach Rules via the Practice menu; non-staff owners get
+  // the Banking → Rules entry instead. Mirrors the gate in
+  // usePracticeVisibility / PracticeLayout / BankingRulesRoute.
+  const isStaff = isPracticeStaff(userRole as StaffRole, isSuperAdmin, (firmsData?.firms ?? []).length > 0);
   const { can } = usePermissions();
   const { collapsed: collapsedGroups, toggle: toggleGroup } = useCollapsedGroups();
   // Branding may be missing during the initial /me fetch — fall back to
@@ -494,6 +511,9 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
                     // restricted bookkeeper). can() fails open when the
                     // permission map is absent, so nothing regresses.
                     .filter((item) => !item.resource || can(item.resource))
+                    // nonStaffOnly items (Banking → Rules) hide from
+                    // practice staff, who use the Practice menu instead.
+                    .filter((item) => !item.nonStaffOnly || !isStaff)
                     .map((item) => (
                       <SidebarLink
                         key={item.to}
