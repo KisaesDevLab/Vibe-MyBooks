@@ -74,9 +74,13 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
           const firstId = list[0]!.id;
           localStorage.setItem(STORAGE_KEY, firstId);
           setActiveCompanyIdState(firstId);
-          // Bust per-company caches so any in-flight query retries with
-          // the new id rather than the rejected stale one.
-          queryClient.removeQueries();
+          // Bust per-company caches so queries refetch with the new id.
+          // MUST be invalidateQueries, not removeQueries: removing a query
+          // that is actively fetching strands its observer mid-'fetching'
+          // in React Query v5 — ProtectedRoute's ['me']/['company'] never
+          // resolve and the full-screen spinner hangs forever (seen after
+          // /register and after tenant switches).
+          queryClient.invalidateQueries();
         }
       } else {
         // Server says this user has no companies. Clear any stale id so we
@@ -96,7 +100,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         if (localStorage.getItem(STORAGE_KEY)) {
           localStorage.removeItem(STORAGE_KEY);
           setActiveCompanyIdState(null);
-          queryClient.removeQueries();
+          queryClient.invalidateQueries();
         }
         // eslint-disable-next-line no-console
         console.warn(
@@ -127,8 +131,9 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   const setActiveCompany = useCallback((companyId: string) => {
     localStorage.setItem(STORAGE_KEY, companyId);
     setActiveCompanyIdState(companyId);
-    // Clear all React Query caches — data will refetch for the new company
-    queryClient.removeQueries();
+    // Invalidate all React Query caches — data refetches for the new
+    // company. See fetchCompanies() for why this must not be removeQueries.
+    queryClient.invalidateQueries();
   }, [queryClient]);
 
   // Used during tenant switching: drop the current company id so the next
