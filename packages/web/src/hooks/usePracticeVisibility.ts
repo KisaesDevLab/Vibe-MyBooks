@@ -5,6 +5,7 @@
 import type { PracticeFeatureFlagKey } from '@kis-books/shared';
 import { useMe } from '../api/hooks/useAuth';
 import { useFeatureFlags } from '../api/hooks/useFeatureFlag';
+import { useFirms } from '../api/hooks/useFirms';
 
 // Single source of truth for which Practice sidebar children are
 // visible to the current user. Keeps the role/flag matrix in one
@@ -49,6 +50,15 @@ export const PRACTICE_NAV_CATALOG: readonly PracticeNavItem[] = [
 
 export type StaffRole = 'owner' | 'accountant' | 'bookkeeper' | 'readonly' | string | undefined;
 
+// "Practice staff" = someone who works the books for clients: super
+// admin, an accountant/bookkeeper role, or a member of an actual firm.
+// A bare tenant owner with no firm membership is a client of the
+// practice, not staff — self-signups land here since register() stopped
+// auto-joining them to the appliance firm.
+export function isPracticeStaff(role: StaffRole, isSuperAdmin: boolean, isFirmMember: boolean): boolean {
+  return isSuperAdmin || role === 'accountant' || role === 'bookkeeper' || isFirmMember;
+}
+
 // Pure helper — exported so the unit test can drive the matrix
 // without a React render. Mirrors the role-vocabulary decision in
 // phase-1-plan.md: readonly sees no Practice children; bookkeeper
@@ -58,9 +68,14 @@ export function filterPracticeNav(
   role: StaffRole,
   userType: 'staff' | 'client' | undefined,
   flags: Partial<Record<PracticeFeatureFlagKey, { enabled: boolean }>>,
+  isPracticeStaff: boolean = true,
 ): PracticeNavItem[] {
   if (userType === 'client') return [];
   if (role === 'readonly' || !role) return [];
+  // Practice is a staff surface. A bare tenant owner (e.g. a client
+  // who self-signed up) is NOT practice staff — staff means super
+  // admin, an accountant/bookkeeper role, or actual firm membership.
+  if (!isPracticeStaff) return [];
   return items.filter((item) => {
     if (item.minRole === 'owner' && role !== 'owner') return false;
     // bookkeeper-tier: owner, accountant, bookkeeper are all allowed
@@ -79,8 +94,9 @@ export interface PracticeVisibility {
 export function usePracticeVisibility(): PracticeVisibility {
   const { data: meData } = useMe();
   const { data: flagsData } = useFeatureFlags();
+  const { data: firmsData } = useFirms();
 
-  const ready = !!meData && !!flagsData;
+  const ready = !!meData && !!flagsData && !!firmsData;
   if (!ready) {
     return {
       ready: false,
@@ -95,11 +111,13 @@ export function usePracticeVisibility(): PracticeVisibility {
   // with pre-Phase-1 servers.
   const userType = (meData!.user as { userType?: 'staff' | 'client' }).userType ?? 'staff';
 
+  const user = meData!.user as { isSuperAdmin?: boolean } | undefined;
   const items = filterPracticeNav(
     PRACTICE_NAV_CATALOG,
     role,
     userType,
     flagsData!.flags ?? {},
+    isPracticeStaff(role, !!user?.isSuperAdmin, (firmsData!.firms ?? []).length > 0),
   );
 
   return {

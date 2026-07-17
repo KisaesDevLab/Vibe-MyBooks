@@ -4,7 +4,8 @@
 
 import { describe, it, expect } from 'vitest';
 import type { PracticeFeatureFlagKey } from '@kis-books/shared';
-import { filterPracticeNav, PRACTICE_NAV_CATALOG } from './usePracticeVisibility';
+import { filterPracticeNav,
+  isPracticeStaff, PRACTICE_NAV_CATALOG } from './usePracticeVisibility';
 
 // Every flag turned on — lets us isolate the role / user_type
 // gates in tests that aren't about flags.
@@ -88,6 +89,21 @@ describe('filterPracticeNav', () => {
     it('treats a missing flag row as off', () => {
       const items = filterPracticeNav(PRACTICE_NAV_CATALOG, 'owner', 'staff', {});
       expect(items).toEqual([]);
+    });
+  });
+
+  describe('practice-staff gate', () => {
+    it('hides everything from a bare owner who is not practice staff (self-signup client)', () => {
+      const items = filterPracticeNav(PRACTICE_NAV_CATALOG, 'owner', 'staff', allFlagsOn, false);
+      expect(items).toEqual([]);
+    });
+
+    it('isPracticeStaff: super admin, accountant/bookkeeper role, or firm membership qualify; bare owner does not', () => {
+      expect(isPracticeStaff('owner', false, false)).toBe(false);
+      expect(isPracticeStaff('owner', true, false)).toBe(true);
+      expect(isPracticeStaff('owner', false, true)).toBe(true);
+      expect(isPracticeStaff('accountant', false, false)).toBe(true);
+      expect(isPracticeStaff('bookkeeper', false, false)).toBe(true);
     });
   });
 });
