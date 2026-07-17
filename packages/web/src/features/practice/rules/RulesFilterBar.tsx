@@ -22,6 +22,10 @@ interface Props {
   tierFilter?: TierFilter;
   onTierFilterChange?: (f: TierFilter) => void;
   showTierFilter?: boolean;
+  // Drop the Global option from the tier facet. Used by the
+  // Banking→Rules view for non-firm users, who only ever see
+  // Mine + Firm (global_firm rows are never returned to them).
+  hideGlobalTier?: boolean;
 }
 
 // Phase 5a §5.1 — filters above the rules table.
@@ -39,6 +43,7 @@ export function RulesFilterBar({
   tierFilter = 'all',
   onTierFilterChange,
   showTierFilter,
+  hideGlobalTier,
 }: Props) {
   const availableActions = ACTION_TYPES.filter(
     (t) => !(ACTION_TYPES_DEFERRED as readonly string[]).includes(t),
@@ -55,7 +60,7 @@ export function RulesFilterBar({
             { value: 'all', label: 'All tiers' },
             { value: 'mine', label: 'Mine' },
             { value: 'firm', label: 'Firm' },
-            { value: 'global', label: 'Global' },
+            ...(hideGlobalTier ? [] : [{ value: 'global', label: 'Global' }]),
           ]}
         />
       )}

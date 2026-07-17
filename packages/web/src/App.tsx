@@ -235,6 +235,7 @@ const PracticeLayout = lazyNamed(() => import('./features/practice/PracticeLayou
 const CloseReviewPage = lazyNamed(() => import('./features/practice/close-review/CloseReviewPage'), 'CloseReviewPage');
 const PracticeSettingsPage = lazyNamed(() => import('./features/practice/settings/PracticeSettingsPage'), 'PracticeSettingsPage');
 const RulesPage = lazyNamed(() => import('./features/practice/rules/RulesPage'), 'RulesPage');
+const BankingRulesRoute = lazyNamed(() => import('./features/practice/rules/BankingRulesRoute'), 'BankingRulesRoute');
 const ReceiptsInboxPage = lazyNamed(() => import('./features/practice/receipts/ReceiptsInboxPage'), 'ReceiptsInboxPage');
 const Tax1099Page = lazyNamed(() => import('./features/practice/tax-1099/Tax1099Page'), 'Tax1099Page');
 const ClientPortalAdminPage = lazyNamed(() => import('./features/practice/client-portal/ClientPortalAdminPage'), 'ClientPortalAdminPage');
@@ -396,7 +397,7 @@ export function App() {
             <Route path="/daily-sales/entries/:id" element={<DailySalesEntryPage />} />
             <Route path="/banking/reconcile" element={<ReconciliationPage />} />
             <Route path="/banking/reconciliation-history" element={<ReconciliationHistoryPage />} />
-            <Route path="/banking/rules" element={<Navigate to="/practice/rules" replace />} />
+            <Route path="/banking/rules" element={<BankingRulesRoute />} />
             <Route path="/duplicates" element={<DuplicateReviewPage />} />
             <Route path="/items" element={<ItemsListPage />} />
             <Route path="/receive-payment" element={<RequirePermission resource="receive_payment"><ReceivePaymentPage /></RequirePermission>} />

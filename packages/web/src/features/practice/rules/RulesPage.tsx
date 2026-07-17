@@ -21,7 +21,17 @@ import { ForkRuleModal } from './ForkRuleModal';
 // Phase 5a §5.1 — page composition. Replaces the Phase-1
 // `RulesPlaceholder`. Combines the filter bar, bulk-action bar,
 // rules table, and the builder modal.
-export function RulesPage() {
+//
+// `variant`:
+//   - 'practice' (default): the full staff experience under
+//     /practice/rules (all tiers, all transitions).
+//   - 'banking': the non-firm-user experience under
+//     /banking/rules. Only Mine + Firm tiers are shown (Global is
+//     never returned to a non-firm user anyway), Firm-tier rows are
+//     view-only, and drag-reorder is disabled. A solo owner can
+//     still author their own Mine rules.
+export function RulesPage({ variant = 'practice' }: { variant?: 'practice' | 'banking' } = {}) {
+  const bankingMode = variant === 'banking';
   const { data, isLoading } = useConditionalRules();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'priority' | 'name' | 'lastFired'>('priority');
@@ -52,10 +62,13 @@ export function RulesPage() {
       if (actionTypeFilter !== 'all') {
         if (!actionsContainType(r, actionTypeFilter)) return false;
       }
+      // Banking view never surfaces global_firm rules (defense in
+      // depth — the API also excludes them for non-firm callers).
+      if (bankingMode && r.scope === 'global_firm') return false;
       if (tierFilter !== 'all' && tierMatch(r.scope, tierFilter) === false) return false;
       return true;
     });
-  }, [data, activeFilter, companyScopeFilter, actionTypeFilter, tierFilter]);
+  }, [data, activeFilter, companyScopeFilter, actionTypeFilter, tierFilter, bankingMode]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -117,7 +130,8 @@ export function RulesPage() {
         onActionTypeFilterChange={setActionTypeFilter}
         tierFilter={tierFilter}
         onTierFilterChange={setTierFilter}
-        showTierFilter={firmRole !== null}
+        showTierFilter={bankingMode || firmRole !== null}
+        hideGlobalTier={bankingMode}
       />
 
       <BulkActionMenu
@@ -140,6 +154,8 @@ export function RulesPage() {
         onPromote={firmRole ? (r) => setPromotingRule(r) : undefined}
         onDemote={firmRole ? (r) => setDemotingRule(r) : undefined}
         onFork={firmRole ? (r) => setForkingRule(r) : undefined}
+        canEditRule={bankingMode ? (r) => r.scope === 'tenant_user' : undefined}
+        canReorder={!bankingMode}
       />
 
       <RuleBuilderModal
