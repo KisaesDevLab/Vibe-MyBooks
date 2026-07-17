@@ -676,8 +676,16 @@ export function BankFeedPage() {
                         </div>
                       ) : (
                         <div>
-                          <p className="text-gray-900 font-medium">{item.description || '—'}</p>
-                          {item.originalDescription && item.originalDescription !== item.description && (
+                          {/* NAME shows the resolved payee/vendor when one
+                              exists — human-assigned first, then a rule/AI
+                              suggested contact — falling back to the cleaned
+                              bank descriptor. The raw memo stays on the muted
+                              line below. */}
+                          {(() => {
+                            const displayName = item.assignedContactName || item.suggestedContactName || item.description;
+                            return <p className="text-gray-900 font-medium">{displayName || '—'}</p>;
+                          })()}
+                          {item.originalDescription && item.originalDescription !== (item.assignedContactName || item.suggestedContactName || item.description) && (
                             <p className="text-xs text-gray-400 truncate max-w-[300px]" title={item.originalDescription}>{item.originalDescription}</p>
                           )}
                           {item.payeeNameOnCheck ? (
