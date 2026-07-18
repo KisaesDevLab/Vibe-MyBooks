@@ -340,8 +340,11 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
         cronTimezone: cadenceKind === 'cron' ? cronTimezone : null,
         dueDaysAfterIssue: dueDays,
         cadenceDays,
-        // Only meaningful for bank/cc statement document types; for
-        // other types the API ignores it.
+        // Only meaningful for bank/cc statement document types. When the
+        // routing dropdown isn't rendered (flag off, or a non-statement
+        // type), OMIT the fields entirely — sending a reset here would
+        // silently wipe an existing rule's routing config on any
+        // unrelated edit made while the flag is off.
         ...(stmtAutoImportEnabled && (documentType === 'bank_statement' || documentType === 'cc_statement')
           ? {
               statementRouting:
@@ -351,7 +354,7 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
               bankConnectionId:
                 routingChoice && routingChoice !== ROUTE_TO_STATEMENT_PROCESSING ? routingChoice : null,
             }
-          : { statementRouting: 'inbox', bankConnectionId: null }),
+          : {}),
       };
       if (mode === 'create') {
         if (!contactId) {
