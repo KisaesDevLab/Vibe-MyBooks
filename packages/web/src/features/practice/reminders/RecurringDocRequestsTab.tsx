@@ -153,7 +153,17 @@ export function RecurringDocRequestsTab() {
                     {r.contactName && <div className="text-xs text-gray-500">{r.contactEmail}</div>}
                   </td>
                   <td className="px-4 py-3 text-gray-700">
-                    <div>{DOCUMENT_TYPE_LABELS[r.documentType]}</div>
+                    <div className="flex items-center gap-1.5">
+                      {DOCUMENT_TYPE_LABELS[r.documentType]}
+                      {smsEnabled && r.reminderChannel !== 'email' && (
+                        <span
+                          title={r.reminderChannel === 'sms' ? 'Initial request sent by SMS' : 'Initial request sent by email & SMS'}
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium border border-indigo-200 bg-indigo-50 text-indigo-700"
+                        >
+                          {r.reminderChannel === 'sms' ? 'SMS' : 'Email+SMS'}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-500 truncate max-w-xs">{r.description}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-700">
@@ -255,6 +265,7 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
   const { data: contactsData } = usePortalContacts({ status: 'active' });
   const cronEnabled = useFeatureFlag('RECURRING_CRON_V1');
   const stmtAutoImportEnabled = useFeatureFlag('STATEMENT_AUTO_IMPORT_V1');
+  const smsEnabled = useFeatureFlag('DOC_REQUEST_SMS_V1');
   const [bankConnections, setBankConnections] = useState<BankConnectionOption[]>([]);
   // One dropdown drives statement routing: '' = receipts inbox,
   // ROUTE_TO_STATEMENT_PROCESSING = parse for staff review, a
@@ -273,6 +284,11 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
   }, [stmtAutoImportEnabled]);
   const [contactId, setContactId] = useState(initial?.contactId ?? '');
   const [documentType, setDocumentType] = useState<DocumentType>(initial?.documentType ?? 'bank_statement');
+  const [reminderChannel, setReminderChannel] = useState<'email' | 'sms' | 'both'>(initial?.reminderChannel ?? 'email');
+  const selectedContactPhone = useMemo(
+    () => (contactsData?.contacts ?? []).find((c) => c.id === contactId)?.phone ?? null,
+    [contactsData, contactId],
+  );
   const [description, setDescription] = useState(initial?.description ?? '');
   const [cadenceKind, setCadenceKind] = useState<CadenceKind>(initial?.cadenceKind ?? 'frequency');
   const [frequency, setFrequency] = useState<RecurringFrequency>(initial?.frequency ?? 'monthly');
@@ -340,6 +356,9 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
         cronTimezone: cadenceKind === 'cron' ? cronTimezone : null,
         dueDaysAfterIssue: dueDays,
         cadenceDays,
+        // Opener channel. When SMS isn't enabled for the firm the
+        // selector isn't shown; send 'email' so the value is explicit.
+        reminderChannel: smsEnabled ? reminderChannel : 'email',
         // Only meaningful for bank/cc statement document types. When the
         // routing dropdown isn't rendered (flag off, or a non-statement
         // type), OMIT the fields entirely — sending a reset here would
@@ -449,6 +468,28 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
             />
             <p className="text-xs text-gray-500 mt-1">Printed in the email so the contact knows what to send.</p>
           </label>
+          {smsEnabled && (
+            <label className="block text-sm">
+              <span className="block text-gray-800 mb-1">Notify contact by</span>
+              <select
+                value={reminderChannel}
+                onChange={(e) => setReminderChannel(e.target.value as 'email' | 'sms' | 'both')}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              >
+                <option value="email">Email</option>
+                <option value="sms">Text message (SMS)</option>
+                <option value="both">Email &amp; SMS</option>
+              </select>
+              {(reminderChannel === 'sms' || reminderChannel === 'both') && contactId && !selectedContactPhone && (
+                <p className="text-xs text-amber-700 mt-1">
+                  This contact has no phone on file — SMS will fall back to email until a number is added.
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Applies to the initial request. Follow-up reminders use the firm's reminder-channel settings.
+              </p>
+            </label>
+          )}
           {stmtAutoImportEnabled && (documentType === 'bank_statement' || documentType === 'cc_statement') && (
             <label className="block text-sm">
               <span className="block text-gray-800 mb-1">When the statement arrives</span>
