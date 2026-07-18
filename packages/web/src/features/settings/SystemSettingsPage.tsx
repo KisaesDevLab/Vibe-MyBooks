@@ -503,11 +503,15 @@ export function SystemSettingsPage() {
   useEffect(() => { refreshFsMigration(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll while a migration is running so the progress bar advances.
+  // Interval keyed on the STATUS (not the object): a setTimeout chain
+  // re-armed from state updates dies permanently the first time a
+  // status fetch fails (the catch doesn't update state, so the effect
+  // never re-fires); an interval survives transient fetch errors.
   useEffect(() => {
     if (fsMigration?.status !== 'running') return;
-    const t = setTimeout(refreshFsMigration, 2000);
-    return () => clearTimeout(t);
-  }, [fsMigration]); // eslint-disable-line react-hooks/exhaustive-deps
+    const t = setInterval(refreshFsMigration, 2000);
+    return () => clearInterval(t);
+  }, [fsMigration?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMigrateFileStorage = async () => {
     setFsMigrateError('');
