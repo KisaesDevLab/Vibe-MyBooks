@@ -58,13 +58,21 @@ export function TfaConfigPage() {
     queryFn: () => apiClient<{ selfServiceTenantCreation: boolean; selfServiceTenantLimit: number }>('/admin/tenant-creation-config'),
   });
   const [tenantLimitDraft, setTenantLimitDraft] = useState<string | null>(null);
+  const [tenantCfgError, setTenantCfgError] = useState('');
   const updateTenantCreation = useMutation({
     mutationFn: (body: { selfServiceTenantCreation: boolean; selfServiceTenantLimit?: number }) =>
       apiClient('/admin/tenant-creation-config', { method: 'PUT', body: JSON.stringify(body) }),
     onSuccess: () => {
       setTenantLimitDraft(null);
+      setTenantCfgError('');
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenant-creation-config'] });
       queryClient.invalidateQueries({ queryKey: ['tenant-creation-eligibility'] });
+    },
+    // A silently-dropped save leaves the typed value on screen looking
+    // saved while the server enforces the old one — surface it.
+    onError: (err) => {
+      setTenantLimitDraft(null); // revert display to the stored value
+      setTenantCfgError(err instanceof Error ? err.message : 'Save failed');
     },
   });
 
@@ -319,7 +327,15 @@ export function TfaConfigPage() {
                 onBlur={() => {
                   const n = Number.parseInt(tenantLimitDraft ?? '', 10);
                   if (tenantLimitDraft === null || !Number.isInteger(n) || n < 0) { setTenantLimitDraft(null); return; }
+                  // Mirror the server's bound so an out-of-range value is
+                  // refused visibly here instead of 400ing silently.
+                  if (n > 1000) {
+                    setTenantLimitDraft(null);
+                    setTenantCfgError('Limit must be between 0 (unlimited) and 1000.');
+                    return;
+                  }
                   if (n === (tenantCreationCfg?.selfServiceTenantLimit ?? 3)) { setTenantLimitDraft(null); return; }
+                  setTenantCfgError('');
                   updateTenantCreation.mutate({
                     selfServiceTenantCreation: tenantCreationCfg?.selfServiceTenantCreation ?? false,
                     selfServiceTenantLimit: n,
@@ -327,6 +343,7 @@ export function TfaConfigPage() {
                 }}
                 className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm" />
               <span className="text-xs text-gray-500">total owned, including their first. 0 = unlimited.</span>
+              {tenantCfgError && <span className="text-xs text-red-600">{tenantCfgError}</span>}
             </div>
           )}
         </div>
