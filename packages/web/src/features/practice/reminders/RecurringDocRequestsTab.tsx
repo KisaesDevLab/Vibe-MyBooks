@@ -30,8 +30,17 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   cc_statement: 'Credit-card statement',
   payroll_report: 'Payroll report',
   receipt_batch: 'Receipt batch',
+  sales_tax_report: 'Sales tax report',
+  accounts_receivable: 'Accounts receivable',
+  inventory: 'Inventory',
+  accounts_payable: 'Accounts payable',
+  loan_balance: 'Loan balance',
   other: 'Other',
 };
+
+// Sentinel value for the routing dropdown: "parse now, review on the
+// Statement Processing page" (statement_routing = 'statement_processing').
+const ROUTE_TO_STATEMENT_PROCESSING = '__statement_processing';
 
 export function RecurringDocRequestsTab() {
   const [rules, setRules] = useState<RecurringDocRequestSummary[] | null>(null);
@@ -247,7 +256,14 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
   const cronEnabled = useFeatureFlag('RECURRING_CRON_V1');
   const stmtAutoImportEnabled = useFeatureFlag('STATEMENT_AUTO_IMPORT_V1');
   const [bankConnections, setBankConnections] = useState<BankConnectionOption[]>([]);
-  const [bankConnectionId, setBankConnectionId] = useState<string | null>(initial?.bankConnectionId ?? null);
+  // One dropdown drives statement routing: '' = receipts inbox,
+  // ROUTE_TO_STATEMENT_PROCESSING = parse for staff review, a
+  // connection id = auto-import into that connection.
+  const [routingChoice, setRoutingChoice] = useState<string>(
+    initial?.statementRouting === 'statement_processing'
+      ? ROUTE_TO_STATEMENT_PROCESSING
+      : initial?.bankConnectionId ?? '',
+  );
 
   useEffect(() => {
     if (!stmtAutoImportEnabled) return;
@@ -326,9 +342,16 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
         cadenceDays,
         // Only meaningful for bank/cc statement document types; for
         // other types the API ignores it.
-        bankConnectionId: stmtAutoImportEnabled && (documentType === 'bank_statement' || documentType === 'cc_statement')
-          ? (bankConnectionId || null)
-          : null,
+        ...(stmtAutoImportEnabled && (documentType === 'bank_statement' || documentType === 'cc_statement')
+          ? {
+              statementRouting:
+                routingChoice === ROUTE_TO_STATEMENT_PROCESSING ? 'statement_processing'
+                : routingChoice ? 'auto_import'
+                : 'inbox',
+              bankConnectionId:
+                routingChoice && routingChoice !== ROUTE_TO_STATEMENT_PROCESSING ? routingChoice : null,
+            }
+          : { statementRouting: 'inbox', bankConnectionId: null }),
       };
       if (mode === 'create') {
         if (!contactId) {
@@ -425,23 +448,29 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
           </label>
           {stmtAutoImportEnabled && (documentType === 'bank_statement' || documentType === 'cc_statement') && (
             <label className="block text-sm">
-              <span className="block text-gray-800 mb-1">Auto-import into bank connection</span>
+              <span className="block text-gray-800 mb-1">When the statement arrives</span>
               <select
-                value={bankConnectionId ?? ''}
-                onChange={(e) => setBankConnectionId(e.target.value || null)}
+                value={routingChoice}
+                onChange={(e) => setRoutingChoice(e.target.value)}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
               >
-                <option value="">Don't auto-import (route to receipts inbox for manual pick)</option>
+                <option value="">Receipts inbox — pick a bank connection manually</option>
+                <option value={ROUTE_TO_STATEMENT_PROCESSING}>
+                  Statement Processing — parse now, review &amp; import there
+                </option>
                 {bankConnections.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.institutionName ?? 'Bank connection'}
+                    Auto-import: {c.institutionName ?? 'Bank connection'}
                     {c.mask ? ` ····${c.mask}` : ''}
                   </option>
                 ))}
               </select>
               <p className="text-xs text-gray-500 mt-1">
-                When set, uploads against this rule are parsed and imported as bank-feed items
-                directly. Leave blank if the firm prefers to review each statement first.
+                {routingChoice === ROUTE_TO_STATEMENT_PROCESSING
+                  ? 'The PDF is parsed on arrival and appears on Banking → Statement Processing as pending review — you pick the account and import from there.'
+                  : routingChoice
+                    ? 'Uploads against this rule are parsed and imported as bank-feed items directly (held for review if the parse quality check fails).'
+                    : 'Uploads wait in the receipts inbox until you route each one to a bank connection.'}
               </p>
             </label>
           )}

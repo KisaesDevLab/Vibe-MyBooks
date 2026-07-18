@@ -167,6 +167,7 @@ export function ReceiptsInboxPage() {
           <option value="pending_ocr">Pending OCR</option>
           <option value="awaits_routing">Awaiting routing</option>
           <option value="statement_imported">Statement imported</option>
+          <option value="statement_review">In statement review</option>
           <option value="all">All</option>
         </select>
       </div>
@@ -381,6 +382,8 @@ function ReceiptStatusPill({ status }: { status: string }) {
     dismissed: 'bg-gray-100 text-gray-500 ring-gray-400/20',
     awaits_routing: 'bg-orange-50 text-orange-800 ring-orange-600/20',
     statement_imported: 'bg-emerald-50 text-emerald-800 ring-emerald-600/20',
+    // Parsed on arrival; being reviewed on the Statement Processing page.
+    statement_review: 'bg-sky-50 text-sky-800 ring-sky-600/20',
   };
   return (
     <span
