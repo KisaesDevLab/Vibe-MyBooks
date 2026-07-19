@@ -2,9 +2,9 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient, getAccessToken } from '../../api/client';
+import { apiClient, getAccessToken, API_BASE } from '../../api/client';
 import { Paperclip, Download, Trash2, Eye, X } from 'lucide-react';
 
 interface AttachmentListProps {
@@ -29,17 +29,67 @@ function isPreviewable(mime: string | null): boolean {
   return mime.startsWith('image/') || mime === 'application/pdf';
 }
 
-function downloadUrl(id: string, inline?: boolean): string {
+// The download route only accepts a Bearer header (or a single-use
+// ?_dl= token) — the legacy ?token=<JWT> query auth was removed, so
+// direct <img>/<iframe>/<a href> URLs 401. Same authorized-fetch +
+// object-URL pattern as AttachmentLibraryPage.
+async function fetchAttachmentBlob(id: string, inline = false): Promise<Blob> {
   const token = getAccessToken();
-  const params = new URLSearchParams();
-  if (token) params.set('token', token);
-  if (inline) params.set('inline', '1');
-  return `/api/v1/attachments/${id}/download?${params.toString()}`;
+  const res = await fetch(`${API_BASE}/attachments/${id}/download${inline ? '?inline=1' : ''}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Download failed');
+  return res.blob();
+}
+
+function saveBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Blob-backed object URL for the inline preview; revoked on change/unmount.
+function useAttachmentObjectUrl(id: string | null): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!id) {
+      setUrl(null);
+      return;
+    }
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    fetchAttachmentBlob(id, true)
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setUrl(null);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setUrl(null);
+    };
+  }, [id]);
+  return url;
 }
 
 export function AttachmentList({ attachableType, attachableId }: AttachmentListProps) {
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const previewUrl = useAttachmentObjectUrl(previewId);
   const queryClient = useQueryClient();
+
+  const download = (a: Attachment) => {
+    fetchAttachmentBlob(a.id)
+      .then((blob) => saveBlob(blob, a.fileName || 'download'))
+      .catch(() => alert('Download failed.'));
+  };
   const { data } = useQuery({
     queryKey: ['attachments', attachableType, attachableId],
     queryFn: () => apiClient<{ data: Attachment[]; total: number }>(`/attachments?attachable_type=${attachableType}&attachable_id=${attachableId}`),
@@ -76,9 +126,9 @@ export function AttachmentList({ attachableType, attachableId }: AttachmentListP
                   <Eye className="h-4 w-4" />
                 </button>
               )}
-              <a href={downloadUrl(a.id)} className="text-gray-400 hover:text-primary-600" title="Download">
+              <button onClick={() => download(a)} className="text-gray-400 hover:text-primary-600" title="Download">
                 <Download className="h-4 w-4" />
-              </a>
+              </button>
               <button onClick={() => deleteMutation.mutate(a.id)} className="text-gray-400 hover:text-red-500" title="Delete">
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -94,15 +144,17 @@ export function AttachmentList({ attachableType, attachableId }: AttachmentListP
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-              {a.mimeType.startsWith('image/') ? (
+              {!previewUrl ? (
+                <div className="py-8 text-center text-xs text-gray-400">Loading preview…</div>
+              ) : a.mimeType.startsWith('image/') ? (
                 <img
-                  src={downloadUrl(a.id, true)}
+                  src={previewUrl}
                   alt={a.fileName}
                   className="max-w-full max-h-[500px] object-contain mx-auto p-2"
                 />
               ) : a.mimeType === 'application/pdf' ? (
                 <iframe
-                  src={downloadUrl(a.id, true)}
+                  src={previewUrl}
                   title={a.fileName}
                   className="w-full h-[600px]"
                 />

@@ -25,6 +25,10 @@ export function SystemSettingsPage() {
 
   const [loading, setLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
+  // Guard against clobbering stored settings with form defaults: the
+  // backupSchedule field is only submitted after the stored value was
+  // actually loaded into the form.
+  const [appSettingsLoaded, setAppSettingsLoaded] = useState(false);
   const [showSmtpPass, setShowSmtpPass] = useState(false);
   // "Configured" flags from the GET endpoints — drive the Clear buttons
   // next to each credential field without ever round-tripping secrets.
@@ -129,6 +133,7 @@ export function SystemSettingsPage() {
         const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/settings`, { headers: authHeaders });
         if (res.ok) {
           const data = await res.json();
+          setAppSettingsLoaded(true);
           setForm((f) => ({
             ...f,
             backupSchedule: data.backupSchedule || 'none',
@@ -567,7 +572,9 @@ export function SystemSettingsPage() {
         body: JSON.stringify({
           applicationUrl: form.applicationUrl,
           maxFileSizeMb: form.maxFileSizeMb,
-          backupSchedule: form.backupSchedule,
+          // Omit unless the stored value was loaded — sending the form
+          // default would silently disable scheduled backups.
+          ...(appSettingsLoaded ? { backupSchedule: form.backupSchedule } : {}),
           appName: form.appName,
         }),
       });
