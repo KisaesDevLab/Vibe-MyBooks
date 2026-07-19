@@ -7,10 +7,11 @@ import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Landmark, FileText, ArrowRight, Wallet, Receipt, Banknote } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Landmark, FileText, ArrowRight, Wallet, Receipt, Banknote, MessageSquare, Inbox, CalendarClock } from 'lucide-react';
 import { DashboardAiFooter } from '../../components/ui/DashboardAiFooter';
 import { OnboardingBanner } from './OnboardingBanner';
 import { useMe } from '../../api/hooks/useAuth';
+import { usePracticeVisibility } from '../../hooks/usePracticeVisibility';
 
 function fmt(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -74,6 +75,7 @@ interface DashboardSummary {
   actionItems: { pendingFeedCount: number; overdueInvoiceCount: number; staleReconciliations: Array<{ accountName: string; lastReconciled: string | null }>; pendingDepositCount: number; pendingDepositAmount: number; printQueueCount: number; printQueueAmount: number } | null;
   budgetPerformance: BudgetPerf | null;
   bankingHealth: { totalConnections: number; needsAttention: number; needsAttentionItems: Array<{ id: string; institutionName: string; itemStatus: string; errorMessage: string | null }>; pendingFeedItems: number } | null;
+  portalActivity: { questionsAwaitingReply: number; receiptsToReview: number; docRequestsOverdue: number } | null;
   errors: string[];
 }
 
@@ -85,6 +87,11 @@ export function DashboardPage() {
   // doesn't add a request; it's the same query the sidebar / app shell
   // already ran before rendering this page.
   const { data: meData } = useMe();
+
+  // Which practice pages this user can actually open (role + feature
+  // flags) — the portal-activity banner only links where the click
+  // won't bounce off the PracticeLayout guard.
+  const practiceNav = usePracticeVisibility();
 
   // One consolidated query instead of the nine independent useQuery calls
   // this used to fire on mount. The backend runs the panels in parallel
@@ -106,6 +113,7 @@ export function DashboardPage() {
   const budgetPerf = summary?.budgetPerformance ?? null;
   const actions = summary?.actionItems ?? null;
   const bankingHealth = summary?.bankingHealth ?? null;
+  const portalActivity = summary?.portalActivity ?? null;
 
   // Server already assembles the list of failed panels. If the whole request
   // blew up (network error, auth expired, etc.) fall back to "all panels
@@ -136,6 +144,37 @@ export function DashboardPage() {
   // enough as a nudge — we don't have a per-tenant user count in the
   // /me payload and adding an extra fetch just for the banner isn't worth it.
   const hasTeam = (meData?.accessibleTenants?.length ?? 0) > 1;
+
+  // Portal-activity banner rows: pair each server count with the
+  // practice page that resolves it, and only show rows whose page the
+  // current user can open.
+  const canOpen = new Set(practiceNav.items.map((i) => i.key));
+  const portalRows = [
+    {
+      key: 'questions',
+      show: (portalActivity?.questionsAwaitingReply ?? 0) > 0 && canOpen.has('client-portal'),
+      count: portalActivity?.questionsAwaitingReply ?? 0,
+      icon: MessageSquare,
+      label: (n: number) => `${n} client ${n === 1 ? 'question' : 'questions'} awaiting your reply`,
+      to: '/practice/client-portal',
+    },
+    {
+      key: 'receipts',
+      show: (portalActivity?.receiptsToReview ?? 0) > 0 && canOpen.has('receipts-inbox'),
+      count: portalActivity?.receiptsToReview ?? 0,
+      icon: Inbox,
+      label: (n: number) => `${n} portal ${n === 1 ? 'upload' : 'uploads'} to review in the receipts inbox`,
+      to: '/practice/receipts-inbox',
+    },
+    {
+      key: 'overdue',
+      show: (portalActivity?.docRequestsOverdue ?? 0) > 0 && canOpen.has('reminders'),
+      count: portalActivity?.docRequestsOverdue ?? 0,
+      icon: CalendarClock,
+      label: (n: number) => `${n} document ${n === 1 ? 'request' : 'requests'} past due`,
+      to: '/practice/reminders',
+    },
+  ].filter((r) => r.show);
 
   return (
     <div className="space-y-6">
@@ -186,6 +225,28 @@ export function DashboardPage() {
             </p>
           ))}
           <a href="/banking" className="text-xs font-medium text-amber-900 underline mt-2 inline-block">Fix now</a>
+        </div>
+      )}
+
+      {/* Client-portal activity — unread questions, unprocessed reminder
+          responses, and overdue document requests, each linking to the
+          page where it gets handled. */}
+      {portalRows.length > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <p className="text-sm font-medium text-indigo-900 mb-2">Client portal activity</p>
+          <div className="space-y-1">
+            {portalRows.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => navigate(r.to)}
+                className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-md hover:bg-indigo-100 text-sm text-indigo-900"
+              >
+                <r.icon className="h-4 w-4 text-indigo-600 shrink-0" />
+                <span>{r.label(r.count)}</span>
+                <ArrowRight className="h-3.5 w-3.5 ml-auto text-indigo-400" />
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

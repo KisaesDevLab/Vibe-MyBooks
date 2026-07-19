@@ -17,6 +17,20 @@ vi.mock('../../api/client', () => ({
   apiClient: (...args: unknown[]) => apiClientMock(...args),
 }));
 
+// usePracticeVisibility internally fires its own queries (useFirms has
+// no enabled gate) which would consume apiClientMock responses meant
+// for /dashboard/summary. Mock it wholesale; the portal-banner test
+// overrides `items` to make its links visible.
+const practiceVisibilityMock = vi.fn(() => ({
+  ready: true,
+  showGroup: false,
+  items: [] as Array<{ key: string }>,
+  sections: { 'close-cycle': [], 'client-communication': [] },
+}));
+vi.mock('../../hooks/usePracticeVisibility', () => ({
+  usePracticeVisibility: () => practiceVisibilityMock(),
+}));
+
 import { DashboardPage } from './DashboardPage';
 
 function wrap(ui: ReactNode) {
@@ -55,12 +69,20 @@ const fullSummary = {
   },
   budgetPerformance: null,
   bankingHealth: { totalConnections: 1, needsAttention: 0, needsAttentionItems: [], pendingFeedItems: 0 },
+  portalActivity: null,
   errors: [],
 };
 
 describe('DashboardPage', () => {
   beforeEach(() => {
     apiClientMock.mockReset();
+    practiceVisibilityMock.mockClear();
+    practiceVisibilityMock.mockReturnValue({
+      ready: true,
+      showGroup: false,
+      items: [],
+      sections: { 'close-cycle': [], 'client-communication': [] },
+    });
   });
 
   it('renders stat cards with formatted totals when the summary succeeds', async () => {
@@ -103,6 +125,42 @@ describe('DashboardPage', () => {
     // Every stat value should be —.
     const dashes = screen.getAllByText('—');
     expect(dashes.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('shows the portal-activity banner with only the rows whose page the user can open', async () => {
+    practiceVisibilityMock.mockReturnValue({
+      ready: true,
+      showGroup: true,
+      // receipts-inbox deliberately absent — its row must be hidden even
+      // though the server reported a nonzero count.
+      items: [{ key: 'client-portal' }, { key: 'reminders' }],
+      sections: { 'close-cycle': [], 'client-communication': [] },
+    });
+    apiClientMock.mockResolvedValueOnce({
+      ...fullSummary,
+      portalActivity: { questionsAwaitingReply: 2, receiptsToReview: 3, docRequestsOverdue: 1 },
+    });
+    wrap(<DashboardPage />);
+    expect(await screen.findByText('Client portal activity')).toBeInTheDocument();
+    expect(screen.getByText('2 client questions awaiting your reply')).toBeInTheDocument();
+    expect(screen.getByText('1 document request past due')).toBeInTheDocument();
+    expect(screen.queryByText(/uploads to review/i)).not.toBeInTheDocument();
+  });
+
+  it('hides the portal-activity banner when there is no activity', async () => {
+    practiceVisibilityMock.mockReturnValue({
+      ready: true,
+      showGroup: true,
+      items: [{ key: 'client-portal' }, { key: 'receipts-inbox' }, { key: 'reminders' }],
+      sections: { 'close-cycle': [], 'client-communication': [] },
+    });
+    apiClientMock.mockResolvedValueOnce({
+      ...fullSummary,
+      portalActivity: { questionsAwaitingReply: 0, receiptsToReview: 0, docRequestsOverdue: 0 },
+    });
+    wrap(<DashboardPage />);
+    expect(await screen.findByText('Net Income (YTD)')).toBeInTheDocument();
+    expect(screen.queryByText('Client portal activity')).not.toBeInTheDocument();
   });
 
   it('re-fires the consolidated query when Retry is clicked', async () => {
