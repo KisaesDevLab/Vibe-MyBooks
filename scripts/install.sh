@@ -68,7 +68,13 @@ preserve_identity_files() {
   [ "$has_bind" = "yes" ] && return 0
 
   info "Preserving installation identity (recovery key, sentinel) across the storage change..."
-  $SUDO mkdir -p "$DATA_ROOT/data/config"
+  # Guarded: this function is best-effort by contract, but an unguarded
+  # mkdir under set -e aborts the whole update on a non-root host
+  # without sudo before the pull even starts.
+  if ! $SUDO mkdir -p "$DATA_ROOT/data/config"; then
+    info "Could not create $DATA_ROOT/data/config — skipping identity preservation."
+    return 0
+  fi
   local f saved=0
   for f in .env.recovery .sentinel .host-id .db-fingerprint config/.initialized; do
     # docker cp runs via the daemon (root), so it can write under $DATA_ROOT.
@@ -183,6 +189,14 @@ if port_in_use "$APP_PORT"; then
     error "Non-interactive shell — re-run with APP_PORT=<free-port> set."
     exit 1
   fi
+fi
+
+# Same pre-flight for the web UI port — compose's bare "port is already
+# allocated" error is exactly what this section exists to pre-empt.
+if port_in_use "$WEB_PORT"; then
+  error "Port $WEB_PORT (web UI) is already in use on this host."
+  error "Re-run with WEB_PORT=<free-port> set, or free up port $WEB_PORT first."
+  exit 1
 fi
 
 # ─── Update mode ──────────────────────────────────────────────

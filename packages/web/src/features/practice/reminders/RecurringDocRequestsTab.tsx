@@ -71,6 +71,8 @@ export function RecurringDocRequestsTab() {
 
   const remove = async (rule: RecurringDocRequestSummary) => {
     if (!confirm(`Delete rule for ${rule.contactEmail} (${DOCUMENT_TYPE_LABELS[rule.documentType]})? Already-issued requests are preserved.`)) return;
+    setError(null);
+    setNotice(null);
     try {
       await api(`/practice/recurring-doc-requests/${rule.id}`, { method: 'DELETE' });
       void reload();
@@ -90,14 +92,27 @@ export function RecurringDocRequestsTab() {
         { method: 'POST' },
       );
       const who = rule.contactName ?? rule.contactEmail;
+      // Failed/suppressed sends are reported as errors (red), not
+      // dressed up in the success banner.
+      const SEND_FAIL_REASON: Record<string, string> = {
+        suppressed: 'the contact is paused or has unsubscribed',
+        capped: "the contact hit this week's reminder cap",
+        error: 'the email could not be delivered — check the SMTP settings',
+      };
       if (r.result === 'issued') {
-        setNotice(r.sendResult === 'sent'
-          ? `${r.periodLabel} request issued and sent to ${who}.`
-          : `${r.periodLabel} request issued, but the send came back "${r.sendResult}".`);
+        if (r.sendResult === 'sent') {
+          setNotice(`${r.periodLabel} request issued and sent to ${who}.`);
+        } else {
+          setError(`${r.periodLabel} request was issued, but nothing was sent: ${SEND_FAIL_REASON[r.sendResult ?? ''] ?? r.sendResult}.`);
+        }
+      } else if (r.result === 'just_issued') {
+        setNotice(`The ${r.periodLabel} request was just issued by the scheduler — the opener is already on its way, so nothing extra was sent.`);
       } else if (r.result === 'reminded') {
-        setNotice(r.sendResult === 'sent'
-          ? `${r.periodLabel} request was already open — sent ${who} a reminder instead.`
-          : `${r.periodLabel} request is already open, and the reminder came back "${r.sendResult}".`);
+        if (r.sendResult === 'sent') {
+          setNotice(`${r.periodLabel} request was already open — sent ${who} a reminder instead.`);
+        } else {
+          setError(`${r.periodLabel} request is already open, and the reminder was not sent: ${SEND_FAIL_REASON[r.sendResult ?? ''] ?? r.sendResult}.`);
+        }
       } else {
         setNotice(`Nothing sent — the ${r.periodLabel} request is already ${r.status}.`);
       }
@@ -110,6 +125,8 @@ export function RecurringDocRequestsTab() {
   };
 
   const toggle = async (rule: RecurringDocRequestSummary) => {
+    setError(null);
+    setNotice(null);
     try {
       await api(`/practice/recurring-doc-requests/${rule.id}`, {
         method: 'PATCH',
@@ -143,7 +160,7 @@ export function RecurringDocRequestsTab() {
           {error}
         </div>
       )}
-      {notice && (
+      {notice && !error && (
         <div role="status" className="mb-3 p-3 border border-emerald-200 bg-emerald-50 rounded-md text-sm text-emerald-800">
           {notice}
         </div>

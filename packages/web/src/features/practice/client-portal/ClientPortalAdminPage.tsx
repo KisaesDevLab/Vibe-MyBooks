@@ -41,6 +41,7 @@ import {
   useMarkBatchNotified,
 } from '../../../api/hooks/usePortalQuestions';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { apiClient } from '../../../api/client';
 import { PortalContactDocumentsPanel } from '../reminders/PortalContactDocumentsPanel';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 8 — bookkeeper-side
@@ -318,17 +319,16 @@ function SendLoginLinkButton({ contact }: { contact: PortalContactSummary }) {
     if (!confirm(`Email a portal sign-in link to ${contact.email}?`)) return;
     setState('sending');
     try {
-      const token = localStorage.getItem('accessToken');
-      const res = await fetch(
-        `${import.meta.env.BASE_URL}api/v1/practice/portal/contacts/${contact.id}/send-login-link`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token ?? ''}` } },
+      // apiClient (not raw fetch) so an expired access token refreshes
+      // transparently like every other control on this page.
+      const data = await apiClient<{ sent: boolean; viaStub: boolean }>(
+        `/practice/portal/contacts/${contact.id}/send-login-link`,
+        { method: 'POST' },
       );
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+      if (data.viaStub) {
+        throw new Error('SMTP is not configured — the link was logged on the server but no email was delivered. Set up SMTP under System Settings first.');
       }
-      const data = (await res.json()) as { sent: boolean };
-      if (!data.sent) throw new Error('The link could not be sent — check the SMTP settings.');
+      if (!data.sent) throw new Error('The email could not be delivered — check the SMTP settings.');
       setState('sent');
       setTimeout(() => setState('idle'), 4000);
     } catch (e) {
