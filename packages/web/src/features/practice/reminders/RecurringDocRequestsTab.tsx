@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, CalendarClock, PhoneOff } from 'lucide-react';
+import { Plus, Trash2, CalendarClock, PhoneOff, Send } from 'lucide-react';
 import {
   DOCUMENT_TYPES,
   RECURRING_FREQUENCIES,
@@ -45,6 +45,8 @@ const ROUTE_TO_STATEMENT_PROCESSING = '__statement_processing';
 export function RecurringDocRequestsTab() {
   const [rules, setRules] = useState<RecurringDocRequestSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<RecurringDocRequestSummary | null>(null);
   const smsEnabled = useFeatureFlag('DOC_REQUEST_SMS_V1');
@@ -68,12 +70,42 @@ export function RecurringDocRequestsTab() {
   useEffect(() => { void reload(); }, []);
 
   const remove = async (rule: RecurringDocRequestSummary) => {
-    if (!confirm(`Cancel rule for ${rule.contactEmail} (${DOCUMENT_TYPE_LABELS[rule.documentType]})? Already-issued requests are preserved.`)) return;
+    if (!confirm(`Delete rule for ${rule.contactEmail} (${DOCUMENT_TYPE_LABELS[rule.documentType]})? Already-issued requests are preserved.`)) return;
     try {
       await api(`/practice/recurring-doc-requests/${rule.id}`, { method: 'DELETE' });
       void reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Cancel failed.');
+      setError(e instanceof Error ? e.message : 'Delete failed.');
+    }
+  };
+
+  const sendNow = async (rule: RecurringDocRequestSummary) => {
+    if (!confirm(`Send the ${DOCUMENT_TYPE_LABELS[rule.documentType]} request to ${rule.contactEmail} now?`)) return;
+    setError(null);
+    setNotice(null);
+    setSendingId(rule.id);
+    try {
+      const r = await api<{ result: string; sendResult?: string; periodLabel: string; status?: string }>(
+        `/practice/recurring-doc-requests/${rule.id}/send-now`,
+        { method: 'POST' },
+      );
+      const who = rule.contactName ?? rule.contactEmail;
+      if (r.result === 'issued') {
+        setNotice(r.sendResult === 'sent'
+          ? `${r.periodLabel} request issued and sent to ${who}.`
+          : `${r.periodLabel} request issued, but the send came back "${r.sendResult}".`);
+      } else if (r.result === 'reminded') {
+        setNotice(r.sendResult === 'sent'
+          ? `${r.periodLabel} request was already open — sent ${who} a reminder instead.`
+          : `${r.periodLabel} request is already open, and the reminder came back "${r.sendResult}".`);
+      } else {
+        setNotice(`Nothing sent — the ${r.periodLabel} request is already ${r.status}.`);
+      }
+      void reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Send failed.');
+    } finally {
+      setSendingId(null);
     }
   };
 
@@ -109,6 +141,11 @@ export function RecurringDocRequestsTab() {
       {error && (
         <div role="alert" className="mb-3 p-3 border border-red-200 bg-red-50 rounded-md text-sm text-red-700">
           {error}
+        </div>
+      )}
+      {notice && (
+        <div role="status" className="mb-3 p-3 border border-emerald-200 bg-emerald-50 rounded-md text-sm text-emerald-800">
+          {notice}
         </div>
       )}
 
@@ -196,6 +233,15 @@ export function RecurringDocRequestsTab() {
                   </td>
                   <td className="px-4 py-3 text-right space-x-2">
                     <button
+                      onClick={() => void sendNow(r)}
+                      disabled={sendingId !== null}
+                      title="Send now — issue this period's request immediately (or re-remind if it's already open)"
+                      aria-label="Send now"
+                      className="p-1.5 rounded hover:bg-indigo-50 text-indigo-600 disabled:opacity-50"
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
+                    <button
                       onClick={() => setEditing(r)}
                       className="text-xs font-medium text-indigo-700 hover:underline"
                     >
@@ -203,7 +249,8 @@ export function RecurringDocRequestsTab() {
                     </button>
                     <button
                       onClick={() => void remove(r)}
-                      aria-label="Cancel rule"
+                      aria-label="Delete rule"
+                      title="Delete rule"
                       className="p-1.5 rounded hover:bg-red-50 text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />

@@ -16,6 +16,7 @@ import {
   Send,
   Eye,
   Upload,
+  KeyRound,
 } from 'lucide-react';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import {
@@ -309,6 +310,52 @@ function ImportCsvButton() {
   );
 }
 
+function SendLoginLinkButton({ contact }: { contact: PortalContactSummary }) {
+  const [state, setState] = useState<'idle' | 'sending' | 'sent'>('idle');
+  if (contact.status !== 'active') return null;
+
+  const send = async () => {
+    if (!confirm(`Email a portal sign-in link to ${contact.email}?`)) return;
+    setState('sending');
+    try {
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/v1/practice/portal/contacts/${contact.id}/send-login-link`,
+        { method: 'POST', headers: { Authorization: `Bearer ${token ?? ''}` } },
+      );
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as { sent: boolean };
+      if (!data.sent) throw new Error('The link could not be sent — check the SMTP settings.');
+      setState('sent');
+      setTimeout(() => setState('idle'), 4000);
+    } catch (e) {
+      setState('idle');
+      alert(e instanceof Error ? e.message : 'Send failed.');
+    }
+  };
+
+  if (state === 'sent') {
+    return (
+      <span title="Sign-in link sent" className="p-1.5 inline-flex text-emerald-600">
+        <CheckCircle2 className="h-4 w-4" />
+      </span>
+    );
+  }
+  return (
+    <button
+      title={`Email a portal sign-in link to ${contact.email}`}
+      onClick={() => void send()}
+      disabled={state === 'sending'}
+      className="p-1.5 rounded hover:bg-indigo-50 text-indigo-600 disabled:opacity-50"
+    >
+      <KeyRound className="h-4 w-4" />
+    </button>
+  );
+}
+
 function PreviewButton({ contactId }: { contactId: string }) {
   const { data } = usePortalContact(contactId);
   const companies = data?.contact.companies ?? [];
@@ -392,6 +439,7 @@ function ContactsTable({
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="inline-flex items-center gap-1">
+                    <SendLoginLinkButton contact={c} />
                     <PreviewButton contactId={c.id} />
                     {c.status === 'active' ? (
                       <button
