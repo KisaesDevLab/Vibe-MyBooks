@@ -112,10 +112,77 @@ html.no-transition * {
 [data-theme="dark"] .bg-green-100 { background-color: #14532D !important; }
 [data-theme="dark"] .bg-red-50 { background-color: #450A0A !important; }
 [data-theme="dark"] .bg-red-100 { background-color: #450A0A !important; }
+[data-theme="dark"] .bg-yellow-50 { background-color: #422006 !important; }
 [data-theme="dark"] .bg-yellow-100 { background-color: #422006 !important; }
 [data-theme="dark"] .bg-amber-50 { background-color: #422006 !important; }
+[data-theme="dark"] .bg-amber-100 { background-color: #422006 !important; }
+[data-theme="dark"] .bg-emerald-50 { background-color: #064E3B !important; }
+[data-theme="dark"] .bg-emerald-100 { background-color: #064E3B !important; }
+[data-theme="dark"] .bg-indigo-50 { background-color: #312E81 !important; }
+[data-theme="dark"] .bg-indigo-100 { background-color: #312E81 !important; }
 [data-theme="dark"] .bg-primary-50 { background-color: #1E3A5F !important; }
 [data-theme="dark"] .bg-primary-100 { background-color: #1E3A5F !important; }
+
+/* ============================================================
+   Semantic text/borders on darkened panels.
+   The blocks above map every light -50/-100 panel background to a
+   deep -900 shade, but standalone semantic text classes (e.g. the
+   portal login card's text-green-800) kept their light-mode colors —
+   near-black-on-black. Remap -600..-900 text to -300/-400 tints and
+   -200/-300 borders to -800 shades so alert/notice panels stay
+   readable. All pairs ≥ 4.5:1 on their darkened panel AND on the
+   #1F2937 card background.
+   ============================================================ */
+
+/* Text */
+[data-theme="dark"] .text-green-600 { color: #4ADE80 !important; }
+[data-theme="dark"] .text-green-700 { color: #86EFAC !important; }
+[data-theme="dark"] .text-green-800 { color: #BBF7D0 !important; }
+[data-theme="dark"] .text-green-900 { color: #DCFCE7 !important; }
+[data-theme="dark"] .text-emerald-600 { color: #34D399 !important; }
+[data-theme="dark"] .text-emerald-700 { color: #6EE7B7 !important; }
+[data-theme="dark"] .text-emerald-800 { color: #A7F3D0 !important; }
+[data-theme="dark"] .text-red-600 { color: #F87171 !important; }
+[data-theme="dark"] .text-red-700 { color: #FCA5A5 !important; }
+[data-theme="dark"] .text-red-800 { color: #FECACA !important; }
+[data-theme="dark"] .text-red-900 { color: #FEE2E2 !important; }
+[data-theme="dark"] .text-amber-600 { color: #FBBF24 !important; }
+[data-theme="dark"] .text-amber-700 { color: #FCD34D !important; }
+[data-theme="dark"] .text-amber-800 { color: #FDE68A !important; }
+[data-theme="dark"] .text-amber-900 { color: #FEF3C7 !important; }
+[data-theme="dark"] .text-yellow-600 { color: #FACC15 !important; }
+[data-theme="dark"] .text-yellow-700 { color: #FDE047 !important; }
+[data-theme="dark"] .text-yellow-800 { color: #FEF08A !important; }
+[data-theme="dark"] .text-blue-600 { color: #60A5FA !important; }
+[data-theme="dark"] .text-blue-700 { color: #93C5FD !important; }
+[data-theme="dark"] .text-blue-800 { color: #BFDBFE !important; }
+[data-theme="dark"] .text-blue-900 { color: #DBEAFE !important; }
+[data-theme="dark"] .text-indigo-600 { color: #818CF8 !important; }
+[data-theme="dark"] .text-indigo-700 { color: #A5B4FC !important; }
+[data-theme="dark"] .text-indigo-800 { color: #C7D2FE !important; }
+[data-theme="dark"] .text-indigo-900 { color: #E0E7FF !important; }
+
+/* Borders */
+[data-theme="dark"] .border-green-200 { border-color: #166534 !important; }
+[data-theme="dark"] .border-green-300 { border-color: #166534 !important; }
+[data-theme="dark"] .border-emerald-200 { border-color: #065F46 !important; }
+[data-theme="dark"] .border-emerald-300 { border-color: #065F46 !important; }
+[data-theme="dark"] .border-red-200 { border-color: #7F1D1D !important; }
+[data-theme="dark"] .border-red-300 { border-color: #7F1D1D !important; }
+[data-theme="dark"] .border-amber-200 { border-color: #78350F !important; }
+[data-theme="dark"] .border-amber-300 { border-color: #78350F !important; }
+[data-theme="dark"] .border-yellow-200 { border-color: #78350F !important; }
+[data-theme="dark"] .border-indigo-200 { border-color: #3730A3 !important; }
+[data-theme="dark"] .border-indigo-300 { border-color: #3730A3 !important; }
+
+/* Hovers on semantic panels (row-action buttons etc.) */
+[data-theme="dark"] .hover\:bg-green-50:hover { background-color: #14532D !important; }
+[data-theme="dark"] .hover\:bg-green-100:hover { background-color: #166534 !important; }
+[data-theme="dark"] .hover\:bg-red-50:hover { background-color: #450A0A !important; }
+[data-theme="dark"] .hover\:bg-emerald-100:hover { background-color: #065F46 !important; }
+[data-theme="dark"] .hover\:bg-indigo-50:hover { background-color: #312E81 !important; }
+[data-theme="dark"] .hover\:bg-indigo-100:hover { background-color: #3730A3 !important; }
+[data-theme="dark"] .hover\:bg-amber-100:hover { background-color: #78350F !important; }
 
 /* Gradient override */
 [data-theme="dark"] .bg-gradient-to-r { background-image: none !important; background-color: #1E3A5F !important; }
