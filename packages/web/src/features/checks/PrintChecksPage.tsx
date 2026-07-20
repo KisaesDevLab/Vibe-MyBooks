@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CHECK_LAYOUTS, type CheckLayout } from '@kis-books/shared';
 import { usePrintQueue, usePrintChecks, useCheckSettings } from '../../api/hooks/useChecks';
@@ -13,7 +13,7 @@ import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { AccountSelector } from '../../components/forms/AccountSelector';
-import { CheckCircle, Printer, AlertTriangle, RotateCcw } from 'lucide-react';
+import { CheckCircle, Printer, AlertTriangle, RotateCcw, Mail } from 'lucide-react';
 
 type FlowStep = 'select' | 'rendering' | 'confirm';
 
@@ -31,6 +31,45 @@ export function PrintChecksPage() {
   const { data: settingsData } = useCheckSettings();
   const { data, isLoading, isError, refetch } = usePrintQueue(bankAccountId || undefined);
   const printChecks = usePrintChecks();
+
+  // Default the layout to the tenant's configured check-printing format
+  // (Settings → Check Printing). Runs once when settings first load, so a
+  // manual change by the user afterward is preserved.
+  const formatDefaulted = useRef(false);
+  useEffect(() => {
+    const f = settingsData?.settings?.format as CheckLayout | undefined;
+    if (!formatDefaulted.current && f && CHECK_LAYOUTS.some((l) => l.value === f)) {
+      setFormat(f);
+      formatDefaulted.current = true;
+    }
+  }, [settingsData]);
+
+  // "Print #10 Envelopes" from the confirm step — opens an envelope PDF for
+  // the just-printed checks WITHOUT dismissing the popup (the operator still
+  // has to answer whether the checks printed).
+  const [envelopeError, setEnvelopeError] = useState('');
+  const [envelopeLoading, setEnvelopeLoading] = useState(false);
+  const handlePrintEnvelopes = async () => {
+    setEnvelopeError('');
+    setEnvelopeLoading(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/checks/envelopes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ checkIds: printedCheckIds }),
+      });
+      if (!res.ok) throw new Error('Failed to render envelopes');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      setEnvelopeError(err instanceof Error ? err.message : 'Envelope print failed');
+    } finally {
+      setEnvelopeLoading(false);
+    }
+  };
 
   const requeueMutation = useMutation({
     mutationFn: (checkIds: string[]) =>
@@ -249,7 +288,13 @@ export function PrintChecksPage() {
               <Button variant="danger" onClick={handleDidNotPrint} loading={requeueMutation.isPending}>
                 <RotateCcw className="h-4 w-4 mr-2" /> No, return to queue
               </Button>
+              <Button variant="secondary" onClick={handlePrintEnvelopes} loading={envelopeLoading}>
+                <Mail className="h-4 w-4 mr-2" /> Print #10 Envelopes
+              </Button>
             </div>
+            {envelopeError && (
+              <p className="text-sm text-red-600">{envelopeError}</p>
+            )}
           </div>
         </div>
       )}
