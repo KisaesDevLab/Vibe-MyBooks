@@ -152,6 +152,30 @@ export function BankFeedPage() {
   const bulkSetName = useBulkSetName();
   const [showBatchSetName, setShowBatchSetName] = useState(false);
   const [batchSetName, setBatchSetName] = useState('');
+  const [batchSetNameMsg, setBatchSetNameMsg] = useState('');
+  // "Set Name" assigns an EXISTING contact by name (match-only). If nothing
+  // matched, keep the input open and tell the user rather than silently
+  // closing — otherwise it looks like the click did nothing.
+  const applyBulkSetName = () => {
+    const name = batchSetName.trim();
+    if (!name) return;
+    setBatchSetNameMsg('');
+    bulkSetName.mutate(
+      { feedItemIds: [...selected], name },
+      {
+        onSuccess: (data) => {
+          const res = (data ?? {}) as { updated?: number; skipped?: number; noContactMatch?: boolean; matchedContactName?: string | null };
+          if (res.noContactMatch || (res.updated ?? 0) === 0) {
+            setBatchSetNameMsg(`No contact named “${name}” — create it in Contacts (or pick from the list) first.`);
+            return;
+          }
+          setShowBatchSetName(false);
+          setBatchSetName('');
+          setBatchSetNameMsg('');
+        },
+      },
+    );
+  };
   const aiCategorize = useAiCategorize();
   const aiBatch = useAiBatchCategorize();
   const matchFeedItem = useMatchFeedItem();
@@ -529,18 +553,20 @@ export function BankFeedPage() {
               <Button size="sm" variant="ghost" onClick={() => { setShowBatchSetTag(false); setBatchSetTagId(null); }}>Cancel</Button>
             </div>
           ) : showBatchSetName ? (
-            <div className="flex items-center gap-2">
-              <BulkSetNameInput
-                value={batchSetName}
-                onChange={setBatchSetName}
-                onEnter={() => bulkSetName.mutate({ feedItemIds: [...selected], name: batchSetName.trim() }, { onSuccess: () => { setShowBatchSetName(false); setBatchSetName(''); } })}
-              />
-              <Button size="sm" loading={bulkSetName.isPending} disabled={!batchSetName.trim()}
-                onClick={() => bulkSetName.mutate(
-                  { feedItemIds: [...selected], name: batchSetName.trim() },
-                  { onSuccess: () => { setShowBatchSetName(false); setBatchSetName(''); } },
-                )}>Apply</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setShowBatchSetName(false); setBatchSetName(''); }}>Cancel</Button>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <BulkSetNameInput
+                  value={batchSetName}
+                  onChange={(v) => { setBatchSetName(v); setBatchSetNameMsg(''); }}
+                  onEnter={() => applyBulkSetName()}
+                />
+                <Button size="sm" loading={bulkSetName.isPending} disabled={!batchSetName.trim()}
+                  onClick={() => applyBulkSetName()}>Apply</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setShowBatchSetName(false); setBatchSetName(''); setBatchSetNameMsg(''); }}>Cancel</Button>
+              </div>
+              {batchSetNameMsg && (
+                <span className="text-xs text-amber-700">{batchSetNameMsg}</span>
+              )}
             </div>
           ) : (
             <>
