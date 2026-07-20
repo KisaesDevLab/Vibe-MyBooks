@@ -103,10 +103,11 @@ export function RegisterPage() {
     doc.setTextColor(0);
 
     // Table data
-    const tableHead = [['Date', 'Type', 'Payee', 'Category', 'Memo', paymentLabel, depositLabel, 'Balance']];
+    const tableHead = [['Date', 'Type', 'Check #', 'Payee', 'Category', 'Memo', paymentLabel, depositLabel, 'Balance']];
     const tableBody = lines.map((l) => [
       l.txnDate,
       `${txnTypeLabels[l.txnType] || l.txnType}${l.txnNumber ? ' #' + l.txnNumber : ''}${l.status === 'void' ? ' VOID' : ''}`,
+      l.checkNumber != null ? String(l.checkNumber) : '',
       l.payeeName || '',
       l.categoryName || '',
       l.memo || '',
@@ -117,7 +118,7 @@ export function RegisterPage() {
 
     // Footer row
     const footRow = [
-      { content: `${lines.length} of ${pagination.totalRows} transactions`, colSpan: 5, styles: { fontStyle: 'bold' as const } },
+      { content: `${lines.length} of ${pagination.totalRows} transactions`, colSpan: 6, styles: { fontStyle: 'bold' as const } },
       { content: totalPayments > 0 ? fmt(totalPayments) : '', styles: { halign: 'right' as const, fontStyle: 'bold' as const } },
       { content: totalDeposits > 0 ? fmt(totalDeposits) : '', styles: { halign: 'right' as const, fontStyle: 'bold' as const } },
       { content: fmt(endingBalance), styles: { halign: 'right' as const, fontStyle: 'bold' as const } },
@@ -135,14 +136,15 @@ export function RegisterPage() {
       columnStyles: {
         0: { cellWidth: 58 },
         1: { cellWidth: 52 },
-        5: { halign: 'right', cellWidth: 62 },
+        2: { cellWidth: 44 },
         6: { halign: 'right', cellWidth: 62 },
-        7: { halign: 'right', cellWidth: 68, fontStyle: 'bold' },
+        7: { halign: 'right', cellWidth: 62 },
+        8: { halign: 'right', cellWidth: 68, fontStyle: 'bold' },
       },
       bodyStyles: { textColor: [40, 40, 40] },
       didParseCell: (data) => {
         // Red for negative balances
-        if (data.section === 'body' && data.column.index === 7) {
+        if (data.section === 'body' && data.column.index === 8) {
           const raw = lines[data.row.index];
           if (raw && raw.runningBalance < 0) {
             data.cell.styles.textColor = [200, 0, 0];
@@ -263,6 +265,7 @@ export function RegisterPage() {
               <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-16" onClick={() => toggleSort('type')}>
                 Type {sortBy === 'type' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
+              <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-16">Check #</th>
               <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-56">Payee</th>
               <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-56">Category</th>
               <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase w-64">Memo</th>
@@ -278,7 +281,7 @@ export function RegisterPage() {
             {/* Balance forward row — top when ascending */}
             {balanceForward !== 0 && sortDir === 'asc' && (
               <tr className="bg-gray-50 text-gray-500 italic">
-                <td colSpan={7} className="px-2 py-1">Balance Forward</td>
+                <td colSpan={8} className="px-2 py-1">Balance Forward</td>
                 <td className="px-2 py-1 text-right font-mono font-bold">${fmt(balanceForward)}</td>
                 <td />
               </tr>
@@ -297,6 +300,7 @@ export function RegisterPage() {
                   {line.txnNumber && <span className="text-gray-400 ml-1">#{line.txnNumber}</span>}
                   {line.status === 'void' && <span className="ml-1 text-xs text-red-500 font-medium">VOID</span>}
                 </td>
+                <td className="px-2 py-1 text-gray-700 font-mono">{line.checkNumber ?? ''}</td>
                 <td className="px-2 py-1 text-gray-700 truncate max-w-[220px]" title={line.payeeName || ''}>{line.payeeName || ''}</td>
                 <td className="px-2 py-1 text-gray-500 truncate max-w-[220px]" title={line.categoryName || ''}>{line.categoryName || '—'}</td>
                 <td className="px-2 py-1 text-gray-500 truncate max-w-[260px]" title={line.memo || ''}>{line.memo || ''}</td>
@@ -315,7 +319,7 @@ export function RegisterPage() {
             {/* Balance forward row — bottom when descending */}
             {balanceForward !== 0 && sortDir === 'desc' && (
               <tr className="bg-gray-50 text-gray-500 italic">
-                <td colSpan={7} className="px-2 py-1">Balance Forward</td>
+                <td colSpan={8} className="px-2 py-1">Balance Forward</td>
                 <td className="px-2 py-1 text-right font-mono font-bold">${fmt(balanceForward)}</td>
                 <td />
               </tr>

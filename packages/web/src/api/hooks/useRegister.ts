@@ -10,6 +10,7 @@ export interface RegisterLine {
   transactionId: string;
   txnType: string;
   txnNumber: string | null;
+  checkNumber: number | null;
   txnDate: string;
   payeeName: string | null;
   contactId: string | null;
