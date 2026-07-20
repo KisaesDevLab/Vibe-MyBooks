@@ -61,6 +61,7 @@ import {
   adminCreateUserSchema,
   adminMcpConfigSchema,
   adminPlaidConfigSchema,
+  adminAssignSystemAccountSchema,
 } from '@kis-books/shared';
 import { eq } from 'drizzle-orm';
 import { tailscaleRouter } from './tailscale.routes.js';
@@ -317,6 +318,20 @@ adminRouter.get('/tenants/:id/retained-earnings', async (req, res) => {
 
 adminRouter.post('/tenants/:id/retained-earnings', validate(adminDesignateRetainedEarningsSchema), async (req, res) => {
   res.json(await adminService.designateRetainedEarnings(req.params['id']!, req.body.accountId, req.userId));
+});
+
+// System Accounts — every system role the ledger resolves via
+// accounts.system_tag (AR, AP, sales tax, payments clearing, …), with the
+// currently-assigned account (or null), duplicate/type-mismatch flags, and
+// the tenant's account list for the assignment picker. PUT re-points a role
+// at an existing account (move semantics — the tag is cleared from any other
+// account atomically) or clears the mapping with accountId: null.
+adminRouter.get('/tenants/:id/system-accounts', async (req, res) => {
+  res.json(await adminService.getSystemAccountsInfo(req.params['id']!));
+});
+
+adminRouter.put('/tenants/:id/system-accounts/:tag', validate(adminAssignSystemAccountSchema), async (req, res) => {
+  res.json(await adminService.assignSystemAccount(req.params['id']!, req.params['tag']!, req.body.accountId, req.userId));
 });
 
 adminRouter.post('/tenants/:id/disable', async (req, res) => {
