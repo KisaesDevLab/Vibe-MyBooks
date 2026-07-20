@@ -98,6 +98,7 @@ export function BankFeedPage() {
   const [endDate, setEndDate] = useSessionState('vibe:bank-feed:endDate', '');
   const [connectionFilter, setConnectionFilter] = useSessionState('vibe:bank-feed:connection', '');
   const [actionableOnly, setActionableOnly] = useSessionState('vibe:bank-feed:actionableOnly', false);
+  const [ruleOnly, setRuleOnly] = useSessionState('vibe:bank-feed:ruleOnly', false);
   const [sortKey, setSortKey] = useState<SortKey>('feedDate');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [matchModalFor, setMatchModalFor] = useState<string | null>(null);
@@ -117,7 +118,7 @@ export function BankFeedPage() {
   // the user sits on page 3 of a smaller/reordered set and sees nothing.
   useEffect(() => {
     setOffset(0);
-  }, [statusFilter, connectionFilter, debouncedSearch, debStartDate, debEndDate, actionableOnly, sortKey, sortDir]);
+  }, [statusFilter, connectionFilter, debouncedSearch, debStartDate, debEndDate, actionableOnly, ruleOnly, sortKey, sortDir]);
 
   const { data, isLoading, isError, isFetching, refetch } = useBankFeed({
     status: statusFilter || undefined,
@@ -126,6 +127,7 @@ export function BankFeedPage() {
     endDate: debEndDate || undefined,
     search: debouncedSearch || undefined,
     actionableOnly: actionableOnly || undefined,
+    ruleOnly: ruleOnly || undefined,
     // Sort is server-side: with pagination, sorting the loaded page only
     // ordered 100 of N rows (the reported bug).
     sortBy: sortKey,
@@ -199,7 +201,7 @@ export function BankFeedPage() {
   useEffect(() => {
     setSelected(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, search, startDate, endDate, connectionFilter, actionableOnly]);
+  }, [statusFilter, search, startDate, endDate, connectionFilter, actionableOnly, ruleOnly]);
 
   if (firstLoad) return <LoadingSpinner className="py-12" />;
   if (isError) return <ErrorMessage message="Couldn't load the bank feed." onRetry={() => refetch()} />;
@@ -308,7 +310,7 @@ export function BankFeedPage() {
   // Rows eligible for selection/bulk actions: pending + assigned.
   const selectableCount = items.filter(isSelectable).length;
   const connections = connectionsData?.connections || [];
-  const hasFilters = search || startDate || endDate || connectionFilter || actionableOnly;
+  const hasFilters = search || startDate || endDate || connectionFilter || actionableOnly || ruleOnly;
 
   // Result toast for "Reprocess Rules" — built from the server counts so
   // the message reflects what actually happened, not what was requested.
@@ -478,8 +480,14 @@ export function BankFeedPage() {
               className="rounded border-gray-300 text-primary-600 h-[15px] w-[15px]" />
             Hide processed
           </label>
+          <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer select-none pb-2">
+            <input type="checkbox" checked={ruleOnly}
+              onChange={(e) => setRuleOnly(e.target.checked)}
+              className="rounded border-gray-300 text-primary-600 h-[15px] w-[15px]" />
+            Rules
+          </label>
           {hasFilters && (
-            <button onClick={() => { setSearch(''); setStartDate(''); setEndDate(''); setConnectionFilter(''); setActionableOnly(false); }}
+            <button onClick={() => { setSearch(''); setStartDate(''); setEndDate(''); setConnectionFilter(''); setActionableOnly(false); setRuleOnly(false); }}
               className="text-xs text-gray-500 hover:text-gray-700 pb-2">Clear</button>
           )}
           {isFetching && <span className="text-xs text-gray-400 pb-2.5">Loading...</span>}

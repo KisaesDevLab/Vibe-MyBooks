@@ -132,4 +132,24 @@ describe('bank-feed list — match source + contact-match signals', () => {
     // No matchType stamp either — the row is raw description text only.
     expect(row.matchType ?? null).toBeNull();
   });
+
+  it('ruleOnly filter returns only match_type=rule rows, excluding AI/description rows', async () => {
+    const ruleItem = await insertItem({ matchType: 'rule', confidenceScore: '1.00', description: 'RULE ROW' });
+    await insertItem({ matchType: 'fuzzy', confidenceScore: '0.80', description: 'AI ROW' });
+    await insertItem({ description: 'PLAIN ROW' }); // description-only, matchType null
+
+    const { data, total } = await bankFeedService.list(tenantId, { ruleOnly: true });
+    expect(data.map((r) => r.id)).toEqual([ruleItem.id]);
+    // total reflects the constrained set (filtered in SQL, not client-side).
+    expect(total).toBe(1);
+    expect(data.every((r) => r.matchType === 'rule')).toBe(true);
+  });
+
+  it('without ruleOnly, all rows are returned regardless of match source', async () => {
+    await insertItem({ matchType: 'rule', confidenceScore: '1.00' });
+    await insertItem({ matchType: 'fuzzy', confidenceScore: '0.80' });
+    await insertItem();
+    const { total } = await bankFeedService.list(tenantId, {});
+    expect(total).toBe(3);
+  });
 });
