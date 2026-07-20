@@ -78,7 +78,13 @@ export function PrintChecksPage() {
   });
 
   const items = data?.data || [];
-  const effectiveStartNumber = startingCheckNumber || String(settingsData?.settings?.nextCheckNumber || 1);
+  // Next check number is tracked per bank account; fall back to the legacy
+  // company-wide value, then 1. A manual entry in the input overrides it.
+  const perAccountNext = bankAccountId
+    ? settingsData?.settings?.nextCheckNumbers?.[bankAccountId]
+    : undefined;
+  const effectiveStartNumber = startingCheckNumber
+    || String(perAccountNext ?? settingsData?.settings?.nextCheckNumber ?? 1);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
