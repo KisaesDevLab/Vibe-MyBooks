@@ -288,14 +288,13 @@ export function CheckPrintSettingsPage() {
                   body: JSON.stringify({ format: form.format }),
                 });
                 if (!res.ok) throw new Error('Failed to generate test page');
-                const html = await res.text();
-                const w = window.open('', '_blank');
-                if (w) {
-                  w.document.write(html);
-                  w.document.close();
-                  w.focus();
-                  w.print();
-                }
+                // Server returns a print-ready PDF — open it in a new tab
+                // (print from the PDF viewer at 100% / "Actual size").
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const w = window.open(url, '_blank');
+                if (w) w.focus();
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
               } catch {
                 setTestPrintError('Failed to generate test print.');
               }

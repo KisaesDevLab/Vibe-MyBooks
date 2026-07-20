@@ -98,6 +98,7 @@ export function BankFeedPage() {
   const [endDate, setEndDate] = useSessionState('vibe:bank-feed:endDate', '');
   const [connectionFilter, setConnectionFilter] = useSessionState('vibe:bank-feed:connection', '');
   const [actionableOnly, setActionableOnly] = useSessionState('vibe:bank-feed:actionableOnly', false);
+  const [ruleOnly, setRuleOnly] = useSessionState('vibe:bank-feed:ruleOnly', false);
   const [sortKey, setSortKey] = useState<SortKey>('feedDate');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [matchModalFor, setMatchModalFor] = useState<string | null>(null);
@@ -117,7 +118,7 @@ export function BankFeedPage() {
   // the user sits on page 3 of a smaller/reordered set and sees nothing.
   useEffect(() => {
     setOffset(0);
-  }, [statusFilter, connectionFilter, debouncedSearch, debStartDate, debEndDate, actionableOnly, sortKey, sortDir]);
+  }, [statusFilter, connectionFilter, debouncedSearch, debStartDate, debEndDate, actionableOnly, ruleOnly, sortKey, sortDir]);
 
   const { data, isLoading, isError, isFetching, refetch } = useBankFeed({
     status: statusFilter || undefined,
@@ -126,6 +127,7 @@ export function BankFeedPage() {
     endDate: debEndDate || undefined,
     search: debouncedSearch || undefined,
     actionableOnly: actionableOnly || undefined,
+    ruleOnly: ruleOnly || undefined,
     // Sort is server-side: with pagination, sorting the loaded page only
     // ordered 100 of N rows (the reported bug).
     sortBy: sortKey,
@@ -199,7 +201,7 @@ export function BankFeedPage() {
   useEffect(() => {
     setSelected(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, search, startDate, endDate, connectionFilter, actionableOnly]);
+  }, [statusFilter, search, startDate, endDate, connectionFilter, actionableOnly, ruleOnly]);
 
   if (firstLoad) return <LoadingSpinner className="py-12" />;
   if (isError) return <ErrorMessage message="Couldn't load the bank feed." onRetry={() => refetch()} />;
@@ -308,7 +310,7 @@ export function BankFeedPage() {
   // Rows eligible for selection/bulk actions: pending + assigned.
   const selectableCount = items.filter(isSelectable).length;
   const connections = connectionsData?.connections || [];
-  const hasFilters = search || startDate || endDate || connectionFilter || actionableOnly;
+  const hasFilters = search || startDate || endDate || connectionFilter || actionableOnly || ruleOnly;
 
   // Result toast for "Reprocess Rules" — built from the server counts so
   // the message reflects what actually happened, not what was requested.
@@ -478,8 +480,14 @@ export function BankFeedPage() {
               className="rounded border-gray-300 text-primary-600 h-[15px] w-[15px]" />
             Hide processed
           </label>
+          <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer select-none pb-2">
+            <input type="checkbox" checked={ruleOnly}
+              onChange={(e) => setRuleOnly(e.target.checked)}
+              className="rounded border-gray-300 text-primary-600 h-[15px] w-[15px]" />
+            Rules
+          </label>
           {hasFilters && (
-            <button onClick={() => { setSearch(''); setStartDate(''); setEndDate(''); setConnectionFilter(''); setActionableOnly(false); }}
+            <button onClick={() => { setSearch(''); setStartDate(''); setEndDate(''); setConnectionFilter(''); setActionableOnly(false); setRuleOnly(false); }}
               className="text-xs text-gray-500 hover:text-gray-700 pb-2">Clear</button>
           )}
           {isFetching && <span className="text-xs text-gray-400 pb-2.5">Loading...</span>}
@@ -682,8 +690,22 @@ export function BankFeedPage() {
                               bank descriptor. The raw memo stays on the muted
                               line below. */}
                           {(() => {
+                            // A real contact match is one where the name came
+                            // from a resolved contacts row (assigned = human
+                            // confirmed, or a rule/AI suggested contactId) —
+                            // NOT the free-text bank descriptor fallback.
+                            const isContactMatch = Boolean(item.assignedContactName || item.suggestedContactName);
                             const displayName = item.assignedContactName || item.suggestedContactName || item.description;
-                            return <p className="text-gray-900 font-medium">{displayName || '—'}</p>;
+                            return (
+                              <p className="text-gray-900 font-medium flex items-center gap-1">
+                                <span className="truncate">{displayName || '—'}</span>
+                                {isContactMatch && (
+                                  <span title="Matched contact" aria-label="Matched contact" className="inline-flex shrink-0">
+                                    <Check className="h-3.5 w-3.5 text-green-600" />
+                                  </span>
+                                )}
+                              </p>
+                            );
                           })()}
                           {item.originalDescription && item.originalDescription !== (item.assignedContactName || item.suggestedContactName || item.description) && (
                             <p className="text-xs text-gray-400 truncate max-w-[300px]" title={item.originalDescription}>{item.originalDescription}</p>
@@ -701,7 +723,14 @@ export function BankFeedPage() {
                             <p className="text-xs text-primary-600 flex items-center gap-0.5 mt-0.5">
                               <Sparkles className="h-3 w-3" />
                               {item.suggestedAccountName || 'Suggested'}
-                              {item.confidenceScore && <ConfidenceBadge score={parseFloat(item.confidenceScore)} />}
+                              {item.matchType === 'rule' ? (
+                                // A rule mapped this row — keep the green of a
+                                // high-confidence match but label it "Rule" so
+                                // the user knows a rule (not AI) set it.
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium" title="Mapped by a rule">Rule</span>
+                              ) : (
+                                item.confidenceScore && <ConfidenceBadge score={parseFloat(item.confidenceScore)} />
+                              )}
                               {item.matchType === 'ai' && (
                                 <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium" title="Categorized by AI">AI</span>
                               )}

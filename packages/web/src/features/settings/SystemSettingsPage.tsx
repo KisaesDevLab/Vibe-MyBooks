@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { CheckCircle, Loader2, Eye, EyeOff, Info, Smartphone, Cloud, HardDrive } from 'lucide-react';
+import { BackupHistorySection } from './BackupHistorySection';
 
 export function SystemSettingsPage() {
   const queryClient = useQueryClient();
@@ -1234,6 +1235,9 @@ export function SystemSettingsPage() {
             {backupSaveStatus === 'error' && <span className="text-sm text-red-600">{backupSaveError}</span>}
           </div>
         </div>
+
+        {/* Backup run history — persisted log of scheduled + manual backups */}
+        <BackupHistorySection />
 
         {/* Application Section */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">

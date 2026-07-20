@@ -5,7 +5,7 @@
 
 import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, useMemo, useRef, type FormEvent, type DragEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { JournalLine, Transaction, AccountType } from '@kis-books/shared';
 import { useCreateBill, useUpdateBill } from '../../api/hooks/useAp';
@@ -244,6 +244,55 @@ export function EnterBillPage() {
     }
   };
 
+  // ─── Create-bill-from-library flow ─────────────────────────────
+  //
+  // /bills/new?fromAttachment=<id> (the Attachment Library's "Create bill"
+  // row action on an unfiled attachment): adopt the existing attachment
+  // into this session's draft set, then run the exact same bill OCR
+  // extraction the drop zone uses (same endpoint, same PII gating). On
+  // save, the normal attach-draft relink files it under the new bill, so
+  // it disappears from "unfiled".
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fromAttachmentId = searchParams.get('fromAttachment');
+  const consumedFromAttachment = useRef(false);
+  useEffect(() => {
+    if (isEdit || !fromAttachmentId || aiStatusLoading || consumedFromAttachment.current) return;
+    consumedFromAttachment.current = true;
+    (async () => {
+      setOcrError(null);
+      try {
+        // 1. Adopt the attachment into this draft session. If the user
+        //    abandons the form it stays unfiled (type 'draft'), same as
+        //    any other draft upload.
+        await apiClient(`/attachments/${fromAttachmentId}/link`, {
+          method: 'POST',
+          body: JSON.stringify({ attachableType: 'draft', attachableId: draftId }),
+        });
+        queryClient.invalidateQueries({ queryKey: ['attachments'] });
+        // 2. Extract + pre-fill when bill OCR is available. Without it
+        //    the file is still attached and the user fills the form
+        //    manually.
+        if (billOcrAvailable) {
+          setOcrPending(true);
+          const extractRes = await apiClient<{ extraction: OcrExtraction }>(
+            `/bills/extract-from-attachment/${fromAttachmentId}`,
+            { method: 'POST' },
+          );
+          setOcrExtraction(extractRes.extraction);
+          applyExtraction(extractRes.extraction);
+        }
+      } catch (err) {
+        setOcrError(err instanceof Error ? err.message : 'Failed to process the attachment');
+      } finally {
+        setOcrPending(false);
+        // Drop the param so a browser refresh doesn't re-link/re-extract
+        // (extraction is an AI call — don't re-spend on reload).
+        setSearchParams({}, { replace: true });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, fromAttachmentId, aiStatusLoading, billOcrAvailable, draftId]);
+
   /**
    * Apply OCR results to form state. Only writes to fields that are still
    * empty (or default for date fields), so we never clobber user input.
@@ -471,6 +520,13 @@ export function EnterBillPage() {
               </p>
             </div>
           </div>
+          {/* Errors from the create-bill-from-attachment flow still need a
+              home when the OCR drop zone (its usual host) is hidden. */}
+          {ocrError && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {ocrError}
+            </div>
+          )}
         </div>
       )}
       {!isEdit && billOcrAvailable && (

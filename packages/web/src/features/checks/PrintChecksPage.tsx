@@ -62,39 +62,28 @@ export function PrintChecksPage() {
     setPrintError('');
 
     try {
-      // Step 1: Generate and download check PDF
+      // Step 1: Generate the check PDF. startingCheckNumber is passed so
+      // the rendered checks carry the same numbers (and MICR serials)
+      // that the /print call below will record.
       const token = localStorage.getItem('accessToken');
       const res = await fetch(`${import.meta.env.BASE_URL}api/v1/checks/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ checkIds, format }),
+        body: JSON.stringify({ checkIds, format, startingCheckNumber: Number(effectiveStartNumber) }),
       });
 
       if (!res.ok) throw new Error('Failed to render checks');
 
+      // Server-rendered PDF (vector layout + MICR — print at 100% /
+      // "Actual size", never "Fit to page").
       const blob = await res.blob();
-      const contentType = res.headers.get('Content-Type') || '';
-
-      if (contentType.includes('html')) {
-        // Puppeteer not available — open HTML in a new window for browser printing
-        const html = await blob.text();
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(html);
-          printWindow.document.close();
-          printWindow.focus();
-          printWindow.print();
-        }
-      } else {
-        // PDF generated — open it
-        const url = URL.createObjectURL(blob);
-        const printWindow = window.open(url, '_blank');
-        if (printWindow) {
-          printWindow.focus();
-        }
-        // Clean up after a delay
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      const url = URL.createObjectURL(blob);
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.focus();
       }
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
 
       // Step 2: Mark checks as printed in the database
       await printChecks.mutateAsync({

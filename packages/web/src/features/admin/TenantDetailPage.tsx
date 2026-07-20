@@ -9,7 +9,7 @@ import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
-import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen, CalendarRange, UserPlus, Search, X } from 'lucide-react';
+import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen, CalendarRange, UserPlus, Search, X, Wrench } from 'lucide-react';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 
 interface TenantUser {
@@ -531,6 +531,8 @@ export function TenantDetailPage() {
       </div>
 
       <RetainedEarningsCard tenantId={id!} />
+
+      <SystemAccountsCard tenantId={id!} />
 
       {/* Danger Zone — destructive operations live here, separated from
           the rest of the page so they can't be clicked by accident. */}
@@ -1169,6 +1171,194 @@ function RetainedEarningsCard({ tenantId }: { tenantId: string }) {
               </div>
             )}
             {error && <p className="text-sm text-red-600">{error}</p>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Super-admin repair for ALL system-account roles — every account the ledger
+// resolves by accounts.system_tag (AR, AP, sales tax, payments clearing,
+// opening balances, cash, retained earnings, daily-sales roles). Shows each
+// role's assigned account, flags MISSING / duplicate / type-mismatch states,
+// and lets the admin re-point a role at any existing account of the
+// compatible type (move semantics server-side) or clear the mapping.
+interface SystemRoleAccount {
+  id: string;
+  accountNumber: string | null;
+  name: string;
+  accountType: string;
+  detailType: string | null;
+  isActive: boolean;
+  isSystem: boolean;
+}
+interface SystemRoleRow {
+  tag: string;
+  label: string;
+  description: string;
+  accountType: string;
+  required: boolean;
+  assigned: SystemRoleAccount | null;
+  duplicates: SystemRoleAccount[];
+  typeMismatch: boolean;
+}
+interface SystemAccountsResponse {
+  roles: SystemRoleRow[];
+  accounts: (SystemRoleAccount & { systemTag: string | null })[];
+}
+
+function SystemAccountsCard({ tenantId }: { tenantId: string }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  // Which role's picker is open, and the selected account for it.
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [selected, setSelected] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'tenants', tenantId, 'system-accounts'],
+    queryFn: () => apiClient<SystemAccountsResponse>(`/admin/tenants/${tenantId}/system-accounts`),
+  });
+
+  const assign = useMutation({
+    mutationFn: ({ tag, accountId }: { tag: string; accountId: string | null }) =>
+      apiClient(`/admin/tenants/${tenantId}/system-accounts/${tag}`, {
+        method: 'PUT', body: JSON.stringify({ accountId }),
+      }),
+    onSuccess: (_data, vars) => {
+      setEditingTag(null); setSelected(''); setError(null);
+      toast.success(vars.accountId ? 'System account assigned.' : 'System account mapping cleared.');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', tenantId, 'system-accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', tenantId, 'retained-earnings'] });
+    },
+    onError: (e: Error) => setError(e.message || 'Could not update the system account'),
+  });
+
+  const roles = data?.roles ?? [];
+  const accountLabel = (a: SystemRoleAccount) => `${a.accountNumber ? `${a.accountNumber} — ` : ''}${a.name}`;
+  const missingRequired = roles.filter((r) => r.required && !r.assigned).length;
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+        <Wrench className="h-5 w-5 text-gray-600" />
+        <h2 className="text-lg font-semibold text-gray-900">System Accounts</h2>
+        {missingRequired > 0 && (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">
+            {missingRequired} missing
+          </span>
+        )}
+      </div>
+      <div className="p-6 space-y-1">
+        {isLoading ? (
+          <LoadingSpinner size="md" />
+        ) : (
+          <>
+            <p className="text-sm text-gray-500 pb-2">
+              Ledger flows (invoices, bills, payments, sales tax, year-end close, …) resolve these
+              accounts by role. Re-point a role here if a system account was deleted or mis-tagged.
+            </p>
+            {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            <div className="divide-y divide-gray-100">
+              {roles.map((role) => {
+                const candidates = (data?.accounts ?? []).filter(
+                  (a) => a.accountType === role.accountType && a.isActive,
+                );
+                const isEditing = editingTag === role.tag;
+                return (
+                  <div key={role.tag} className="py-3">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      <div className="min-w-[220px]">
+                        <p className="text-sm font-medium text-gray-900">
+                          {role.label}{' '}
+                          <span className="text-xs text-gray-400 font-normal">{role.tag} · {role.accountType}</span>
+                        </p>
+                        {role.assigned ? (
+                          <p className="text-sm text-gray-700 mt-0.5">
+                            {accountLabel(role.assigned)}
+                            {!role.assigned.isActive && (
+                              <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">inactive</span>
+                            )}
+                            {role.typeMismatch && (
+                              <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                                wrong type: {role.assigned.accountType}
+                              </span>
+                            )}
+                          </p>
+                        ) : role.required ? (
+                          <p className="text-sm text-amber-800 mt-0.5 font-medium">
+                            MISSING — flows needing this account will fail
+                          </p>
+                        ) : (
+                          <p className="text-sm text-gray-500 mt-0.5">Not set (created automatically on first use)</p>
+                        )}
+                        {role.duplicates.length > 0 && (
+                          <p className="text-xs text-red-700 mt-1">
+                            Duplicate tag on: {role.duplicates.map(accountLabel).join(', ')} — reassign to fix.
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isEditing ? (
+                          <>
+                            <select
+                              value={selected}
+                              onChange={(e) => { setSelected(e.target.value); setError(null); }}
+                              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm min-w-[240px]"
+                            >
+                              <option value="">Select a {role.accountType} account…</option>
+                              {candidates.map((a) => (
+                                <option key={a.id} value={a.id} disabled={a.id === role.assigned?.id}>
+                                  {accountLabel(a)}
+                                  {a.id === role.assigned?.id ? ' (current)' : a.systemTag ? ` (currently ${a.systemTag})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => assign.mutate({ tag: role.tag, accountId: selected })}
+                              disabled={!selected || assign.isPending}
+                              className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 rounded-lg whitespace-nowrap"
+                            >
+                              {assign.isPending ? 'Saving…' : 'Assign'}
+                            </button>
+                            <button
+                              onClick={() => { setEditingTag(null); setSelected(''); setError(null); }}
+                              className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 rounded-lg"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => { setEditingTag(role.tag); setSelected(''); setError(null); }}
+                              className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 rounded-lg"
+                            >
+                              {role.assigned ? 'Reassign' : 'Assign'}
+                            </button>
+                            {role.assigned && (
+                              <button
+                                onClick={() => {
+                                  setError(null);
+                                  if (window.confirm(`Clear the ${role.label} mapping? Flows that resolve this role will fail until it is reassigned.`)) {
+                                    assign.mutate({ tag: role.tag, accountId: null });
+                                  }
+                                }}
+                                disabled={assign.isPending}
+                                className="px-3 py-1.5 text-sm font-medium text-red-700 border border-red-200 hover:bg-red-50 rounded-lg"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </>
         )}
       </div>
