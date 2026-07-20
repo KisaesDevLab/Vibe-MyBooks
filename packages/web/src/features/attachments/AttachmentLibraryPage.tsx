@@ -3,11 +3,12 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, getAccessToken, API_BASE } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
-import { Paperclip, Download, Trash2, Eye, X, ChevronRight, User, FileText, FolderOpen } from 'lucide-react';
+import { Paperclip, Download, Trash2, Eye, X, ChevronRight, User, FileText, FolderOpen, ReceiptText } from 'lucide-react';
 
 interface LibraryAttachment {
   id: string;
@@ -36,6 +37,14 @@ const txnTypeLabels: Record<string, string> = {
 function isPreviewable(mime: string | null): boolean {
   if (!mime) return false;
   return mime.startsWith('image/') || mime === 'application/pdf';
+}
+
+// An attachment is "unfiled" when it isn't linked to a real transaction —
+// 'draft' (bill-entry uploads never saved) and 'receipt' (auto-OCR'd
+// uploads). Same set the /attachments/unlinked endpoint uses. Only these,
+// and only images/PDFs, offer the "Create bill" shortcut.
+function canCreateBillFrom(a: { attachableType: string; mimeType: string | null }): boolean {
+  return (a.attachableType === 'draft' || a.attachableType === 'receipt') && isPreviewable(a.mimeType);
 }
 
 // The download route only accepts a Bearer header or a single-use ?_dl=
@@ -115,6 +124,7 @@ export function AttachmentLibraryPage() {
   const [bulkDownloading, setBulkDownloading] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const previewUrl = useAttachmentObjectUrl(previewId);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -394,6 +404,15 @@ export function AttachmentLibraryPage() {
                         <td className="px-4 py-2 text-gray-500 truncate max-w-[160px]">{a.txnMemo || ''}</td>
                         <td className="px-4 py-2 text-right">
                           <div className="flex gap-1.5 justify-end">
+                            {canCreateBillFrom(a) && (
+                              <button
+                                onClick={() => navigate(`/bills/new?fromAttachment=${a.id}`)}
+                                className="text-gray-400 hover:text-primary-600"
+                                title="Create bill from this attachment"
+                              >
+                                <ReceiptText className="h-4 w-4" />
+                              </button>
+                            )}
                             {isPreviewable(a.mimeType) && (
                               <button
                                 onClick={() => setPreviewId(previewId === a.id ? null : a.id)}
