@@ -69,7 +69,7 @@ export function BillDetailPage() {
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
             <div className="text-gray-500 text-xs uppercase">Vendor</div>
-            <div className="font-medium">{bill.contactId ? '(see contact)' : '—'}</div>
+            <div className="font-medium">{bill.contactName || (bill.contactId ? '(see contact)' : '—')}</div>
           </div>
           <div>
             <div className="text-gray-500 text-xs uppercase">Bill Date</div>
