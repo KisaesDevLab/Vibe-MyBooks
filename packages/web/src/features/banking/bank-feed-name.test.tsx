@@ -65,6 +65,21 @@ const feedItems = [
     suggestedContactId: null,
     suggestedContactName: null,
   },
+  {
+    // Rule-mapped row with a suggested account → confidence badge reads
+    // "Rule" (green) instead of "High", and the resolved contact gets a
+    // matched-contact checkmark.
+    ...base,
+    id: 'item-rule',
+    description: 'ACME 8842',
+    originalDescription: 'ACME STORE 8842',
+    suggestedContactId: 'c-acme',
+    suggestedContactName: 'Acme Supplies',
+    suggestedAccountId: 'acct-1',
+    suggestedAccountName: 'Office Supplies',
+    confidenceScore: '1.00',
+    matchType: 'rule',
+  },
 ];
 
 vi.mock('../../api/hooks/useBanking', () => ({
@@ -116,5 +131,20 @@ describe('BankFeedPage — NAME column payee precedence', () => {
   it('falls back to the cleaned descriptor when there is no contact', () => {
     renderRoute(<BankFeedPage />);
     expect(screen.getByText('COFFEE SHOP')).toBeTruthy();
+  });
+
+  it('shows a "matched contact" checkmark only for resolved-contact rows', () => {
+    renderRoute(<BankFeedPage />);
+    // One checkmark per resolved contact row (Payroll, Chosen Vendor,
+    // Acme Supplies) — the description-only COFFEE SHOP row gets none.
+    const checks = screen.getAllByLabelText('Matched contact');
+    expect(checks.length).toBe(3);
+  });
+
+  it('labels a rule-mapped suggestion "Rule" instead of a confidence word', () => {
+    renderRoute(<BankFeedPage />);
+    // Rule-sourced row: green "Rule" badge, not "High".
+    expect(screen.getByText('Rule')).toBeTruthy();
+    expect(screen.queryByText('High')).toBeNull();
   });
 });

@@ -103,6 +103,10 @@ export async function list(tenantId: string, filters: BankFeedFilters) {
       suggestedContactId: bankFeedItems.suggestedContactId,
       suggestedContactName: suggestedContact.displayName,
       confidenceScore: bankFeedItems.confidenceScore,
+      // Source of the staged suggestion ('rule' | 'history' | 'exact' | 'fuzzy'
+      // | 'check_image' | 'manual' | null). Surfaced so the feed can badge a
+      // rule-mapped row as "Rule" (green) instead of a generic confidence word.
+      matchType: bankFeedItems.matchType,
       // STATEMENT_CHECK_PAYEE_V1 — surfaced in the UI so the payee read off a
       // check image is visible/confirmable before posting.
       payeeNameOnCheck: bankFeedItems.payeeNameOnCheck,

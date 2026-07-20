@@ -682,8 +682,22 @@ export function BankFeedPage() {
                               bank descriptor. The raw memo stays on the muted
                               line below. */}
                           {(() => {
+                            // A real contact match is one where the name came
+                            // from a resolved contacts row (assigned = human
+                            // confirmed, or a rule/AI suggested contactId) —
+                            // NOT the free-text bank descriptor fallback.
+                            const isContactMatch = Boolean(item.assignedContactName || item.suggestedContactName);
                             const displayName = item.assignedContactName || item.suggestedContactName || item.description;
-                            return <p className="text-gray-900 font-medium">{displayName || '—'}</p>;
+                            return (
+                              <p className="text-gray-900 font-medium flex items-center gap-1">
+                                <span className="truncate">{displayName || '—'}</span>
+                                {isContactMatch && (
+                                  <span title="Matched contact" aria-label="Matched contact" className="inline-flex shrink-0">
+                                    <Check className="h-3.5 w-3.5 text-green-600" />
+                                  </span>
+                                )}
+                              </p>
+                            );
                           })()}
                           {item.originalDescription && item.originalDescription !== (item.assignedContactName || item.suggestedContactName || item.description) && (
                             <p className="text-xs text-gray-400 truncate max-w-[300px]" title={item.originalDescription}>{item.originalDescription}</p>
@@ -701,7 +715,14 @@ export function BankFeedPage() {
                             <p className="text-xs text-primary-600 flex items-center gap-0.5 mt-0.5">
                               <Sparkles className="h-3 w-3" />
                               {item.suggestedAccountName || 'Suggested'}
-                              {item.confidenceScore && <ConfidenceBadge score={parseFloat(item.confidenceScore)} />}
+                              {item.matchType === 'rule' ? (
+                                // A rule mapped this row — keep the green of a
+                                // high-confidence match but label it "Rule" so
+                                // the user knows a rule (not AI) set it.
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium" title="Mapped by a rule">Rule</span>
+                              ) : (
+                                item.confidenceScore && <ConfidenceBadge score={parseFloat(item.confidenceScore)} />
+                              )}
                               {item.matchType === 'ai' && (
                                 <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium" title="Categorized by AI">AI</span>
                               )}
