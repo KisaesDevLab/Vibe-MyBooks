@@ -40,6 +40,7 @@ const packsHolder: { data: { packs: ReportPackListItem[] }; isLoading: boolean; 
 vi.mock('../../../api/hooks/useReportPacks', () => ({
   useReportCatalog: () => catalogHolder,
   useReportPacks: () => packsHolder,
+  useReportPackLetters: () => ({ data: { letters: [] }, isLoading: false }),
   useReportPackWorkerHealth: () => ({ data: { redisReachable: true, workerRunning: true } }),
   useReportPack: () => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() }),
   useCreateReportPack: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -74,6 +75,7 @@ function samplePack(overrides: Partial<ReportPackListItem> = {}): ReportPackList
     pageFooter: null,
     filenameTemplate: '{pack}-{date}',
     onError: 'skip',
+    letterId: null,
     createdBy: 'u1',
     createdAt: '2026-07-01T00:00:00.000Z',
     updatedAt: '2026-07-02T00:00:00.000Z',

@@ -39,6 +39,7 @@ export interface ReportPack {
   pageFooter: string | null;
   filenameTemplate: string;
   onError: 'skip' | 'fail';
+  letterId: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -110,7 +111,15 @@ export interface ReportPackInput {
   pageFooter?: string | null;
   filenameTemplate?: string;
   onError?: 'skip' | 'fail';
+  letterId?: string | null;
   items: Array<{ reportId: string; options?: ReportPackItemOptions }>;
+}
+
+/** Active engagement-letter option for the pack builder's picker. */
+export interface ReportPackLetterOption {
+  id: string;
+  name: string;
+  letterType: string;
 }
 
 export interface CreateRunInput {
@@ -128,6 +137,16 @@ export function useReportCatalog() {
     queryKey: ['report-catalog'],
     queryFn: () => apiClient<{ catalog: ReportDef[] }>('/reports/catalog'),
     staleTime: 60 * 60 * 1000,
+  });
+}
+
+// Active engagement letters (SSARS 21) selectable for a pack. Managed by the
+// super-admin; every user building a pack can pick one to include.
+export function useReportPackLetters() {
+  return useQuery({
+    queryKey: ['report-packs', 'letters'],
+    queryFn: () => apiClient<{ letters: ReportPackLetterOption[] }>('/reports/letters'),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

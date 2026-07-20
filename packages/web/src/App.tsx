@@ -220,6 +220,7 @@ const PlaidConnectionsMonitorPage = lazyNamed(() => import('./features/admin/Pla
 const AiConfigPage = lazyNamed(() => import('./features/admin/AiConfigPage'), 'AiConfigPage');
 const McpConfigPage = lazyNamed(() => import('./features/admin/McpConfigPage'), 'McpConfigPage');
 const CoaTemplatesPage = lazyNamed(() => import('./features/admin/CoaTemplatesPage'), 'CoaTemplatesPage');
+const CpaLettersPage = lazyNamed(() => import('./features/admin/CpaLettersPage'), 'CpaLettersPage');
 const TailscaleAdminPage = lazyNamed(() => import('./features/admin/TailscaleAdminPage'), 'TailscaleAdminPage');
 const StaffIpAllowlistPage = lazyNamed(() => import('./features/admin/StaffIpAllowlistPage'), 'StaffIpAllowlistPage');
 const TunnelConfigPage = lazyNamed(() => import('./features/admin/TunnelConfigPage'), 'TunnelConfigPage');
@@ -360,6 +361,7 @@ export function App() {
             <Route path="/admin/users" element={<AdminRoute><UserListPage /></AdminRoute>} />
             <Route path="/admin/system" element={<AdminRoute><SystemSettingsPage /></AdminRoute>} />
             <Route path="/admin/coa-templates" element={<AdminRoute><CoaTemplatesPage /></AdminRoute>} />
+            <Route path="/admin/report-letters" element={<AdminRoute><CpaLettersPage /></AdminRoute>} />
             <Route path="/" element={<DashboardPage />} />
             <Route path="/clients" element={<ClientSwitcherPage />} />
             <Route path="/accounts" element={<AccountsListPage />} />

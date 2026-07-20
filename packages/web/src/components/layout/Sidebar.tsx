@@ -100,6 +100,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/tenants', label: 'Tenants', icon: Building2 },
   { to: '/admin/users', label: 'Users', icon: UsersRound },
   { to: '/admin/coa-templates', label: 'COA Templates', icon: LayoutTemplate },
+  { to: '/admin/report-letters', label: 'CPA Report Letters', icon: FileText },
   { to: '/admin/tfa', label: 'Two-Factor Auth', icon: KeyRound },
   { to: '/admin/security', label: 'Installation Security', icon: Shield },
   { to: '/admin/plaid', label: 'Plaid Config', icon: Landmark },

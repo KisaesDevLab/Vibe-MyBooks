@@ -34,6 +34,7 @@ import {
 import {
   useReportCatalog,
   useReportPack,
+  useReportPackLetters,
   useCreateReportPack,
   useUpdateReportPack,
   useCreatePackRun,
@@ -188,6 +189,7 @@ export function ReportPackBuilderPage() {
   const { activeCompanyName } = useCompanyContext();
 
   const catalogQuery = useReportCatalog();
+  const lettersQuery = useReportPackLetters();
   const packQuery = useReportPack(id);
   const createPack = useCreateReportPack();
   const updatePack = useUpdateReportPack();
@@ -216,6 +218,8 @@ export function ReportPackBuilderPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // Per-report options keyed by reportId (a report id is unique within a pack).
   const [itemOptions, setItemOptions] = useState<Record<string, ReportPackItemOptions>>({});
+  // Optional SSARS-21 engagement letter to include as the pack's first section.
+  const [letterId, setLetterId] = useState<string>('');
 
   // Hydrate once from the loaded pack in edit mode.
   const hydrated = useRef(false);
@@ -234,6 +238,7 @@ export function ReportPackBuilderPage() {
     setPageNumbers(p.pageNumbers);
     setPageFooter(p.pageFooter ?? '');
     setFilenameTemplate(p.filenameTemplate);
+    setLetterId(p.letterId ?? '');
     const ordered = [...p.items].sort((a, b) => a.sortOrder - b.sortOrder);
     setSelectedIds(ordered.map((it) => it.reportId));
     setItemOptions(
@@ -314,6 +319,7 @@ export function ReportPackBuilderPage() {
     pageFooter: pageFooter.trim() || null,
     filenameTemplate: filenameTemplate.trim() || '{pack}-{date}',
     onError: 'skip',
+    letterId: letterId || null,
     items: selectedIds.map((reportId) => {
       const options = itemOptions[reportId];
       return options && Object.keys(options).length > 0 ? { reportId, options } : { reportId };
@@ -391,6 +397,27 @@ export function ReportPackBuilderPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ── LEFT: catalog ── */}
         <section className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          {/* Engagement letter — a distinct sub-section above the report list.
+              An optional SSARS-21 letter rendered as the pack's first page. */}
+          <div className="mb-5 pb-5 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Engagement letter</h2>
+            <p className="text-sm text-gray-500 mb-3">
+              Optionally include a CPA letter (compilation / preparation) as the first page of the pack.
+            </p>
+            <select
+              value={letterId}
+              onChange={(e) => setLetterId(e.target.value)}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              aria-label="Engagement letter"
+              disabled={lettersQuery.isLoading}
+            >
+              <option value="">No letter</option>
+              {(lettersQuery.data?.letters ?? []).map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          </div>
+
           <h2 className="text-lg font-semibold text-gray-900 mb-1">Choose reports</h2>
           <p className={`text-sm mb-4 ${countClass}`}>
             {selectedIds.length} of {PACK_MAX_COUNT} selected
