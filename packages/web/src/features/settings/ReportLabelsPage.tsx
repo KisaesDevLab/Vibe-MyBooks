@@ -51,6 +51,10 @@ interface ApiResponse {
   bsLabels: Partial<BSSectionLabels>;
   cfLabels: Partial<CFSectionLabels>;
   reportFooter: string;
+  firmName?: string;
+  firmCity?: string;
+  firmState?: string;
+  accountantSignature?: string;
   resolvedPLLabels: PLSectionLabels;
   resolvedBSLabels: BSSectionLabels;
   resolvedCFLabels: CFSectionLabels;
@@ -61,6 +65,8 @@ export function ReportLabelsPage() {
   const [bs, setBS] = useState<BSSectionLabels>(DEFAULT_BS_LABELS);
   const [cf, setCF] = useState<CFSectionLabels>(DEFAULT_CF_LABELS);
   const [footer, setFooter] = useState('');
+  // CPA firm identity for SSARS-21 engagement-letter signature blocks.
+  const [firm, setFirm] = useState({ firmName: '', firmCity: '', firmState: '', accountantSignature: '' });
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
@@ -76,6 +82,12 @@ export function ReportLabelsPage() {
         if (data?.resolvedBSLabels) setBS({ ...DEFAULT_BS_LABELS, ...data.resolvedBSLabels });
         if (data?.resolvedCFLabels) setCF({ ...DEFAULT_CF_LABELS, ...data.resolvedCFLabels });
         if (typeof data?.reportFooter === 'string') setFooter(data.reportFooter);
+        setFirm({
+          firmName: data?.firmName ?? '',
+          firmCity: data?.firmCity ?? '',
+          firmState: data?.firmState ?? '',
+          accountantSignature: data?.accountantSignature ?? '',
+        });
       } catch {
         // defaults are fine
       } finally {
@@ -120,6 +132,10 @@ export function ReportLabelsPage() {
           bsLabels,
           cfLabels,
           reportFooter: footer.trim(),
+          firmName: firm.firmName.trim(),
+          firmCity: firm.firmCity.trim(),
+          firmState: firm.firmState.trim(),
+          accountantSignature: firm.accountantSignature.trim(),
         }),
       });
       setSaveStatus('saved');
@@ -187,6 +203,43 @@ export function ReportLabelsPage() {
           <div className="flex justify-between mt-1">
             <span className="text-xs text-gray-400">Line breaks are preserved.</span>
             <span className="text-xs text-gray-400">{footer.length}/{REPORT_FOOTER_MAX_LENGTH}</span>
+          </div>
+        </section>
+
+        <section className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">CPA Firm Identity</h2>
+            <p className="text-xs text-gray-500">
+              Used in the signature block of SSARS&nbsp;21 engagement letters (Admin&nbsp;→&nbsp;CPA&nbsp;Letters).
+              Leave blank to fall back to your company name, city, and state.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Firm name</label>
+              <Input value={firm.firmName} maxLength={200}
+                onChange={(e) => setFirm((f) => ({ ...f, firmName: e.target.value }))}
+                placeholder="e.g. Smith &amp; Co., CPAs" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Signature line</label>
+              <Input value={firm.accountantSignature} maxLength={200}
+                onChange={(e) => setFirm((f) => ({ ...f, accountantSignature: e.target.value }))}
+                placeholder="Defaults to the firm name" />
+              <p className="text-xs text-gray-500 mt-1">The name that signs the letter ({'{{accountant_signature}}'}).</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+              <Input value={firm.firmCity} maxLength={100}
+                onChange={(e) => setFirm((f) => ({ ...f, firmCity: e.target.value }))}
+                placeholder="e.g. Springfield" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+              <Input value={firm.firmState} maxLength={100}
+                onChange={(e) => setFirm((f) => ({ ...f, firmState: e.target.value }))}
+                placeholder="e.g. MO" />
+            </div>
           </div>
         </section>
 
