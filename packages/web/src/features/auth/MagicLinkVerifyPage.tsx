@@ -52,6 +52,13 @@ export function MagicLinkVerifyPage() {
           setError('Server returned an unexpected response. Please try again.');
           return;
         }
+        // No second factor on the account — the link logged the user straight
+        // in. Store the tokens and go to the app.
+        if (data.loggedIn) {
+          setTokens(data.tokens);
+          setTimeout(() => navigate('/'), 50);
+          return;
+        }
         // Magic link verified — now need 2FA
         setTfaToken(data.tfaToken);
         setTfaMethods(data.availableMethods || []);
