@@ -378,13 +378,13 @@ export function LoginPage() {
 
   if (magicLinkSent) {
     return (
-      <AuthLayout title="Check your email" subtitle={`We sent a login link to ${email}`}>
+      <AuthLayout title="Check your email" subtitle={`If an account exists for ${email}, a login link is on its way.`}>
         <div className="text-center space-y-4">
           <div className="mx-auto w-12 h-12 bg-primary-50 rounded-full flex items-center justify-center">
             <Mail className="h-6 w-6 text-primary-600" />
           </div>
-          <p className="text-sm text-gray-600">Click the link in your email to continue. It expires in 15 minutes.</p>
-          <p className="text-xs text-gray-500">You'll need your authenticator app or phone to complete login.</p>
+          <p className="text-sm text-gray-600">Click the link in the email to finish signing in. It expires in a few minutes and can only be used once.</p>
+          <p className="text-xs text-gray-500">Don't see it? Check your spam folder, or resend below. If your account uses two-factor authentication, you'll complete that after clicking the link.</p>
           <div className="pt-2">
             <Button variant="secondary" size="sm" disabled={resendCooldown > 0} onClick={handleSendMagicLink} loading={magicLinkLoading}>
               {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend link'}

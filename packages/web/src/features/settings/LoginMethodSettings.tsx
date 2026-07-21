@@ -80,17 +80,11 @@ export function LoginMethodSettings() {
     onSuccess: () => { setRenamingId(null); queryClient.invalidateQueries({ queryKey: ['passkeys'] }); },
   });
 
-  const toggleMagicLink = useMutation({
-    mutationFn: (enabled: boolean) => apiClient('/users/me/login-preference', { method: 'PUT', body: JSON.stringify({ magicLinkEnabled: enabled }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tfa'] }),
-  });
-
   const setPreferredLogin = useMutation({
     mutationFn: (method: string) => apiClient('/users/me/login-preference', { method: 'PUT', body: JSON.stringify({ preferredLoginMethod: method }) }),
   });
 
   const passkeys = passkeyData?.passkeys || [];
-  const hasNonEmail2fa = tfaStatus?.methods?.some((m: string) => m === 'totp' || m === 'sms');
   const showPasskeySection = methods?.loginMethods?.passkey;
   const showMagicLinkSection = methods?.loginMethods?.magicLink;
 
@@ -182,24 +176,16 @@ export function LoginMethodSettings() {
             <Mail className="h-5 w-5 text-gray-500" />
             <h3 className="font-medium text-gray-900">Email Login Links</h3>
           </div>
-          {!hasNonEmail2fa ? (
-            <p className="text-sm text-amber-600">
-              Requires an authenticator app or SMS verification.{' '}
-              <a href="/settings/security" className="underline">Set up now</a>
-            </p>
-          ) : (
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={tfaStatus?.magicLinkEnabled || false}
-                onChange={(e) => toggleMagicLink.mutate(e.target.checked)}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4" />
-              <span className="text-sm text-gray-700">Enable email login links</span>
-            </label>
-          )}
+          <p className="text-sm text-gray-600">
+            You can sign in with a one-time link sent to your email — choose
+            “Email me a login link” on the sign-in screen. If your account has
+            two-factor authentication, you'll complete that after clicking the link.
+          </p>
         </div>
       )}
 
       {/* Preferred Login Method */}
-      {(passkeys.length > 0 || tfaStatus?.magicLinkEnabled) && (
+      {(passkeys.length > 0 || showMagicLinkSection) && (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-3">
           <div className="flex items-center gap-2">
             <KeyRound className="h-5 w-5 text-gray-500" />
@@ -210,7 +196,7 @@ export function LoginMethodSettings() {
             onChange={(e) => setPreferredLogin.mutate(e.target.value)}>
             <option value="password">Password</option>
             {passkeys.length > 0 && <option value="passkey">Passkey</option>}
-            {tfaStatus?.magicLinkEnabled && <option value="magic_link">Email Login Link</option>}
+            {showMagicLinkSection && <option value="magic_link">Email Login Link</option>}
           </select>
           <p className="text-xs text-gray-500">This method will be shown first on the login page.</p>
         </div>
