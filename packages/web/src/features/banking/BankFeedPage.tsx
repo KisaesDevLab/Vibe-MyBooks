@@ -496,7 +496,7 @@ export function BankFeedPage() {
             <Search aria-hidden="true" className="absolute left-3 bottom-2.5 h-4 w-4 text-gray-400" />
             <input
               id="bank-feed-search"
-              placeholder="Search name, memo..."
+              placeholder="Search name, amount, memo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm"
