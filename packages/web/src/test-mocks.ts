@@ -127,6 +127,8 @@ export const bankingMocks = () => ({
   useAssignFeedItem: passthroughMutation,
   useApproveFeedItem: passthroughMutation,
   useBulkAssign: passthroughMutation,
+  // Name → account autofill in the expanded feed editor.
+  useSuggestAccountForContact: passthroughMutation,
   usePayrollOverlapCheck: passthroughQuery({ overlaps: [] }),
   useMatchFeedItem: passthroughMutation,
   useMatchCandidates: passthroughQuery({ candidates: [] }),

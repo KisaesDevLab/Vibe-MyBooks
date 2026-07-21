@@ -2,9 +2,9 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
-import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem, useBulkAssign, useExcludeFeedItem, useBulkApprove, useBulkExclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck } from '../../api/hooks/useBanking';
+import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem, useBulkAssign, useExcludeFeedItem, useBulkApprove, useBulkExclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck, useSuggestAccountForContact } from '../../api/hooks/useBanking';
 import type { ReprocessRulesResultDto } from '../../api/hooks/useBanking';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useSessionState } from '../../hooks/useSessionState';
@@ -12,7 +12,7 @@ import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedVal
 import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/hooks/useAi';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { AccountSelector } from '../../components/forms/AccountSelector';
-import { ContactSelector } from '../../components/forms/ContactSelector';
+import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
 import { BulkSetNameInput } from './BulkSetNameInput';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -87,6 +87,12 @@ export function BankFeedPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState>({ feedDate: '', description: '', memo: '', contactId: '' });
   const [catAccountId, setCatAccountId] = useState('');
+  // True once the user picks the account by hand in the expanded editor. While
+  // false, selecting a name is free to autofill (and re-fill on name change);
+  // once the user overrides the account we never clobber their choice. A ref
+  // (not state) so the async recent-account lookup reads the live value rather
+  // than a stale render-time capture, and to avoid a re-render on each edit.
+  const accountTouched = useRef(false);
   // Tag for the expanded single-item categorize row. Initialized from the
   // item's rule-staged suggested tag when the row is expanded, so a
   // rule-set tag is pre-selected and posts on categorize.
@@ -139,6 +145,7 @@ export function BankFeedPage() {
   const { data: aiConfig } = useAiConfig();
   const assign = useAssignFeedItem();
   const approve = useApproveFeedItem();
+  const suggestAccount = useSuggestAccountForContact();
   const exclude = useExcludeFeedItem();
   const bulkApprove = useBulkApprove();
   const bulkAssign = useBulkAssign();
@@ -271,6 +278,21 @@ export function BankFeedPage() {
     // 'assigned' row shows what was staged.
     setCatAccountId(item.assignedAccountId || item.suggestedAccountId || '');
     setCatTagId(item.assignedTagId || item.suggestedTagId || null);
+    // Fresh editor: a name selection may drive the account until the user
+    // overrides it by hand.
+    accountTouched.current = false;
+  };
+
+  // Selecting a name (contact) prefills the category account: the contact's
+  // configured default expense account wins; otherwise fall back to the
+  // most-recently-used category account for that contact (server lookup).
+  // Skipped once the user has manually chosen an account for this row.
+  const autofillAccountForContact = (c: ContactSelection | null) => {
+    if (!c || accountTouched.current) return;
+    if (c.defaultExpenseAccountId) { setCatAccountId(c.defaultExpenseAccountId); return; }
+    suggestAccount.mutate(c.id, {
+      onSuccess: (res) => { if (res.accountId && !accountTouched.current) setCatAccountId(res.accountId); },
+    });
   };
 
   // Expanded-editor save action: persist the row edits, then STAGE the
@@ -695,7 +717,8 @@ export function BankFeedPage() {
                             onChange={(e) => setEditState((s) => ({ ...s, description: e.target.value }))}
                             className="block w-full rounded border border-gray-300 px-2 py-1 text-sm" placeholder="Name" />
                           <ContactSelector value={editState.contactId}
-                            onChange={(v) => setEditState((s) => ({ ...s, contactId: v }))} />
+                            onChange={(v) => setEditState((s) => ({ ...s, contactId: v }))}
+                            onSelect={autofillAccountForContact} />
                           {item.payeeNameOnCheck ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
                               Payee from check{item.checkNumber ? ` #${item.checkNumber}` : ''}: {item.payeeNameOnCheck}
@@ -768,7 +791,8 @@ export function BankFeedPage() {
                     <td className="px-3 py-3 text-sm">
                       {isExpanded ? (
                         <div className="space-y-1">
-                          <AccountSelector value={catAccountId} onChange={setCatAccountId} />
+                          <AccountSelector value={catAccountId}
+                            onChange={(v) => { setCatAccountId(v); accountTouched.current = true; }} />
                           <LineTagPicker value={catTagId} onChange={(t) => setCatTagId(t)} className="w-full" />
                           <input value={editState.memo}
                             onChange={(e) => setEditState((s) => ({ ...s, memo: e.target.value }))}
