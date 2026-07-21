@@ -10,8 +10,14 @@
 // left / center / right align) plus an "Insert variable" menu that drops a
 // {{token}} at the caret. Emits HTML via onChange; no external dependency.
 
-import { useEffect, useRef, useState } from 'react';
-import { Bold, Italic, Underline, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, ChevronDown } from 'lucide-react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { Bold, Italic, Underline, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, ChevronDown, ImagePlus } from 'lucide-react';
+
+// Images are inlined into the letter body as data URIs (self-contained, no
+// external fetch when the letter is rendered to PDF). Cap the source file so
+// the stored HTML / generated PDF stays reasonable — logos/signatures, not
+// full-page scans.
+const MAX_IMAGE_BYTES = 1_000_000;
 
 export interface EditorVariable {
   key: string;
@@ -34,7 +40,9 @@ function exec(command: string, arg?: string) {
 
 export function RichTextEditor({ value, onChange, variables, ariaLabel }: RichTextEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [imgError, setImgError] = useState('');
 
   // Sync external value into the DOM only when it diverges and the editor is
   // not focused, so typing (which already updates the DOM) never resets caret.
@@ -63,6 +71,24 @@ export function RichTextEditor({ value, onChange, variables, ariaLabel }: RichTe
     emit();
   };
 
+  const handleImageFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setImgError('Please choose an image file.'); return; }
+    if (file.size > MAX_IMAGE_BYTES) { setImgError('Image is too large (max 1 MB). Resize it and try again.'); return; }
+    setImgError('');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      ref.current?.focus();
+      exec('insertHTML', `<img src="${dataUrl}" style="max-width:100%;height:auto;" alt="" />`);
+      emit();
+    };
+    reader.onerror = () => setImgError('Could not read the image file.');
+    reader.readAsDataURL(file);
+  };
+
   const btn = 'p-1.5 rounded hover:bg-gray-100 text-gray-700';
 
   return (
@@ -78,6 +104,9 @@ export function RichTextEditor({ value, onChange, variables, ariaLabel }: RichTe
         <button type="button" className={btn} onClick={() => run('justifyLeft')} aria-label="Align left"><AlignLeft className="h-4 w-4" /></button>
         <button type="button" className={btn} onClick={() => run('justifyCenter')} aria-label="Align center"><AlignCenter className="h-4 w-4" /></button>
         <button type="button" className={btn} onClick={() => run('justifyRight')} aria-label="Align right"><AlignRight className="h-4 w-4" /></button>
+        <span className="w-px h-5 bg-gray-300 mx-1" />
+        <button type="button" className={btn} onClick={() => fileRef.current?.click()} aria-label="Insert image"><ImagePlus className="h-4 w-4" /></button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
         <span className="w-px h-5 bg-gray-300 mx-1" />
         <div className="relative">
           <button
@@ -113,8 +142,11 @@ export function RichTextEditor({ value, onChange, variables, ariaLabel }: RichTe
         aria-label={ariaLabel ?? 'Letter body'}
         onInput={emit}
         onBlur={emit}
-        className="min-h-[260px] px-4 py-3 text-sm text-gray-900 focus:outline-none leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+        className="min-h-[260px] px-4 py-3 text-sm text-gray-900 focus:outline-none leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_img]:max-w-full [&_img]:h-auto"
       />
+      {imgError && (
+        <p className="px-4 pb-2 text-xs text-red-600">{imgError}</p>
+      )}
     </div>
   );
 }

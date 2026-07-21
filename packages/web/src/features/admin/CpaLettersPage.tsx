@@ -11,7 +11,7 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText, Plus, Trash2, Save } from 'lucide-react';
+import { FileText, Plus, Trash2, Save, Copy } from 'lucide-react';
 import {
   REPORT_LETTER_TYPES,
   LETTER_VARIABLES,
@@ -87,6 +87,13 @@ export function CpaLettersPage() {
   const openLetter = (l: ReportLetter) =>
     setEdit({ id: l.id, name: l.name, letterType: l.letterType, bodyHtml: l.bodyHtml, isActive: l.isActive });
 
+  // Duplicate → open the editor pre-filled with a copy (id null, "(Copy)"
+  // name, not a default). Saving creates a new letter via the POST path.
+  const duplicateLetter = (l: ReportLetter) => {
+    setConfirmDelete(false);
+    setEdit({ id: null, name: `${l.name} (Copy)`, letterType: l.letterType, bodyHtml: l.bodyHtml, isActive: l.isActive });
+  };
+
   const nameValid = (edit?.name.trim().length ?? 0) > 0;
 
   return (
@@ -111,11 +118,11 @@ export function CpaLettersPage() {
           ) : (
             <ul className="space-y-1">
               {letters.map((l) => (
-                <li key={l.id}>
+                <li key={l.id} className={`flex items-stretch gap-1 rounded-lg ${edit?.id === l.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
                   <button
                     type="button"
                     onClick={() => openLetter(l)}
-                    className={`w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 ${edit?.id === l.id ? 'bg-gray-100' : ''}`}
+                    className="flex-1 min-w-0 text-left px-3 py-2 rounded-lg"
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-800 truncate">{l.name}</span>
@@ -123,6 +130,15 @@ export function CpaLettersPage() {
                       {!l.isActive && <span className="text-[10px] uppercase tracking-wide text-amber-600 border border-amber-200 rounded px-1">inactive</span>}
                     </div>
                     <div className="text-xs text-gray-500">{TYPE_LABELS[l.letterType]}</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => duplicateLetter(l)}
+                    aria-label={`Duplicate ${l.name}`}
+                    title="Duplicate"
+                    className="shrink-0 px-2 my-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                  >
+                    <Copy className="h-4 w-4" />
                   </button>
                 </li>
               ))}
