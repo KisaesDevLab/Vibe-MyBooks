@@ -26,6 +26,10 @@ export function PrintChecksPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [flowStep, setFlowStep] = useState<FlowStep>('select');
   const [printedCheckIds, setPrintedCheckIds] = useState<string[]>([]);
+  // The starting number actually used for the batch being confirmed. Captured
+  // at print time so the confirm dialog shows the printed range, not the
+  // next batch's (which the post-print settings refetch would otherwise show).
+  const [printedStartNumber, setPrintedStartNumber] = useState(0);
   const [printError, setPrintError] = useState('');
 
   const { data: settingsData } = useCheckSettings();
@@ -102,19 +106,23 @@ export function PrintChecksPage() {
     if (selected.size === 0 || !bankAccountId) return;
 
     const checkIds = Array.from(selected);
+    // Resolve the starting number ONCE for this batch so render and print use
+    // the identical value even if the settings query refetches mid-flight.
+    const startNum = Number(effectiveStartNumber);
     setPrintedCheckIds(checkIds);
+    setPrintedStartNumber(startNum);
     setFlowStep('rendering');
     setPrintError('');
 
     try {
-      // Step 1: Generate the check PDF. startingCheckNumber is passed so
-      // the rendered checks carry the same numbers (and MICR serials)
-      // that the /print call below will record.
+      // Step 1: Generate the check PDF. startNum is passed so the rendered
+      // checks carry the same numbers (and MICR serials) that the /print call
+      // below will record.
       const token = localStorage.getItem('accessToken');
       const res = await fetch(`${import.meta.env.BASE_URL}api/v1/checks/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ checkIds, format, startingCheckNumber: Number(effectiveStartNumber) }),
+        body: JSON.stringify({ checkIds, format, startingCheckNumber: startNum }),
       });
 
       if (!res.ok) throw new Error('Failed to render checks');
@@ -134,9 +142,14 @@ export function PrintChecksPage() {
       await printChecks.mutateAsync({
         bankAccountId,
         checkIds,
-        startingCheckNumber: Number(effectiveStartNumber),
+        startingCheckNumber: startNum,
         format,
       });
+
+      // A manual starting number applies to THIS batch only — clear it so the
+      // next batch defaults to the (now advanced) per-account counter instead
+      // of reusing the same number and printing duplicate check serials.
+      setStartingCheckNumber('');
 
       // Step 3: Show confirmation
       setFlowStep('confirm');
@@ -195,7 +208,7 @@ export function PrintChecksPage() {
               onChange={(val) => { setBankAccountId(val); setSelected(new Set()); }}
               accountTypeFilter="asset" required />
             <Input label="Starting Check Number" type="number"
-              value={startingCheckNumber || String(settingsData?.settings?.nextCheckNumber || '')}
+              value={startingCheckNumber || String(perAccountNext ?? settingsData?.settings?.nextCheckNumber ?? '')}
               onChange={(e) => setStartingCheckNumber(e.target.value)} min={1} required />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Format</label>
@@ -285,7 +298,7 @@ export function PrintChecksPage() {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">Did the checks print correctly?</h2>
             <p className="text-sm text-gray-600">
-              Check numbers {effectiveStartNumber}–{Number(effectiveStartNumber) + printedCheckIds.length - 1} have been assigned. Verify the printed checks match before confirming.
+              Check numbers {printedStartNumber}–{printedStartNumber + printedCheckIds.length - 1} have been assigned. Verify the printed checks match before confirming.
             </p>
             <div className="flex flex-col gap-2">
               <Button onClick={handleConfirmPrinted}>
