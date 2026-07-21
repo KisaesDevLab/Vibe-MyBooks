@@ -70,6 +70,18 @@ export function useAssignFeedItem() {
   });
 }
 
+// Suggest the category account to prefill when a name (contact) is picked in
+// the feed's expanded editor: contact default → most-recently-used category.
+// GET, but a mutation so it can be fired imperatively on selection.
+export function useSuggestAccountForContact() {
+  return useMutation({
+    mutationFn: (contactId: string) =>
+      apiClient<{ accountId: string | null; source: 'default' | 'recent' | null }>(
+        `/banking/feed/suggest-account?contact_id=${encodeURIComponent(contactId)}`,
+      ),
+  });
+}
+
 // APPROVE posts the staged assignment — balances move, so invalidate accounts.
 export function useApproveFeedItem() {
   const qc = useQueryClient();
