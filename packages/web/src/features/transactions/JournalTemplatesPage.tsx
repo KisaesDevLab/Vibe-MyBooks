@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import type { JeTemplateLineInput } from '@kis-books/shared';
 import {
   useJeTemplates, useJeTemplate, useCreateJeTemplate,
-  useReplaceJeTemplateLines, useDeleteJeTemplate,
+  useReplaceJeTemplateLines, useDeleteJeTemplate, useUpdateJeTemplate,
 } from '../../api/hooks/useJeTemplates';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -39,17 +39,22 @@ export function JournalTemplatesPage() {
   const { data: tplData } = useJeTemplate(selectedId);
   const createTpl = useCreateJeTemplate();
   const saveLines = useReplaceJeTemplateLines();
+  const updateTpl = useUpdateJeTemplate();
   const delTpl = useDeleteJeTemplate();
 
   const [lines, setLines] = useState<EditLine[]>([]);
+  // Template-level default memo — prefilled as the entry memo each time the
+  // template is used (see JournalTemplateEntryPage).
+  const [memo, setMemo] = useState('');
   useEffect(() => {
     if (tplData?.template) {
+      setMemo(tplData.template.memo ?? '');
       setLines(tplData.template.lines.filter((l) => l.isActive).map((l) => ({
         _key: newKey(), id: l.id, label: l.label, accountId: l.accountId,
         normalSide: l.normalSide, sortOrder: l.sortOrder,
         isRequired: l.isRequired, isActive: true,
       })));
-    } else { setLines([]); }
+    } else { setMemo(''); setLines([]); }
   }, [tplData]);
 
   const onCreate = async () => {
@@ -94,6 +99,8 @@ export function JournalTemplatesPage() {
     const bad = lines.find((l) => !l.label.trim());
     if (bad) { toast.error('Every line needs a label.'); return; }
     try {
+      // Persist the default memo (template header) alongside the lines.
+      await updateTpl.mutateAsync({ id: selectedId!, memo: memo.trim() || null });
       await saveLines.mutateAsync({ id: selectedId!, lines: lines.map((l, i) => ({
         id: l.id, label: l.label.trim(), accountId: l.accountId ?? null,
         normalSide: l.normalSide, sortOrder: i, isRequired: l.isRequired, isActive: true,
@@ -150,8 +157,14 @@ export function JournalTemplatesPage() {
                     <Play className="h-4 w-4 mr-1" /> Use template
                   </Button>
                   <Button variant="secondary" size="sm" onClick={async () => { if (confirm('Deactivate this template?')) { await delTpl.mutateAsync(selectedId); setSelectedId(undefined); } }}>Deactivate</Button>
-                  <Button size="sm" onClick={onSave} loading={saveLines.isPending}><Save className="h-4 w-4 mr-1" /> Save template</Button>
+                  <Button size="sm" onClick={onSave} loading={saveLines.isPending || updateTpl.isPending}><Save className="h-4 w-4 mr-1" /> Save template</Button>
                 </div>
+              </div>
+
+              <div className="bg-white rounded-lg border p-4">
+                <Input label="Default memo" value={memo} onChange={(e) => setMemo(e.target.value)}
+                  placeholder="e.g. Monthly depreciation" maxLength={500} />
+                <p className="mt-1 text-xs text-gray-500">Prefilled as the entry memo each time this template is used. Leave blank for none.</p>
               </div>
 
               <div className="bg-white rounded-lg border">

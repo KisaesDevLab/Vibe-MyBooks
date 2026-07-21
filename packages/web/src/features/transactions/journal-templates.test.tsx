@@ -9,6 +9,7 @@ import { accountsMocks, transactionsMocks } from '../../test-mocks';
 
 const createMutateAsync = vi.fn().mockResolvedValue({ template: { id: 'tpl-1', name: 'Payroll accrual', lines: [] } });
 const saveLinesMutateAsync = vi.fn().mockResolvedValue({});
+const updateMutateAsync = vi.fn().mockResolvedValue({ template: { id: 'tpl-1' } });
 const templateStore: { data: unknown } = { data: undefined };
 
 vi.mock('../../api/hooks/useJeTemplates', () => ({
@@ -18,7 +19,7 @@ vi.mock('../../api/hooks/useJeTemplates', () => ({
   }),
   useJeTemplate: () => ({ data: templateStore.data, isLoading: false }),
   useCreateJeTemplate: () => ({ mutateAsync: createMutateAsync, isPending: false }),
-  useUpdateJeTemplate: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateJeTemplate: () => ({ mutateAsync: updateMutateAsync, isPending: false }),
   useDeleteJeTemplate: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useReplaceJeTemplateLines: () => ({ mutateAsync: saveLinesMutateAsync, isPending: false }),
 }));
@@ -37,6 +38,7 @@ import { JournalTemplateEntryPage } from './JournalTemplateEntryPage';
 beforeEach(() => {
   createMutateAsync.mockClear();
   saveLinesMutateAsync.mockClear();
+  updateMutateAsync.mockClear();
   createTxnMutate.mockClear();
   templateStore.data = undefined;
 });
@@ -93,6 +95,31 @@ describe('JournalTemplatesPage', () => {
     expect(sent.id).toBe('tpl-1');
     expect(sent.lines.map((l) => l.label)).toEqual(['Gross wages', 'Accrued payroll']);
     expect(sent.lines.every((l) => l.isRequired)).toBe(true);
+  });
+
+  it('shows the default memo from the template and persists edits on save', async () => {
+    templateStore.data = PAYROLL_TEMPLATE; // memo: 'Monthly payroll accrual'
+    renderRoute(<JournalTemplatesPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Payroll accrual' }));
+
+    // The Default memo field is seeded from the template.
+    const memoInput = await screen.findByLabelText('Default memo');
+    expect(memoInput).toHaveValue('Monthly payroll accrual');
+
+    // Editing + saving persists the memo via the template update endpoint.
+    fireEvent.change(memoInput, { target: { value: 'Depreciation — building' } });
+    fireEvent.click(screen.getByRole('button', { name: /save template/i }));
+    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledWith({ id: 'tpl-1', memo: 'Depreciation — building' }));
+  });
+
+  it('sends memo:null when the default memo is cleared', async () => {
+    templateStore.data = PAYROLL_TEMPLATE;
+    renderRoute(<JournalTemplatesPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Payroll accrual' }));
+    const memoInput = await screen.findByLabelText('Default memo');
+    fireEvent.change(memoInput, { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: /save template/i }));
+    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledWith({ id: 'tpl-1', memo: null }));
   });
 
   it('drag-and-drop reorders the lines and the new order persists on save', async () => {
