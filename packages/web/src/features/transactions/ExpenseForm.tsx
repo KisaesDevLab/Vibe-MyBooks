@@ -7,7 +7,9 @@ import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { JournalLine } from '@kis-books/shared';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCreateTransaction, useUpdateTransaction, useTransaction } from '../../api/hooks/useTransactions';
+import { fetchSuggestedAccountForContact } from '../../api/hooks/useContacts';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
@@ -41,6 +43,7 @@ export function ExpenseForm() {
   const { id: editId } = useParams<{ id: string }>();
   const isEdit = !!editId;
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const createTxn = useCreateTransaction();
   const updateTxn = useUpdateTransaction();
   const { data: existingData, isLoading: loadingExisting } = useTransaction(editId || '');
@@ -105,9 +108,34 @@ export function ExpenseForm() {
 
   const total = lines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0);
 
+  // Fill line 0's category only while it's still a single, empty line — so an
+  // async "last used" result can never clobber something the user typed while
+  // it was in flight.
+  const fillCategoryIfEmpty = (accountId: string) => {
+    setLines((prev) =>
+      prev.length === 1 && !prev[0]!.expenseAccountId
+        ? prev.map((l, i) => (i === 0 ? { ...l, expenseAccountId: accountId } : l))
+        : prev,
+    );
+  };
+
   const handleContactSelect = (c: ContactSelection | null) => {
-    if (c?.defaultExpenseAccountId && lines.length === 1 && !lines[0]!.expenseAccountId) {
-      updateLine(0, 'expenseAccountId', c.defaultExpenseAccountId);
+    // Category autofill: the vendor's explicit default wins. If it has none,
+    // fall back to the category used on this vendor's most recent spend.
+    if (c?.id && lines.length === 1 && !lines[0]!.expenseAccountId) {
+      if (c.defaultExpenseAccountId) {
+        fillCategoryIfEmpty(c.defaultExpenseAccountId);
+      } else {
+        const contactId = c.id;
+        void queryClient
+          .fetchQuery({
+            queryKey: ['contacts', contactId, 'suggest-account'],
+            queryFn: () => fetchSuggestedAccountForContact(contactId),
+            staleTime: 60_000,
+          })
+          .then((res) => { if (res?.accountId) fillCategoryIfEmpty(res.accountId); })
+          .catch(() => { /* best-effort autofill — ignore lookup failures */ });
+      }
     }
     // ADR 0XY §3.1 — when the header vendor changes, re-run default-
     // tag resolution for every line the user hasn't touched. Vendor

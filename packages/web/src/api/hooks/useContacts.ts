@@ -21,6 +21,16 @@ export function useContacts(filters?: ContactFilters) {
   });
 }
 
+// Category autofill for entry forms: the account to prefill when this contact
+// is picked — configured default, else the category from its most recent
+// transaction (the same shared resolver batch-entry and the bank feed use).
+// Called imperatively on selection. { accountId: null } when there's no hint.
+export function fetchSuggestedAccountForContact(id: string) {
+  return apiClient<{ accountId: string | null; source: 'default' | 'recent' | null }>(
+    `/contacts/${id}/suggest-account`,
+  );
+}
+
 export function useContact(id: string) {
   return useQuery({
     queryKey: ['contacts', id],
