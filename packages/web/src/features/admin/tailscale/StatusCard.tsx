@@ -139,7 +139,6 @@ export function StatusCard({ status }: { status: TailscaleStatus }) {
       {showDisconnect && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => setShowDisconnect(false)}
         >
           <div
             className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"

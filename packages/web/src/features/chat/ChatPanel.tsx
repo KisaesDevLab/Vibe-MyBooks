@@ -147,7 +147,6 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
       {/* Mobile backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black/30 lg:hidden"
-        onClick={onClose}
       />
 
       {/* Panel — slides in from the right on desktop, full screen on mobile */}

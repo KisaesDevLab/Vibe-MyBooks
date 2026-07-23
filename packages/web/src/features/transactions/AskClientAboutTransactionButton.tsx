@@ -102,7 +102,6 @@ export function AskClientAboutTransactionButton({
           aria-modal="true"
           aria-label="Ask the client about this transaction"
           className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={close}
         >
           <div className="absolute inset-0 bg-black/30" aria-hidden="true" />
           <div

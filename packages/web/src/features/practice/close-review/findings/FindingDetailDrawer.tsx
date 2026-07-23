@@ -139,7 +139,6 @@ export function FindingDetailDrawer({ finding: findingProp, registry, onClose }:
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end"
-      onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={`Finding detail: ${checkName}`}

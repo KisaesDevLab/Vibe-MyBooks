@@ -660,8 +660,7 @@ export function TenantDetailPage() {
 
       {/* Delete-all-transactions confirmation — type-to-confirm. */}
       {showDeleteTxns && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => { if (!deleteTxnsMutation.isPending) setShowDeleteTxns(false); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
@@ -715,8 +714,7 @@ export function TenantDetailPage() {
 
       {/* Company hard-delete confirmation — type the company name to confirm. */}
       {deleteCompanyId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => { if (!deleteCompanyMutation.isPending) setDeleteCompanyId(null); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
@@ -761,8 +759,7 @@ export function TenantDetailPage() {
 
       {/* Payroll import history purge confirmation — record-only. */}
       {showDeletePayroll && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => { if (!deletePayrollMutation.isPending) setShowDeletePayroll(false); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
@@ -793,8 +790,7 @@ export function TenantDetailPage() {
       {/* Delete-transactions-in-range confirmation — shows a live
           preview of what will be removed, then type-to-confirm. */}
       {showDeleteRange && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => { if (!deleteRangeMutation.isPending) setShowDeleteRange(false); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
@@ -872,7 +868,6 @@ export function TenantDetailPage() {
       {showDeleteModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={closeDeleteModal}
         >
           <div
             className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 space-y-4"

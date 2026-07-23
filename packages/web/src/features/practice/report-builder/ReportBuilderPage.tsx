@@ -647,7 +647,6 @@ function NewInstanceModal({
   return (
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
-      onClick={onClose}
     >
       <div
         className="bg-white rounded-lg shadow-xl w-full max-w-md p-5 space-y-3"
@@ -957,7 +956,6 @@ function SmallModal({
   return (
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
-      onClick={onClose}
     >
       <div
         className="bg-white rounded-lg shadow-xl w-full max-w-md p-5"
@@ -1149,7 +1147,6 @@ function ReportPreviewModal({
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-      onClick={requestClose}
     >
       <div
         className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"

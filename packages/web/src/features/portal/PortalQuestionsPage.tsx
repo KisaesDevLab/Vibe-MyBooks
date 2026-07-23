@@ -163,7 +163,6 @@ function AskQuestionModal({
   return (
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
-      onClick={onClose}
     >
       <div
         className="bg-white rounded-lg shadow-xl w-full max-w-md p-5 space-y-3"

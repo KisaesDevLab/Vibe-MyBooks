@@ -146,7 +146,6 @@ export function TeamPage() {
       {showInvite && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={(e) => { if (e.target === e.currentTarget && !tempPassword) setShowInvite(false); }}
           role="dialog"
           aria-modal="true"
           aria-label="Invite user"

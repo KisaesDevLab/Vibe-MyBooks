@@ -2009,9 +2009,6 @@ function Modal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       role="dialog"
       aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
       <div className="w-full max-w-lg bg-white rounded-lg shadow-lg">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">

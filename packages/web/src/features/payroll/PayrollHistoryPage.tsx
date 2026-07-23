@@ -78,7 +78,6 @@ export function PayrollHistoryPage() {
           aria-modal="true"
           aria-labelledby="reverse-payroll-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setReverseId(null)}
         >
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-gray-200">

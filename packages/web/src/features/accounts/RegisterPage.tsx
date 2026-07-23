@@ -362,7 +362,6 @@ export function RegisterPage() {
       {voidingId && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={(e) => { if (e.target === e.currentTarget) setVoidingId(null); }}
           role="dialog"
           aria-modal="true"
           aria-label="Void transaction"
