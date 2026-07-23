@@ -9,6 +9,7 @@ import { ChevronDown } from 'lucide-react';
 import type { Account, AccountType } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
 import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useAccounts } from '../../api/hooks/useAccounts';
@@ -181,6 +182,7 @@ export function ExpensesByCategoryReport() {
   const [endDate, setEndDate] = useSessionState('vibe:report-expcat:endDate', today.toISOString().split('T')[0]!);
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-expcat:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-expcat:tagId', '');
+  useClearTagOnCompanyChange(setTagId);
   const [view, setView] = useSessionState<'detail' | 'summary'>('vibe:report-expcat:view', 'detail');
   const [accountIds, setAccountIds] = useSessionState<string[]>('vibe:report-expcat:accountIds', []);
   const [basis, setBasis] = useSessionState<'cash' | 'accrual'>('vibe:report-expcat:basis', 'accrual');

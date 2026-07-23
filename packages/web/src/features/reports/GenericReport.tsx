@@ -5,6 +5,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
 import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
@@ -55,6 +56,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
   const [asOfDate, setAsOfDate] = useSessionState(`vibe:report-${endpoint}:asOfDate`, today.toISOString().split('T')[0]!);
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>(`vibe:report-${endpoint}:scope`, 'company');
   const [tagId, setTagId] = useSessionState<string>(`vibe:report-${endpoint}:tagId`, '');
+  useClearTagOnCompanyChange(setTagId);
   const [basis, setBasis] = useSessionState<'cash' | 'accrual'>(`vibe:report-${endpoint}:basis`, 'accrual');
   const { activeCompanyId } = useCompanyContext();
 

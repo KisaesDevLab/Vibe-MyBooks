@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
 import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
@@ -38,6 +39,7 @@ export function ExpensesByVendorReport() {
   const [endDate, setEndDate] = useSessionState('vibe:report-expvendor:endDate', today.toISOString().split('T')[0]!);
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-expvendor:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-expvendor:tagId', '');
+  useClearTagOnCompanyChange(setTagId);
   const [view, setView] = useSessionState<'detail' | 'summary'>('vibe:report-expvendor:view', 'detail');
   const [basis, setBasis] = useSessionState<'cash' | 'accrual'>('vibe:report-expvendor:basis', 'accrual');
   const { activeCompanyId } = useCompanyContext();

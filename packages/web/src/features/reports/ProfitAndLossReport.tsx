@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
 import { useLocalState, SHOW_ACCT_NUMBERS_KEY } from '../../hooks/useLocalState';
 import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 
@@ -146,6 +147,7 @@ export function ProfitAndLossReport() {
   const [compare, setCompare] = useSessionState<CompareMode>('vibe:report-pl:compare', '');
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-pl:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-pl:tagId', '');
+  useClearTagOnCompanyChange(setTagId);
   // Display mode (Detail / Grouped / Condensed). Migrates the previous
   // boolean grouping key gracefully: an old `true` means Grouped.
   const legacyGrouped = (() => {

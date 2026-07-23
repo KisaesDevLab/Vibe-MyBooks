@@ -129,8 +129,22 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   }, [fetchCompanies]);
 
   const setActiveCompany = useCallback((companyId: string) => {
+    const changed = localStorage.getItem(STORAGE_KEY) !== companyId;
     localStorage.setItem(STORAGE_KEY, companyId);
     setActiveCompanyIdState(companyId);
+    // Tag/class filters are company/tenant-scoped and persisted per report in
+    // sessionStorage (useSessionState). On an actual company change, purge them
+    // so a report opened later doesn't reload a stale cross-company tag and
+    // render empty. Mounted reports reset via useClearTagOnCompanyChange.
+    if (changed) {
+      try {
+        for (const key of Object.keys(window.sessionStorage)) {
+          if (/^vibe:report-.*:tagId$/.test(key)) window.sessionStorage.removeItem(key);
+        }
+      } catch {
+        /* storage disabled (private mode) — the in-report reset still covers the mounted case */
+      }
+    }
     // Invalidate all React Query caches — data refetches for the new
     // company. See fetchCompanies() for why this must not be removeQueries.
     queryClient.invalidateQueries();

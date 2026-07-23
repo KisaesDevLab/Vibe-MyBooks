@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_CF_LABELS, type CFSectionLabels } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
 import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
@@ -36,6 +37,7 @@ export function CashFlowReport() {
   const [endDate, setEndDate] = useSessionState('vibe:report-cf:endDate', today.toISOString().split('T')[0]!);
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-cf:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-cf:tagId', '');
+  useClearTagOnCompanyChange(setTagId);
   const { activeCompanyId } = useCompanyContext();
 
   // Only query once typed dates are complete and stable.

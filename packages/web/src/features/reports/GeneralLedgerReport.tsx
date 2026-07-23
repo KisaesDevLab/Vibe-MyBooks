@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
 import { useLocalState, SHOW_ACCT_NUMBERS_KEY } from '../../hooks/useLocalState';
 import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
@@ -99,6 +100,7 @@ export function GeneralLedgerReport() {
   const [endDate, setEndDate] = useSessionState('vibe:report-gl:endDate', today.toISOString().split('T')[0]!);
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-gl:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-gl:tagId', '');
+  useClearTagOnCompanyChange(setTagId);
   const [basis, setBasis] = useSessionState<'cash' | 'accrual'>('vibe:report-gl:basis', 'accrual');
   const [showAcctNums, setShowAcctNums] = useLocalState(SHOW_ACCT_NUMBERS_KEY, true);
   const { activeCompanyId } = useCompanyContext();
