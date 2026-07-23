@@ -71,6 +71,51 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
+// ─── Super-admin impersonation ("View as") ───────────────────────
+// Swap the current admin access token for a short-lived impersonation token
+// (target user's context, NOT super-admin) so the app renders exactly what
+// that user can see/do. The admin token is stashed so it can be restored.
+const IMPERSONATION_KEY = 'impersonation';
+
+interface ImpersonationState { originalToken: string; targetName: string; targetId: string }
+
+export function startImpersonation(impersonationToken: string, target: { id: string; name: string }): void {
+  if (!accessToken) return;
+  const state: ImpersonationState = { originalToken: accessToken, targetName: target.name, targetId: target.id };
+  localStorage.setItem(IMPERSONATION_KEY, JSON.stringify(state));
+  accessToken = impersonationToken;
+  localStorage.setItem('accessToken', impersonationToken);
+  emitTokenChange();
+}
+
+/** Restore the admin token and end impersonation. Safe to call when not impersonating. */
+export function stopImpersonation(): void {
+  const raw = localStorage.getItem(IMPERSONATION_KEY);
+  localStorage.removeItem(IMPERSONATION_KEY);
+  if (!raw) return;
+  try {
+    const state = JSON.parse(raw) as ImpersonationState;
+    if (state.originalToken) {
+      accessToken = state.originalToken;
+      localStorage.setItem('accessToken', state.originalToken);
+      emitTokenChange();
+    }
+  } catch {
+    /* corrupted state — the caller reloads; a fresh refresh recovers the admin session */
+  }
+}
+
+export function getImpersonation(): { targetName: string; targetId: string } | null {
+  try {
+    const raw = localStorage.getItem(IMPERSONATION_KEY);
+    if (!raw) return null;
+    const state = JSON.parse(raw) as ImpersonationState;
+    return { targetName: state.targetName, targetId: state.targetId };
+  } catch {
+    return null;
+  }
+}
+
 export async function refreshAccessToken(): Promise<AuthTokens | null> {
   const res = await fetch(`${API_BASE}/auth/refresh`, {
     method: 'POST',

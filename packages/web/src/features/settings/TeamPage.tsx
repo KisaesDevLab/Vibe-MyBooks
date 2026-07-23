@@ -4,15 +4,16 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../../api/client';
+import { apiClient, startImpersonation } from '../../api/client';
 import { useMe } from '../../api/hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useToast } from '../../components/ui/Toaster';
 import { TemplatesModal, UserPermissionsModal } from './TeamPermissionModals';
-import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal, Eye } from 'lucide-react';
 
 interface TeamUser {
   id: string;
@@ -30,7 +31,23 @@ export function TeamPage() {
   // they hold the tenant's owner role (mirrors the backend owner-gate bypass).
   const isOwner = meData?.user?.role === 'owner'
     || !!(meData?.user as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  const isSuperAdmin = !!(meData?.user as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  const currentUserId = meData?.user?.id;
+  const toast = useToast();
   const queryClient = useQueryClient();
+
+  // Super-admin "View as": swap to a short-lived token in the target user's
+  // context (NOT super-admin) so the app shows exactly what they can access,
+  // then reload. The banner (ImpersonationBanner) offers "Return".
+  const impersonate = async (u: TeamUser) => {
+    try {
+      const res = await apiClient<{ accessToken: string }>(`/admin/impersonate/${u.id}`, { method: 'POST' });
+      startImpersonation(res.accessToken, { id: u.id, name: u.displayName || u.email });
+      window.location.assign('/');
+    } catch (e) {
+      toast.error('Could not view as this user', { detail: (e as Error).message });
+    }
+  };
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
@@ -234,6 +251,15 @@ export function TeamPage() {
                 </td>
                 <td className="px-4 py-3 text-center">
                   <div className="inline-flex items-center gap-3">
+                    {isSuperAdmin && u.id !== currentUserId && u.isActive && (
+                      <button
+                        onClick={() => impersonate(u)}
+                        className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+                        title="View the app as this user to check their permissions"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View as
+                      </button>
+                    )}
                     {isOwner && u.role === 'bookkeeper' && (
                       <button
                         onClick={() => setPermTarget(u)}

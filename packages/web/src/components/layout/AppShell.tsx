@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
+import { ImpersonationBanner } from './ImpersonationBanner';
 import { Menu } from 'lucide-react';
 import { ChatFab } from '../../features/chat/ChatFab';
 import { ChatProvider } from '../../features/chat/ChatController';
@@ -74,6 +75,7 @@ export function AppShell() {
 
   return (
     <ChatProvider>
+    <ImpersonationBanner />
     <div className="flex min-h-screen bg-gray-50">
       {/* Mobile overlay — clickable backdrop closes the sidebar.
           Native <button> gives free keyboard support (Enter/Space)
