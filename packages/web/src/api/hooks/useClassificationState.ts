@@ -8,6 +8,7 @@ import type {
   BucketRow,
   ClassificationBucket,
   ClassificationState,
+  RuleExceptionRow,
   VendorEnrichment,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
@@ -166,5 +167,62 @@ export function useVendorEnrichment(stateId: string | null) {
     queryFn: () =>
       apiClient<VendorEnrichmentResponse>(`/practice/classification/${stateId}/vendor-enrichment`),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ─── Rule-exception audit (Buckets → Rules) ──────────────────────
+
+export interface RuleExceptionsInput {
+  companyId: string | null;
+  periodStart: string;
+  periodEnd: string;
+}
+
+export function useRuleExceptions(input: RuleExceptionsInput) {
+  const qs = new URLSearchParams();
+  if (input.companyId) qs.set('companyId', input.companyId);
+  qs.set('periodStart', input.periodStart);
+  qs.set('periodEnd', input.periodEnd);
+  return useQuery({
+    queryKey: ['practice', 'classification', 'rule-exceptions', input.companyId, input.periodStart, input.periodEnd],
+    queryFn: () =>
+      apiClient<{ exceptions: RuleExceptionRow[] }>(
+        `/practice/classification/rule-exceptions?${qs.toString()}`,
+      ),
+    staleTime: 15 * 1000,
+  });
+}
+
+export function useAcceptRuleException() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { transactionId: string; companyId: string | null }) => {
+      const qs = new URLSearchParams();
+      if (input.companyId) qs.set('companyId', input.companyId);
+      return apiClient<{ accepted: boolean; ruleAccountId: string; ruleAccountName: string }>(
+        `/practice/classification/rule-exceptions/${input.transactionId}/accept?${qs.toString()}`,
+        { method: 'POST' },
+      );
+    },
+    onSuccess: () => {
+      // The re-book changes a posted transaction's category, so invalidate the
+      // whole practice-classification surface plus the transactions list.
+      qc.invalidateQueries({ queryKey: ['practice', 'classification'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
+export function useDismissRuleException() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { transactionId: string; ruleId?: string }) =>
+      apiClient<{ dismissed: boolean }>(
+        `/practice/classification/rule-exceptions/${input.transactionId}/dismiss`,
+        { method: 'POST', body: JSON.stringify({ ruleId: input.ruleId }) },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['practice', 'classification', 'rule-exceptions'] });
+    },
   });
 }
