@@ -26,7 +26,10 @@ interface TeamUser {
 
 export function TeamPage() {
   const { data: meData } = useMe();
-  const isOwner = meData?.user?.role === 'owner';
+  // Super admins can manage users/permissions on any tenant, whether or not
+  // they hold the tenant's owner role (mirrors the backend owner-gate bypass).
+  const isOwner = meData?.user?.role === 'owner'
+    || !!(meData?.user as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
   const queryClient = useQueryClient();
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
