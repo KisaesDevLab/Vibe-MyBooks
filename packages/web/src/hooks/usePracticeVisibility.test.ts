@@ -51,19 +51,22 @@ describe('filterPracticeNav', () => {
       expect(items).toEqual([]);
     });
 
-    it('bookkeeper sees bookkeeper-tier items but not owner-tier items', () => {
+    it('bookkeeper sees all bookkeeper-tier items (incl. client-portal + reminders, now staff-editable)', () => {
       const items = filterPracticeNav(PRACTICE_NAV_CATALOG, 'bookkeeper', 'staff', allFlagsOn);
       const keys = items.map((i) => i.key).sort();
-      expect(keys).toEqual(['1099', 'close-review', 'receipts-inbox', 'report-builder', 'rules']);
-      expect(keys).not.toContain('client-portal');
-      expect(keys).not.toContain('reminders');
+      // Client Portal + Reminders were lowered from owner-tier to
+      // bookkeeper-tier so firm staff can manage them.
+      expect(keys).toEqual(['1099', 'client-portal', 'close-review', 'receipts-inbox', 'reminders', 'report-builder', 'rules']);
+      expect(keys).toContain('client-portal');
+      expect(keys).toContain('reminders');
     });
 
-    it('accountant treated as bookkeeper-tier', () => {
+    it('accountant treated as bookkeeper-tier (sees client-portal + reminders)', () => {
       const items = filterPracticeNav(PRACTICE_NAV_CATALOG, 'accountant', 'staff', allFlagsOn);
       const keys = items.map((i) => i.key);
       expect(keys).toContain('close-review');
-      expect(keys).not.toContain('client-portal');
+      expect(keys).toContain('client-portal');
+      expect(keys).toContain('reminders');
     });
   });
 

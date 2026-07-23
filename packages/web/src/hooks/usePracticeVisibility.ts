@@ -43,8 +43,8 @@ export const PRACTICE_NAV_CATALOG: readonly PracticeNavItem[] = [
   { key: 'rules',           label: 'Rules',           path: '/practice/rules',           section: 'close-cycle',          flag: 'CONDITIONAL_RULES_V1', minRole: 'bookkeeper' },
   { key: 'receipts-inbox',  label: 'Receipts Inbox',  path: '/practice/receipts-inbox',  section: 'close-cycle',          flag: 'RECEIPT_PWA_V1',       minRole: 'bookkeeper' },
   { key: '1099',            label: '1099 Center',     path: '/practice/1099',            section: 'close-cycle',          flag: 'TAX_1099_V1',          minRole: 'bookkeeper' },
-  { key: 'client-portal',   label: 'Client Portal',   path: '/practice/client-portal',   section: 'client-communication', flag: 'CLIENT_PORTAL_V1',     minRole: 'owner' },
-  { key: 'reminders',       label: 'Reminders',       path: '/practice/reminders',       section: 'client-communication', flag: 'REMINDERS_V1',         minRole: 'owner' },
+  { key: 'client-portal',   label: 'Client Portal',   path: '/practice/client-portal',   section: 'client-communication', flag: 'CLIENT_PORTAL_V1',     minRole: 'bookkeeper' },
+  { key: 'reminders',       label: 'Reminders',       path: '/practice/reminders',       section: 'client-communication', flag: 'REMINDERS_V1',         minRole: 'bookkeeper' },
   { key: 'report-builder',  label: 'Report Builder',  path: '/practice/report-builder',  section: 'client-communication', flag: 'REPORT_BUILDER_V1',    minRole: 'bookkeeper' },
 ];
 

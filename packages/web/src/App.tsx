@@ -516,7 +516,7 @@ export function App() {
               <PracticeLayout flag="CLOSE_REVIEW_V1" minRole="bookkeeper"><CloseReviewPage /></PracticeLayout>
             } />
             <Route path="/practice/settings" element={
-              <PracticeLayout flag="AI_BUCKET_WORKFLOW_V1" minRole="owner"><PracticeSettingsPage /></PracticeLayout>
+              <PracticeLayout flag="AI_BUCKET_WORKFLOW_V1" minRole="bookkeeper"><PracticeSettingsPage /></PracticeLayout>
             } />
             <Route path="/practice/rules" element={
               <PracticeLayout flag="CONDITIONAL_RULES_V1" minRole="bookkeeper"><RulesPage /></PracticeLayout>
@@ -528,10 +528,10 @@ export function App() {
               <PracticeLayout flag="TAX_1099_V1" minRole="bookkeeper"><Tax1099Page /></PracticeLayout>
             } />
             <Route path="/practice/client-portal" element={
-              <PracticeLayout flag="CLIENT_PORTAL_V1" minRole="owner"><ClientPortalAdminPage /></PracticeLayout>
+              <PracticeLayout flag="CLIENT_PORTAL_V1" minRole="bookkeeper"><ClientPortalAdminPage /></PracticeLayout>
             } />
             <Route path="/practice/reminders" element={
-              <PracticeLayout flag="REMINDERS_V1" minRole="owner"><RemindersPage /></PracticeLayout>
+              <PracticeLayout flag="REMINDERS_V1" minRole="bookkeeper"><RemindersPage /></PracticeLayout>
             } />
             <Route path="/practice/report-builder" element={
               <PracticeLayout flag="REPORT_BUILDER_V1" minRole="bookkeeper"><ReportBuilderPage /></PracticeLayout>
