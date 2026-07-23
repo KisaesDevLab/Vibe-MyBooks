@@ -54,6 +54,7 @@ const KIND_OPTIONS: { value: ImportKind; label: string }[] = [
 const SOURCE_OPTIONS: { value: SourceSystem; label: string }[] = [
   { value: 'accounting_power', label: 'Accounting Power' },
   { value: 'quickbooks_online', label: 'QuickBooks Online' },
+  { value: 'quickbooks_desktop', label: 'QuickBooks Desktop' },
 ];
 
 export function BulkImportPage() {
@@ -800,7 +801,11 @@ function SuccessLink({ session }: { session: ImportSession }) {
     label = 'View opening journal entry';
   } else if (session.kind === 'gl_transactions') {
     const sourceTag =
-      session.sourceSystem === 'accounting_power' ? 'accounting_power_import' : 'quickbooks_online_import';
+      session.sourceSystem === 'accounting_power'
+        ? 'accounting_power_import'
+        : session.sourceSystem === 'quickbooks_desktop'
+          ? 'quickbooks_desktop_import'
+          : 'quickbooks_online_import';
     target = `/transactions?source=${sourceTag}`;
     label = 'View imported transactions';
   }
