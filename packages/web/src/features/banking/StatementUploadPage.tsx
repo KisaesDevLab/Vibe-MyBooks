@@ -441,15 +441,10 @@ export function StatementUploadPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadata?.accountNumber, transactions.length]);
 
-  // Auto-run the cleaned-name + category preview once transactions load, so the
-  // review shows them without a click (and they carry into the feed on import).
-  useEffect(() => {
-    if (aiEnabled && transactions.length > 0 && Object.keys(previewByIndex).length === 0
-      && !imported && !previewMutation.isPending && !previewError) {
-      previewMutation.mutate();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactions.length, imported, aiEnabled]);
+  // NOTE: the cleaned-name + category preview is AI processing and runs ONLY
+  // when the user clicks "Preview categories" (below) — never automatically.
+  // Statement rows load into the review table without any AI call; the same
+  // categorization still runs server-side at import time regardless.
 
   // Reset all per-file state and begin uploading + parsing a single file.
   const startFile = (f: File) => {
@@ -827,17 +822,17 @@ export function StatementUploadPage() {
             </div>
           )}
 
-          {/* Category preview (opt-in, dry-run) */}
+          {/* Category preview (opt-in, dry-run) — AI runs only on this click. */}
           <div className="flex items-center gap-3 flex-wrap">
-            <Button size="sm" variant="secondary" onClick={() => previewMutation.mutate()} loading={previewMutation.isPending}>
-              <Brain className="h-4 w-4 mr-1" /> Preview categories
+            <Button size="sm" onClick={() => previewMutation.mutate()} loading={previewMutation.isPending}>
+              <Brain className="h-4 w-4 mr-1" /> Process with AI
             </Button>
             {previewError && <span className="text-sm text-red-600">{previewError}</span>}
             {!previewError && Object.keys(previewByIndex).length > 0 && (
               <span className="text-xs text-gray-500">Suggestions only — the same AI categorization runs automatically when you import.</span>
             )}
             {!previewError && Object.keys(previewByIndex).length === 0 && !previewMutation.isPending && (
-              <span className="text-xs text-gray-400">See the suggested account &amp; cleaned name for each row before importing.</span>
+              <span className="text-xs text-gray-400">Click to run AI categorization and see the suggested account &amp; cleaned name for each row before importing.</span>
             )}
           </div>
 
