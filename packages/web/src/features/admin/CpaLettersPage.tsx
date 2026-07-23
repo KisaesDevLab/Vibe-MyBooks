@@ -14,7 +14,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileText, Plus, Trash2, Save, Copy } from 'lucide-react';
 import {
   REPORT_LETTER_TYPES,
+  REPORT_LETTER_TITLES,
   LETTER_VARIABLES,
+  LETTER_FONT_OPTIONS,
   type ReportLetter,
   type ReportLetterType,
 } from '@kis-books/shared';
@@ -35,11 +37,23 @@ interface EditState {
   id: string | null;
   name: string;
   letterType: ReportLetterType;
+  title: string;
+  fontFamily: string;
   bodyHtml: string;
   isActive: boolean;
 }
 
-const BLANK: EditState = { id: null, name: '', letterType: 'compilation', bodyHtml: '', isActive: true };
+const BLANK: EditState = { id: null, name: '', letterType: 'compilation', title: '', fontFamily: 'default', bodyHtml: '', isActive: true };
+
+const toEdit = (l: ReportLetter): EditState => ({
+  id: l.id,
+  name: l.name,
+  letterType: l.letterType,
+  title: l.title ?? '',
+  fontFamily: l.fontFamily ?? 'default',
+  bodyHtml: l.bodyHtml,
+  isActive: l.isActive,
+});
 
 export function CpaLettersPage() {
   const queryClient = useQueryClient();
@@ -59,6 +73,10 @@ export function CpaLettersPage() {
       const body = JSON.stringify({
         name: state.name,
         letterType: state.letterType,
+        // Blank printed title → null so the renderer uses the standard SSARS
+        // title for the type.
+        title: state.title.trim() ? state.title.trim() : null,
+        fontFamily: state.fontFamily,
         bodyHtml: state.bodyHtml,
         isActive: state.isActive,
       });
@@ -69,7 +87,7 @@ export function CpaLettersPage() {
     },
     onSuccess: (letter) => {
       invalidate();
-      setEdit({ id: letter.id, name: letter.name, letterType: letter.letterType, bodyHtml: letter.bodyHtml, isActive: letter.isActive });
+      setEdit(toEdit(letter));
       toast.success('Letter saved');
     },
     onError: (err: Error) => toast.error('Could not save letter', { detail: err.message }),
@@ -84,14 +102,13 @@ export function CpaLettersPage() {
   const letters = lettersQuery.data ?? [];
   const variables = useMemo(() => LETTER_VARIABLES.map((v) => ({ key: v.key, label: v.label })), []);
 
-  const openLetter = (l: ReportLetter) =>
-    setEdit({ id: l.id, name: l.name, letterType: l.letterType, bodyHtml: l.bodyHtml, isActive: l.isActive });
+  const openLetter = (l: ReportLetter) => setEdit(toEdit(l));
 
   // Duplicate → open the editor pre-filled with a copy (id null, "(Copy)"
   // name, not a default). Saving creates a new letter via the POST path.
   const duplicateLetter = (l: ReportLetter) => {
     setConfirmDelete(false);
-    setEdit({ id: null, name: `${l.name} (Copy)`, letterType: l.letterType, bodyHtml: l.bodyHtml, isActive: l.isActive });
+    setEdit({ ...toEdit(l), id: null, name: `${l.name} (Copy)` });
   };
 
   const nameValid = (edit?.name.trim().length ?? 0) > 0;
@@ -174,6 +191,19 @@ export function CpaLettersPage() {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Font</label>
+                  <select
+                    value={edit.fontFamily}
+                    onChange={(e) => setEdit({ ...edit, fontFamily: e.target.value })}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    aria-label="Letter font"
+                  >
+                    {LETTER_FONT_OPTIONS.map((f) => (
+                      <option key={f.value} value={f.value}>{f.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <label className="flex items-center gap-2 text-sm text-gray-700 pb-2">
                   <input
                     type="checkbox"
@@ -184,6 +214,17 @@ export function CpaLettersPage() {
                   Active
                 </label>
               </div>
+              <Input
+                label="Printed title (heading)"
+                value={edit.title}
+                onChange={(e) => setEdit({ ...edit, title: e.target.value })}
+                maxLength={200}
+                placeholder={REPORT_LETTER_TITLES[edit.letterType]}
+              />
+              <p className="-mt-3 text-xs text-gray-500">
+                The heading printed above the letter on the report. Leave blank to use the standard title
+                (<span className="italic">{REPORT_LETTER_TITLES[edit.letterType]}</span>).
+              </p>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Body</label>
                 <RichTextEditor
