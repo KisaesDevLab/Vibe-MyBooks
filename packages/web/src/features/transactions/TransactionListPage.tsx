@@ -439,7 +439,7 @@ export function TransactionListPage() {
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
             <Search className="absolute left-3 bottom-2.5 h-4 w-4 text-gray-400" />
-            <input placeholder="Memo, number, contact..." value={search} onChange={(e) => setSearch(e.target.value)}
+            <input placeholder="Memo, number, contact, amount..." value={search} onChange={(e) => setSearch(e.target.value)}
               className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm" />
           </div>
           <div>
