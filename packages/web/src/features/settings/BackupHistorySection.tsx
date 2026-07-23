@@ -37,6 +37,7 @@ interface BackupRun {
   id: string;
   kind: string;
   tenantId: string | null;
+  tenantName: string | null;
   trigger: string;
   status: string;
   startedAt: string;
@@ -256,7 +257,10 @@ export function BackupHistorySection() {
                         {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       </td>
                       <td className="px-3 py-2 text-gray-900 whitespace-nowrap">{new Date(run.startedAt).toLocaleString()}</td>
-                      <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{KIND_LABELS[run.kind] ?? run.kind}</td>
+                      <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                        <div>{KIND_LABELS[run.kind] ?? run.kind}</div>
+                        {run.tenantName && <div className="text-xs text-gray-500">{run.tenantName}</div>}
+                      </td>
                       <td className="px-3 py-2 text-gray-600 capitalize">{run.trigger}</td>
                       <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{formatDuration(run)}</td>
                       <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{formatBytes(run.sizeBytes)}</td>
