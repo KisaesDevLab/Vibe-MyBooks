@@ -114,13 +114,15 @@ describe('PracticeGroup', () => {
     expect(screen.getByText('Close Review')).toBeInTheDocument();
   });
 
-  it('does not show owner-tier items for bookkeeper role', () => {
+  it('shows Client Portal + Reminders for bookkeeper (now staff-editable)', () => {
     setMe({ role: 'bookkeeper' });
     setFlags(['CLOSE_REVIEW_V1', 'CLIENT_PORTAL_V1', 'REMINDERS_V1']);
     renderRoute(<PracticeGroup />);
     expect(screen.getByText('Close Review')).toBeInTheDocument();
-    expect(screen.queryByText('Client Portal')).toBeNull();
-    expect(screen.queryByText('Reminders')).toBeNull();
+    // Client Portal + Reminders were lowered to bookkeeper-tier so firm
+    // staff can manage them.
+    expect(screen.getByText('Client Portal')).toBeInTheDocument();
+    expect(screen.getByText('Reminders')).toBeInTheDocument();
   });
 
   it('renders nothing for a bare owner with no firm membership (self-signup client)', () => {
