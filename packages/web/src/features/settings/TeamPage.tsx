@@ -20,9 +20,17 @@ interface TeamUser {
   email: string;
   displayName: string | null;
   role: string;
+  userType?: 'staff' | 'client';
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+}
+
+// Bookkeepers and every external (client) user can have their access
+// tailored via a permission template + overrides. Mirrors
+// isCustomizablePrincipal on the backend.
+function canManagePermissions(u: TeamUser): boolean {
+  return u.role === 'bookkeeper' || u.userType === 'client';
 }
 
 export function TeamPage() {
@@ -52,6 +60,7 @@ export function TeamPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState('accountant');
+  const [inviteUserType, setInviteUserType] = useState<'staff' | 'client'>('staff');
   const [tempPassword, setTempPassword] = useState('');
   const [copied, setCopied] = useState(false);
   const [deactivateTarget, setDeactivateTarget] = useState<TeamUser | null>(null);
@@ -75,7 +84,7 @@ export function TeamPage() {
   });
 
   const inviteUser = useMutation({
-    mutationFn: (input: { email: string; displayName: string; role: string }) =>
+    mutationFn: (input: { email: string; displayName: string; role: string; userType: 'staff' | 'client' }) =>
       apiClient<{ user: TeamUser; temporaryPassword: string | null; existingUser: boolean; message: string }>('/company/invite-user', {
         method: 'POST',
         body: JSON.stringify(input),
@@ -108,7 +117,15 @@ export function TeamPage() {
 
   const handleInvite = () => {
     if (!inviteEmail || !inviteName) return;
-    inviteUser.mutate({ email: inviteEmail, displayName: inviteName, role: inviteRole });
+    inviteUser.mutate({ email: inviteEmail, displayName: inviteName, role: inviteRole, userType: inviteUserType });
+  };
+
+  // Switching to an external user resets the role to a view-only baseline
+  // (the owner then grants specific access via a permission template);
+  // switching back to internal restores the default staff role.
+  const handleUserTypeChange = (next: 'staff' | 'client') => {
+    setInviteUserType(next);
+    setInviteRole(next === 'client' ? 'readonly' : 'accountant');
   };
 
   const handleCopyPassword = () => {
@@ -146,7 +163,7 @@ export function TeamPage() {
             <Button variant="secondary" onClick={() => setShowTemplates(true)}>
               <ShieldCheck className="h-4 w-4 mr-1" /> Permission Templates
             </Button>
-            <Button onClick={() => { setShowInvite(true); setTempPassword(''); }}>
+            <Button onClick={() => { setShowInvite(true); setTempPassword(''); handleUserTypeChange('staff'); }}>
               <UserPlus className="h-4 w-4 mr-1" /> Invite User
             </Button>
           </div>
@@ -195,6 +212,35 @@ export function TeamPage() {
               <>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Invite User</h3>
                 <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">User type</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleUserTypeChange('staff')}
+                        className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                          inviteUserType === 'staff'
+                            ? 'border-primary-500 bg-primary-50 text-primary-800'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="font-medium">Internal</div>
+                        <div className="text-xs text-gray-500">Your team / firm staff</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUserTypeChange('client')}
+                        className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                          inviteUserType === 'client'
+                            ? 'border-primary-500 bg-primary-50 text-primary-800'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="font-medium">External</div>
+                        <div className="text-xs text-gray-500">Outside collaborator / client</div>
+                      </button>
+                    </div>
+                  </div>
                   <Input label="Email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} type="email" required />
                   <Input label="Display Name" value={inviteName} onChange={(e) => setInviteName(e.target.value)} required />
                   <div>
@@ -203,8 +249,19 @@ export function TeamPage() {
                       className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
                       <option value="accountant">Accountant</option>
                       <option value="bookkeeper">Bookkeeper</option>
+                      <option value="readonly">Read-only</option>
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">Both roles have full access to all data. The label is for identification only.</p>
+                    {inviteUserType === 'client' ? (
+                      <p className="text-xs text-gray-500 mt-1">
+                        External users start view-only. After inviting, click <strong>Permissions</strong> on
+                        their row to grant exactly what they can see and do.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Accountant has full access. Bookkeeper defaults to full access but can be restricted via
+                        Permissions. Read-only can view but not change data.
+                      </p>
+                    )}
                   </div>
                 </div>
                 {inviteUser.error && <p className="text-sm text-red-600 mt-3">{inviteUser.error.message}</p>}
@@ -242,6 +299,9 @@ export function TeamPage() {
                     u.role === 'accountant' ? 'bg-purple-100 text-purple-700' :
                     'bg-gray-100 text-gray-700'
                   }`}>{u.role}</span>
+                  {u.userType === 'client' && (
+                    <span className="ml-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">External</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-block h-2.5 w-2.5 rounded-full ${u.isActive ? 'bg-green-500' : 'bg-red-400'}`} />
@@ -260,7 +320,7 @@ export function TeamPage() {
                         <Eye className="h-3.5 w-3.5" /> View as
                       </button>
                     )}
-                    {isOwner && u.role === 'bookkeeper' && (
+                    {isOwner && canManagePermissions(u) && (
                       <button
                         onClick={() => setPermTarget(u)}
                         className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"

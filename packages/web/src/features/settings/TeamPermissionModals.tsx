@@ -81,7 +81,7 @@ export function TemplatesModal({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <ModalShell title="Permission Templates" subtitle="Reusable access sets you can assign to bookkeepers." onClose={onClose} wide>
+    <ModalShell title="Permission Templates" subtitle="Reusable access sets you can assign to bookkeepers and external users." onClose={onClose} wide>
       {editing ? (
         <div className="space-y-4">
           <Input label="Template name" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -107,7 +107,7 @@ export function TemplatesModal({ onClose }: { onClose: () => void }) {
           {isLoading ? (
             <div className="py-8 text-center text-gray-400">Loading…</div>
           ) : (data?.templates ?? []).length === 0 ? (
-            <p className="text-sm text-gray-500 py-4">No templates yet. Create one to tailor bookkeeper access.</p>
+            <p className="text-sm text-gray-500 py-4">No templates yet. Create one to tailor bookkeeper or external-user access.</p>
           ) : (
             data!.templates.map((t) => (
               <button key={t.id} onClick={() => startEdit(t)}
@@ -159,7 +159,7 @@ export function UserPermissionsModal({ userId, email, onClose }: { userId: strin
   });
 
   return (
-    <ModalShell title="Permissions" subtitle={`${email} — bookkeeper access`} onClose={onClose} wide>
+    <ModalShell title="Permissions" subtitle={`${email} — tailored access`} onClose={onClose} wide>
       {isLoading ? (
         <div className="py-8 text-center text-gray-400">Loading…</div>
       ) : (
