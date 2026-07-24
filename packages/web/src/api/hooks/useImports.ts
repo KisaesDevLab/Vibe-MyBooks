@@ -102,6 +102,34 @@ async function importsFetch<T>(path: string, init: RequestInit = {}): Promise<T>
   return res.json();
 }
 
+/**
+ * Download a blank Generic import template (.xlsx) for a kind and save it via
+ * a synthetic anchor. Separate from importsFetch because that helper parses
+ * JSON; this one streams a binary blob. Uses the same auth header so the
+ * staff-write-gated route accepts it.
+ */
+export async function downloadSampleTemplate(kind: ImportKind): Promise<void> {
+  const res = await fetch(`${API_BASE}/imports/sample/${kind}`, {
+    headers: await buildHeaders({}),
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    throw new ImportApiError(res.status, `Could not download the template (HTTP ${res.status}).`);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match?.[1] ?? `vibe-mybooks-${kind}-template.xlsx`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ── Hooks ─────────────────────────────────────────────────────────
 
 export interface UploadInput {

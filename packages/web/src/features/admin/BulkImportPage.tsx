@@ -20,7 +20,7 @@
 
 import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Upload, AlertCircle, CheckCircle, FileText, ArrowLeft } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle, FileText, ArrowLeft, Download } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import {
@@ -30,6 +30,7 @@ import {
   useCommitImport,
   useDeleteImport,
   ImportApiError,
+  downloadSampleTemplate,
 } from '../../api/hooks/useImports';
 import type {
   CanonicalCoaRow,
@@ -52,6 +53,7 @@ const KIND_OPTIONS: { value: ImportKind; label: string }[] = [
 ];
 
 const SOURCE_OPTIONS: { value: SourceSystem; label: string }[] = [
+  { value: 'generic', label: 'Generic (Excel template)' },
   { value: 'accounting_power', label: 'Accounting Power' },
   { value: 'quickbooks_online', label: 'QuickBooks Online' },
   { value: 'quickbooks_desktop', label: 'QuickBooks Desktop' },
@@ -204,6 +206,20 @@ function UploadForm({ onCreated }: { onCreated: (sessionId: string) => void }) {
   const [tbColumn, setTbColumn] = useState<TbColumnChoice>('beginning');
   const [tbReportDate, setTbReportDate] = useState<string>(defaultPriorYearEnd());
   const [updateExisting, setUpdateExisting] = useState(false);
+  const [sampleError, setSampleError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadSample = async () => {
+    setSampleError(null);
+    setDownloading(true);
+    try {
+      await downloadSampleTemplate(kind);
+    } catch (e) {
+      setSampleError(e instanceof Error ? e.message : 'Could not download the template.');
+    } finally {
+      setDownloading(false);
+    }
+  };
   const upload = useUploadImport();
 
   const submit = async (e: React.FormEvent) => {
@@ -367,6 +383,27 @@ function UploadForm({ onCreated }: { onCreated: (sessionId: string) => void }) {
           <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800">
             <AlertCircle className="h-4 w-4 mt-0.5" />
             <span>Accounting Power doesn&apos;t export contacts as a separate file. Switch source to QuickBooks Online.</span>
+          </div>
+        )}
+
+        {/* Generic: download the matching Excel template for the chosen kind */}
+        {sourceSystem === 'generic' && (
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-blue-900">
+                Fill in the Excel template for <strong>{KIND_OPTIONS.find((k) => k.value === kind)?.label}</strong>, then upload it below.
+              </span>
+              <button
+                type="button"
+                onClick={handleDownloadSample}
+                disabled={downloading}
+                className="inline-flex items-center gap-1.5 rounded-md border border-blue-300 bg-white px-3 py-1.5 text-blue-700 font-medium hover:bg-blue-100 disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" />
+                {downloading ? 'Preparing…' : 'Download template'}
+              </button>
+            </div>
+            {sampleError && <div className="mt-2 text-red-600">{sampleError}</div>}
           </div>
         )}
 
@@ -569,6 +606,9 @@ function SessionView({ id, onClose }: { id: string; onClose: () => void }) {
             )}
             {session.commitResult.voidsReversed !== undefined && session.commitResult.voidsReversed > 0 && (
               <div>Void reversals posted: {session.commitResult.voidsReversed}</div>
+            )}
+            {session.commitResult.tagsCreated !== undefined && session.commitResult.tagsCreated > 0 && (
+              <div>Tags created: {session.commitResult.tagsCreated}</div>
             )}
           </div>
           <SuccessLink session={session} />
@@ -805,7 +845,9 @@ function SuccessLink({ session }: { session: ImportSession }) {
         ? 'accounting_power_import'
         : session.sourceSystem === 'quickbooks_desktop'
           ? 'quickbooks_desktop_import'
-          : 'quickbooks_online_import';
+          : session.sourceSystem === 'generic'
+            ? 'generic_import'
+            : 'quickbooks_online_import';
     target = `/transactions?source=${sourceTag}`;
     label = 'View imported transactions';
   }
