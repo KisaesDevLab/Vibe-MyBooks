@@ -71,12 +71,21 @@ export function InvoiceForm() {
   const [memo, setMemo] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
   const [defaultMode, setDefaultMode] = useState<EntryMode>('category');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [numberTouched, setNumberTouched] = useState(false);
 
   // Fetch company default tax rate
   const { data: settingsData } = useCompanySettings();
   // defaultSalesTaxRate is stored as decimal (0.0825) — convert to percent for display (8.25)
   const defaultTaxRateDecimal = settingsData?.settings?.defaultSalesTaxRate || '0';
   const defaultTaxRatePercent = (parseFloat(defaultTaxRateDecimal) * 100).toString();
+  // The number a new invoice would auto-receive (prefix + next counter value),
+  // used to prefill the editable Invoice # field. If the user leaves it as-is
+  // on a new invoice we omit it from the payload so the server assigns and
+  // advances the counter atomically.
+  const invoicePrefix = settingsData?.settings?.invoicePrefix ?? 'INV-';
+  const invoiceNextNumber = settingsData?.settings?.invoiceNextNumber;
+  const autoNumber = invoiceNextNumber != null ? `${invoicePrefix}${invoiceNextNumber}` : '';
 
   const [lines, setLines] = useState<InvoiceLine[]>([emptyLine('category', defaultTaxRatePercent)]);
   const [loaded, setLoaded] = useState(!isEdit);
@@ -110,6 +119,12 @@ export function InvoiceForm() {
     }
   }, [txnDate, paymentTerms, isEdit, dueDateManual]);
 
+  // Prefill the Invoice # for a new invoice with the next auto number, until
+  // the user edits it. (On edit mode the number is hydrated from the invoice.)
+  useEffect(() => {
+    if (!isEdit && !numberTouched && autoNumber) setInvoiceNumber(autoNumber);
+  }, [autoNumber, isEdit, numberTouched]);
+
   // Fetch existing invoice for edit mode
   const { data: existingData } = useQuery({
     queryKey: ['invoices', editId],
@@ -126,6 +141,8 @@ export function InvoiceForm() {
     setPaymentTerms(inv.paymentTerms || 'net_30');
     setMemo(inv.memo || '');
     setInternalNotes(inv.internalNotes || '');
+    setInvoiceNumber(inv.txnNumber || '');
+    setNumberTouched(true);
     setDueDateManual(true);
 
     const invLines = (inv.lines || [])
@@ -198,13 +215,22 @@ export function InvoiceForm() {
   }, 0);
   const grandTotal = subtotal + totalTax;
 
-  const buildPayload = () => ({
+  const buildPayload = () => {
+    const trimmedNumber = invoiceNumber.trim();
+    // Send the number when editing (so a changed number persists), or when
+    // creating and the user overrode the auto-suggested value. Omitting it on
+    // a fresh invoice lets the server assign + advance the counter atomically.
+    const includeNumber = isEdit
+      ? trimmedNumber !== ''
+      : numberTouched && trimmedNumber !== '' && trimmedNumber !== autoNumber;
+    return {
     txnDate,
     dueDate: dueDate || undefined,
     contactId,
     paymentTerms,
     memo: memo || undefined,
     internalNotes: internalNotes || undefined,
+    ...(includeNumber ? { txnNumber: trimmedNumber } : {}),
     lines: lines.filter((l) => l.accountId && l.unitPrice).map((l) => ({
       accountId: l.accountId,
       description: l.description || undefined,
@@ -214,7 +240,8 @@ export function InvoiceForm() {
       taxRate: l.isTaxable ? (parseFloat(l.taxRate) / 100).toString() : '0',
       tagId: l.tagId,
     })),
-  });
+    };
+  };
 
   const [clientError, setClientError] = useState<string | null>(null);
 
@@ -280,6 +307,15 @@ export function InvoiceForm() {
       <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 sm:p-6 space-y-4">
           <ContactSelector label="Customer" value={contactId} onChange={setContactId} contactTypeFilter="customer" required />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Invoice #</label>
+              <input value={invoiceNumber}
+                onChange={(e) => { setInvoiceNumber(e.target.value); setNumberTouched(true); }}
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono !max-w-[75%] sm:!max-w-none"
+                placeholder="Auto" />
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <DatePicker label="Invoice Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required className="!max-w-[75%] sm:!max-w-none" />
             <DatePicker label="Due Date" value={dueDate} onChange={(e) => { setDueDate(e.target.value); setDueDateManual(true); }} className="!max-w-[75%] sm:!max-w-none" />
