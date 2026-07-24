@@ -169,7 +169,7 @@ export function ReceivePaymentPage() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                <table className="min-w-[720px] divide-y divide-gray-200">
+                <table className="w-full min-w-[720px] divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-center w-10">
