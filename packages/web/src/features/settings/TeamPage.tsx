@@ -13,7 +13,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
 import { TemplatesModal, UserPermissionsModal } from './TeamPermissionModals';
-import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal, Eye } from 'lucide-react';
+import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal, Eye, Pencil } from 'lucide-react';
 
 interface TeamUser {
   id: string;
@@ -66,6 +66,9 @@ export function TeamPage() {
   const [deactivateTarget, setDeactivateTarget] = useState<TeamUser | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
   const [permTarget, setPermTarget] = useState<TeamUser | null>(null);
+  const [editTarget, setEditTarget] = useState<TeamUser | null>(null);
+  const [editEmail, setEditEmail] = useState('');
+  const [editName, setEditName] = useState('');
 
   // Escape closes the invite dialog — but only before the temp password
   // has been generated. Once we're on the "User Invited" confirmation
@@ -114,6 +117,30 @@ export function TeamPage() {
       apiClient(`/company/users/${userId}/reactivate`, { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['company', 'users'] }),
   });
+
+  const updateUser = useMutation({
+    mutationFn: (input: { userId: string; email: string; displayName: string }) =>
+      apiClient(`/company/users/${input.userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ email: input.email, displayName: input.displayName }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company', 'users'] });
+      setEditTarget(null);
+    },
+  });
+
+  const openEdit = (u: TeamUser) => {
+    setEditTarget(u);
+    setEditEmail(u.email);
+    setEditName(u.displayName || '');
+    updateUser.reset();
+  };
+
+  const handleSaveEdit = () => {
+    if (!editTarget || !editEmail || !editName) return;
+    updateUser.mutate({ userId: editTarget.id, email: editEmail, displayName: editName });
+  };
 
   const handleInvite = () => {
     if (!inviteEmail || !inviteName) return;
@@ -177,6 +204,32 @@ export function TeamPage() {
           email={permTarget.email}
           onClose={() => setPermTarget(null)}
         />
+      )}
+
+      {/* Edit Modal */}
+      {editTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit user"
+        >
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit User</h3>
+            <div className="space-y-4">
+              <Input label="Display Name" value={editName} onChange={(e) => setEditName(e.target.value)} required />
+              <Input label="Email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} type="email" required />
+              <p className="text-xs text-gray-500">
+                Email is this user's login. Changing it updates how they sign in; they keep their existing password.
+              </p>
+            </div>
+            {updateUser.error && <p className="text-sm text-red-600 mt-3">{(updateUser.error as Error).message}</p>}
+            <div className="flex justify-end gap-3 mt-4">
+              <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
+              <Button onClick={handleSaveEdit} loading={updateUser.isPending} disabled={!editEmail || !editName}>Save</Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Invite Modal */}
@@ -318,6 +371,15 @@ export function TeamPage() {
                         title="View the app as this user to check their permissions"
                       >
                         <Eye className="h-3.5 w-3.5" /> View as
+                      </button>
+                    )}
+                    {isOwner && (
+                      <button
+                        onClick={() => openEdit(u)}
+                        className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+                        title="Edit name or email"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit
                       </button>
                     )}
                     {isOwner && canManagePermissions(u) && (
