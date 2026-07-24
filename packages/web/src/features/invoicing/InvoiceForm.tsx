@@ -320,82 +320,87 @@ export function InvoiceForm() {
             </div>
           </div>
 
-          {/* ── Desktop: table layout ── */}
-          <div className="hidden md:block">
-            <table className="min-w-full">
-              <thead>
-                <tr>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">
-                    {defaultMode === 'item' ? 'Item / Account' : 'Account'}
-                  </th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
-                  <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-16">Qty</th>
-                  <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-36">Rate</th>
-                  <th className="text-center text-xs font-medium text-gray-500 uppercase pb-2 w-12">Tax</th>
-                  <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Tax %</th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-44">Amount</th>
-                  {ENTRY_FORMS_V2 && (
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-40">Tag</th>
+          {/* ── Desktop: two-row card layout ── */}
+          <div className="hidden md:block space-y-2">
+            {lines.map((line, i) => {
+              const lineAmount = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
+              const fieldLabel = 'block text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1';
+              return (
+                <div key={i} className="group relative rounded-lg border border-gray-200 bg-gray-50/60 p-3 pr-10 transition-colors hover:border-gray-300">
+                  {/* Delete (top-right, hover-revealed) */}
+                  {lines.length > 1 && (
+                    <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))}
+                      title="Remove line"
+                      className="absolute right-2 top-2 text-gray-300 hover:text-red-500 transition-colors">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   )}
-                  <th className="w-8 pb-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((line, i) => {
-                  const lineAmount = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
-                  return (
-                    <tr key={i} className="align-top">
-                      <td className="pr-2 py-1">
-                        {line.entryMode === 'item' ? (
-                          <SearchableDropdown
-                            options={itemOptions}
-                            value={line.itemId}
-                            onChange={(val) => handleItemSelect(i, val)}
-                            placeholder="Select item..."
-                          />
-                        ) : (
-                          <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
-                        )}
-                      </td>
-                      <td className="px-2 py-1">
-                        <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
-                          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
-                      </td>
-                      <td className="px-2 py-1">
-                        <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
-                          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center" type="number" min="1" />
-                      </td>
-                      <td className="px-2 py-1"><MoneyInput value={line.unitPrice} onChange={(v) => updateLine(i, 'unitPrice', v)} /></td>
-                      <td className="px-2 py-1 text-center pt-2.5">
+
+                  {/* Row 1: what — Item/Account + Description */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-2/5 shrink-0">
+                      <label className={fieldLabel}>{defaultMode === 'item' ? 'Item / Account' : 'Account'}</label>
+                      {line.entryMode === 'item' ? (
+                        <SearchableDropdown
+                          options={itemOptions}
+                          value={line.itemId}
+                          onChange={(val) => handleItemSelect(i, val)}
+                          placeholder="Select item..."
+                        />
+                      ) : (
+                        <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <label className={fieldLabel}>Description</label>
+                      <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
+                    </div>
+                  </div>
+
+                  {/* Row 2: numbers — Qty · Rate · Tax · Tag · Amount */}
+                  <div className="flex items-end gap-3 mt-3">
+                    <div className="w-20">
+                      <label className={fieldLabel}>Qty</label>
+                      <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center" type="number" min="0" step="any" />
+                    </div>
+                    <div className="w-36">
+                      <label className={fieldLabel}>Rate</label>
+                      <MoneyInput value={line.unitPrice} onChange={(v) => updateLine(i, 'unitPrice', v)} />
+                    </div>
+                    <div className="w-14">
+                      <label className={`${fieldLabel} text-center`}>Tax</label>
+                      <div className="flex h-[38px] items-center justify-center">
                         <input type="checkbox" checked={line.isTaxable}
                           onChange={(e) => setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, isTaxable: e.target.checked } : l))}
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                      </td>
-                      <td className="px-1 py-1">
-                        {line.isTaxable && (
+                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                      </div>
+                    </div>
+                    <div className="w-24">
+                      {line.isTaxable && (
+                        <>
+                          <label className={fieldLabel}>Tax %</label>
                           <input type="number" step="0.0001" value={line.taxRate}
                             onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
                             className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right" />
-                        )}
-                      </td>
-                      <td className="px-2 py-1 text-right font-mono text-sm pt-2.5">${lineAmount.toFixed(2)}</td>
-                      {ENTRY_FORMS_V2 && (
-                        <td className="px-1 py-1">
-                          <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
-                        </td>
+                        </>
                       )}
-                      <td className="pl-1 py-1 pt-2.5">
-                        {lines.length > 1 && (
-                          <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    </div>
+                    {ENTRY_FORMS_V2 && (
+                      <div className="w-44">
+                        <label className={fieldLabel}>Tag</label>
+                        <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                      </div>
+                    )}
+                    <div className="ml-auto text-right">
+                      <label className={`${fieldLabel} text-right`}>Amount</label>
+                      <div className="font-mono text-base font-semibold text-gray-900 leading-[38px]">${lineAmount.toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* ── Mobile: compact card layout ── */}
@@ -432,7 +437,7 @@ export function InvoiceForm() {
                   {/* Row 3: Qty × Rate = Amount */}
                   <div className="flex items-center gap-2">
                     <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
-                      className="w-14 rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-center shrink-0" type="number" min="1" placeholder="Qty" />
+                      className="w-14 rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-center shrink-0" type="number" min="0" step="any" placeholder="Qty" />
                     <span className="text-gray-400 text-xs shrink-0">&times;</span>
                     <div className="flex-1"><MoneyInput value={line.unitPrice} onChange={(v) => updateLine(i, 'unitPrice', v)} /></div>
                     <span className="text-gray-400 text-xs shrink-0">=</span>
