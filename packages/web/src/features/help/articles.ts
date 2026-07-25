@@ -159,6 +159,39 @@ Each company has completely separate data:
 Data from one company is never visible in another.
 `,
   },
+  {
+    id: 'bulk-import',
+    title: 'Bulk Import from Excel or QuickBooks',
+    category: 'Getting Started',
+    summary: 'Import your chart of accounts, contacts, trial balance, and transactions from Excel templates or another accounting system.',
+    body: `
+## Bulk Import from Excel or QuickBooks
+
+**Bulk Import** (in the sidebar) migrates data from another system — or from a spreadsheet — in a staged, preview-before-commit flow.
+
+### What You Can Import
+- **Chart of Accounts**
+- **Contacts** (customers / vendors)
+- **Trial Balance** — posted as a balanced opening journal entry
+- **GL Transactions** — historical activity
+
+### Supported Sources
+- **Generic (Excel template)** — our own fixed-header .xlsx/.csv templates
+- **Accounting Power**, **QuickBooks Online**, and **QuickBooks Desktop** exports
+
+### The Generic Excel Templates
+With **Generic** selected, click **Download template** for a ready-to-fill workbook (headers, an example row, and instructions):
+- **Transactions are one row each:** Date, Account, Amount, Offset Account, plus optional Description / Name / Reference / Tag
+- A **positive Amount debits the Account** and credits the Offset; a **negative Amount** does the reverse
+- Account and Offset accept an **account number or account name** (number matched first)
+- A name in the **Tag** column is applied to the transaction — the tag is created automatically if it doesn't exist
+
+### How the Import Runs
+1. Choose what to import and the source system, then upload your file
+2. Review the **validation preview** — row counts, matched accounts, and any problems are shown before anything is written
+3. Click **Commit** to post. A success link takes you straight to the transactions that were just imported
+`,
+  },
 
   // ─── Transactions ─────────────────────────────────────────────
   {
@@ -198,6 +231,45 @@ Record an immediate sale with payment received (no invoice). Useful for retail o
 ### Editing & Voiding
 - Click any transaction to view its details and journal lines
 - Use **Void** to reverse a transaction (creates offsetting entries — the original is never deleted)
+`,
+  },
+  {
+    id: 'transactions-list',
+    title: 'Finding & Bulk-Editing Transactions',
+    category: 'Transactions',
+    summary: 'Filter, search, and sort the transactions list, change how many rows are shown, and edit many transactions at once — including moving them to a different account.',
+    body: `
+## Finding & Bulk-Editing Transactions
+
+The **Transactions** list is the central view of everything posted to your books.
+
+### Filters, Search & Sorting
+- Filter by **Type**, **Status**, **Account**, **Contact**, **Tag**, **Basis**, and a **date range**
+- **Search** matches memos, numbers, contacts, and amounts
+- Click any **column header** to sort by it (click again to reverse)
+- Your filters are remembered per company and encoded in the URL, so the Back button and shared links restore the exact view
+- Filtering by an **Account** switches the amount column to **Debit / Credit** register style and shows that account's totals
+
+### Rows Per Page
+Use the **Show** dropdown next to the pager to display **50, 100, 250, 500, or All** transactions per page. **All** loads the entire filtered set at once — handy for reviewing or bulk-editing a whole account.
+
+### Bulk Editing
+Tick the checkboxes on one or more rows (or the header checkbox to select the whole page) and a toolbar appears. In one pass you can:
+
+- **Set Category** — recategorize the transaction's single category line (splits are skipped, never collapsed)
+- **Set Payee** — assign a contact to all selected transactions
+- **Set Tag** — apply or clear a tag (when filtered by an account, only that account's line is tagged)
+
+### Move to Account (reclassify the posting account)
+When the list is **filtered by an account**, the toolbar also offers **Move to Account**. It re-points the filtered account's line on each selected transaction to a different account — for example, moving payments that were posted to a **clearing account** onto the correct **loan account**.
+
+- Works on **split transactions**: only the source/money side moves; the category lines are untouched
+- Account balances follow automatically and every change is audit-logged
+- Rows that can't safely move are skipped and reported: void transactions, locked periods, and lines cleared in a **completed bank reconciliation**
+- Accounts Receivable and Accounts Payable can't be bulk-moved (aging and payment application depend on them)
+
+### Drilling Down from Reports
+Clicking an amount on the **Balance Sheet**, **P&L**, or other reports lands you on this list pre-filtered to that account and period — ready for review or a bulk fix.
 `,
   },
   {
@@ -351,13 +423,17 @@ Invoices track money owed to you by customers.
 ### Line Items
 Each line has:
 - **Description** — what you're billing for
-- **Quantity** and **Rate** — multiplied to calculate the line total
+- **Quantity** and **Rate** — multiplied to calculate the line total (fractional quantities are allowed)
 - **Account** — the revenue account to credit
+
+### Invoice Numbers
+- Numbers are assigned automatically from your **prefix** and **next number**, set on **Settings > Invoice Template** (Numbering card)
+- The **Invoice #** field is editable on the form — type your own to override the automatic number for that invoice (duplicates are rejected)
 
 ### Sending Invoices
 - Click **Send** on any invoice to email it as a PDF to the customer
 - Requires **email (SMTP)** to be configured in **Settings > Email Settings**
-- The PDF uses your invoice template (customizable under **Settings > Invoice Template**)
+- The PDF uses your invoice template (customizable under **Settings > Invoice Template**): accent color, footer text, and whether payment terms are shown
 
 ### Invoice Statuses
 - **Draft** — not yet finalized
