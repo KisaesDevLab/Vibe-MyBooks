@@ -18,7 +18,11 @@ import { Pagination } from '../../components/ui/Pagination';
 import { ArrowLeft, Plus, Search, X } from 'lucide-react';
 import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 
-const PAGE_SIZE = 50;
+// Rows-per-page choices. 'all' fetches up to the API cap (10000) in one
+// request — effectively the whole filtered set for typical volumes.
+const PAGE_SIZE_OPTIONS = ['50', '100', '250', '500', 'all'];
+const DEFAULT_PAGE_SIZE = '50';
+const ALL_LIMIT = 10000;
 
 // Filter + sort criteria persisted per company so the operator's last-used
 // view is restored when they return to a bare /transactions (sidebar nav) or
@@ -26,7 +30,7 @@ const PAGE_SIZE = 50;
 // `offset` (never restore a deep page) and `source` (a one-time deep-link
 // landing filter from bulk imports). Scoped by company so account/contact/tag
 // id filters are only ever restored where those ids are valid.
-const PERSISTED_FILTER_KEYS = ['type', 'status', 'account', 'contact', 'basis', 'from', 'to', 'tagId', 'q', 'sortBy', 'sortDir'] as const;
+const PERSISTED_FILTER_KEYS = ['type', 'status', 'account', 'contact', 'basis', 'from', 'to', 'tagId', 'q', 'sortBy', 'sortDir', 'pageSize'] as const;
 const filterStorageKey = (companyId: string) => `vibe:txn-filters:${companyId}`;
 
 // Sentinel value for the bulk "Set Tag" dropdown that clears the tag (sends
@@ -115,11 +119,16 @@ export function TransactionListPage() {
   // (sorts the full filtered set, not just the visible page).
   const sortBy = (searchParams.get('sortBy') || '') as '' | TxnSortKey;
   const sortDir = searchParams.get('sortDir') === 'asc' ? 'asc' : 'desc';
+  // Rows per page — URL-synced + persisted like the filters. Unknown values
+  // (hand-edited URLs) fall back to the default.
+  const rawPageSize = searchParams.get('pageSize') || DEFAULT_PAGE_SIZE;
+  const pageSize = PAGE_SIZE_OPTIONS.includes(rawPageSize) ? rawPageSize : DEFAULT_PAGE_SIZE;
+  const effectiveLimit = pageSize === 'all' ? ALL_LIMIT : parseInt(pageSize, 10);
   // Pagination is URL-synced so the Back button from a detail page drops
   // the operator back on the exact page + filter combo. offset clamped to
-  // a non-negative multiple of PAGE_SIZE.
+  // a non-negative multiple of the page size ('all' is always page 1).
   const parsedOffset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
-  const offset = Math.floor(parsedOffset / PAGE_SIZE) * PAGE_SIZE;
+  const offset = pageSize === 'all' ? 0 : Math.floor(parsedOffset / effectiveLimit) * effectiveLimit;
 
   // The search input is kept in local state for snappy typing; the debounced
   // value is what drives both the query and the URL update.
@@ -146,6 +155,9 @@ export function TransactionListPage() {
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [bulkContactId, setBulkContactId] = useState('');
   const [bulkTagId, setBulkTagId] = useState('');
+  // Source-account move target (only offered while filtered by an account —
+  // the filtered account is the move's FROM side).
+  const [bulkMoveAccountId, setBulkMoveAccountId] = useState('');
   const bulkUpdate = useBulkUpdateTransactions();
 
   const toggleSelected = (id: string) =>
@@ -160,6 +172,7 @@ export function TransactionListPage() {
     setBulkCategoryId('');
     setBulkContactId('');
     setBulkTagId('');
+    setBulkMoveAccountId('');
     bulkUpdate.reset();
   };
   const applyBulk = () => {
@@ -172,20 +185,33 @@ export function TransactionListPage() {
     // Scope the tag change to the account the list is filtered by, so a
     // split / journal entry only tags that line — not every line.
     if (input.setTagId !== undefined && accountFilter) input.tagAccountId = accountFilter;
+    // Source-account move: the filtered account's line(s) go to the chosen
+    // account. Works on splits — the category side is untouched.
+    if (bulkMoveAccountId && accountFilter) {
+      input.moveFromAccountId = accountFilter;
+      input.moveToAccountId = bulkMoveAccountId;
+    }
     if (
       input.setCategoryAccountId === undefined &&
       input.setPayeeContactId === undefined &&
-      input.setTagId === undefined
+      input.setTagId === undefined &&
+      input.moveToAccountId === undefined
     ) {
       return;
     }
+    const movedAccounts = input.moveToAccountId !== undefined;
     bulkUpdate.mutate(input, {
       onSuccess: () => {
         // Keep the rows checked — a bulk edit is often one of several
         // passes (set category, then payee, then tag) over the same set.
+        // EXCEPT after an account move: those rows leave this filtered
+        // view, and further bulk edits on invisible rows would silently
+        // modify the ledger — so drop the selection.
         setBulkCategoryId('');
         setBulkContactId('');
         setBulkTagId('');
+        setBulkMoveAccountId('');
+        if (movedAccounts) setSelectedIds(new Set());
       },
     });
   };
@@ -236,6 +262,8 @@ export function TransactionListPage() {
   const setTagFilter = (v: string) => updateParam('tagId', v);
   const setBasisFilter = (v: string) => updateParam('basis', v);
   const setOffset = (v: number) => updateParam('offset', v > 0 ? String(v) : '', { resetOffset: false });
+  // Changing the page size resets to page 1 (updateParam drops `offset`).
+  const setPageSize = (v: string) => updateParam('pageSize', v === DEFAULT_PAGE_SIZE ? '' : v);
 
   // Push the debounced search text into the URL.
   useEffect(() => {
@@ -306,7 +334,7 @@ export function TransactionListPage() {
     search: debouncedSearch || undefined,
     sortBy: sortBy || undefined,
     sortDir: sortBy ? sortDir : undefined,
-    limit: PAGE_SIZE,
+    limit: effectiveLimit,
     offset,
   });
 
@@ -574,8 +602,23 @@ export function TransactionListPage() {
               </p>
             )}
           </div>
+          {accountFilter && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Move to Account</label>
+              <select value={bulkMoveAccountId} onChange={(e) => setBulkMoveAccountId(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[200px]">
+                <option value="">— No change —</option>
+                {accountsList.filter((a) => a.id !== accountFilter).map((a) => (
+                  <option key={a.id} value={a.id}>{a.accountNumber ? `${a.accountNumber} - ` : ''}{a.name}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-gray-500 max-w-[200px]">
+                Moves the filtered account&apos;s line(s) to this account. Splits keep their categories.
+              </p>
+            </div>
+          )}
           <Button size="sm" onClick={applyBulk} loading={bulkUpdate.isPending}
-            disabled={!bulkCategoryId && !bulkContactId && !bulkTagId}>Apply</Button>
+            disabled={!bulkCategoryId && !bulkContactId && !bulkTagId && !bulkMoveAccountId}>Apply</Button>
           <button onClick={clearSelection} className="text-sm text-gray-500 hover:text-gray-700 pb-2">Clear</button>
           {bulkUpdate.error && <span className="text-sm text-red-600 pb-2">{bulkUpdate.error.message}</span>}
         </div>
@@ -585,7 +628,7 @@ export function TransactionListPage() {
           <span>
             Updated {bulkUpdate.data.updated} transaction{bulkUpdate.data.updated === 1 ? '' : 's'}.
             {bulkUpdate.data.skipped.length > 0
-              ? ` ${bulkUpdate.data.skipped.length} skipped (a category change needs a single non-split line, or the transaction is void or in a locked period).`
+              ? ` ${bulkUpdate.data.skipped.length} skipped (void or locked-period transactions, a category change on a split, or an account move on a reconciled line or an account the transaction doesn't touch).`
               : ''}
           </span>
           <button onClick={() => bulkUpdate.reset()} className="text-green-600 hover:text-green-900">
@@ -798,10 +841,13 @@ export function TransactionListPage() {
       )}
       <Pagination
         total={data?.total ?? 0}
-        limit={PAGE_SIZE}
+        limit={effectiveLimit}
         offset={offset}
         onChange={setOffset}
         unit="transactions"
+        pageSize={pageSize}
+        pageSizeOptions={PAGE_SIZE_OPTIONS}
+        onPageSizeChange={setPageSize}
       />
     </div>
   );
