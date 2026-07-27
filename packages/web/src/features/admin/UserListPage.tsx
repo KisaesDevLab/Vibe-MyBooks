@@ -99,6 +99,20 @@ export function UserListPage() {
     onError: (err: Error) => setResetPasswordError(err.message || 'Failed to reset password.'),
   });
 
+  // Credential-free alternative: email the user a reset link instead of
+  // the admin typing (and knowing) a new password.
+  const sendResetEmailMutation = useMutation({
+    mutationFn: (userId: string) =>
+      apiClient<{ message: string }>(`/admin/users/${userId}/send-password-reset`, { method: 'POST' }),
+    onSuccess: (res) => {
+      setResetPasswordUserId(null);
+      setNewPassword('');
+      setResetPasswordError('');
+      setResetPasswordSuccess(res.message || 'Password reset email sent.');
+    },
+    onError: (err: Error) => setResetPasswordError(err.message || 'Failed to send reset email.'),
+  });
+
   useEffect(() => {
     if (!resetPasswordSuccess) return;
     const t = setTimeout(() => setResetPasswordSuccess(''), 3000);
@@ -223,6 +237,19 @@ export function UserListPage() {
             {resetPasswordError && (
               <p role="alert" className="mt-2 text-xs text-red-600">{resetPasswordError}</p>
             )}
+            <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between gap-3">
+              <p className="text-xs text-gray-500">
+                Or email the user a reset link — nothing to type or share.
+              </p>
+              <button
+                type="button"
+                onClick={() => sendResetEmailMutation.mutate(resetPasswordUserId)}
+                disabled={sendResetEmailMutation.isPending}
+                className="text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50 whitespace-nowrap"
+              >
+                {sendResetEmailMutation.isPending ? 'Sending…' : 'Send reset email'}
+              </button>
+            </div>
             <div className="flex justify-end gap-3 mt-4">
               <button
                 onClick={() => {

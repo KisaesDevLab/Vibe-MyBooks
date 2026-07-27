@@ -13,7 +13,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
 import { TemplatesModal, UserPermissionsModal } from './TeamPermissionModals';
-import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal, Eye, Pencil } from 'lucide-react';
+import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal, Eye, Pencil, KeyRound } from 'lucide-react';
 
 interface TeamUser {
   id: string;
@@ -116,6 +116,13 @@ export function TeamPage() {
     mutationFn: (userId: string) =>
       apiClient(`/company/users/${userId}/reactivate`, { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['company', 'users'] }),
+  });
+
+  const sendPasswordReset = useMutation({
+    mutationFn: (userId: string) =>
+      apiClient<{ message: string }>(`/company/users/${userId}/send-password-reset`, { method: 'POST' }),
+    onSuccess: (res) => toast.success(res.message),
+    onError: (e) => toast.error('Could not send password reset', { detail: (e as Error).message }),
   });
 
   const updateUser = useMutation({
@@ -380,6 +387,16 @@ export function TeamPage() {
                         title="Edit name or email"
                       >
                         <Pencil className="h-3.5 w-3.5" /> Edit
+                      </button>
+                    )}
+                    {isOwner && u.isActive && (
+                      <button
+                        onClick={() => sendPasswordReset.mutate(u.id)}
+                        disabled={sendPasswordReset.isPending}
+                        className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 disabled:opacity-50"
+                        title="Email this user a password-reset link"
+                      >
+                        <KeyRound className="h-3.5 w-3.5" /> Reset
                       </button>
                     )}
                     {isOwner && canManagePermissions(u) && (
