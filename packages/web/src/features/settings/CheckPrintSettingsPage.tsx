@@ -36,8 +36,11 @@ export function CheckPrintSettingsPage() {
     printMicrLine: true,
     printCheckNumber: true,
     printVoucherStub: true,
-    alignmentOffsetX: 0,
-    alignmentOffsetY: 0,
+    // Kept as raw strings while editing so a leading "-" (negative
+    // offset) isn't eaten by an eager Number() round-trip; converted
+    // (NaN-guarded) on save.
+    alignmentOffsetX: '0',
+    alignmentOffsetY: '0',
     nextCheckNumber: 1,
     defaultBankAccountId: '',
   });
@@ -68,8 +71,8 @@ export function CheckPrintSettingsPage() {
         printMicrLine: s.printMicrLine ?? true,
         printCheckNumber: s.printCheckNumber ?? true,
         printVoucherStub: s.printVoucherStub ?? true,
-        alignmentOffsetX: s.alignmentOffsetX ?? 0,
-        alignmentOffsetY: s.alignmentOffsetY ?? 0,
+        alignmentOffsetX: String(s.alignmentOffsetX ?? 0),
+        alignmentOffsetY: String(s.alignmentOffsetY ?? 0),
         nextCheckNumber: s.nextCheckNumber ?? 1,
         defaultBankAccountId: s.defaultBankAccountId || '',
       });
@@ -111,8 +114,8 @@ export function CheckPrintSettingsPage() {
       printMicrLine: form.printMicrLine,
       printCheckNumber: form.printCheckNumber,
       printVoucherStub: form.printVoucherStub,
-      alignmentOffsetX: Number(form.alignmentOffsetX),
-      alignmentOffsetY: Number(form.alignmentOffsetY),
+      alignmentOffsetX: Number(form.alignmentOffsetX) || 0,
+      alignmentOffsetY: Number(form.alignmentOffsetY) || 0,
       nextCheckNumber: Number(form.nextCheckNumber),
       defaultBankAccountId: form.defaultBankAccountId || null,
     });
@@ -261,14 +264,16 @@ export function CheckPrintSettingsPage() {
             <Input
               label="X Offset (pixels)"
               type="number"
-              value={String(form.alignmentOffsetX)}
-              onChange={(e) => setForm((prev) => ({ ...prev, alignmentOffsetX: Number(e.target.value) }))}
+              step="1"
+              value={form.alignmentOffsetX}
+              onChange={(e) => setForm((prev) => ({ ...prev, alignmentOffsetX: e.target.value }))}
             />
             <Input
               label="Y Offset (pixels)"
               type="number"
-              value={String(form.alignmentOffsetY)}
-              onChange={(e) => setForm((prev) => ({ ...prev, alignmentOffsetY: Number(e.target.value) }))}
+              step="1"
+              value={form.alignmentOffsetY}
+              onChange={(e) => setForm((prev) => ({ ...prev, alignmentOffsetY: e.target.value }))}
             />
           </div>
           <Button
@@ -279,11 +284,19 @@ export function CheckPrintSettingsPage() {
               // Print test page using the actual check rendering engine
               try {
                 const token = localStorage.getItem('accessToken');
-                // Save settings first so the test uses current values
+                // Save settings first so the test uses current values.
+                // Numeric fields are edited as raw strings — normalize
+                // like the Save handler does or the zod schema rejects.
                 await fetch(`${import.meta.env.BASE_URL}api/v1/checks/settings`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                  body: JSON.stringify(form),
+                  body: JSON.stringify({
+                    ...form,
+                    alignmentOffsetX: Number(form.alignmentOffsetX) || 0,
+                    alignmentOffsetY: Number(form.alignmentOffsetY) || 0,
+                    nextCheckNumber: Number(form.nextCheckNumber) || 1,
+                    defaultBankAccountId: form.defaultBankAccountId || null,
+                  }),
                 });
                 // Render a sample check
                 const res = await fetch(`${import.meta.env.BASE_URL}api/v1/checks/test-print`, {
