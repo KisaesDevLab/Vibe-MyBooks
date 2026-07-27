@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, Fragment } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
@@ -66,6 +66,9 @@ interface PLComparativeColumn {
   type?: 'variance' | 'percent_variance' | string;
   startDate?: string;
   endDate?: string;
+  // Present on compare=by_tag columns — QuickZoom carries it so the
+  // transaction list opens pre-filtered to the column's tag.
+  tagId?: string;
 }
 
 interface PLComparativeRow {
@@ -126,16 +129,17 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 // QuickZoom: build the /transactions URL that filters to a given account
 // and date range. Returns null when the date range is unknown (variance /
 // %-change columns), in which case the cell renders as non-clickable.
-function drillUrl(accountId: string | undefined, startDate: string | undefined, endDate: string | undefined): string | null {
+function drillUrl(accountId: string | undefined, startDate: string | undefined, endDate: string | undefined, tagId?: string): string | null {
   if (!accountId || !startDate || !endDate) return null;
   const qs = new URLSearchParams({ account: accountId, from: startDate, to: endDate });
+  if (tagId) qs.set('tagId', tagId);
   return `/transactions?${qs.toString()}`;
 }
 
 function fmt(n: number) { return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' }); }
 function fmtPct(n: number | null) { return n === null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`; }
 
-type CompareMode = '' | 'previous_period' | 'previous_year' | 'multi_period';
+type CompareMode = '' | 'previous_period' | 'previous_year' | 'multi_period' | 'by_tag';
 
 export function ProfitAndLossReport() {
   const today = new Date();
@@ -148,6 +152,13 @@ export function ProfitAndLossReport() {
   const [scope, setScope] = useSessionState<'company' | 'consolidated'>('vibe:report-pl:scope', 'company');
   const [tagId, setTagId] = useSessionState('vibe:report-pl:tagId', '');
   useClearTagOnCompanyChange(setTagId);
+  // The by-tag column view only makes sense against an explicit tag
+  // selection — when the filter returns to "All Tags" (no selection,
+  // including via the company-switch reset above), drop back to the
+  // standard single-column view rather than allowing tag columns.
+  useEffect(() => {
+    if (compare === 'by_tag' && !tagId) setCompare('');
+  }, [compare, tagId, setCompare]);
   // Display mode (Detail / Grouped / Condensed). Migrates the previous
   // boolean grouping key gracefully: an old `true` means Grouped.
   const legacyGrouped = (() => {
@@ -201,6 +212,9 @@ export function ProfitAndLossReport() {
             <option value="previous_period">vs. Previous Period</option>
             <option value="previous_year">vs. Previous Year</option>
             <option value="multi_period">Monthly Breakdown</option>
+            <option value="by_tag" disabled={!tagId} title={!tagId ? 'Select one or more tags first' : undefined}>
+              By Tag (column per tag)
+            </option>
           </select>
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
           <ReportTagFilter value={tagId} onChange={setTagId} />
@@ -469,7 +483,7 @@ function ComparativeView({ data, mode = 'detail', showPct = false, showAcctNums 
             <td className={`px-3 py-1.5 ${indent ? 'pl-8' : ''}`}>{showAcctNums && row.accountNumber ? `${row.accountNumber} — ` : ''}{row.account}</td>
             {row.values.map((v, j) => {
               const col = columns[j]!;
-              const href = drillUrl(row.accountId, col.startDate, col.endDate);
+              const href = drillUrl(row.accountId, col.startDate, col.endDate, col.tagId);
               return (
                 <Fragment key={j}>
                   <td className={`px-3 py-1.5 text-right ${isVarianceCol(col) ? 'bg-gray-50' : ''}`}>

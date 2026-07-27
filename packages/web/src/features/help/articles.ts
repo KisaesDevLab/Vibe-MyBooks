@@ -910,6 +910,19 @@ Tags can be used to filter and group reports, giving you insights like:
 - Total expenses by department
 - Revenue by project
 - Spending by location
+
+### Filtering Reports by Tags
+Every tag-aware report has a tag filter in its filter bar:
+- Pick a tag from the dropdown to add it to the filter — each selected tag appears as a chip
+- Select **multiple tags** to see activity matching *any* of them
+- Click the **X** on a chip to remove that tag from the filter
+
+### Profit and Loss by Tag (Column View)
+On the Profit and Loss report, after selecting one or more tags, choose
+**By Tag (column per tag)** in the comparison dropdown to get one column
+per selected tag plus a Total column. Clicking an amount drills into the
+transactions for that account, period, and tag. The column view requires
+an explicit tag selection — it's unavailable when the filter shows All Tags.
 `,
   },
   {
