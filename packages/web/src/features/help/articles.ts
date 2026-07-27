@@ -691,7 +691,7 @@ Vibe MyBooks can print checks on standard check stock.
 
 ### Setup
 Before printing, configure your check settings at **Settings > Check Printing**:
-- **Check format** — Voucher (full page with stub) or Standard (3-per-page)
+- **Check format** — Check on Top (check + two voucher stubs, QuickBooks-compatible stock perforated at 3.5" and 7"), Check in Middle (stub / check / stub on the same stock), or Z-Fold Pressure Seal (self-mailer)
 - **Bank information** — bank name, address, routing number, account number
 - **Company info** — whether to print your company name and address
 - **Alignment** — fine-tune horizontal and vertical offsets to align with your check stock
