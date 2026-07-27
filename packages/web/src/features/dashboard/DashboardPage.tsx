@@ -12,6 +12,22 @@ import { DashboardAiFooter } from '../../components/ui/DashboardAiFooter';
 import { OnboardingBanner } from './OnboardingBanner';
 import { useMe } from '../../api/hooks/useAuth';
 import { usePracticeVisibility } from '../../hooks/usePracticeVisibility';
+import { useLocalState } from '../../hooks/useLocalState';
+
+// Revenue-vs-Expenses period options. Values are what we persist;
+// 'ytd' resolves to "months elapsed this calendar year" at render time
+// so the choice stays correct across a year boundary.
+type TrendPeriod = '3' | '6' | '12' | '24' | 'ytd';
+const TREND_PERIODS: Array<{ value: TrendPeriod; label: string }> = [
+  { value: '3', label: 'Last 3 Months' },
+  { value: '6', label: 'Last 6 Months' },
+  { value: '12', label: 'Last 12 Months' },
+  { value: '24', label: 'Last 24 Months' },
+  { value: 'ytd', label: 'Year to Date' },
+];
+function trendPeriodMonths(p: TrendPeriod): number {
+  return p === 'ytd' ? new Date().getMonth() + 1 : parseInt(p, 10);
+}
 
 function fmt(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -103,10 +119,25 @@ export function DashboardPage() {
   });
   const summary = summaryQ.data;
 
+  // Chart period of view. The consolidated summary always fetches the
+  // 6-month default, so switching periods refetches only the dedicated
+  // /dashboard/trend endpoint — not all nine panels. Persisted in
+  // localStorage as a durable display preference.
+  const [trendPeriod, setTrendPeriod] = useLocalState<TrendPeriod>('vibe:dashboard:trendPeriod', '6');
+  const trendMonths = trendPeriodMonths(trendPeriod);
+  const trendQ = useQuery({
+    queryKey: ['dashboard', 'trend', trendMonths],
+    queryFn: () => apiClient<{ data: Array<{ month: string; revenue: number; expenses: number }> }>(`/dashboard/trend?months=${trendMonths}`),
+    enabled: !!summary && trendMonths !== 6,
+  });
+
   if (summaryQ.isLoading) return <LoadingSpinner className="py-12" />;
 
   const snapshot = summary?.snapshot ?? null;
-  const trend = summary?.trend ?? null;
+  // Default period renders straight from the summary payload (no extra
+  // request); any other period uses the dedicated trend query, keeping
+  // the previous data visible while the new range loads.
+  const trend = trendMonths === 6 ? (summary?.trend ?? null) : (trendQ.data ?? summary?.trend ?? null);
   const cash = summary?.cashPosition ?? null;
   const receivables = summary?.receivables ?? null;
   const payables = summary?.payables ?? null;
@@ -270,7 +301,19 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue vs Expense Chart */}
         <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">Revenue vs Expenses (Last 6 Months)</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-700">Revenue vs Expenses</h2>
+            <select
+              value={trendPeriod}
+              onChange={(e) => setTrendPeriod(e.target.value as TrendPeriod)}
+              className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-700 bg-white"
+              aria-label="Chart period"
+            >
+              {TREND_PERIODS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </div>
           {trend?.data && trend.data.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={trend.data}>
