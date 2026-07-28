@@ -1694,6 +1694,38 @@ Revoked keys immediately stop working. Any integration using that key will recei
 
   // ─── Security ────────────────────────────────────────────────
   {
+    id: 'screen-sharing',
+    title: 'Screen Sharing (Peer Support)',
+    category: 'Security',
+    summary: 'Share your MyBooks screen with another user, safely and read-only.',
+    body: `
+## Screen Sharing
+
+Share your MyBooks screen live with another MyBooks user — for tech support, a reviewer question, or walking a client through a report. Viewers can look and point, never click.
+
+### What viewers can and cannot see
+- **Only this MyBooks browser tab.** Never your desktop, other tabs, or other programs.
+- Everything you **type is masked** before it leaves your computer, and Social Security, EIN, bank routing, and card numbers are automatically redacted.
+- Password, security, API-key, and user-administration screens are **blocked entirely** — viewers see a placeholder.
+- Nothing is ever recorded. When the session ends, the viewer's screen goes blank.
+
+### Sharing your screen
+1. Click **Share my screen** in the header and read the summary of what is shared.
+2. Read the 8-character code aloud to the person who should watch (it is grouped like \`4F7K-9RB2\` to be easy to say).
+3. When they enter it, you'll see **their name, email, and firm** — click **Allow** or **Deny**. Nothing is transmitted until you click Allow.
+4. If the viewer is from **another firm**, or doesn't have access to the company you have open, you'll confirm an extra warning first.
+5. A red banner shows everyone watching, with a ✕ to remove any viewer, the time remaining, and **Stop sharing**.
+
+Sessions end automatically after 60 minutes, after 90 seconds of inactivity, or when you close the tab. The same code works for additional viewers while the session lasts — each one still needs your approval.
+
+### Watching someone's screen
+Click **Join a screen share**, enter the code they read to you, and wait for their approval. Click anywhere on their screen to show them a pointer. Use **Leave** when you're done.
+
+### Staying safe
+**Only approve a share request from someone you were already talking to.** Support scams begin with an unexpected "can you share your screen?" — if a request surprises you, deny it. Every session is logged (who watched, when, for how long) under **Settings > Screen Sharing** for firm admins.
+`,
+  },
+  {
     id: 'two-factor-auth',
     title: 'Two-Factor Authentication (2FA)',
     category: 'Security',

@@ -125,7 +125,7 @@ export function CheckPrintSettingsPage() {
     setForm((f) => ({ ...f, [field]: e.target.value }));
 
   return (
-    <div>
+    <div data-share-block>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Check Print Settings</h1>
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
         {/* Format */}

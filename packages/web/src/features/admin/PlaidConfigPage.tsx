@@ -65,7 +65,7 @@ export function PlaidConfigPage() {
   if (isLoading) return <LoadingSpinner className="py-12" />;
 
   return (
-    <div className="p-6 space-y-6">
+    <div data-share-block className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Landmark className="h-6 w-6 text-gray-700" />
         <h1 className="text-2xl font-bold text-gray-900">Plaid Integration</h1>

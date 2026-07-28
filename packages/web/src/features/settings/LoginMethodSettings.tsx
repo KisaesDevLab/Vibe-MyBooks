@@ -92,7 +92,7 @@ export function LoginMethodSettings() {
   if (!showPasskeySection && !showMagicLinkSection) return null;
 
   return (
-    <div className="space-y-6">
+    <div data-share-block className="space-y-6">
       <h2 className="text-lg font-semibold text-gray-900">Login Methods</h2>
 
       {/* Passkey Section */}

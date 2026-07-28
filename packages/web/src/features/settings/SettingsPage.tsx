@@ -23,6 +23,7 @@ import {
   CreditCard,
   Brain,
   ListTree,
+  MonitorUp,
 } from 'lucide-react';
 
 const settingsCards = [
@@ -97,6 +98,12 @@ const settingsCards = [
     icon: HardDrive,
     title: 'Backup & Restore',
     description: 'Create backups and restore from previous snapshots',
+  },
+  {
+    to: '/settings/screen-share',
+    icon: MonitorUp,
+    title: 'Screen Sharing',
+    description: 'Peer screen-share settings, per-viewer approvals, and the session log',
   },
   {
     to: '/settings/audit-log',

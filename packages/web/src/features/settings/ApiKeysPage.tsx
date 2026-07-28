@@ -97,7 +97,7 @@ export function ApiKeysPage() {
   const keys = data?.keys || [];
 
   return (
-    <div>
+    <div data-share-block>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">API Keys</h1>

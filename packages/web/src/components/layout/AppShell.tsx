@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
+import { SharePanel } from '../../features/share/SharePanel';
 import { ImpersonationBanner } from './ImpersonationBanner';
 import { Menu } from 'lucide-react';
 import { ChatFab } from '../../features/chat/ChatFab';
@@ -134,6 +135,10 @@ export function AppShell() {
               </span>
             </span>
           )}
+          <span className="flex-1" />
+          {/* Peer screen share — renders nothing unless the feature is
+              enabled for this tenant + user (capabilities probe 404s). */}
+          <SharePanel />
         </div>
         <div className="p-4 lg:p-6">
           <Outlet />

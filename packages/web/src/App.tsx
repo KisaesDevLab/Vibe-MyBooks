@@ -158,6 +158,8 @@ const ReconciliationDetailReport = lazyNamed(() => import('./features/reports/Re
 const BankDepositPage = lazyNamed(() => import('./features/banking/BankDepositPage'), 'BankDepositPage');
 const StatementUploadPage = lazyNamed(() => import('./features/banking/StatementUploadPage'), 'StatementUploadPage');
 const StatementImportsPage = lazyNamed(() => import('./features/banking/StatementImportsPage'), 'StatementImportsPage');
+const ShareViewerPage = lazyNamed(() => import('./features/share/ShareViewerPage'), 'ShareViewerPage');
+const ShareAdminPage = lazyNamed(() => import('./features/share/ShareAdminPage'), 'ShareAdminPage');
 const DailySalesEntriesPage = lazyNamed(() => import('./features/daily-sales/DailySalesEntriesPage'), 'DailySalesEntriesPage');
 const DailySalesEntryPage = lazyNamed(() => import('./features/daily-sales/DailySalesEntryPage'), 'DailySalesEntryPage');
 const DailySalesTemplatesPage = lazyNamed(() => import('./features/daily-sales/DailySalesTemplatesPage'), 'DailySalesTemplatesPage');
@@ -393,6 +395,8 @@ export function App() {
             <Route path="/banking/feed" element={<BankFeedPage />} />
             <Route path="/banking/statement-upload" element={<StatementUploadPage />} />
             <Route path="/banking/statement-imports" element={<StatementImportsPage />} />
+            <Route path="/share/view" element={<ShareViewerPage />} />
+            <Route path="/settings/screen-share" element={<ShareAdminPage />} />
             <Route path="/daily-sales" element={<DailySalesEntriesPage />} />
             <Route path="/daily-sales/templates" element={<DailySalesTemplatesPage />} />
             <Route path="/daily-sales/new" element={<DailySalesEntryPage />} />

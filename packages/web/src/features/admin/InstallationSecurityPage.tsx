@@ -260,7 +260,7 @@ export function InstallationSecurityPage() {
     : [];
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div data-share-block className="max-w-3xl mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-blue-600" /> Installation Security

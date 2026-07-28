@@ -159,7 +159,7 @@ export function TfaSettingsPage() {
     : null;
 
   return (
-    <div>
+    <div data-share-block>
       <ConfirmDialog
         open={!!confirmConfig}
         title={confirmConfig?.title ?? ''}

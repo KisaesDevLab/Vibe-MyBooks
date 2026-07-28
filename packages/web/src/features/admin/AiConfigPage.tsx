@@ -72,7 +72,7 @@ function ModelInput({ value, onChange, models, loading, listError, label, placeh
 }) {
   const id = useId();
   return (
-    <div>
+    <div data-share-block>
       {label !== undefined && label !== '' && (
         <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
       )}

@@ -174,7 +174,7 @@ export function TeamPage() {
   const users = data?.users || [];
 
   return (
-    <div>
+    <div data-share-block>
       <ConfirmDialog
         open={!!deactivateTarget}
         title="Deactivate team member?"
