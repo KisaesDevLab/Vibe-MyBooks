@@ -1850,6 +1850,14 @@ If your bank requires re-login, a "Needs Attention" banner appears. Click **Fix 
 ## AI Bank Statement Import
 
 Go to **Banking > Import Statement**, upload a PDF or image, and AI extracts all transactions into a review table. Select which to import, and they appear in your bank feed for categorization.
+
+### Statement Processing list
+
+**Banking > Statement Processing** shows every uploaded statement and its status — Processing, Pending review, Imported, or Failed. From there you can:
+
+- **Review & import** a statement whose extraction finished
+- **Re-process** a failed or pending-review statement — it re-runs extraction from the original file (useful after an OCR engine hiccup or a settings fix). Already-imported statements can't be re-processed, to avoid duplicate transactions.
+- **Delete** a statement's processing record
 `,
   },
 

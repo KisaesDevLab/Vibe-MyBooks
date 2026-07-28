@@ -4,21 +4,22 @@
 
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useStatementJobs, useDeleteStatementJob, type StatementJobSummary } from '../../api/hooks/useAi';
+import { useStatementJobs, useDeleteStatementJob, useReprocessStatementJob, type StatementJobSummary } from '../../api/hooks/useAi';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useToast } from '../../components/ui/Toaster';
 import { FileText, Upload, Trash2, AlertTriangle, RefreshCw } from 'lucide-react';
 
 type StatusKey = 'processing' | 'pending' | 'imported' | 'failed';
-type Disposition = { key: StatusKey; label: string; cls: string; canResume: boolean };
+type Disposition = { key: StatusKey; label: string; cls: string; canResume: boolean; canReprocess: boolean };
 
 // Map a job row to a user-facing status. imported_at wins over the raw job
 // status so a re-importable/finished statement reads correctly.
 function disposition(job: StatementJobSummary): Disposition {
-  if (job.importedAt) return { key: 'imported', label: 'Imported', cls: 'bg-green-100 text-green-700', canResume: true };
-  if (job.status === 'failed' || job.status === 'cancelled') return { key: 'failed', label: 'Failed', cls: 'bg-red-100 text-red-700', canResume: false };
-  if (job.status === 'complete') return { key: 'pending', label: 'Pending review', cls: 'bg-amber-100 text-amber-700', canResume: true };
-  return { key: 'processing', label: 'Processing…', cls: 'bg-gray-100 text-gray-600', canResume: false };
+  if (job.importedAt) return { key: 'imported', label: 'Imported', cls: 'bg-green-100 text-green-700', canResume: true, canReprocess: false };
+  if (job.status === 'failed' || job.status === 'cancelled') return { key: 'failed', label: 'Failed', cls: 'bg-red-100 text-red-700', canResume: false, canReprocess: true };
+  if (job.status === 'complete') return { key: 'pending', label: 'Pending review', cls: 'bg-amber-100 text-amber-700', canResume: true, canReprocess: true };
+  return { key: 'processing', label: 'Processing…', cls: 'bg-gray-100 text-gray-600', canResume: false, canReprocess: false };
 }
 
 const STATUS_FILTERS: { value: '' | StatusKey; label: string }[] = [
@@ -41,7 +42,16 @@ export function StatementImportsPage() {
   const justUploaded = Number(params.get('uploaded') || '0');
   const { data, isLoading, isError, refetch } = useStatementJobs();
   const del = useDeleteStatementJob();
+  const reprocess = useReprocessStatementJob();
+  const toast = useToast();
   const [statusFilter, setStatusFilter] = useState<'' | StatusKey>('');
+
+  const onReprocess = (job: StatementJobSummary) => {
+    reprocess.mutate(job.jobId, {
+      onSuccess: () => toast.info(`Re-processing ${job.fileName} — extracting in the background.`),
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Couldn’t re-process the statement.'),
+    });
+  };
 
   const jobs = data?.jobs ?? [];
   const processingCount = jobs.filter((j) => j.status === 'pending' || j.status === 'processing').length;
@@ -128,7 +138,7 @@ export function StatementImportsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {jobs.map((job) => {
+              {visibleJobs.map((job) => {
                 const d = disposition(job);
                 return (
                   <tr key={job.jobId} className="hover:bg-gray-50">
@@ -147,6 +157,17 @@ export function StatementImportsPage() {
                         {d.canResume && (
                           <Button size="sm" variant="secondary" onClick={() => navigate(`/banking/statement-upload?resume=${job.jobId}`)}>
                             {job.importedAt ? 'View' : 'Review & import'}
+                          </Button>
+                        )}
+                        {d.canReprocess && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            title="Re-process — extract this statement again from the original file"
+                            onClick={() => onReprocess(job)}
+                            loading={reprocess.isPending && reprocess.variables === job.jobId}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-1" /> Re-process
                           </Button>
                         )}
                         <Button size="sm" variant="secondary" onClick={() => del.mutate(job.jobId)} loading={del.isPending && del.variables === job.jobId}>

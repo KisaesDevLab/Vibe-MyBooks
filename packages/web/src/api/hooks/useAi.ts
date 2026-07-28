@@ -871,3 +871,15 @@ export function useDeleteStatementJob() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['statement-jobs'] }),
   });
 }
+
+// Re-run a failed or pending-review parse from its original attachment. The
+// server replaces the old job row, so refetching the list shows the statement
+// back in "Processing…".
+export function useReprocessStatementJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) =>
+      apiClient<{ jobId: string }>(`/ai/parse/statement/jobs/${jobId}/reprocess`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['statement-jobs'] }),
+  });
+}
