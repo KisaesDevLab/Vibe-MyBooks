@@ -94,6 +94,13 @@ export default defineConfig(({ command }) => ({
         target: process.env.VITE_API_URL || `http://localhost:${process.env.PORT || '3001'}`,
         changeOrigin: true,
       },
+      // Peer screen share WebSocket gateway (dev parity with the nginx /ws/
+      // location in packages/web/Dockerfile).
+      '/ws': {
+        target: process.env.VITE_API_URL || `http://localhost:${process.env.PORT || '3001'}`,
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 }));

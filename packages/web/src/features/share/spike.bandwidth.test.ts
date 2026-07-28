@@ -83,14 +83,18 @@ describe('rrweb bandwidth spike (Phase 0.7)', () => {
     // (maskAllInputs → the search text never appears in the stream.)
   });
 
-  it('never serializes typed input values with maskAllInputs (8.10 fixture)', async () => {
+  it('never serializes typed input values — incl. TYPELESS inputs (8.10 fixture)', async () => {
+    // The input deliberately has NO type attribute: rrweb 1.1.3's
+    // maskAllInputs flag matches on the type attribute and lets typeless
+    // inputs leak; tag-keyed maskInputOptions (what recorder.ts ships) is
+    // the fix.
     document.body.innerHTML = '<input id="ssn" /><div id="out"></div>';
     const frames: unknown[] = [];
     const stop = rrweb.record({
       emit(ev) {
         frames.push(ev);
       },
-      maskAllInputs: true,
+      maskInputOptions: { input: true, textarea: true, select: true, text: true, password: true } as never,
     });
     const input = document.getElementById('ssn') as HTMLInputElement;
     input.value = '123-45-6789';

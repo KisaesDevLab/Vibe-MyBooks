@@ -76,7 +76,21 @@ export async function startRecorder(cb: RecorderCallbacks): Promise<RecorderHand
       if (critical || bufferBytes >= FLUSH_BYTES) flush();
     },
     // ── Masking policy (Phase 8; see masking.ts + docs/screen-share.md) ──
-    maskAllInputs: true, // 8.1 — every input masked, no allowlist yet
+    // NOT maskAllInputs:true — rrweb 1.1.3 expands that flag to a map of
+    // input TYPES and matches them against the `type` ATTRIBUTE, so an
+    // `<input>` with no explicit type attribute (most of this app) leaks its
+    // value through the snapshot and attribute-mutation paths (caught by the
+    // 14.12 E2E). maskInputValue() also honors a TAG-name key, so an explicit
+    // map with `input: true` masks every input element in every path
+    // regardless of its type attribute.
+    maskInputOptions: {
+      input: true, // tag-name match — covers typeless inputs (the v1 gap)
+      textarea: true,
+      select: true,
+      color: true, date: true, 'datetime-local': true, email: true,
+      month: true, number: true, range: true, search: true, tel: true,
+      text: true, time: true, url: true, week: true, password: true,
+    } as Record<string, boolean>,
     maskInputFn: maskInputFixed, // 8.6 — fixed-length, hides value length
     maskTextFn: redactSensitiveText, // 8.4 — pattern redaction on ALL text
     maskTextClass: 'rr-mask',

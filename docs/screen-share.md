@@ -83,8 +83,15 @@ Runtime layers on top of the env master switch:
 
 ## PII masking policy (Phase 8) — component audit
 
-Global posture: **`maskAllInputs: true`** — every input on every route is
-masked with a fixed-length mask (`maskInputFixed`, width never leaks length).
+Global posture: **every input on every route is masked** with a fixed-length
+mask (`maskInputFixed`, width never leaks length) — via explicit
+`maskInputOptions` keyed by TAG (`input: true`), **not** the `maskAllInputs`
+flag. rrweb 1.1.3 expands `maskAllInputs` into a map of input *types* and
+matches it against the `type` *attribute*, so an `<input>` with no explicit
+type attribute (most of this app) leaks its value through the snapshot and
+attribute-mutation serialization paths. The 14.12 E2E caught this against a
+live browser; `maskInputValue()` also honors a tag-name key, which closes all
+three paths (observer, mutation, snapshot) regardless of type attribute.
 All text nodes pass through `redactSensitiveText` (SSN/ITIN `xxx-xx-xxxx`,
 EIN `xx-xxxxxxx`, ABA routing numbers with checksum validation, 13–19-digit
 Luhn-valid card numbers). Element-scoped decisions use selectors (D1 — rrweb

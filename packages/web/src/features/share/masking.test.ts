@@ -76,7 +76,7 @@ describe('block selector', () => {
 });
 
 describe('recorder configuration (Phase 7.5 / 8.1 guard)', () => {
-  it('passes maskAllInputs + pattern fns + selectors to rrweb.record', async () => {
+  it('passes tag-keyed maskInputOptions + pattern fns + selectors to rrweb.record', async () => {
     const recordMock = vi.fn(() => () => undefined) as unknown as {
       (...args: unknown[]): unknown;
       takeFullSnapshot?: unknown;
@@ -86,7 +86,12 @@ describe('recorder configuration (Phase 7.5 / 8.1 guard)', () => {
     const { startRecorder } = await import('./recorder');
     const handle = await startRecorder({ onBatch: () => undefined, bufferedAmount: () => 0 });
     const cfg = (recordMock as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]![0] as Record<string, unknown>;
-    expect(cfg['maskAllInputs']).toBe(true);
+    // The rrweb 1.1.3 typeless-input gap (caught by the 14.12 E2E): masking
+    // must be keyed by TAG (`input: true`), not only by type attribute.
+    const maskOpts = cfg['maskInputOptions'] as Record<string, boolean>;
+    expect(maskOpts['input']).toBe(true);
+    expect(maskOpts['textarea']).toBe(true);
+    expect(maskOpts['password']).toBe(true);
     expect(typeof cfg['maskTextFn']).toBe('function');
     expect(typeof cfg['maskInputFn']).toBe('function');
     expect(cfg['blockSelector']).toContain('input[type="password"]');
