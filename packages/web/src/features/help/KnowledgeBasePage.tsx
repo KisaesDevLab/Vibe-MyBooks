@@ -3,14 +3,16 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, BookOpen, ChevronRight, Plus, Pencil, Trash2, X, Eye, EyeOff } from 'lucide-react';
+import { Search, BookOpen, ChevronRight, Plus, Pencil, Trash2, X, Eye, EyeOff, MonitorUp, MonitorPlay } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { useMe } from '../../api/hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { articles as staticArticles, categories as staticCategories } from './articles';
+import { useShareCapabilities } from '../share/useShare';
+import { openShareModal } from '../share/shareLauncher';
 
 interface KBArticle {
   id: string;
@@ -96,6 +98,8 @@ export function KnowledgeBasePage() {
       <p className="text-sm text-gray-500 mb-6">
         Learn how to use Vibe MyBooks with step-by-step guides and accounting concepts.
       </p>
+
+      <ShareLaunchCard />
 
       <div className="relative max-w-md mb-8">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -203,6 +207,41 @@ export function KnowledgeBasePage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+// ── Live screen share launcher ──
+//
+// The share entry points live here (not in the app header) so support flows
+// start from the help surface. Renders nothing unless the feature is enabled
+// for this tenant + user (the capabilities probe 404s when it's off). The
+// session itself — banner, approval prompts, recorder — is owned by the
+// globally-mounted SharePanel; these buttons only kick it off.
+
+function ShareLaunchCard() {
+  const navigate = useNavigate();
+  const { data: caps } = useShareCapabilities();
+  if (!caps?.enabled) return null;
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-8 max-w-2xl">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold text-gray-900">Live screen share</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Show your MyBooks screen to another user for support, or watch theirs. View-only,
+            masked, and every viewer is approved by name — see the Screen Sharing article below.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button size="sm" onClick={() => openShareModal()} title="Share my screen with another MyBooks user">
+            <MonitorUp className="h-4 w-4 mr-1" aria-hidden="true" /> Share my screen
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => navigate('/share/view')} title="Join a screen share someone else started">
+            <MonitorPlay className="h-4 w-4 mr-1" aria-hidden="true" /> Join a screen share
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

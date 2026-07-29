@@ -9,8 +9,7 @@
 // post-session summary.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MonitorUp, MonitorPlay, Copy, X, ShieldAlert, Clock } from 'lucide-react';
+import { Copy, X, ShieldAlert, Clock } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toaster';
 import {
@@ -29,6 +28,7 @@ import {
 import { connectShareSocket, type ShareSocket, type ShareEnvelope } from './shareSocket';
 import { startRecorder, type RecorderHandle } from './recorder';
 import { SHARE_MASKING_SUMMARY } from './masking';
+import { registerShareOpener } from './shareLauncher';
 
 const IDLE_TIMEOUT_MS = 90_000; // mirrors SHARE_IDLE_TIMEOUT_SECONDS default
 const IDLE_WARNING_MS = IDLE_TIMEOUT_MS - 30_000; // 9.12 warning lead
@@ -57,7 +57,6 @@ function fmtRemaining(ms: number): string {
 export function SharePanel() {
   const { data: caps } = useShareCapabilities();
   const toast = useToast();
-  const navigate = useNavigate();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [session, setSession] = useState<{ sessionId: string; joinCode: string; expiresAt: string } | null>(null);
@@ -246,6 +245,14 @@ export function SharePanel() {
     };
   }, [sessionId, endSession]);
 
+  // Knowledge Base launcher buttons open the consent modal through the
+  // registry; only register while no session is live (the entry point is
+  // hidden during one anyway).
+  useEffect(() => {
+    if (!caps?.enabled || session) return;
+    return registerShareOpener(() => setModalOpen(true));
+  }, [caps?.enabled, session]);
+
   if (!caps?.enabled) return null;
 
   const expiresAtMs = live ? new Date(live.session.expiresAt).getTime() : session ? new Date(session.expiresAt).getTime() : 0;
@@ -259,31 +266,10 @@ export function SharePanel() {
 
   return (
     <>
-      {/* Header entry points (9.1, 10.1) */}
-      {!session && (
-        <span className="inline-flex items-center">
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-            title="Share my screen with another MyBooks user"
-          >
-            <MonitorUp className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Share my screen</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/share/view')}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-            title="Join a screen share someone else started"
-          >
-            <MonitorPlay className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden lg:inline">Join a screen share</span>
-          </button>
-        </span>
-      )}
-
-      {/* Pre-share consent modal (9.2) + code display (9.3) */}
+      {/* Pre-share consent modal (9.2) + code display (9.3). The entry
+          buttons live on the Knowledge Base page (see shareLauncher.ts);
+          this panel stays mounted in the AppShell so the banner, approval
+          prompts, and recorder survive navigation during a session. */}
       {modalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="Share my screen">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">

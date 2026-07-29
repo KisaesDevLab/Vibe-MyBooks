@@ -71,9 +71,11 @@ test.describe.serial('peer screen share — full flow', () => {
     await viewerB?.context.close();
   });
 
-  test('sharer starts a session and gets a one-time join code', async () => {
+  test('sharer starts a session from the Knowledge Base and gets a one-time join code', async () => {
     const p = sharer.page;
-    await p.getByTitle('Share my screen with another MyBooks user').click();
+    // Entry points live on the Knowledge Base page (not the app header).
+    await p.goto('/help');
+    await p.getByRole('button', { name: 'Share my screen' }).click();
     // Pre-share consent modal: plain language, no pre-checked boxes (9.2).
     await expect(p.getByText('Only this MyBooks tab is shared')).toBeVisible();
     await p.getByRole('button', { name: 'Start sharing' }).click();
@@ -181,7 +183,8 @@ test.describe.serial('peer screen share — full flow', () => {
     const s = sharer.page;
     await s.getByRole('button', { name: 'Stop sharing' }).click();
     await expect(s.getByText('Sharing your screen')).not.toBeVisible({ timeout: 10_000 });
-    // Entry point returns.
-    await expect(s.getByTitle('Share my screen with another MyBooks user')).toBeVisible();
+    // Entry point is available again on the Knowledge Base page.
+    await s.goto('/help');
+    await expect(s.getByRole('button', { name: 'Share my screen' })).toBeVisible({ timeout: 10_000 });
   });
 });

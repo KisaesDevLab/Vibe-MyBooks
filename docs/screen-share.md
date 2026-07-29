@@ -159,8 +159,11 @@ export, live-session terminate). Per-user history: `GET /share/sessions/mine`.
 
 ## Runbook (15.5)
 
-**Start a session:** header → *Share my screen* → read the consent copy →
-Start → read the grouped code aloud → approve each viewer by name. Cross-firm
+**Start a session:** Help → Knowledge Base → *Share my screen* (the Live
+screen share panel) → read the consent copy → Start → read the grouped code
+aloud → approve each viewer by name. The launcher lives on the Knowledge
+Base page only; the banner/approval UI follows the sharer everywhere once a
+session is live. Cross-firm
 viewers and entity-scope mismatches each require their own checkbox.
 
 **Connection trouble:** the sharer banner and viewer status pill show

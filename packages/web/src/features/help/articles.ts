@@ -1710,7 +1710,7 @@ Share your MyBooks screen live with another MyBooks user — for tech support, a
 - Nothing is ever recorded. When the session ends, the viewer's screen goes blank.
 
 ### Sharing your screen
-1. Click **Share my screen** in the header and read the summary of what is shared.
+1. Go to **Help > Knowledge Base** and click **Share my screen** in the Live screen share panel, then read the summary of what is shared.
 2. Read the 8-character code aloud to the person who should watch (it is grouped like \`4F7K-9RB2\` to be easy to say).
 3. When they enter it, you'll see **their name, email, and firm** — click **Allow** or **Deny**. Nothing is transmitted until you click Allow.
 4. If the viewer is from **another firm**, or doesn't have access to the company you have open, you'll confirm an extra warning first.
@@ -1719,7 +1719,7 @@ Share your MyBooks screen live with another MyBooks user — for tech support, a
 Sessions end automatically after 60 minutes, after 90 seconds of inactivity, or when you close the tab. The same code works for additional viewers while the session lasts — each one still needs your approval.
 
 ### Watching someone's screen
-Click **Join a screen share**, enter the code they read to you, and wait for their approval. Click anywhere on their screen to show them a pointer. Use **Leave** when you're done.
+Go to **Help > Knowledge Base** and click **Join a screen share**, enter the code they read to you, and wait for their approval. Click anywhere on their screen to show them a pointer. Use **Leave** when you're done.
 
 ### Staying safe
 **Only approve a share request from someone you were already talking to.** Support scams begin with an unexpected "can you share your screen?" — if a request surprises you, deny it. Every session is logged (who watched, when, for how long) under **Settings > Screen Sharing** for firm admins.
