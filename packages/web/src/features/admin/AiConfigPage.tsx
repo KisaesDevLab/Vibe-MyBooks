@@ -401,6 +401,18 @@ export function AiConfigPage() {
         </div>
       )}
 
+      {/* MIG-2: provider credentials / task assignment / fallback chains are inert in router mode */}
+      {(data as { aiMode?: string } | undefined)?.aiMode === 'router' && (
+        <div className="p-4 bg-sky-50 border border-sky-300 rounded-lg text-sm text-sky-900 max-w-2xl">
+          <strong>Managed by Vibe AI Router.</strong> This installation sends AI requests through
+          the appliance&apos;s Vibe AI Router (VIBE_AI_MODE=router). Model choice, data-boundary
+          policy, PII scrubbing, budgets, and cost tracking are configured per task class in the
+          router console — the provider credentials, task assignments, and fallback chains below
+          are inactive (kept for standalone direct deployments). Consent, per-company task
+          toggles, GLM-OCR, and the local extraction pipeline still apply and stay on this page.
+        </div>
+      )}
+
       <div className="max-w-2xl space-y-6">
         {/* System disclosure — tier 1 of two-tier consent. AI cannot
             be enabled until an admin accepts this. */}
