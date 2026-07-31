@@ -3,12 +3,14 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useEffect, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient, setTokens } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Pagination } from '../../components/ui/Pagination';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import {
   UsersRound,
   KeyRound,
@@ -38,6 +40,11 @@ interface AdminUser {
 
 interface TenantOption { id: string; name: string }
 
+// Rows per page. 'all' asks the API for everything in one request.
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
+const DEFAULT_PAGE_SIZE = '50';
+const ALL_LIMIT = 5000;
+
 export function UserListPage() {
   const queryClient = useQueryClient();
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null);
@@ -51,6 +58,10 @@ export function UserListPage() {
   const [companyAccessUserId, setCompanyAccessUserId] = useState<string | null>(null);
   const [tenantAccessUserId, setTenantAccessUserId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [offset, setOffset] = useState(0);
+  const effectiveLimit = pageSize === 'all' ? ALL_LIMIT : parseInt(pageSize, 10);
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ email: '', password: '', displayName: '', tenantId: '', role: 'owner' });
   const [showCreatePassword, setShowCreatePassword] = useState(false);
@@ -76,13 +87,22 @@ export function UserListPage() {
     onError: (err: Error) => setCreateError(err.message || 'Failed to create user'),
   });
 
-  const { data: users, isLoading, error } = useQuery({
-    queryKey: ['admin', 'users'],
+  // A narrower search or a bigger page can leave the current offset past the
+  // end of the result set, which would render an empty table.
+  useEffect(() => setOffset(0), [debouncedSearch, pageSize]);
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['admin', 'users', { search: debouncedSearch, limit: effectiveLimit, offset }],
     queryFn: async () => {
-      const res = await apiClient<{ users: AdminUser[] }>('/admin/users');
-      return res.users;
+      const params = new URLSearchParams({ limit: String(effectiveLimit), offset: String(offset) });
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+      return apiClient<{ users: AdminUser[]; total: number }>(`/admin/users?${params}`);
     },
+    placeholderData: keepPreviousData,
   });
+
+  const users = data?.users;
+  const total = data?.total ?? 0;
 
   const resetPasswordMutation = useMutation({
     mutationFn: ({ userId, password }: { userId: string; password: string }) =>
@@ -195,7 +215,10 @@ export function UserListPage() {
         <div className="flex items-center gap-3">
           <UsersRound className="h-6 w-6 text-gray-700" />
           <h1 className="text-2xl font-bold text-gray-900">All Users</h1>
-          <span className="text-sm text-gray-500">({users?.length ?? 0} total)</span>
+          <span className="text-sm text-gray-500">
+            ({total} {search ? 'matching' : 'total'})
+          </span>
+          {isFetching && <LoadingSpinner size="sm" />}
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -297,12 +320,7 @@ export function UserListPage() {
         />
       )}
 
-      {(() => {
-        const query = search.toLowerCase().trim();
-        const filtered = query
-          ? users?.filter(u => u.email.toLowerCase().includes(query) || (u.displayName || '').toLowerCase().includes(query) || u.tenantName.toLowerCase().includes(query))
-          : users;
-        return !filtered || filtered.length === 0 ? (
+      {!users || users.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500">
           {search ? 'No users match your search.' : 'No users found.'}
         </div>
@@ -323,7 +341,7 @@ export function UserListPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((u) => (
+                {users.map((u) => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-900">{u.email}</td>
                     <td className="px-4 py-3 text-gray-700">{u.displayName || '-'}</td>
@@ -442,8 +460,18 @@ export function UserListPage() {
             </table>
           </div>
         </div>
-      );
-      })()}
+      )}
+
+      <Pagination
+        total={total}
+        limit={effectiveLimit}
+        offset={offset}
+        onChange={setOffset}
+        unit="users"
+        pageSize={pageSize}
+        pageSizeOptions={PAGE_SIZE_OPTIONS}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* Create User Modal */}
       {showCreate && (
