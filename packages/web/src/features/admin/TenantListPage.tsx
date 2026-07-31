@@ -2,14 +2,16 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, setTokens } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Pagination } from '../../components/ui/Pagination';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { Building2, Eye, Power, LogIn, Search, Plus, X } from 'lucide-react';
 
 interface TenantRow {
@@ -23,10 +25,20 @@ interface TenantRow {
   createdAt: string;
 }
 
+// Rows per page. 'all' asks the API for everything in one request (the same
+// unpaged shape the tenant-picker dropdowns use).
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
+const DEFAULT_PAGE_SIZE = '50';
+const ALL_LIMIT = 5000;
+
 export function TenantListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [offset, setOffset] = useState(0);
+  const effectiveLimit = pageSize === 'all' ? ALL_LIMIT : parseInt(pageSize, 10);
   const [showCreate, setShowCreate] = useState(false);
   const [newCompany, setNewCompany] = useState({ companyName: '', entityType: '' });
   const [createError, setCreateError] = useState('');
@@ -50,13 +62,22 @@ export function TenantListPage() {
     },
   });
 
-  const { data: tenants, isLoading, error } = useQuery({
-    queryKey: ['admin', 'tenants'],
+  // A narrower search or a bigger page can leave the current offset past the
+  // end of the result set, which would render an empty table.
+  useEffect(() => setOffset(0), [debouncedSearch, pageSize]);
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['admin', 'tenants', { search: debouncedSearch, limit: effectiveLimit, offset }],
     queryFn: async () => {
-      const res = await apiClient<{ tenants: TenantRow[] }>('/admin/tenants');
-      return res.tenants;
+      const params = new URLSearchParams({ limit: String(effectiveLimit), offset: String(offset) });
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+      return apiClient<{ tenants: TenantRow[]; total: number }>(`/admin/tenants?${params}`);
     },
+    placeholderData: keepPreviousData,
   });
+
+  const tenants = data?.tenants;
+  const total = data?.total ?? 0;
 
   const disableMutation = useMutation({
     mutationFn: (id: string) =>
@@ -102,14 +123,6 @@ export function TenantListPage() {
     );
   }
 
-  const query = search.toLowerCase().trim();
-  const filtered = query
-    ? tenants?.filter((t) =>
-        t.name.toLowerCase().includes(query) ||
-        t.slug.toLowerCase().includes(query)
-      )
-    : tenants;
-
   return (
     <div className="p-6 space-y-6">
       {switchError && (
@@ -124,7 +137,10 @@ export function TenantListPage() {
         <div className="flex items-center gap-3">
           <Building2 className="h-6 w-6 text-gray-700" />
           <h1 className="text-2xl font-bold text-gray-900">Tenants</h1>
-          <span className="text-sm text-gray-500">({filtered?.length ?? 0} of {tenants?.length ?? 0})</span>
+          <span className="text-sm text-gray-500">
+            ({total} {search ? 'matching' : 'total'})
+          </span>
+          {isFetching && <LoadingSpinner size="sm" />}
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -143,7 +159,7 @@ export function TenantListPage() {
         </div>
       </div>
 
-      {!filtered || filtered.length === 0 ? (
+      {!tenants || tenants.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500">
           {search ? 'No tenants match your search.' : 'No tenants found.'}
         </div>
@@ -163,7 +179,7 @@ export function TenantListPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((t) => (
+                {tenants.map((t) => (
                   <tr
                     key={t.id}
                     className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
@@ -231,6 +247,17 @@ export function TenantListPage() {
           </div>
         </div>
       )}
+
+      <Pagination
+        total={total}
+        limit={effectiveLimit}
+        offset={offset}
+        onChange={setOffset}
+        unit="tenants"
+        pageSize={pageSize}
+        pageSizeOptions={PAGE_SIZE_OPTIONS}
+        onPageSizeChange={setPageSize}
+      />
 
       <ConfirmDialog
         open={!!pendingAction}
