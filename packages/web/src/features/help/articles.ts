@@ -253,6 +253,8 @@ The **Transactions** list is the central view of everything posted to your books
 ### Rows Per Page
 Use the **Show** dropdown next to the pager to display **50, 100, 250, 500, or All** transactions per page. **All** loads the entire filtered set at once — handy for reviewing or bulk-editing a whole account.
 
+The same pager with a **Show** dropdown appears on nearly every other list in the app — bills, vendor credits, statement imports, reconciliation statements, daily sales, recurring schedules, the attachment library, practice lists, and the admin tables — so older rows are always reachable.
+
 ### Bulk Editing
 Tick the checkboxes on one or more rows (or the header checkbox to select the whole page) and a toolbar appears. In one pass you can:
 
