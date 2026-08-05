@@ -2,14 +2,23 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVendorCredits } from '../../api/hooks/useAp';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Pagination } from '../../components/ui/Pagination';
+
+// Rows-per-page choices — server caps at 500 elsewhere in AP; keep parity.
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
+const DEFAULT_PAGE_SIZE = '50';
 
 export function VendorCreditListPage() {
   const navigate = useNavigate();
-  const { data, isLoading } = useVendorCredits({ limit: 100 });
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [offset, setOffset] = useState(0);
+  const limit = parseInt(pageSize, 10);
+  const { data, isLoading } = useVendorCredits({ limit, offset });
   const credits = data?.data || [];
 
   return (
@@ -55,6 +64,18 @@ export function VendorCreditListPage() {
           </table>
         )}
       </div>
+      {data && (
+        <Pagination
+          total={data.total}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          unit="credits"
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+        />
+      )}
     </div>
   );
 }

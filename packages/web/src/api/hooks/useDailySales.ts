@@ -113,11 +113,13 @@ export function useReplaceTemplateLines() {
 }
 
 // ── Entries ──
-export function useDailySalesEntries(filters?: { status?: string; templateId?: string; from?: string; to?: string }) {
-  const qs = new URLSearchParams(Object.entries(filters ?? {}).filter(([, v]) => v)).toString();
+export function useDailySalesEntries(filters?: { status?: string; templateId?: string; from?: string; to?: string; limit?: number; offset?: number }) {
+  const qs = new URLSearchParams(
+    Object.entries(filters ?? {}).filter(([, v]) => v).map(([k, v]) => [k, String(v)]),
+  ).toString();
   return useQuery({
     queryKey: [...KEY, 'entries', filters],
-    queryFn: () => apiClient<{ entries: DailySalesEntrySummary[] }>(`/daily-sales/entries${qs ? `?${qs}` : ''}`),
+    queryFn: () => apiClient<{ entries: DailySalesEntrySummary[]; total: number }>(`/daily-sales/entries${qs ? `?${qs}` : ''}`),
   });
 }
 export function useDailySalesEntry(id: string | undefined) {

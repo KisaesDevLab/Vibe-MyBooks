@@ -32,6 +32,13 @@ vi.mock('../../../api/hooks/useReviewChecks', async () => {
       data: { rows: findingsStore.rows, nextCursor: null },
       isLoading: findingsStore.isLoading,
     }),
+    useFindingsInfinite: () => ({
+      data: { pages: [{ rows: findingsStore.rows, nextCursor: null }], pageParams: [undefined] },
+      isLoading: findingsStore.isLoading,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+    }),
     useFinding: () => ({ data: undefined, isLoading: false }),
     useFindingEvents: () => ({ data: { events: [] }, isLoading: false }),
     useFindingsSummary: () => ({ data: summaryStore.data }),

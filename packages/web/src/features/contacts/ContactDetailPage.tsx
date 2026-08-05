@@ -4,11 +4,14 @@
 
 import { useState, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useContact, useDeactivateContact, useContactTransactions } from '../../api/hooks/useContacts';
 import { useBills, useVendorCredits } from '../../api/hooks/useAp';
+import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { Mail, Phone, MapPin, Edit, UserX, Receipt, Banknote, RotateCcw, FileText } from 'lucide-react';
 
 export function ContactDetailPage() {
@@ -121,21 +124,45 @@ export function ContactDetailPage() {
   );
 }
 
+const AP_PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
+
+interface VendorApSummary {
+  unpaidCount: number;
+  totalOwed: string;
+  overdueCount: number;
+  totalOverdue: string;
+  availableCreditsCount: number;
+  totalAvailableCredits: string;
+}
+
 function VendorApSection({ contactId }: { contactId: string }) {
   const navigate = useNavigate();
-  const { data: billsData, isLoading: billsLoading } = useBills({ contactId, limit: 100 });
-  const { data: creditsData, isLoading: creditsLoading } = useVendorCredits({ contactId, limit: 50 });
+  const [billPageSize, setBillPageSize] = useState('50');
+  const [billOffset, setBillOffset] = useState(0);
+  const [creditPageSize, setCreditPageSize] = useState('50');
+  const [creditOffset, setCreditOffset] = useState(0);
+  const billLimit = parseInt(billPageSize, 10);
+  const creditLimit = parseInt(creditPageSize, 10);
+
+  const { data: billsData, isLoading: billsLoading } = useBills({ contactId, limit: billLimit, offset: billOffset });
+  const { data: creditsData, isLoading: creditsLoading } = useVendorCredits({ contactId, limit: creditLimit, offset: creditOffset });
+  // Roll-ups are aggregated server-side over ALL of the vendor's bills and
+  // credits — deriving them from the paginated lists understated the balance
+  // for vendors with more rows than one page.
+  const { data: summaryData } = useQuery({
+    queryKey: ['bills', 'vendor-summary', contactId],
+    queryFn: () => apiClient<{ summary: VendorApSummary }>(`/bills/vendor-summary?contactId=${contactId}`),
+  });
 
   const bills = billsData?.data || [];
   const credits = creditsData?.data || [];
-
-  // Roll-ups
-  const unpaid = bills.filter((b) => b.billStatus !== 'paid' && parseFloat(b.balanceDue || '0') > 0);
-  const overdue = unpaid.filter((b) => b.daysOverdue > 0);
-  const totalOwed = unpaid.reduce((s, b) => s + parseFloat(b.balanceDue || '0'), 0);
-  const totalOverdue = overdue.reduce((s, b) => s + parseFloat(b.balanceDue || '0'), 0);
-  const availableCredits = credits.filter((c) => parseFloat(c.balanceDue || '0') > 0);
-  const totalAvailableCredits = availableCredits.reduce((s, c) => s + parseFloat(c.balanceDue || '0'), 0);
+  const summary = summaryData?.summary;
+  const unpaidCount = summary?.unpaidCount ?? 0;
+  const overdueCount = summary?.overdueCount ?? 0;
+  const totalOwed = parseFloat(summary?.totalOwed || '0');
+  const totalOverdue = parseFloat(summary?.totalOverdue || '0');
+  const availableCreditsCount = summary?.availableCreditsCount ?? 0;
+  const totalAvailableCredits = parseFloat(summary?.totalAvailableCredits || '0');
 
   return (
     <div className="mt-6 space-y-4">
@@ -158,21 +185,21 @@ function VendorApSection({ contactId }: { contactId: string }) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="text-xs text-gray-500 uppercase">Unpaid Bills</div>
-          <div className="text-2xl font-bold text-gray-900 mt-1">{unpaid.length}</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{unpaidCount}</div>
           <div className="text-sm font-mono text-gray-600">${totalOwed.toFixed(2)}</div>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="text-xs text-gray-500 uppercase">Overdue</div>
-          <div className={`text-2xl font-bold mt-1 ${overdue.length > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-            {overdue.length}
+          <div className={`text-2xl font-bold mt-1 ${overdueCount > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+            {overdueCount}
           </div>
-          <div className={`text-sm font-mono ${overdue.length > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+          <div className={`text-sm font-mono ${overdueCount > 0 ? 'text-red-600' : 'text-gray-600'}`}>
             ${totalOverdue.toFixed(2)}
           </div>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="text-xs text-gray-500 uppercase">Available Credits</div>
-          <div className="text-2xl font-bold text-gray-900 mt-1">{availableCredits.length}</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{availableCreditsCount}</div>
           <div className="text-sm font-mono text-gray-600">${totalAvailableCredits.toFixed(2)}</div>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
@@ -224,6 +251,20 @@ function VendorApSection({ contactId }: { contactId: string }) {
             </tbody>
           </table>
         )}
+        {!billsLoading && bills.length > 0 && (
+          <div className="px-4 pb-3">
+            <Pagination
+              total={billsData?.total ?? bills.length}
+              limit={billLimit}
+              offset={billOffset}
+              onChange={setBillOffset}
+              unit="bills"
+              pageSize={billPageSize}
+              pageSizeOptions={AP_PAGE_SIZE_OPTIONS}
+              onPageSizeChange={(s) => { setBillPageSize(s); setBillOffset(0); }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Vendor Credits */}
@@ -256,6 +297,20 @@ function VendorApSection({ contactId }: { contactId: string }) {
               ))}
             </tbody>
           </table>
+        )}
+        {!creditsLoading && credits.length > 0 && (
+          <div className="px-4 pb-3">
+            <Pagination
+              total={creditsData?.total ?? credits.length}
+              limit={creditLimit}
+              offset={creditOffset}
+              onChange={setCreditOffset}
+              unit="credits"
+              pageSize={creditPageSize}
+              pageSizeOptions={AP_PAGE_SIZE_OPTIONS}
+              onPageSizeChange={(s) => { setCreditPageSize(s); setCreditOffset(0); }}
+            />
+          </div>
         )}
       </div>
     </div>

@@ -2,6 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useBills } from '../../api/hooks/useAp';
 import { useSessionState } from '../../hooks/useSessionState';
@@ -10,6 +11,7 @@ import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { EmptyStateChat } from '../chat/EmptyStateChat';
 import type { BillStatus } from '@kis-books/shared';
 
@@ -19,6 +21,10 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   paid: { label: 'Paid', color: 'bg-green-100 text-green-800' },
   overdue: { label: 'Overdue', color: 'bg-red-100 text-red-800' },
 };
+
+// Rows-per-page choices — server caps GET /bills at 500.
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
+const DEFAULT_PAGE_SIZE = '50';
 
 export function BillListPage() {
   const navigate = useNavigate();
@@ -33,6 +39,11 @@ export function BillListPage() {
   const debouncedSearch = useDebouncedValue(search);
   const debStartDate = useDebouncedDate(startDate);
   const debEndDate = useDebouncedDate(endDate);
+  // Server-side pagination — any filter change resets to page 1.
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [offset, setOffset] = useState(0);
+  const limit = parseInt(pageSize, 10);
+  const handlePageSizeChange = (size: string) => { setPageSize(size); setOffset(0); };
 
   const { data, isLoading, isError, refetch } = useBills({
     billStatus: statusFilter || undefined,
@@ -40,7 +51,8 @@ export function BillListPage() {
     startDate: debStartDate || undefined,
     endDate: debEndDate || undefined,
     tagId: tagFilter || undefined,
-    limit: 100,
+    limit,
+    offset,
   });
 
   const { data: tagsData } = useTags({ isActive: true });
@@ -62,13 +74,13 @@ export function BillListPage() {
         <div className="flex gap-3 flex-wrap items-end">
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
             placeholder="Search by vendor, bill #, vendor invoice #..."
             className="flex-1 min-w-[200px] rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as BillStatus | '')}
+            onChange={(e) => { setStatusFilter(e.target.value as BillStatus | ''); setOffset(0); }}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">All statuses</option>
@@ -79,7 +91,7 @@ export function BillListPage() {
           </select>
           <select
             value={tagFilter}
-            onChange={(e) => setTagFilter(e.target.value)}
+            onChange={(e) => { setTagFilter(e.target.value); setOffset(0); }}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm max-w-[200px]"
           >
             <option value="">All Tags</option>
@@ -89,12 +101,12 @@ export function BillListPage() {
         <div className="flex gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+            <input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setOffset(0); }}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+            <input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setOffset(0); }}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
         </div>
@@ -169,6 +181,18 @@ export function BillListPage() {
           </table>
         )}
       </div>
+      {data && (
+        <Pagination
+          total={data.total}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          unit="bills"
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageSizeChange={handlePageSizeChange}
+        />
+      )}
     </div>
   );
 }

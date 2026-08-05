@@ -2,11 +2,17 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDailySalesEntries, useDailySalesTemplates } from '../../api/hooks/useDailySales';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Pagination } from '../../components/ui/Pagination';
 import { Plus, Settings, AlertTriangle, RefreshCw, FileText } from 'lucide-react';
+
+// Rows-per-page choices — GET /daily-sales/entries caps limit at 500.
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
+const DEFAULT_PAGE_SIZE = '50';
 
 function statusBadge(status: string): { label: string; cls: string } {
   if (status === 'posted') return { label: 'Posted', cls: 'bg-green-100 text-green-700' };
@@ -17,7 +23,10 @@ const money = (s: string | null) => `$${parseFloat(s || '0').toFixed(2)}`;
 
 export function DailySalesEntriesPage() {
   const navigate = useNavigate();
-  const { data, isLoading, isError, refetch } = useDailySalesEntries();
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [offset, setOffset] = useState(0);
+  const limit = parseInt(pageSize, 10);
+  const { data, isLoading, isError, refetch } = useDailySalesEntries({ limit, offset });
   const { data: tplData } = useDailySalesTemplates();
   const entries = data?.entries ?? [];
   const hasTemplates = (tplData?.templates?.length ?? 0) > 0;
@@ -103,6 +112,18 @@ export function DailySalesEntriesPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {!isLoading && !isError && data && (
+        <Pagination
+          total={data.total}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          unit="entries"
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+        />
       )}
     </div>
   );

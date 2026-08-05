@@ -6,7 +6,10 @@ import { useEffect, useState } from 'react';
 import { Inbox, Send, CheckSquare, XCircle, Eye } from 'lucide-react';
 import type { DocRequestStatus, DocumentRequestSummary } from '@kis-books/shared';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { Pagination } from '../../../components/ui/Pagination';
 import { api } from './RemindersPage';
+
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
 
 interface ReminderSendRow {
   id: string;
@@ -28,6 +31,9 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
   const [total, setTotal] = useState<number>(0);
   const [statusFilter, setStatusFilter] = useState<DocRequestStatus | 'all'>('pending');
   const [overdueOnly, setOverdueOnly] = useState<boolean>(false);
+  const [pageSize, setPageSize] = useState<string>('50');
+  const [offset, setOffset] = useState<number>(0);
+  const limit = Number(pageSize);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -39,6 +45,8 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (overdueOnly) params.set('overdue', 'true');
+      params.set('limit', String(limit));
+      params.set('offset', String(offset));
       const r = await api<{ items: DocumentRequestSummary[]; total: number }>(
         `/practice/document-requests?${params.toString()}`,
       );
@@ -49,7 +57,7 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
     }
   };
 
-  useEffect(() => { void reload(); }, [statusFilter, overdueOnly]);
+  useEffect(() => { void reload(); }, [statusFilter, overdueOnly, limit, offset]);
 
   const remind = async (row: DocumentRequestSummary) => {
     setBusyId(row.id);
@@ -100,7 +108,7 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
         <div className="flex items-center gap-2">
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as DocRequestStatus | 'all')}
+            onChange={(e) => { setStatusFilter(e.target.value as DocRequestStatus | 'all'); setOffset(0); }}
             className="border border-gray-300 rounded-md px-2 py-1.5 text-sm"
           >
             <option value="pending">Pending</option>
@@ -112,7 +120,7 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
             <input
               type="checkbox"
               checked={overdueOnly}
-              onChange={(e) => setOverdueOnly(e.target.checked)}
+              onChange={(e) => { setOverdueOnly(e.target.checked); setOffset(0); }}
             />
             Overdue only
           </label>
@@ -218,6 +226,19 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {items && (
+        <Pagination
+          total={total}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          unit="requests"
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+        />
       )}
 
       {drawerFor && <ThreadDrawer request={drawerFor} onClose={() => setDrawerFor(null)} />}

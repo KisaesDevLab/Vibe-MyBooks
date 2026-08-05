@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
+import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/Toaster';
 import { Landmark, CheckCircle, AlertTriangle, XCircle, Clock, AlertCircle, ChevronRight, ChevronDown, Link2, Link2Off, Trash2 } from 'lucide-react';
 
@@ -54,6 +55,10 @@ interface PlaidWebhookLog {
 
 interface TenantOption { id: string; name: string }
 interface CoaOption { id: string; name: string; accountNumber: string | null; detailType: string | null }
+
+const CONN_PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
+// Webhook log is paginated server-side (max limit 500) — no 'all' option.
+const WEBHOOK_PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
 
 const statusBadge = (status: string) => {
   switch (status) {
@@ -153,6 +158,11 @@ export function PlaidConnectionsMonitorPage() {
   const toast = useToast();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [mapping, setMapping] = useState<PlaidAccountRow | null>(null);
+  const [connPageSize, setConnPageSize] = useState('50');
+  const [connOffset, setConnOffset] = useState(0);
+  const [webhookPageSize, setWebhookPageSize] = useState('100');
+  const [webhookOffset, setWebhookOffset] = useState(0);
+  const webhookLimit = parseInt(webhookPageSize, 10);
 
   const { data: stats, isError: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['admin', 'plaid-stats'],
@@ -165,8 +175,10 @@ export function PlaidConnectionsMonitorPage() {
   });
 
   const { data: logData, isError: logError, refetch: refetchLog } = useQuery({
-    queryKey: ['admin', 'plaid-webhook-log'],
-    queryFn: () => apiClient<{ logs: PlaidWebhookLog[] }>('/admin/plaid/webhook-log'),
+    queryKey: ['admin', 'plaid-webhook-log', webhookLimit, webhookOffset],
+    queryFn: () => apiClient<{ logs: PlaidWebhookLog[]; total: number; limit: number; offset: number }>(
+      `/admin/plaid/webhook-log?limit=${webhookLimit}&offset=${webhookOffset}`,
+    ),
   });
 
   const unmapMutation = useMutation({
@@ -218,6 +230,11 @@ export function PlaidConnectionsMonitorPage() {
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+
+  const connections = connData?.connections || [];
+  const connLimit = connPageSize === 'all' ? Math.max(connections.length, 1) : parseInt(connPageSize, 10);
+  const safeConnOffset = connOffset < connections.length ? connOffset : 0;
+  const visibleConnections = connections.slice(safeConnOffset, safeConnOffset + connLimit);
 
   return (
     <div className="p-6 space-y-6">
@@ -279,7 +296,7 @@ export function PlaidConnectionsMonitorPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {(connData?.connections || []).map((conn) => {
+                {visibleConnections.map((conn) => {
                   const isOpen = expanded.has(conn.id);
                   const mappedCount = conn.accounts.filter((a) => a.isMapped).length;
                   return (
@@ -375,12 +392,24 @@ export function PlaidConnectionsMonitorPage() {
             </table>
           </div>
         )}
+        <div className="px-4 pb-3">
+          <Pagination
+            total={connections.length}
+            limit={connLimit}
+            offset={safeConnOffset}
+            onChange={setConnOffset}
+            unit="connections"
+            pageSize={connPageSize}
+            pageSizeOptions={CONN_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(s) => { setConnPageSize(s); setConnOffset(0); }}
+          />
+        </div>
       </div>
 
       {/* Webhook Log */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800">Webhook Log (Last 100)</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Webhook Log</h2>
         </div>
         {logError ? (
           <div className="flex items-center gap-2 p-4 text-sm text-red-700">
@@ -415,6 +444,18 @@ export function PlaidConnectionsMonitorPage() {
           </table>
         </div>
         )}
+        <div className="px-4 pb-3">
+          <Pagination
+            total={logData?.total ?? 0}
+            limit={webhookLimit}
+            offset={webhookOffset}
+            onChange={setWebhookOffset}
+            unit="webhooks"
+            pageSize={webhookPageSize}
+            pageSizeOptions={WEBHOOK_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(s) => { setWebhookPageSize(s); setWebhookOffset(0); }}
+          />
+        </div>
       </div>
 
       {mapping && <MapAccountModal account={mapping} onClose={() => setMapping(null)} />}

@@ -851,10 +851,14 @@ export interface StatementJobSummary {
   error: string | null;
 }
 
-export function useStatementJobs() {
+export function useStatementJobs(opts?: { limit?: number; offset?: number }) {
+  const params = new URLSearchParams();
+  if (opts?.limit) params.set('limit', String(opts.limit));
+  if (opts?.offset) params.set('offset', String(opts.offset));
+  const qs = params.toString();
   return useQuery({
-    queryKey: ['statement-jobs'],
-    queryFn: () => apiClient<{ jobs: StatementJobSummary[]; total: number }>('/ai/parse/statement/jobs'),
+    queryKey: ['statement-jobs', opts?.limit ?? 50, opts?.offset ?? 0],
+    queryFn: () => apiClient<{ jobs: StatementJobSummary[]; total: number }>(`/ai/parse/statement/jobs${qs ? `?${qs}` : ''}`),
     // Poll while any statement is still extracting in the background so rows
     // flip from Processing → Pending review without a manual refresh.
     refetchInterval: (query) => {

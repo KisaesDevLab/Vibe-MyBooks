@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { DUPLICATE_WARNING_DELTA, type BucketRow, type MatchCandidate } from '@kis-books/shared';
-import { useBucket } from '../../../../api/hooks/useClassificationState';
+import { useBucketInfinite } from '../../../../api/hooks/useClassificationState';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { MatchCandidateCard } from './MatchCandidateCard';
 import type { ClosePeriod } from '../ClosePeriodSelector';
@@ -21,7 +21,7 @@ interface Props {
 // its single-row table can't host the candidate stack — so this
 // bucket renders directly.
 export function PotentialMatchesBucket({ companyId, period }: Props) {
-  const query = useBucket({
+  const query = useBucketInfinite({
     bucket: 'potential_match',
     companyId,
     periodStart: period.periodStart,
@@ -37,7 +37,7 @@ export function PotentialMatchesBucket({ companyId, period }: Props) {
     );
   }
 
-  const rows = query.data?.rows ?? [];
+  const rows = query.data?.pages.flatMap((p) => p.rows) ?? [];
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
@@ -51,6 +51,21 @@ export function PotentialMatchesBucket({ companyId, period }: Props) {
       {rows.map((row) => (
         <FeedItemWithCandidates key={row.stateId} row={row} />
       ))}
+      <div className="flex flex-col items-center gap-1.5 py-1">
+        <span className="text-xs text-gray-500">
+          Showing {rows.length} row{rows.length === 1 ? '' : 's'}{query.hasNextPage ? ' — more available' : ''}
+        </span>
+        {query.hasNextPage && (
+          <button
+            type="button"
+            onClick={() => void query.fetchNextPage()}
+            disabled={query.isFetchingNextPage}
+            className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {query.isFetchingNextPage ? 'Loading…' : `Load more (${rows.length} loaded)`}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

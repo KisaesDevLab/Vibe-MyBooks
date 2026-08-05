@@ -17,7 +17,7 @@ import { Fragment, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Button } from '../../components/ui/Button';
+import { Pagination } from '../../components/ui/Pagination';
 import {
   History, CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronRight, ShieldCheck, ShieldAlert,
 } from 'lucide-react';
@@ -136,18 +136,22 @@ function describeDest(name: string, dest: DestinationResult | undefined): string
 // The backup kinds worth surfacing in the health header, in display order.
 const HEALTH_KINDS = ['system_backup', 'db_backup', 'tenant_backup'] as const;
 
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '200'];
+
 export function BackupHistorySection() {
   const [kind, setKind] = useState('');
   const [status, setStatus] = useState('');
-  const [limit, setLimit] = useState(50);
+  const [pageSize, setPageSize] = useState('50');
+  const [offset, setOffset] = useState(0);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const limit = parseInt(pageSize, 10);
 
-  const params = new URLSearchParams({ limit: String(limit) });
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (kind) params.set('kind', kind);
   if (status) params.set('status', status);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['admin', 'backup-runs', kind, status, limit],
+    queryKey: ['admin', 'backup-runs', kind, status, limit, offset],
     queryFn: () => apiClient<RunsResponse>(`/admin/backup/runs?${params.toString()}`),
     placeholderData: keepPreviousData,
     refetchInterval: 60_000,
@@ -201,12 +205,12 @@ export function BackupHistorySection() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <select value={kind} onChange={(e) => { setKind(e.target.value); setExpanded(null); }}
+        <select value={kind} onChange={(e) => { setKind(e.target.value); setOffset(0); setExpanded(null); }}
           className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
           <option value="">All kinds</option>
           {Object.entries(KIND_LABELS).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
         </select>
-        <select value={status} onChange={(e) => { setStatus(e.target.value); setExpanded(null); }}
+        <select value={status} onChange={(e) => { setStatus(e.target.value); setOffset(0); setExpanded(null); }}
           className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
           <option value="">All statuses</option>
           <option value="success">Success</option>
@@ -323,12 +327,17 @@ export function BackupHistorySection() {
         </div>
       )}
 
-      {data && data.runs.length < data.total && (
-        <div className="pt-1">
-          <Button variant="secondary" size="sm" onClick={() => setLimit((l) => Math.min(l + 50, 200))}>
-            Load more
-          </Button>
-        </div>
+      {data && (
+        <Pagination
+          total={data.total}
+          limit={limit}
+          offset={offset}
+          onChange={(next) => { setOffset(next); setExpanded(null); }}
+          unit="runs"
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(s) => { setPageSize(s); setOffset(0); setExpanded(null); }}
+        />
       )}
     </div>
   );

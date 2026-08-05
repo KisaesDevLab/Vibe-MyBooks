@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 import {
-  useBucket,
+  useBucketInfinite,
   useRuleExceptions,
   useAcceptRuleException,
   useDismissRuleException,
@@ -113,7 +113,7 @@ function RuleExceptionsSection({ companyId, period }: Props) {
 // than inventing a new render path. Users can expand each group
 // to see individual items.
 export function RulesBucket({ companyId, period }: Props) {
-  const query = useBucket({
+  const query = useBucketInfinite({
     bucket: 'rule',
     companyId,
     periodStart: period.periodStart,
@@ -121,9 +121,11 @@ export function RulesBucket({ companyId, period }: Props) {
     limit: 200,
   });
 
+  const rows = useMemo(() => query.data?.pages.flatMap((p) => p.rows) ?? [], [query.data]);
+
   const groups = useMemo(() => {
     const byRule = new Map<string, { name: string; count: number }>();
-    for (const row of query.data?.rows ?? []) {
+    for (const row of rows) {
       const key = row.matchedRuleId ?? 'unknown';
       const name = row.matchedRuleName ?? '(Rule pre-dates tracking)';
       const existing = byRule.get(key);
@@ -135,7 +137,7 @@ export function RulesBucket({ companyId, period }: Props) {
       name,
       count,
     }));
-  }, [query.data]);
+  }, [rows]);
 
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
 
@@ -193,6 +195,21 @@ export function RulesBucket({ companyId, period }: Props) {
           </div>
         );
       })}
+          <div className="flex flex-col items-center gap-1.5 py-1">
+            <span className="text-xs text-gray-500">
+              Showing {rows.length} row{rows.length === 1 ? '' : 's'}{query.hasNextPage ? ' — more available' : ''}
+            </span>
+            {query.hasNextPage && (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={query.isFetchingNextPage}
+                onClick={() => void query.fetchNextPage()}
+              >
+                Load more ({rows.length} loaded)
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

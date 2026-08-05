@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BucketRow, ClassificationBucket } from '@kis-books/shared';
-import { useApprove, useApproveAll, useBucket, useReclassify } from '../../../../api/hooks/useClassificationState';
+import { useApprove, useApproveAll, useBucketInfinite, useReclassify } from '../../../../api/hooks/useClassificationState';
 import { useReviewKeyboardShortcuts } from '../useReviewKeyboardShortcuts';
 import { BulkActionBar } from '../BulkActionBar';
 import { AskClientButton } from '../AskClientButton';
@@ -33,7 +33,7 @@ export interface BucketTableProps {
 // supply a custom renderer for its middle columns; action column
 // (approve + reclassify + ask-client) is shared.
 export function BucketTable({ bucket, companyId, period, emptyState, renderRow }: BucketTableProps) {
-  const query = useBucket({ bucket, companyId, periodStart: period.periodStart, periodEnd: period.periodEnd, limit: 100 });
+  const query = useBucketInfinite({ bucket, companyId, periodStart: period.periodStart, periodEnd: period.periodEnd, limit: 100 });
   const approve = useApprove();
   const approveAll = useApproveAll();
   const reclassify = useReclassify();
@@ -42,8 +42,11 @@ export function BucketTable({ bucket, companyId, period, emptyState, renderRow }
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const rows = query.data?.rows ?? [];
+  const rows = useMemo(() => query.data?.pages.flatMap((p) => p.rows) ?? [], [query.data]);
+  // Loaded rows only — more may exist on the server (hasNextPage).
+  // Select-all and the count badge operate on the loaded set.
   const totalCount = rows.length;
+  const hasMore = query.hasNextPage;
   const allSelected = totalCount > 0 && selected.size === totalCount;
 
   // Reset selection when bucket/period changes.
@@ -151,6 +154,7 @@ export function BucketTable({ bucket, companyId, period, emptyState, renderRow }
         bucket={bucket}
         selectedCount={selected.size}
         totalCount={totalCount}
+        hasMore={hasMore}
         allSelected={allSelected}
         disabled={approve.isPending || approveAll.isPending}
         onToggleAll={toggleAll}
@@ -264,6 +268,21 @@ export function BucketTable({ bucket, companyId, period, emptyState, renderRow }
             })}
           </tbody>
         </table>
+      </div>
+      <div className="flex flex-col items-center gap-1.5 py-1">
+        <span className="text-xs text-gray-500">
+          Showing {rows.length} row{rows.length === 1 ? '' : 's'}{hasMore ? ' — more available' : ''}
+        </span>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => void query.fetchNextPage()}
+            disabled={query.isFetchingNextPage}
+            className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {query.isFetchingNextPage ? 'Loading…' : `Load more (${rows.length} loaded)`}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -41,6 +41,7 @@ import {
   useMarkBatchNotified,
 } from '../../../api/hooks/usePortalQuestions';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { Pagination } from '../../../components/ui/Pagination';
 import { apiClient } from '../../../api/client';
 import { PortalContactDocumentsPanel } from '../reminders/PortalContactDocumentsPanel';
 
@@ -1045,11 +1046,15 @@ function QuestionsTab() {
   const [statusFilter, setStatusFilter] = useState<'unresolved' | 'open' | 'responded' | 'resolved' | 'all'>('unresolved');
   const [showAsk, setShowAsk] = useState(false);
   const [openQuestionId, setOpenQuestionId] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState('50');
+  const [offset, setOffset] = useState(0);
+  const limit = Number(pageSize);
 
-  const { data, isLoading, isError } = useQuestionsList({ status: statusFilter });
+  const { data, isLoading, isError } = useQuestionsList({ status: statusFilter, limit, offset });
   const { data: pending } = usePendingBatches();
   const markNotified = useMarkBatchNotified();
   const questions = data?.questions ?? [];
+  const total = data?.total ?? 0;
   const batches = pending?.batches ?? [];
 
   return (
@@ -1091,7 +1096,7 @@ function QuestionsTab() {
       <div className="flex items-center gap-3">
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+          onChange={(e) => { setStatusFilter(e.target.value as typeof statusFilter); setOffset(0); }}
           className="text-sm border border-gray-300 rounded-md px-3 py-2"
         >
           <option value="unresolved">Unresolved</option>
@@ -1159,6 +1164,19 @@ function QuestionsTab() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {!isLoading && !isError && (
+        <Pagination
+          total={total}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          unit="questions"
+          pageSize={pageSize}
+          pageSizeOptions={['25', '50', '100', '250', '500']}
+          onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+        />
       )}
 
       {showAsk && <AskClientModal onClose={() => setShowAsk(false)} />}

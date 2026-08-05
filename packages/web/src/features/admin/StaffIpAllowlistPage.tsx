@@ -8,6 +8,7 @@ import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Pagination } from '../../components/ui/Pagination';
 import { ShieldAlert, AlertTriangle, Trash2, Plus } from 'lucide-react';
 
 // CLOUDFLARE_TUNNEL_PLAN Phase 6 — super-admin UI for the staff IP
@@ -27,6 +28,8 @@ interface AllowlistResponse {
   entries: AllowlistEntry[];
 }
 
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
+
 export function StaffIpAllowlistPage() {
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
@@ -37,6 +40,8 @@ export function StaffIpAllowlistPage() {
   const [cidr, setCidr] = useState('');
   const [description, setDescription] = useState('');
   const [formError, setFormError] = useState('');
+  const [pageSize, setPageSize] = useState('50');
+  const [offset, setOffset] = useState(0);
 
   const addMutation = useMutation({
     mutationFn: (body: { cidr: string; description: string | null }) =>
@@ -81,6 +86,9 @@ export function StaffIpAllowlistPage() {
 
   const enforced = !!data?.enforced;
   const entries = data?.entries || [];
+  const limit = pageSize === 'all' ? Math.max(entries.length, 1) : parseInt(pageSize, 10);
+  const safeOffset = offset < entries.length ? offset : 0;
+  const visible = entries.slice(safeOffset, safeOffset + limit);
 
   return (
     <div className="p-6 space-y-6">
@@ -155,7 +163,7 @@ export function StaffIpAllowlistPage() {
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry) => (
+              {visible.map((entry) => (
                 <tr key={entry.id} className="border-b border-gray-100 last:border-0">
                   <td className="px-4 py-3 font-mono text-gray-900">{entry.cidr}</td>
                   <td className="px-4 py-3 text-gray-700">{entry.description ?? <span className="text-gray-400">—</span>}</td>
@@ -175,6 +183,16 @@ export function StaffIpAllowlistPage() {
           </table>
         )}
       </div>
+      <Pagination
+        total={entries.length}
+        limit={limit}
+        offset={safeOffset}
+        onChange={setOffset}
+        unit="entries"
+        pageSize={pageSize}
+        pageSizeOptions={PAGE_SIZE_OPTIONS}
+        onPageSizeChange={(s) => { setPageSize(s); setOffset(0); }}
+      />
 
       <div className="text-xs text-gray-500 max-w-2xl">
         Break-glass: super-admin sessions bypass this allowlist so an operator locked out of their office can always recover. Webhook paths (<code>/api/v1/stripe</code>, <code>/api/v1/plaid/webhooks</code>) are exempt by routing order — external machine-to-machine traffic is never affected.

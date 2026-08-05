@@ -2,11 +2,13 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ListChecks, ExternalLink } from 'lucide-react';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import { useManualQueue, type ManualQueueRow } from '../../../api/hooks/useManualQueue';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { Pagination } from '../../../components/ui/Pagination';
 import type { ClosePeriod } from './ClosePeriodSelector';
 
 interface Props {
@@ -32,10 +34,21 @@ const REASON_LABEL: Record<ManualQueueRow['reason'], { label: string; tone: stri
 // Bank Feed where the bookkeeper can categorize directly.
 export function ManualQueueTab({ period }: Props) {
   const { activeCompanyId } = useCompanyContext();
+  const [pageSize, setPageSize] = useState('50');
+  const [offset, setOffset] = useState(0);
+  const limit = Number(pageSize);
+
+  // New period or company means a new result set — start at page 1.
+  useEffect(() => {
+    setOffset(0);
+  }, [activeCompanyId, period.periodStart, period.periodEnd]);
+
   const queryResult = useManualQueue({
     companyId: activeCompanyId ?? null,
     periodStart: period.periodStart,
     periodEnd: period.periodEnd,
+    limit,
+    offset,
   });
 
   if (queryResult.isLoading) {
@@ -47,7 +60,8 @@ export function ManualQueueTab({ period }: Props) {
   }
 
   const rows = queryResult.data?.rows ?? [];
-  if (rows.length === 0) {
+  const total = queryResult.data?.total ?? 0;
+  if (total === 0) {
     return (
       <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center">
         <ListChecks className="mx-auto h-8 w-8 text-gray-400" />
@@ -65,7 +79,7 @@ export function ManualQueueTab({ period }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-        <strong>{rows.length}</strong> {rows.length === 1 ? 'item is' : 'items are'} waiting for
+        <strong>{total}</strong> {total === 1 ? 'item is' : 'items are'} waiting for
         you to pick an account or vendor manually. Click "Open in Bank Feed" to categorize.
       </div>
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -113,6 +127,16 @@ export function ManualQueueTab({ period }: Props) {
           </tbody>
         </table>
       </div>
+      <Pagination
+        total={total}
+        limit={limit}
+        offset={offset}
+        onChange={setOffset}
+        unit="items"
+        pageSize={pageSize}
+        pageSizeOptions={['25', '50', '100', '250', '500']}
+        onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+      />
     </div>
   );
 }

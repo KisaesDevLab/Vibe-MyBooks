@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Inbox, Upload, Trash2, Search, Banknote } from 'lucide-react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { Pagination } from '../../../components/ui/Pagination';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 18.8 — bookkeeper Receipts Inbox.
@@ -44,6 +45,10 @@ export function ReceiptsInboxPage() {
   const [statusFilter, setStatusFilter] = useState<string>('unmatched');
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<InboxRow[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState('50');
+  const [offset, setOffset] = useState(0);
+  const limit = Number(pageSize);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -53,8 +58,11 @@ export function ReceiptsInboxPage() {
     try {
       const qs = new URLSearchParams();
       if (statusFilter !== 'all') qs.set('status', statusFilter);
-      const data = await api<{ receipts: InboxRow[] }>(`/practice/receipts?${qs}`);
+      qs.set('limit', String(limit));
+      qs.set('offset', String(offset));
+      const data = await api<{ receipts: InboxRow[]; total: number }>(`/practice/receipts?${qs}`);
       setRows(data.receipts);
+      setTotal(data.total);
     } catch {
       setError('Failed to load receipts.');
     }
@@ -65,7 +73,7 @@ export function ReceiptsInboxPage() {
     setError(null);
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, limit, offset]);
 
   const onUpload = async (file: File) => {
     if (!activeCompanyId) {
@@ -157,7 +165,7 @@ export function ReceiptsInboxPage() {
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => { setStatusFilter(e.target.value); setOffset(0); }}
           className="text-sm border border-gray-300 rounded-md px-3 py-2"
         >
           <option value="unmatched">Unmatched</option>
@@ -240,6 +248,19 @@ export function ReceiptsInboxPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {rows && (
+        <Pagination
+          total={total}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          unit="receipts"
+          pageSize={pageSize}
+          pageSizeOptions={['25', '50', '100', '250', '500']}
+          onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+        />
       )}
 
       {!activeCompanyId && (

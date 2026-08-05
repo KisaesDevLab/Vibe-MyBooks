@@ -8,7 +8,11 @@ import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Pagination } from '../../components/ui/Pagination';
 import { Plug, CheckCircle, AlertCircle } from 'lucide-react';
+
+// Request log is paginated server-side (max limit 500) — no 'all' option.
+const LOG_PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
 
 export function McpConfigPage() {
   const queryClient = useQueryClient();
@@ -59,13 +63,16 @@ export function McpConfigPage() {
     status: string;
     durationMs?: number | null;
   }
-  const { data: logData } = useQuery<{ logs: McpLogEntry[] }>({
-    queryKey: ['admin', 'mcp-log'],
+  const [logPageSize, setLogPageSize] = useState('100');
+  const [logOffset, setLogOffset] = useState(0);
+  const logLimit = parseInt(logPageSize, 10);
+  const { data: logData } = useQuery<{ logs: McpLogEntry[]; total: number }>({
+    queryKey: ['admin', 'mcp-log', logLimit, logOffset],
     queryFn: async () => {
       try {
-        const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/mcp/log`, { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } });
-        return res.ok ? res.json() : { logs: [] };
-      } catch { return { logs: [] }; }
+        const res = await fetch(`${import.meta.env.BASE_URL}api/v1/admin/mcp/log?limit=${logLimit}&offset=${logOffset}`, { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } });
+        return res.ok ? res.json() : { logs: [], total: 0 };
+      } catch { return { logs: [], total: 0 }; }
     },
   });
 
@@ -209,6 +216,18 @@ export function McpConfigPage() {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="px-4 pb-3">
+            <Pagination
+              total={logData?.total ?? 0}
+              limit={logLimit}
+              offset={logOffset}
+              onChange={setLogOffset}
+              unit="requests"
+              pageSize={logPageSize}
+              pageSizeOptions={LOG_PAGE_SIZE_OPTIONS}
+              onPageSizeChange={(s) => { setLogPageSize(s); setLogOffset(0); }}
+            />
           </div>
         </div>
       </div>

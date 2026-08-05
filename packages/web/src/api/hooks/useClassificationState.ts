@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   BucketSummary,
   BucketRow,
@@ -70,6 +70,34 @@ export function useBucket(input: BucketInput) {
       apiClient<BucketResponse>(
         `/practice/classification/bucket/${input.bucket}?${qs.toString()}`,
       ),
+    staleTime: 15 * 1000,
+  });
+}
+
+// Cursor-accumulating variant of useBucket: pages are appended via
+// "Load more" instead of replaced, so long buckets are reachable.
+// Invalidation on ['practice', 'classification'] refetches every
+// loaded page, keeping approved rows from lingering in the list.
+export function useBucketInfinite(input: Omit<BucketInput, 'cursor'>) {
+  return useInfiniteQuery({
+    queryKey: [
+      ...KEYS.bucket(input.bucket, input.companyId, input.periodStart, input.periodEnd),
+      'infinite',
+      input.limit ?? null,
+    ],
+    queryFn: ({ pageParam }) => {
+      const qs = new URLSearchParams();
+      if (input.companyId) qs.set('companyId', input.companyId);
+      qs.set('periodStart', input.periodStart);
+      qs.set('periodEnd', input.periodEnd);
+      if (pageParam) qs.set('cursor', pageParam);
+      if (input.limit) qs.set('limit', String(input.limit));
+      return apiClient<BucketResponse>(
+        `/practice/classification/bucket/${input.bucket}?${qs.toString()}`,
+      );
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     staleTime: 15 * 1000,
   });
 }

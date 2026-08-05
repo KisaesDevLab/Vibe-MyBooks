@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, getAccessToken, API_BASE } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { Paperclip, Download, Trash2, Eye, X, ChevronRight, User, FileText, FolderOpen, ReceiptText } from 'lucide-react';
 
 interface LibraryAttachment {
@@ -116,6 +117,13 @@ function fmtSize(bytes: number | null): string {
 
 type Tab = 'contact' | 'type';
 
+// Rows-per-page choices for the expanded folder's file table (client-side —
+// the full library is fetched below so folder counts stay accurate).
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
+const DEFAULT_PAGE_SIZE = '100';
+// GET /attachments/library caps limit at 500 per request.
+const FETCH_PAGE = 500;
+
 export function AttachmentLibraryPage() {
   const [tab, setTab] = useState<Tab>('contact');
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
@@ -126,11 +134,35 @@ export function AttachmentLibraryPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const previewUrl = useAttachmentObjectUrl(previewId);
+  // The folder tree groups by contact/type, so the whole library is fetched
+  // (page by page — the endpoint caps limit at 500) and the expanded folder's
+  // file table is paginated client-side.
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [offset, setOffset] = useState(0);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attachments', 'library'],
-    queryFn: () => apiClient<{ data: LibraryAttachment[] }>('/attachments/library'),
+    queryFn: async () => {
+      const rows: LibraryAttachment[] = [];
+      let total = 0;
+      for (let fetched = 0; ; fetched += FETCH_PAGE) {
+        const page = await apiClient<{ data: LibraryAttachment[]; total: number }>(
+          `/attachments/library?limit=${FETCH_PAGE}&offset=${fetched}`,
+        );
+        rows.push(...page.data);
+        total = page.total;
+        if (rows.length >= total || page.data.length === 0) break;
+      }
+      return { data: rows, total };
+    },
   });
+
+  // Page changes drop the preview — the previewed row may leave the screen.
+  // Selection survives: selected rows stay loaded and bulk ZIP still works.
+  const changePage = (nextOffset: number) => {
+    setOffset(nextOffset);
+    setPreviewId(null);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient(`/attachments/${id}`, { method: 'DELETE' }),
@@ -181,6 +213,7 @@ export function AttachmentLibraryPage() {
     setPreviewId(null);
     setSelectedIds(new Set());
     setBulkError(null);
+    setOffset(0);
   };
 
   const toggleSelect = (id: string) => {
@@ -232,6 +265,10 @@ export function AttachmentLibraryPage() {
     : byType.map(([key, items]) => ({ key, label: txnTypeLabels[key] || key, items, count: items.length }));
 
   const currentItems = groups.find((g) => g.key === expandedGroup)?.items ?? [];
+  const limit = pageSize === 'all' ? Math.max(currentItems.length, 1) : parseInt(pageSize, 10);
+  const safeOffset = offset < currentItems.length ? offset : 0;
+  const visibleItems = currentItems.slice(safeOffset, safeOffset + limit);
+  // Select-all covers the whole folder, not just the visible page.
   const allSelected = currentItems.length > 0 && currentItems.every((a) => selectedIds.has(a.id));
   const someSelected = currentItems.some((a) => selectedIds.has(a.id));
 
@@ -244,7 +281,7 @@ export function AttachmentLibraryPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Attachment Library</h1>
-        <span className="text-sm text-gray-500">{all.length} files</span>
+        <span className="text-sm text-gray-500">{data?.total ?? all.length} files</span>
       </div>
 
       {/* Tabs */}
@@ -364,7 +401,7 @@ export function AttachmentLibraryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {currentItems.map((a) => (
+                    {visibleItems.map((a) => (
                       <tr key={a.id} className={`hover:bg-gray-50 ${previewId === a.id ? 'bg-primary-50' : ''}`}>
                         <td className="px-4 py-2 w-8">
                           <input
@@ -434,6 +471,20 @@ export function AttachmentLibraryPage() {
                     ))}
                   </tbody>
                 </table>
+                {currentItems.length > 0 && (
+                  <div className="px-4 pb-3">
+                    <Pagination
+                      total={currentItems.length}
+                      limit={limit}
+                      offset={safeOffset}
+                      onChange={changePage}
+                      unit="files"
+                      pageSize={pageSize}
+                      pageSizeOptions={PAGE_SIZE_OPTIONS}
+                      onPageSizeChange={(size) => { setPageSize(size); changePage(0); }}
+                    />
+                  </div>
+                )}
 
                 {/* Inline preview */}
                 {previewAttachment && previewAttachment.mimeType && (

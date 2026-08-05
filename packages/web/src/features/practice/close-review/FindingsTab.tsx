@@ -7,7 +7,7 @@ import type { Finding, FindingSeverity, FindingStatus } from '@kis-books/shared'
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import {
   useCheckRegistry,
-  useFindings,
+  useFindingsInfinite,
   useFindingsSummary,
 } from '../../../api/hooks/useReviewChecks';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
@@ -42,7 +42,7 @@ export function FindingsTab({ period }: Props) {
 
   const registryQ = useCheckRegistry();
   const summaryQ = useFindingsSummary(activeCompanyId ?? null);
-  const findingsQ = useFindings({
+  const findingsQ = useFindingsInfinite({
     status: statusFilter ?? undefined,
     severity: severityFilter ?? undefined,
     checkKey: checkFilter ?? undefined,
@@ -52,7 +52,11 @@ export function FindingsTab({ period }: Props) {
     limit: 100,
   });
 
-  const rows = findingsQ.data?.rows ?? [];
+  // Loaded rows only — select-all and the bulk bar operate on these.
+  const rows = useMemo(
+    () => findingsQ.data?.pages.flatMap((p) => p.rows) ?? [],
+    [findingsQ.data],
+  );
   const registry = registryQ.data?.checks ?? [];
   const selectedFindings = useMemo(
     () => rows.filter((r) => selected.has(r.id)),
@@ -129,14 +133,31 @@ export function FindingsTab({ period }: Props) {
       ) : rows.length === 0 ? (
         <EmptyState hasFilters={!!(statusFilter || severityFilter || checkFilter)} />
       ) : (
-        <FindingsTable
-          rows={rows}
-          selected={selected}
-          onToggleSelect={toggleSelect}
-          onToggleSelectAll={toggleSelectAll}
-          onRowClick={setActiveFinding}
-          registry={registry}
-        />
+        <>
+          <FindingsTable
+            rows={rows}
+            selected={selected}
+            onToggleSelect={toggleSelect}
+            onToggleSelectAll={toggleSelectAll}
+            onRowClick={setActiveFinding}
+            registry={registry}
+          />
+          <div className="flex flex-col items-center gap-1.5 py-1">
+            <span className="text-xs text-gray-500">
+              Showing {rows.length} row{rows.length === 1 ? '' : 's'}{findingsQ.hasNextPage ? ' — more available' : ''}
+            </span>
+            {findingsQ.hasNextPage && (
+              <button
+                type="button"
+                onClick={() => void findingsQ.fetchNextPage()}
+                disabled={findingsQ.isFetchingNextPage}
+                className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {findingsQ.isFetchingNextPage ? 'Loading…' : `Load more (${rows.length} loaded)`}
+              </button>
+            )}
+          </div>
+        </>
       )}
       {activeFinding && (
         <FindingDetailDrawer

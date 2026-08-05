@@ -23,6 +23,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Upload, AlertCircle, CheckCircle, FileText, ArrowLeft, Download } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
+import { Pagination } from '../../components/ui/Pagination';
 import {
   useUploadImport,
   useImportSession,
@@ -85,12 +86,18 @@ const STATUS_CHIP: Record<string, string> = {
   cancelled: 'bg-gray-100 text-gray-600',
 };
 
+const SESSIONS_PAGE_SIZE_OPTIONS = ['25', '50', '100', '200'];
+
 function RecentSessions({ onOpen }: { onOpen: (id: string) => void }) {
-  const { data, isLoading } = useImportSessions();
+  const [pageSize, setPageSize] = useState('50');
+  const [offset, setOffset] = useState(0);
+  const limit = parseInt(pageSize, 10);
+  const { data, isLoading } = useImportSessions({ limit, offset });
   const del = useDeleteImport();
   const sessions = data?.sessions ?? [];
+  const total = data?.total ?? 0;
   if (isLoading) return <div className="flex justify-center py-6"><LoadingSpinner /></div>;
-  if (sessions.length === 0) return null;
+  if (total === 0) return null;
   const pendingCount = sessions.filter((s) => s.status === 'uploaded' || s.status === 'validated').length;
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -133,6 +140,18 @@ function RecentSessions({ onOpen }: { onOpen: (id: string) => void }) {
           </li>
         ))}
       </ul>
+      <div className="px-4 pb-3">
+        <Pagination
+          total={total}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          unit="sessions"
+          pageSize={pageSize}
+          pageSizeOptions={SESSIONS_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(s) => { setPageSize(s); setOffset(0); }}
+        />
+      </div>
     </div>
   );
 }

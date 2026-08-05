@@ -14,6 +14,7 @@ import { api } from './RemindersPage';
 export function PortalContactDocumentsPanel({ contactId }: { contactId: string }) {
   const enabled = useFeatureFlag('RECURRING_DOC_REQUESTS_V1');
   const [items, setItems] = useState<DocumentRequestSummary[] | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export function PortalContactDocumentsPanel({ contactId }: { contactId: string }
         <p className="text-xs text-gray-500">No standing requests for this contact.</p>
       ) : (
         <ul className="text-sm text-gray-800 space-y-1">
-          {items.slice(0, 8).map((r) => {
+          {(showAll ? items : items.slice(0, 8)).map((r) => {
             const overdue = r.status === 'pending' && r.dueDate && new Date(r.dueDate) < new Date();
             return (
               <li key={r.id} className="flex items-center justify-between border border-gray-200 rounded-md px-3 py-2">
@@ -60,7 +61,15 @@ export function PortalContactDocumentsPanel({ contactId }: { contactId: string }
             );
           })}
           {items.length > 8 && (
-            <li className="text-xs text-gray-500">…and {items.length - 8} more — see Reminders → Open requests.</li>
+            <li>
+              <button
+                type="button"
+                className="text-xs underline text-gray-600 hover:text-gray-900"
+                onClick={() => setShowAll((s) => !s)}
+              >
+                {showAll ? 'Show fewer' : `Show all (${items.length})`}
+              </button>
+            </li>
           )}
         </ul>
       )}

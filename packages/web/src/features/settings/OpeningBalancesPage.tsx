@@ -9,7 +9,10 @@ import { apiClient, getAccessToken } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { Upload, FileSpreadsheet, CheckCircle } from 'lucide-react';
+
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
 
 interface Account {
   id: string;
@@ -60,11 +63,32 @@ export function OpeningBalancesPage() {
   // the fiscal year the books start). Defaults to today.
   const [asOfDate, setAsOfDate] = useState(() => new Date().toISOString().split('T')[0]!);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Independent client-side pagination for the two tables.
+  const [csvPageSize, setCsvPageSize] = useState('50');
+  const [csvOffset, setCsvOffset] = useState(0);
+  const [manualPageSize, setManualPageSize] = useState('50');
+  const [manualOffset, setManualOffset] = useState(0);
 
   const { data: accountsData, isLoading, isError, refetch } = useQuery({
-    queryKey: ['accounts', { limit: 500 }],
-    queryFn: () =>
-      apiClient<{ data: Account[]; total: number }>('/accounts?limit=500&isActive=true'),
+    queryKey: ['accounts', 'opening-balances', 'all-active'],
+    // Fetch every page so the editor sees the complete chart of accounts —
+    // a single limit=500 request silently dropped rows for tenants with
+    // more than 500 active accounts.
+    queryFn: async () => {
+      const pageLimit = 500;
+      const first = await apiClient<{ data: Account[]; total: number }>(
+        `/accounts?limit=${pageLimit}&offset=0&isActive=true`,
+      );
+      const all = [...first.data];
+      while (all.length < first.total) {
+        const next = await apiClient<{ data: Account[]; total: number }>(
+          `/accounts?limit=${pageLimit}&offset=${all.length}&isActive=true`,
+        );
+        if (next.data.length === 0) break; // defensive: avoid looping if total drifts
+        all.push(...next.data);
+      }
+      return { data: all, total: all.length };
+    },
   });
 
   const importCsv = useMutation({
@@ -107,6 +131,7 @@ export function OpeningBalancesPage() {
     const file = e.target.files?.[0] ?? null;
     setSelectedFile(file);
     setParsedRows([]);
+    setCsvOffset(0);
     setResult(null);
 
     if (file) {
@@ -142,6 +167,14 @@ export function OpeningBalancesPage() {
   if (isError) return <ErrorMessage onRetry={() => refetch()} />;
 
   const accounts = accountsData?.data || [];
+
+  const csvLimit = csvPageSize === 'all' ? Math.max(parsedRows.length, 1) : parseInt(csvPageSize, 10);
+  const safeCsvOffset = csvOffset < parsedRows.length ? csvOffset : 0;
+  const visibleParsedRows = parsedRows.slice(safeCsvOffset, safeCsvOffset + csvLimit);
+
+  const manualLimit = manualPageSize === 'all' ? Math.max(accounts.length, 1) : parseInt(manualPageSize, 10);
+  const safeManualOffset = manualOffset < accounts.length ? manualOffset : 0;
+  const visibleAccounts = accounts.slice(safeManualOffset, safeManualOffset + manualLimit);
 
   if (result) {
     return (
@@ -264,8 +297,8 @@ export function OpeningBalancesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {parsedRows.map((row, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
+                    {visibleParsedRows.map((row, i) => (
+                      <tr key={safeCsvOffset + i} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-gray-900 font-mono">{row.accountNumber}</td>
                         <td className="px-4 py-2 text-gray-700">{row.accountName}</td>
                         <td className="px-4 py-2 text-gray-900 text-right font-mono">{row.balance}</td>
@@ -274,6 +307,16 @@ export function OpeningBalancesPage() {
                   </tbody>
                 </table>
               </div>
+              <Pagination
+                total={parsedRows.length}
+                limit={csvLimit}
+                offset={safeCsvOffset}
+                onChange={setCsvOffset}
+                unit="accounts"
+                pageSize={csvPageSize}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                onPageSizeChange={(s) => { setCsvPageSize(s); setCsvOffset(0); }}
+              />
             </div>
           )}
 
@@ -320,7 +363,7 @@ export function OpeningBalancesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {accounts.map((acct) => (
+                    {visibleAccounts.map((acct) => (
                       <tr key={acct.id} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-gray-500 font-mono">
                           {acct.accountNumber || '—'}
@@ -341,6 +384,19 @@ export function OpeningBalancesPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="mb-4">
+                <Pagination
+                  total={accounts.length}
+                  limit={manualLimit}
+                  offset={safeManualOffset}
+                  onChange={setManualOffset}
+                  unit="accounts"
+                  pageSize={manualPageSize}
+                  pageSizeOptions={PAGE_SIZE_OPTIONS}
+                  onPageSizeChange={(s) => { setManualPageSize(s); setManualOffset(0); }}
+                />
               </div>
 
               <Button

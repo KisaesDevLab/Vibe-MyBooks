@@ -5,24 +5,27 @@
 import { useState } from 'react';
 import { ScrollText, Download } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { Pagination } from '../../../components/ui/Pagination';
 import { useTailscaleAudit } from '../../../api/hooks/useTailscale';
 import { getAccessToken } from '../../../api/client';
 
 const ACTIONS = ['', 'connect', 'disconnect', 'reauth', 'serve_enable', 'serve_disable'];
 
+const PAGE_SIZE_OPTIONS = ['25', '50', '100'];
+
 export function AuditTable() {
   const [action, setAction] = useState('');
-  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState('25');
+  const [offset, setOffset] = useState(0);
   const [csvError, setCsvError] = useState('');
   const [downloading, setDownloading] = useState(false);
-  const limit = 25;
+  const limit = parseInt(pageSize, 10);
+  // The audit API is page-based; derive the 1-based page from the offset.
   const { data, isLoading, error } = useTailscaleAudit({
     action: action || undefined,
-    page,
+    page: Math.floor(offset / limit) + 1,
     limit,
   });
-
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
   const downloadCsv = async () => {
     setCsvError('');
@@ -65,7 +68,7 @@ export function AuditTable() {
             value={action}
             onChange={(e) => {
               setAction(e.target.value);
-              setPage(1);
+              setOffset(0);
             }}
             className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
@@ -144,28 +147,17 @@ export function AuditTable() {
             </table>
           </div>
 
-          <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between text-sm">
-            <div className="text-gray-500">
-              Page {data.page} of {totalPages}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </Button>
-            </div>
+          <div className="px-6 pb-3 border-t border-gray-200">
+            <Pagination
+              total={data.total}
+              limit={limit}
+              offset={offset}
+              onChange={setOffset}
+              unit="entries"
+              pageSize={pageSize}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              onPageSizeChange={(s) => { setPageSize(s); setOffset(0); }}
+            />
           </div>
         </>
       )}

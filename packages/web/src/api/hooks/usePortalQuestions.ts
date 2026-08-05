@@ -69,16 +69,23 @@ export function useQuestionsList(opts?: {
   companyId?: string;
   contactId?: string;
   transactionId?: string;
+  limit?: number;
+  offset?: number;
 }) {
   const qs = new URLSearchParams();
   if (opts?.status) qs.set('status', opts.status);
   if (opts?.companyId) qs.set('companyId', opts.companyId);
   if (opts?.contactId) qs.set('contactId', opts.contactId);
   if (opts?.transactionId) qs.set('transactionId', opts.transactionId);
+  if (opts?.limit !== undefined) qs.set('limit', String(opts.limit));
+  if (opts?.offset !== undefined) qs.set('offset', String(opts.offset));
   const suffix = qs.toString() ? `?${qs}` : '';
   return useQuery({
     queryKey: ['practice', 'portal', 'questions', opts ?? {}],
-    queryFn: () => apiClient<{ questions: QuestionListItem[] }>(`/practice/portal/questions${suffix}`),
+    queryFn: () =>
+      apiClient<{ questions: QuestionListItem[]; total: number; limit: number; offset: number }>(
+        `/practice/portal/questions${suffix}`,
+      ),
   });
 }
 

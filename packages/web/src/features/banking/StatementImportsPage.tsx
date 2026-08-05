@@ -8,6 +8,7 @@ import { useStatementJobs, useDeleteStatementJob, useReprocessStatementJob, type
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
+import { Pagination } from '../../components/ui/Pagination';
 import { FileText, Upload, Trash2, AlertTriangle, RefreshCw } from 'lucide-react';
 
 type StatusKey = 'processing' | 'pending' | 'imported' | 'failed';
@@ -30,6 +31,10 @@ const STATUS_FILTERS: { value: '' | StatusKey; label: string }[] = [
   { value: 'failed', label: 'Failed' },
 ];
 
+// Rows-per-page choices — the jobs endpoint caps limit at 200.
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '200'];
+const DEFAULT_PAGE_SIZE = '50';
+
 function fmtDate(s: string | null): string {
   if (!s) return '—';
   const d = new Date(s);
@@ -40,7 +45,12 @@ export function StatementImportsPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const justUploaded = Number(params.get('uploaded') || '0');
-  const { data, isLoading, isError, refetch } = useStatementJobs();
+  // Server-side pagination; the status filter below stays client-side (the
+  // endpoint takes no status param) so it only narrows the fetched page.
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [offset, setOffset] = useState(0);
+  const limit = parseInt(pageSize, 10);
+  const { data, isLoading, isError, refetch } = useStatementJobs({ limit, offset });
   const del = useDeleteStatementJob();
   const reprocess = useReprocessStatementJob();
   const toast = useToast();
@@ -107,7 +117,7 @@ export function StatementImportsPage() {
             aria-label="Filter by processing status"
             className="text-sm border border-gray-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as '' | StatusKey)}
+            onChange={(e) => { setStatusFilter(e.target.value as '' | StatusKey); setOffset(0); }}
           >
             {STATUS_FILTERS.map((f) => (
               <option key={f.value} value={f.value}>{f.label}</option>
@@ -181,6 +191,18 @@ export function StatementImportsPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {!isLoading && !isError && data && (
+        <Pagination
+          total={data.total}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          unit="imports"
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+        />
       )}
     </div>
   );

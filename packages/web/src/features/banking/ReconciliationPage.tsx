@@ -27,6 +27,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/Toaster';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw, ChevronUp, ChevronDown, FileUp } from 'lucide-react';
@@ -61,15 +62,25 @@ function StatementStatusChip({ status }: { status: BankStatementRow['status'] })
   return <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${styles[status]}`}>{labels[status]}</span>;
 }
 
+// Rows-per-page choices for the statements table — GET /banking/statements
+// caps limit at 200.
+const STMT_PAGE_SIZE_OPTIONS = ['25', '50', '100', '200'];
+const STMT_DEFAULT_PAGE_SIZE = '50';
+
 // Statements on file for the tenant (optionally filtered by account), each
 // with derived reconciliation status, readiness, and a one-click Reconcile.
 function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }) {
   const navigate = useNavigate();
   const [accountFilter, setAccountFilter] = useSessionState('vibe:reconcile:accountFilter', '');
   // Default to "not reconciled" so the operator lands on the statements that
-  // still need work; '' = All.
+  // still need work; '' = All. Applied client-side to the fetched page (the
+  // endpoint takes no status param).
   const [statusFilter, setStatusFilter] = useSessionState<BankStatementRow['status'] | ''>('vibe:reconcile:statusFilter', 'not_reconciled');
-  const { data, isLoading, isError, refetch } = useBankStatements(accountFilter || undefined);
+  // Server-side pagination — filter changes reset to page 1.
+  const [pageSize, setPageSize] = useState(STMT_DEFAULT_PAGE_SIZE);
+  const [offset, setOffset] = useState(0);
+  const limit = parseInt(pageSize, 10);
+  const { data, isLoading, isError, refetch } = useBankStatements(accountFilter || undefined, { limit, offset });
   const startRecon = useStartReconciliation();
   const toast = useToast();
   const [startingId, setStartingId] = useState('');
@@ -103,11 +114,11 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
           <FileUp className="h-4 w-4 mr-1" /> Import statement (PDF)
         </Button>
         <div className="w-64">
-          <AccountSelector value={accountFilter} onChange={setAccountFilter} accountTypeFilter={['asset', 'liability']} />
+          <AccountSelector value={accountFilter} onChange={(v) => { setAccountFilter(v); setOffset(0); }} accountTypeFilter={['asset', 'liability']} />
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as BankStatementRow['status'] | '')}
+          onChange={(e) => { setStatusFilter(e.target.value as BankStatementRow['status'] | ''); setOffset(0); }}
           className="rounded-md border-gray-300 text-sm px-3 py-2"
           aria-label="Filter by reconciliation status"
         >
@@ -117,7 +128,7 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
           <option value="reconciled">Reconciled</option>
         </select>
         {accountFilter && (
-          <button className="text-xs text-gray-500 hover:text-gray-700 underline" onClick={() => setAccountFilter('')}>
+          <button className="text-xs text-gray-500 hover:text-gray-700 underline" onClick={() => { setAccountFilter(''); setOffset(0); }}>
             Clear filter
           </button>
         )}
@@ -241,6 +252,16 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
             </table>
           </div>
           )}
+          <Pagination
+            total={data.total}
+            limit={limit}
+            offset={offset}
+            onChange={setOffset}
+            unit="statements"
+            pageSize={pageSize}
+            pageSizeOptions={STMT_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+          />
         </>
       )}
     </div>

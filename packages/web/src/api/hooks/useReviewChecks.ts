@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CheckRegistryEntry,
   CheckRun,
@@ -75,6 +75,33 @@ export function useFindings(input: FindingsListInput) {
       apiClient<FindingsListResponse>(
         `/practice/checks/findings${qs.toString() ? `?${qs.toString()}` : ''}`,
       ),
+    staleTime: 15 * 1000,
+  });
+}
+
+// Cursor-accumulating variant of useFindings: "Load more" appends
+// the next page instead of replacing the list, so periods with more
+// findings than one page stay fully reachable. Invalidation on
+// ['practice', 'checks'] refetches every loaded page.
+export function useFindingsInfinite(input: Omit<FindingsListInput, 'cursor'>) {
+  return useInfiniteQuery({
+    queryKey: [...KEYS.findings(input), 'infinite'],
+    queryFn: ({ pageParam }) => {
+      const qs = new URLSearchParams();
+      if (input.status) qs.set('status', input.status);
+      if (input.severity) qs.set('severity', input.severity);
+      if (input.checkKey) qs.set('checkKey', input.checkKey);
+      if (input.companyId) qs.set('companyId', input.companyId);
+      if (input.periodStart) qs.set('periodStart', input.periodStart);
+      if (input.periodEnd) qs.set('periodEnd', input.periodEnd);
+      if (pageParam) qs.set('cursor', pageParam);
+      if (input.limit) qs.set('limit', String(input.limit));
+      return apiClient<FindingsListResponse>(
+        `/practice/checks/findings${qs.toString() ? `?${qs.toString()}` : ''}`,
+      );
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     staleTime: 15 * 1000,
   });
 }

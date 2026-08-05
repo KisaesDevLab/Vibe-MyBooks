@@ -16,6 +16,8 @@ interface Props {
 export function ValidationResults({ sessionId, importMode, onComplete }: Props) {
   const validateMutation = useValidateSession();
   const [result, setResult] = useState<PayrollValidationSummary | null>(null);
+  const [showAllErrors, setShowAllErrors] = useState(false);
+  const [showAllWarnings, setShowAllWarnings] = useState(false);
 
   useEffect(() => {
     validateMutation.mutateAsync(sessionId).then(setResult);
@@ -74,7 +76,7 @@ export function ValidationResults({ sessionId, importMode, onComplete }: Props) 
                 </tr>
               </thead>
               <tbody className="divide-y divide-red-100">
-                {errors.slice(0, 50).map((e, i) => (
+                {(showAllErrors ? errors : errors.slice(0, 50)).map((e, i) => (
                   <tr key={i} className="bg-white">
                     <td className="px-3 py-2 font-mono text-xs text-red-600">{e.code}</td>
                     <td className="px-3 py-2 text-gray-700">{e.field}</td>
@@ -85,7 +87,13 @@ export function ValidationResults({ sessionId, importMode, onComplete }: Props) 
             </table>
             {errors.length > 50 && (
               <div className="px-3 py-2 bg-red-50 text-xs text-red-600">
-                ...and {errors.length - 50} more errors
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => setShowAllErrors((s) => !s)}
+                >
+                  {showAllErrors ? 'Show fewer' : `Show all (${errors.length})`}
+                </button>
               </div>
             )}
           </div>
@@ -108,7 +116,7 @@ export function ValidationResults({ sessionId, importMode, onComplete }: Props) 
                 </tr>
               </thead>
               <tbody className="divide-y divide-yellow-100">
-                {warnings.slice(0, 50).map((w, i) => (
+                {(showAllWarnings ? warnings : warnings.slice(0, 50)).map((w, i) => (
                   <tr key={i} className="bg-white">
                     <td className="px-3 py-2 font-mono text-xs text-yellow-600">{w.code}</td>
                     <td className="px-3 py-2 text-gray-700">{w.field}</td>
@@ -117,6 +125,17 @@ export function ValidationResults({ sessionId, importMode, onComplete }: Props) 
                 ))}
               </tbody>
             </table>
+            {warnings.length > 50 && (
+              <div className="px-3 py-2 bg-yellow-50 text-xs text-yellow-700">
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => setShowAllWarnings((s) => !s)}
+                >
+                  {showAllWarnings ? 'Show fewer' : `Show all (${warnings.length})`}
+                </button>
+              </div>
+            )}
           </div>
         </details>
       )}

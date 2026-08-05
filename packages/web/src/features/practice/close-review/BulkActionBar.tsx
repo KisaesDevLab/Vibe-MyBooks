@@ -11,6 +11,8 @@ interface Props {
   bucket: ClassificationBucket;
   selectedCount: number;
   totalCount: number;
+  /** More rows exist on the server beyond the loaded ones — render the count as "N+". */
+  hasMore?: boolean;
   allSelected: boolean;
   disabled?: boolean;
   onToggleAll: () => void;
@@ -31,6 +33,7 @@ export function BulkActionBar({
   bucket,
   selectedCount,
   totalCount,
+  hasMore,
   allSelected,
   disabled,
   onToggleAll,
@@ -55,7 +58,7 @@ export function BulkActionBar({
           {allSelected ? 'Deselect all' : 'Select all'}
         </button>
         <span className="text-xs text-gray-500">
-          {selectedCount} of {totalCount} selected
+          {selectedCount} of {totalCount}{hasMore ? '+' : ''} selected
         </span>
       </div>
       <div className="flex items-center gap-2">

@@ -26,6 +26,13 @@ vi.mock('../../../api/hooks/useFeatureFlag', () => ({
 vi.mock('../../../api/hooks/useClassificationState', () => ({
   useSummary: () => ({ data: summaryStore.data }),
   useBucket: () => ({ data: { rows: [], nextCursor: null }, isLoading: false }),
+  useBucketInfinite: () => ({
+    data: { pages: [{ rows: [], nextCursor: null }], pageParams: [undefined] },
+    isLoading: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: vi.fn(),
+  }),
   useApprove: () => ({ mutate: vi.fn(), isPending: false }),
   useApproveAll: () => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue({}), isPending: false }),
   useReclassify: () => ({ mutate: vi.fn(), isPending: false }),
@@ -40,6 +47,13 @@ vi.mock('../../../api/hooks/useReviewChecks', () => ({
   useReopenChecklistTask: () => ({ mutate: vi.fn(), isPending: false }),
   useCheckRegistry: () => ({ data: { checks: [] }, isLoading: false }),
   useFindings: () => ({ data: { rows: [], nextCursor: null }, isLoading: false }),
+  useFindingsInfinite: () => ({
+    data: { pages: [{ rows: [], nextCursor: null }], pageParams: [undefined] },
+    isLoading: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: vi.fn(),
+  }),
   useFinding: () => ({ data: undefined, isLoading: false }),
   useFindingEvents: () => ({ data: { events: [] }, isLoading: false }),
   useFindingsSummary: () => ({ data: undefined }),

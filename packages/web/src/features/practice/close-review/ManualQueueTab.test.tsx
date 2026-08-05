@@ -18,7 +18,7 @@ vi.mock('../../../providers/CompanyProvider', () => ({
 
 vi.mock('../../../api/hooks/useManualQueue', () => ({
   useManualQueue: () => ({
-    data: { rows: queueStore.rows },
+    data: { rows: queueStore.rows, total: queueStore.rows.length },
     isLoading: queueStore.isLoading,
   }),
 }));

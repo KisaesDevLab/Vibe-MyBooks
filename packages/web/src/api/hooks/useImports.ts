@@ -14,7 +14,7 @@
 // details (e.g. the offending account numbers) that the page renders
 // in its friendly-error mapping.
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { API_BASE, refreshAccessToken } from '../client';
 import type {
   ImportCommitResult,
@@ -212,14 +212,23 @@ export function useImportSessions(filters?: {
   kind?: ImportKind;
   sourceSystem?: SourceSystem;
   status?: ImportStatus;
+  limit?: number;
+  offset?: number;
 }) {
   const params = new URLSearchParams();
   if (filters?.kind) params.set('kind', filters.kind);
   if (filters?.sourceSystem) params.set('sourceSystem', filters.sourceSystem);
   if (filters?.status) params.set('status', filters.status);
+  if (filters?.limit !== undefined) params.set('limit', String(filters.limit));
+  if (filters?.offset !== undefined) params.set('offset', String(filters.offset));
   const qs = params.toString();
   return useQuery<{ sessions: ImportSession[]; total: number }, ImportApiError>({
+    // limit/offset ride in the filters object, so each page is its own
+    // cache entry and page changes refetch.
     queryKey: ['imports', filters ?? {}],
     queryFn: () => importsFetch(`/imports${qs ? `?${qs}` : ''}`),
+    // Keep the previous page on screen while the next one loads so the
+    // list doesn't collapse to a spinner on every page/size change.
+    placeholderData: keepPreviousData,
   });
 }

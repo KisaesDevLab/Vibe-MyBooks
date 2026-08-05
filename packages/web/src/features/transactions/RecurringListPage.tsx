@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Pagination } from '../../components/ui/Pagination';
 import { Play, Pause, Archive, ArchiveRestore, Pencil } from 'lucide-react';
 import { RecurringScheduleModal, type EditableSchedule } from './RecurringScheduleModal';
 
@@ -26,6 +27,10 @@ const STATUS_BADGE: Record<Status, string> = {
 };
 type SortKey = 'frequency' | 'nextOccurrence' | 'lastPostedAt' | 'status';
 
+// Rows-per-page choices — GET /recurring caps limit at 500.
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
+const DEFAULT_PAGE_SIZE = '50';
+
 // Friendly labels for the frequency cell. Semi-monthly is twice a month, so it
 // never shows the "every N" suffix.
 const FREQ_LABELS: Record<string, string> = {
@@ -39,9 +44,15 @@ const freqLabel = (s: { frequency: string; intervalValue: number }) => {
 
 export function RecurringListPage() {
   const queryClient = useQueryClient();
+  // Server-side pagination; the status/search filters below stay client-side
+  // (the endpoint takes no status/search params) so they only narrow the
+  // fetched page.
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [offset, setOffset] = useState(0);
+  const limit = parseInt(pageSize, 10);
   const { data, isLoading } = useQuery({
-    queryKey: ['recurring'],
-    queryFn: () => apiClient<{ schedules: RecurringSchedule[] }>('/recurring'),
+    queryKey: ['recurring', limit, offset],
+    queryFn: () => apiClient<{ schedules: RecurringSchedule[]; total: number }>(`/recurring?limit=${limit}&offset=${offset}`),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['recurring'] });
@@ -96,12 +107,12 @@ export function RecurringListPage() {
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
         {([['all', 'All'], ['active', 'Active'], ['paused', 'Paused'], ['archived', 'Archived']] as const).map(([key, label]) => (
-          <button key={key} onClick={() => setStatusFilter(key)}
+          <button key={key} onClick={() => { setStatusFilter(key); setOffset(0); }}
             className={`px-3 py-1.5 rounded-md text-sm border ${statusFilter === key ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
             {label} ({counts[key]})
           </button>
         ))}
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name / frequency / mode…"
+        <input value={search} onChange={(e) => { setSearch(e.target.value); setOffset(0); }} placeholder="Search name / frequency / mode…"
           className="ml-auto rounded-md border-gray-300 text-sm px-3 py-1.5 min-w-[14rem]" />
       </div>
 
@@ -161,6 +172,19 @@ export function RecurringListPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {data && (
+        <Pagination
+          total={data.total}
+          limit={limit}
+          offset={offset}
+          onChange={setOffset}
+          unit="schedules"
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+        />
       )}
 
       {editing && (

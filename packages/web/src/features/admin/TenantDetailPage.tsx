@@ -8,6 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/Toaster';
 import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen, CalendarRange, UserPlus, Search, X, Wrench } from 'lucide-react';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
@@ -44,6 +45,8 @@ interface TenantDetail {
   };
 }
 
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
+
 export function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -79,6 +82,11 @@ export function TenantDetailPage() {
   const [showDeletePayroll, setShowDeletePayroll] = useState(false);
   const [payrollError, setPayrollError] = useState<string | null>(null);
   const [showAddFirmUser, setShowAddFirmUser] = useState(false);
+  // Independent pagination for the users and companies tables.
+  const [userPageSize, setUserPageSize] = useState('50');
+  const [userOffset, setUserOffset] = useState(0);
+  const [companyPageSize, setCompanyPageSize] = useState('50');
+  const [companyOffset, setCompanyOffset] = useState(0);
 
   const toggleAccessMutation = useMutation({
     mutationFn: (userId: string) =>
@@ -265,6 +273,13 @@ export function TenantDetailPage() {
     );
   }
 
+  const userLimit = userPageSize === 'all' ? Math.max(tenant.users.length, 1) : parseInt(userPageSize, 10);
+  const safeUserOffset = userOffset < tenant.users.length ? userOffset : 0;
+  const visibleUsers = tenant.users.slice(safeUserOffset, safeUserOffset + userLimit);
+  const companyLimit = companyPageSize === 'all' ? Math.max(tenant.companies.length, 1) : parseInt(companyPageSize, 10);
+  const safeCompanyOffset = companyOffset < tenant.companies.length ? companyOffset : 0;
+  const visibleCompanies = tenant.companies.slice(safeCompanyOffset, safeCompanyOffset + companyLimit);
+
   return (
     <div className="p-6 space-y-6">
       <ConfirmDialog
@@ -382,7 +397,7 @@ export function TenantDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {tenant.users.map((u) => (
+                {visibleUsers.map((u) => (
                   <tr key={u.id} className="border-b border-gray-100">
                     <td className="px-4 py-3 text-gray-900">{u.email}</td>
                     <td className="px-4 py-3 text-gray-700">{u.displayName || '-'}</td>
@@ -437,6 +452,18 @@ export function TenantDetailPage() {
             </table>
           </div>
         )}
+        <div className="px-4 pb-3">
+          <Pagination
+            total={tenant.users.length}
+            limit={userLimit}
+            offset={safeUserOffset}
+            onChange={setUserOffset}
+            unit="users"
+            pageSize={userPageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(s) => { setUserPageSize(s); setUserOffset(0); }}
+          />
+        </div>
       </div>
 
       {/* Companies Table */}
@@ -460,7 +487,7 @@ export function TenantDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {tenant.companies.map((c) => (
+                {visibleCompanies.map((c) => (
                   <tr key={c.id} className="border-b border-gray-100">
                     <td className="px-4 py-3 font-medium text-gray-900">{c.name}</td>
                     <td className="px-4 py-3 text-center">
@@ -490,6 +517,18 @@ export function TenantDetailPage() {
             </table>
           </div>
         )}
+        <div className="px-4 pb-3">
+          <Pagination
+            total={tenant.companies.length}
+            limit={companyLimit}
+            offset={safeCompanyOffset}
+            onChange={setCompanyOffset}
+            unit="companies"
+            pageSize={companyPageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(s) => { setCompanyPageSize(s); setCompanyOffset(0); }}
+          />
+        </div>
       </div>
 
       {/* Chart of Accounts — apply a template when the COA is empty
