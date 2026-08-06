@@ -260,6 +260,8 @@ const FirmRulesPage = lazyNamed(() => import('./features/firm/FirmRulesPage'), '
 const FirmSettingsPage = lazyNamed(() => import('./features/firm/FirmSettingsPage'), 'FirmSettingsPage');
 const FeatureFlagsPage = lazyNamed(() => import('./features/admin/FeatureFlagsPage'), 'FeatureFlagsPage');
 const TaxCodeAdminPage = lazyNamed(() => import('./features/admin/TaxCodeAdminPage'), 'TaxCodeAdminPage');
+const TbLayout = lazyNamed(() => import('./features/tb/TbLayout'), 'TbLayout');
+const TbSettingsPage = lazyNamed(() => import('./features/tb/TbSettingsPage'), 'TbSettingsPage');
 
 // ─── Auth (cold-path + one-time setup) — kept out of the main bundle ─
 const RegisterPage = lazyNamed(() => import('./features/auth/RegisterPage'), 'RegisterPage');
@@ -554,6 +556,11 @@ export function App() {
             <Route path="/firm/:firmId/settings" element={<FirmSettingsPage />} />
             <Route path="/admin/feature-flags" element={<AdminRoute><FeatureFlagsPage /></AdminRoute>} />
             <Route path="/admin/tax-codes" element={<AdminRoute><TaxCodeAdminPage /></AdminRoute>} />
+            {/* Trial Balance module (docs/tb/BUILD_PLAN.md) — TbLayout
+                guards on TRIAL_BALANCE_V1 + staff role. */}
+            <Route path="/tb" element={<TbLayout />}>
+              <Route path="settings" element={<TbSettingsPage />} />
+            </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

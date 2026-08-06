@@ -64,6 +64,7 @@ import { useLogout, useMe } from '../../api/hooks/useAuth';
 import { SidebarDisplayControls } from './SidebarDisplayControls';
 import { CompanySwitcher } from './CompanySwitcher';
 import { PracticeGroup } from './PracticeGroup';
+import { TrialBalanceGroup } from './TrialBalanceGroup';
 import { FirmGroup } from './FirmGroup';
 import type { LucideIcon } from 'lucide-react';
 import type { ResourceKey } from '@kis-books/shared';
@@ -537,6 +538,10 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
                   its own headings/toggles); expand the sidebar to
                   reach it. */}
               {group.label === 'Reporting' && !collapsed && <PracticeGroup onNavigate={onNavigate} />}
+              {/* Trial Balance group (TB module) — same self-gating
+                  pattern as Practice: flag + staff role, DOM-absent
+                  otherwise. Sits between Practice and Firm. */}
+              {group.label === 'Reporting' && !collapsed && <TrialBalanceGroup onNavigate={onNavigate} />}
               {/* 3-tier rules plan, Phase 1 — Firm sidebar entry.
                   Self-gates on `useFirms()` returning a non-empty
                   list, so non-firm users never see the link. Sits
