@@ -29,6 +29,7 @@ const TB_COLLAPSED_STORAGE_KEY = 'tb-group-collapsed';
 const ICONS: Record<string, LucideIcon> = {
   'workpaper': Table2,
   'mapping': GitBranch,
+  'ajes': FilePlus2,
   'leadsheets': BookOpenCheck,
   'tax-entries': FilePlus2,
   'm1': Calculator,

@@ -73,6 +73,7 @@ const TXN_TYPE_LABELS: Record<string, string> = {
   deposit: 'DEP',
   transfer: 'XFR',
   journal_entry: 'JE',
+  aje: 'AJE',
   credit_memo: 'CM',
   customer_refund: 'REF',
 };

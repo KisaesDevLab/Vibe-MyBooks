@@ -262,6 +262,8 @@ const FeatureFlagsPage = lazyNamed(() => import('./features/admin/FeatureFlagsPa
 const TaxCodeAdminPage = lazyNamed(() => import('./features/admin/TaxCodeAdminPage'), 'TaxCodeAdminPage');
 const TbLayout = lazyNamed(() => import('./features/tb/TbLayout'), 'TbLayout');
 const TbSettingsPage = lazyNamed(() => import('./features/tb/TbSettingsPage'), 'TbSettingsPage');
+const AjeListPage = lazyNamed(() => import('./features/tb/AjeListPage'), 'AjeListPage');
+const AjeFormPage = lazyNamed(() => import('./features/tb/AjeFormPage'), 'AjeFormPage');
 
 // ─── Auth (cold-path + one-time setup) — kept out of the main bundle ─
 const RegisterPage = lazyNamed(() => import('./features/auth/RegisterPage'), 'RegisterPage');
@@ -559,6 +561,9 @@ export function App() {
             {/* Trial Balance module (docs/tb/BUILD_PLAN.md) — TbLayout
                 guards on TRIAL_BALANCE_V1 + staff role. */}
             <Route path="/tb" element={<TbLayout />}>
+              <Route path="ajes" element={<AjeListPage />} />
+              <Route path="ajes/new" element={<AjeFormPage />} />
+              <Route path="ajes/:id/edit" element={<AjeFormPage />} />
               <Route path="settings" element={<TbSettingsPage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />

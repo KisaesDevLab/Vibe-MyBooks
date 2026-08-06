@@ -71,6 +71,7 @@ const txnTypeLabels: Record<string, string> = {
   deposit: 'Deposit',
   transfer: 'Transfer',
   journal_entry: 'Journal Entry',
+  aje: 'AJE',
   credit_memo: 'Credit Memo',
   customer_refund: 'Refund',
 };
@@ -679,7 +680,18 @@ export function TransactionListPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{txn.txnDate}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                    {txnTypeLabels[txn.txnType] || txn.txnType}
+                    {txn.txnType === 'aje' ? (
+                      // Distinct AJE badge (TB module D10) with its per-FY
+                      // number when the row carries one.
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium" title="Adjusting journal entry (firm)">
+                        {(() => {
+                          const n = (txn as { ajeNumber?: number | null }).ajeNumber;
+                          return n ? `AJE-${String(n).padStart(3, '0')}` : 'AJE';
+                        })()}
+                      </span>
+                    ) : (
+                      txnTypeLabels[txn.txnType] || txn.txnType
+                    )}
                     {txn.aiCategorized === 'ai' && (
                       <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium" title="Categorized by AI">AI</span>
                     )}

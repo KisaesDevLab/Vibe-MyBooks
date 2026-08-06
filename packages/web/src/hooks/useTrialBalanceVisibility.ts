@@ -17,6 +17,7 @@ import { isPracticeStaff, type StaffRole } from './usePracticeVisibility';
 export type TbNavKey =
   | 'workpaper'
   | 'mapping'
+  | 'ajes'
   | 'leadsheets'
   | 'tax-entries'
   | 'm1'
@@ -35,6 +36,7 @@ const TB_FLAG: PracticeFeatureFlagKey = 'TRIAL_BALANCE_V1';
 
 // Order = sidebar render order (mirrors the Vibe TB TAX menu).
 export const TB_NAV_CATALOG: readonly TbNavItem[] = [
+  { key: 'ajes', label: 'Adjusting Entries', path: '/tb/ajes', minRole: 'bookkeeper' },
   { key: 'settings', label: 'TB Settings', path: '/tb/settings', minRole: 'bookkeeper' },
 ];
 

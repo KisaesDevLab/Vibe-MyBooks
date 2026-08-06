@@ -31,7 +31,7 @@ interface LibraryAttachment {
 const txnTypeLabels: Record<string, string> = {
   invoice: 'Invoice', customer_payment: 'Payment', cash_sale: 'Cash Sale',
   expense: 'Expense', deposit: 'Deposit', transfer: 'Transfer',
-  journal_entry: 'Journal Entry', credit_memo: 'Credit Memo', customer_refund: 'Refund',
+  journal_entry: 'Journal Entry', aje: 'AJE', credit_memo: 'Credit Memo', customer_refund: 'Refund',
   draft: 'Draft', receipt: 'Receipt',
 };
 

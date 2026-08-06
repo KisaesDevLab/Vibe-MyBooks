@@ -86,7 +86,7 @@ function fmtMoney(n: number): string {
 
 const TXN_TYPE_LABELS: Record<string, string> = {
   invoice: 'INV', customer_payment: 'PMT', cash_sale: 'SALE', expense: 'CHK', deposit: 'DEP',
-  transfer: 'XFR', journal_entry: 'JE', credit_memo: 'CM', customer_refund: 'REF', bill: 'BILL',
+  transfer: 'XFR', journal_entry: 'JE', aje: 'AJE', credit_memo: 'CM', customer_refund: 'REF', bill: 'BILL',
   bill_payment: 'BP', vendor_credit: 'VC',
 };
 
