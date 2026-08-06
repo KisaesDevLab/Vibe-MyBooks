@@ -30,6 +30,18 @@ suppressions:
       to leak and no attacker-measurable oracle; timing-safe comparison
       applies to server-side secret checks, not form validation.
 
+  - rule: R-05ABC # react-router 6.30.4 CVE-2026-53666 / CVE-2026-53669
+  - rule: R-88846 # react-router-dom 6.30.4 CVE-2026-53668 (no 6.x fixed version)
+  # Reason for the two above: the advisories affect data routers
+  # (createBrowserRouter loaders/actions redirects) and SSR error
+  # deserialization. This app uses plain declarative <BrowserRouter> +
+  # <Routes>, client-only, and every navigate() target is an
+  # app-constructed path — no user-controlled redirect params. The only
+  # fix is the react-router 7 major migration (6.x line has no patched
+  # release for CVE-2026-53668), tracked as deliberate deferred work;
+  # re-review these suppressions when that migration lands or if data
+  # routers/SSR are introduced.
+
   - rule: R-563E7 # Exposed secret, help/articles.ts
     reason: >
       The flagged strings were documentation placeholders in a help
