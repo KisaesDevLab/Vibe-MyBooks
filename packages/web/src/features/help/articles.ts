@@ -1141,7 +1141,7 @@ Two authentication methods are supported:
 3. Copy the key (shown only once)
 4. Include it in every request:
 \`\`\`
-X-API-Key: sk_live_abc123...
+X-API-Key: YOUR_API_KEY
 \`\`\`
 
 **JWT Bearer Token (for web/mobile apps):**
@@ -1155,7 +1155,7 @@ Authorization: Bearer eyJhbG...
 
 Test your authentication:
 \`\`\`
-curl -H "X-API-Key: sk_live_your_key" https://your-server/api/v2/me
+curl -H "X-API-Key: YOUR_API_KEY" https://your-server/api/v2/me
 \`\`\`
 
 This returns your user info, active tenant, and companies.

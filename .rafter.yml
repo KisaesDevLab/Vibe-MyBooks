@@ -1,0 +1,38 @@
+# Rafter scan suppressions — each entry documents a reviewed false positive.
+# Review date: 2026-08-06. Re-review if the flagged code changes.
+
+suppressions:
+  - rule: R-EFEEF # Unsafe Regular Expression (24 findings)
+    reason: >
+      All flagged patterns reviewed individually. Each is fixed-length,
+      anchored with disjoint alternatives, or bounded-quantifier
+      ({12,18}, {1,80}); none exhibits exponential backtracking. The
+      handful with mild polynomial worst cases (check-pdf CSZ tail,
+      bank-name-cleaner domain strip, ChatMessage link pattern) operate
+      on short, length-bounded inputs (bank descriptors, memo fields,
+      chat text rendered in the user's own browser), not
+      attacker-controlled unbounded input.
+
+  - rule: R-BFD19 # eslint rule @typescript-eslint/no-explicit-any not found
+  - rule: R-1344B # eslint rule @typescript-eslint/no-require-imports not found
+  - rule: R-859C1 # eslint rule @typescript-eslint/no-redeclare not found
+  - rule: R-F202D # eslint rule @typescript-eslint/no-unused-vars not found
+  # Reason for the four above: the repo has no ESLint configuration; the
+  # flagged lines are eslint-disable-next-line comments kept for editor
+  # tooling. "Definition for rule not found" is the scanner running
+  # ESLint without the @typescript-eslint plugin — a tooling artifact,
+  # not a code defect.
+
+  - rule: R-BFBD0 # Potential timing attack, ResetPasswordPage.tsx:29
+    reason: >
+      The comparison is `password !== confirm` between the user's own two
+      form fields, client-side in their own browser. There is no secret
+      to leak and no attacker-measurable oracle; timing-safe comparison
+      applies to server-side secret checks, not form validation.
+
+  - rule: R-563E7 # Exposed secret, help/articles.ts
+    reason: >
+      The flagged strings were documentation placeholders in a help
+      article ("sk_live_your_key", truncated "eyJhbG..."), not real
+      credentials. Renamed to YOUR_API_KEY anyway so secret scanners
+      stop pattern-matching the Stripe-style prefix. Nothing to rotate.
