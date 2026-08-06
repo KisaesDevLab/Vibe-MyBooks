@@ -54,6 +54,27 @@ suppressions:
   # re-review these suppressions when that migration lands or if data
   # routers/SSR are introduced.
 
+  - rule: R-B39C4 # Stored XSS via report-letter bodyHtml (report-letter.service.ts:239)
+    reason: >
+      Render path fixed, residual accepted per threat model. Full trace:
+      bodyHtml is writable only via adminRouter (requireSuperAdmin);
+      tenant-facing /reports/letters returns an id/name/type projection
+      with no bodyHtml; tenant-controlled variable values are escaped by
+      renderLetterBody at substitution. The one executable sink was the
+      report-pack Puppeteer render — now hardened (2026-08-06) with
+      setJavaScriptEnabled(false) + request interception denying all
+      network, matching pdf.service.ts, so authored markup cannot
+      execute or exfiltrate during rendering, and PDF viewers never run
+      embedded script. Remaining surface is the admin RichTextEditor
+      rendering stored bodyHtml in a super-admin's own browser: author
+      and viewer are the same trust tier (single-operator appliance),
+      the same class as the documented trusted-super-admin model in
+      url-safety.ts. Write-time allowlist sanitization was considered
+      and rejected: it adds a dependency to defend admins from
+      themselves and risks silently stripping content from legal
+      engagement letters. Re-review if letters become tenant-editable
+      or an HTML (non-PDF) preview endpoint is added.
+
   - rule: R-07414 # AI-triage-directed content / "ignore previous instructions" strings (5 findings)
     reason: >
       All five sites reviewed; none is scanner-directed or AI-directed
