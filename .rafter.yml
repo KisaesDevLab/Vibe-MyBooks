@@ -54,6 +54,21 @@ suppressions:
   # re-review these suppressions when that migration lands or if data
   # routers/SSR are introduced.
 
+  - rule: R-07414 # AI-triage-directed content / "ignore previous instructions" strings (5 findings)
+    reason: >
+      All five sites reviewed; none is scanner-directed or AI-directed
+      hidden content. report-packs.routes.ts:8, admin.service.ts:228,
+      and pii-sanitizer.service.ts:160 are ordinary engineering comments
+      addressed to human readers ("the guard is explicit", "do NOT mark
+      it removed", "don't flag it as detected" — the last refers to the
+      PII-detection result list, not a scanner). chat.service.ts:412 is
+      the prompt-injection GUARD itself: a comment and system-prompt
+      text describing the attack strings it defends against.
+      chat.service.test.ts:269 is the test fixture that deliberately
+      contains "Ignore all previous instructions" to verify that guard
+      works. Removing these strings would delete the defense and its
+      test. Re-review if new R-07414 findings appear at other locations.
+
   - rule: R-563E7 # Exposed secret, help/articles.ts
     reason: >
       The flagged strings were documentation placeholders in a help
