@@ -57,6 +57,7 @@ import {
   CheckCheck,
   Wand2,
   ClipboardCheck,
+  Percent,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLogout, useMe } from '../../api/hooks/useAuth';
@@ -111,6 +112,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/tunnel', label: 'Cloudflare Tunnel', icon: Cloud },
   { to: '/admin/ip-allowlist', label: 'Staff IP Allowlist', icon: ShieldAlert },
   { to: '/admin/feature-flags', label: 'Feature Flags', icon: Flag },
+  { to: '/admin/tax-codes', label: 'Tax Codes', icon: Percent },
   { to: '/admin/system', label: 'System Settings', icon: Wrench },
 ];
 

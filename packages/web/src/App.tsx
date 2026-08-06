@@ -259,6 +259,7 @@ const FirmTenantsPage = lazyNamed(() => import('./features/firm/FirmTenantsPage'
 const FirmRulesPage = lazyNamed(() => import('./features/firm/FirmRulesPage'), 'FirmRulesPage');
 const FirmSettingsPage = lazyNamed(() => import('./features/firm/FirmSettingsPage'), 'FirmSettingsPage');
 const FeatureFlagsPage = lazyNamed(() => import('./features/admin/FeatureFlagsPage'), 'FeatureFlagsPage');
+const TaxCodeAdminPage = lazyNamed(() => import('./features/admin/TaxCodeAdminPage'), 'TaxCodeAdminPage');
 
 // ─── Auth (cold-path + one-time setup) — kept out of the main bundle ─
 const RegisterPage = lazyNamed(() => import('./features/auth/RegisterPage'), 'RegisterPage');
@@ -552,6 +553,7 @@ export function App() {
             <Route path="/firm/:firmId/rules" element={<FirmRulesPage />} />
             <Route path="/firm/:firmId/settings" element={<FirmSettingsPage />} />
             <Route path="/admin/feature-flags" element={<AdminRoute><FeatureFlagsPage /></AdminRoute>} />
+            <Route path="/admin/tax-codes" element={<AdminRoute><TaxCodeAdminPage /></AdminRoute>} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
