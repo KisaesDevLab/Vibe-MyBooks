@@ -30,6 +30,18 @@ suppressions:
       to leak and no attacker-measurable oracle; timing-safe comparison
       applies to server-side secret checks, not form validation.
 
+  - rule: R-1F4D1 # react-hooks/exhaustive-deps (3 note findings)
+    reason: >
+      Reviewed sites: InvoiceForm.tsx:168, CashSaleForm.tsx:101,
+      ThemeProvider.tsx:80. All three are intentional mount-only /
+      hydrate-once effects, documented with in-code comments. Completing
+      the dep arrays would re-run form hydration on settings-query
+      resolution and clobber in-progress user edits (InvoiceForm,
+      CashSaleForm) or redundantly re-apply theme prefs whose updates
+      already flow through their setters (ThemeProvider). All other
+      exhaustive-deps findings were fixed in cf1d32b; re-review this
+      entry if new findings appear at other locations.
+
   - rule: R-05ABC # react-router 6.30.4 CVE-2026-53666 / CVE-2026-53669
   - rule: R-88846 # react-router-dom 6.30.4 CVE-2026-53668 (no 6.x fixed version)
   # Reason for the two above: the advisories affect data routers
