@@ -21,10 +21,13 @@ export function JEPreview({ sessionId, importMode, onComplete }: Props) {
   const [overlaps, setOverlaps] = useState<Array<{ sessionId: string; filename: string; payPeriod: string; postedDate: string }>>([]);
   const [showOverlapWarning, setShowOverlapWarning] = useState(false);
 
+  // mutateAsync has a stable identity (unlike the mutation object itself),
+  // so this effect fires only when the session changes.
+  const { mutateAsync: generateJE } = generateMutation;
   useEffect(() => {
-    generateMutation.mutateAsync({ sessionId, options: { aggregationMode: 'summary' } })
+    generateJE({ sessionId, options: { aggregationMode: 'summary' } })
       .then(data => setPreviews(data.previews));
-  }, [sessionId]);
+  }, [sessionId, generateJE]);
 
   const handlePost = async (forcePost = false) => {
     const result = await postMutation.mutateAsync({ sessionId, forcePost });

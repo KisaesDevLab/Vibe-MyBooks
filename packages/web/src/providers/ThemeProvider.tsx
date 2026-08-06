@@ -74,6 +74,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     requestAnimationFrame(() => {
       document.documentElement.classList.remove('no-transition');
     });
+    // mount-only: applies the cached prefs once at startup. Later changes go
+    // through setTheme/setFontScale (and the OS-theme listener below), which
+    // call applyToDOM themselves — re-running here would be redundant.
   }, []);
 
   // Listen for OS theme changes when in system mode

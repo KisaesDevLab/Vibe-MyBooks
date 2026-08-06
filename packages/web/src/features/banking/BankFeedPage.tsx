@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
 import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem, useBulkAssign, useExcludeFeedItem, useBulkApprove, useBulkExclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck, useSuggestAccountForContact } from '../../api/hooks/useBanking';
 import type { ReprocessRulesResultDto } from '../../api/hooks/useBanking';
@@ -201,7 +201,7 @@ export function BankFeedPage() {
 
   // Rows arrive server-sorted (sortBy/sortDir are query params) so the
   // order spans the whole dataset, not just this page.
-  const items = data?.data || [];
+  const items = useMemo(() => data?.data || [], [data]);
 
   // Selectable rows are the actionable ones: pending (assign/exclude) and
   // assigned (approve/re-assign/exclude). Posted/excluded rows aren't.

@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PAYROLL_LINE_TYPE_LABELS, PayrollLineType } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import {
@@ -24,7 +24,7 @@ export function PayrollAccountMappingPage() {
   const saveMutation = useSavePayrollAccountMappings();
   const autoMapMutation = useAutoMapPayrollAccounts();
 
-  const existingMappings = mappingsData?.mappings || [];
+  const existingMappings = useMemo(() => mappingsData?.mappings || [], [mappingsData]);
   const allAccounts = accountsData?.data || [];
 
   const [localMappings, setLocalMappings] = useState<Record<string, string>>({});

@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Bell, Send, Plus, Trash2, FileText, AlertTriangle, CalendarClock, Inbox, MessageSquare } from 'lucide-react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { useFeatureFlag } from '../../../api/hooks/useFeatureFlag';
@@ -433,18 +433,18 @@ function TemplatesSection() {
   const [templates, setTemplates] = useState<ReminderTemplate[] | null>(null);
   const [editing, setEditing] = useState<{ triggerType: string; channel: 'email' | 'sms' } | null>(null);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     try {
       const data = await api<{ templates: ReminderTemplate[] }>('/practice/portal/reminders/templates');
       setTemplates(data.templates);
     } catch {
       setTemplates([]);
     }
-  };
+  }, []);
 
   useEffect(() => {
     reload();
-  }, []);
+  }, [reload]);
 
   return (
     <section>

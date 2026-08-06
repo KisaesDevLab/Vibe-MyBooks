@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Inbox, Send, CheckSquare, XCircle, Eye } from 'lucide-react';
 import type { DocRequestStatus, DocumentRequestSummary } from '@kis-books/shared';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
@@ -39,7 +39,7 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [drawerFor, setDrawerFor] = useState<DocumentRequestSummary | null>(null);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     try {
       setError(null);
       const params = new URLSearchParams();
@@ -55,9 +55,9 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load.');
     }
-  };
+  }, [statusFilter, overdueOnly, limit, offset]);
 
-  useEffect(() => { void reload(); }, [statusFilter, overdueOnly, limit, offset]);
+  useEffect(() => { void reload(); }, [reload]);
 
   const remind = async (row: DocumentRequestSummary) => {
     setBusyId(row.id);

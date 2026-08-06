@@ -49,9 +49,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   // Clear all pending dismissal timers when the provider unmounts. Stops
   // a Node warning during HMR and avoids "setState on unmounted" reports.
   useEffect(() => {
+    // Copy the ref's value now — the same Map lives for the provider's whole
+    // life (only mutated, never reassigned), so the cleanup still clears
+    // every pending timeout at unmount time.
+    const pending = timers.current;
     return () => {
-      for (const t of timers.current.values()) clearTimeout(t);
-      timers.current.clear();
+      for (const t of pending.values()) clearTimeout(t);
+      pending.clear();
     };
   }, []);
 

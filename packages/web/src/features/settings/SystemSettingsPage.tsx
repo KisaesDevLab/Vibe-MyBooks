@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -120,7 +120,10 @@ export function SystemSettingsPage() {
   };
 
   const token = localStorage.getItem('accessToken');
-  const authHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const authHeaders = useMemo(
+    () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }),
+    [token],
+  );
 
   useEffect(() => {
     (async () => {
@@ -236,7 +239,7 @@ export function SystemSettingsPage() {
       setLoadErrors(errors);
       setLoading(false);
     })();
-  }, []);
+  }, [authHeaders]);
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));

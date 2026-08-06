@@ -32,18 +32,20 @@ export function AttachmentUploader({ attachableType, attachableId }: AttachmentU
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attachments'] }),
   });
 
-  const handleFiles = (files: FileList | null) => {
+  // `mutate` has a stable identity (unlike the mutation object itself).
+  const { mutate: upload } = uploadMutation;
+  const handleFiles = useCallback((files: FileList | null) => {
     if (!files) return;
     for (let i = 0; i < files.length; i++) {
-      uploadMutation.mutate(files[i]!);
+      upload(files[i]!);
     }
-  };
+  }, [upload]);
 
   const handleDrop = useCallback((e: DragEvent) => {
     e.preventDefault();
     setDragging(false);
     handleFiles(e.dataTransfer.files);
-  }, []);
+  }, [handleFiles]);
 
   return (
     <div

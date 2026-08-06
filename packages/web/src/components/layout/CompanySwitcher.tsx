@@ -178,7 +178,7 @@ export function CompanySwitcher() {
   };
 
   const navigate = useNavigate();
-  const accessibleTenants = meData?.accessibleTenants || [];
+  const accessibleTenants = useMemo(() => meData?.accessibleTenants || [], [meData]);
   const activeTenantId = meData?.activeTenantId;
   const hasMultipleTenants = accessibleTenants.length > 1;
   // The dropdown surfaces only the 10 most-recently-used tenants (the backend

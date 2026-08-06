@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { User } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { Shield, Mail, Smartphone, Key } from 'lucide-react';
@@ -41,13 +41,6 @@ export function TfaVerifyStep({ tfaToken, availableMethods, preferredMethod, pho
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-send code for email/sms on method select
-  useEffect(() => {
-    if ((method === 'email' || method === 'sms') && !codeSent) {
-      sendCode();
-    }
-  }, [method]);
-
   // Resend cooldown timer
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -61,7 +54,7 @@ export function TfaVerifyStep({ tfaToken, availableMethods, preferredMethod, pho
   const [failedMethods, setFailedMethods] = useState<string[]>([]);
   const workingMethods = availableMethods.filter((m) => !failedMethods.includes(m));
 
-  const sendCode = async () => {
+  const sendCode = useCallback(async () => {
     try {
       const res = await fetch(sendCodeEndpoint || '/api/v1/auth/tfa/send-code', {
         method: 'POST',
@@ -86,9 +79,19 @@ export function TfaVerifyStep({ tfaToken, availableMethods, preferredMethod, pho
       setFailedMethods((prev) => [...prev, method]);
       setError('Failed to send code. Try another method.');
     }
-  };
+  }, [method, availableMethods, failedMethods, sendCodeEndpoint, tfaToken]);
 
-  const handleVerify = async () => {
+  // Auto-send code for email/sms on method select — exactly once per selected
+  // method. `codeSent` blocks a resend after success; `failedMethods` blocks a
+  // retry loop after a failed send (a failure changes sendCode's identity,
+  // which would otherwise refire this effect).
+  useEffect(() => {
+    if ((method === 'email' || method === 'sms') && !codeSent && !failedMethods.includes(method)) {
+      sendCode();
+    }
+  }, [method, codeSent, failedMethods, sendCode]);
+
+  const handleVerify = useCallback(async () => {
     if (!code || code.length < 6) return;
     setLoading(true);
     setError('');
@@ -118,7 +121,7 @@ export function TfaVerifyStep({ tfaToken, availableMethods, preferredMethod, pho
     } finally {
       setLoading(false);
     }
-  };
+  }, [code, method, trustDevice, verifyEndpoint, tfaToken, onSuccess]);
 
   const handleRecovery = async () => {
     if (!recoveryCode) return;
@@ -143,10 +146,20 @@ export function TfaVerifyStep({ tfaToken, availableMethods, preferredMethod, pho
     }
   };
 
-  // Auto-submit on 6 digits
+  // Auto-submit on 6 digits — once per entered code. The ref stops a re-submit
+  // when `loading` flips back to false after an attempt that didn't clear the
+  // code (e.g. network error); it resets whenever the code is cleared/edited.
+  const autoSubmitted = useRef('');
   useEffect(() => {
-    if (code.length === 6 && !loading) handleVerify();
-  }, [code]);
+    if (code.length !== 6) {
+      autoSubmitted.current = '';
+      return;
+    }
+    if (!loading && autoSubmitted.current !== code) {
+      autoSubmitted.current = code;
+      handleVerify();
+    }
+  }, [code, loading, handleVerify]);
 
   const methodIcons: Record<string, any> = { totp: Key, email: Mail, sms: Smartphone };
   const methodLabels: Record<string, string> = { totp: 'Authenticator', email: 'Email', sms: 'Text Message' };

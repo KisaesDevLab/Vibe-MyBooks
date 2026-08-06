@@ -95,6 +95,9 @@ export function CashSaleForm() {
       }
       setLoaded(true);
     }
+    // `defaultTaxRate` intentionally omitted: this hydrates the form once
+    // (guarded by `loaded`) and snapshots the rate at that moment — later
+    // settings changes must not rewrite lines the user is editing.
   }, [isEdit, existingData, loaded]);
 
   const updateLine = (i: number, field: 'accountId' | 'description' | 'quantity' | 'unitPrice' | 'isTaxable' | 'taxRate', value: string | boolean) =>

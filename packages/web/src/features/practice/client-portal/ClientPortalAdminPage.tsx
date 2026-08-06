@@ -116,7 +116,7 @@ function ContactsTab() {
   const [editId, setEditId] = useState<string | null>(null);
 
   const { data, isLoading, isError } = usePortalContacts({ status: statusFilter });
-  const contacts = data?.contacts ?? [];
+  const contacts = useMemo(() => data?.contacts ?? [], [data]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return contacts;

@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '../../components/ui/Button';
 import { useDescriptionMap, useSaveDescriptionMap } from '../../api/hooks/usePayrollImport';
 import { useAccounts } from '../../api/hooks/useAccounts';
@@ -18,7 +18,7 @@ export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl'
   const { data: accountsData } = useAccounts({ limit: 500 });
   const saveMutation = useSaveDescriptionMap();
 
-  const mappings = descData?.mappings || [];
+  const mappings = useMemo(() => descData?.mappings || [], [descData]);
   const allAccounts = accountsData?.data || [];
 
   const [localMappings, setLocalMappings] = useState<Record<string, string>>({});

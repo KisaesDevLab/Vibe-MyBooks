@@ -177,7 +177,7 @@ export function AttachmentLibraryPage() {
     },
   });
 
-  const all = data?.data || [];
+  const all = useMemo(() => data?.data || [], [data]);
 
   // Group by contact
   const byContact = useMemo(() => {

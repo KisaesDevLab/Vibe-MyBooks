@@ -81,7 +81,7 @@ export function MagicLinkVerifyPage() {
               : 'Failed to verify login link.',
         );
       });
-  }, [token]);
+  }, [token, navigate]);
 
   const handleTfaSuccess = (data: TfaVerifiedPayload) => {
     setTokens(data.tokens);

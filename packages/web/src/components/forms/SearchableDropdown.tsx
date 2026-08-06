@@ -98,10 +98,10 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
   const selectedOption = options.find((o) => o.id === value);
   const displayValue = isOpen ? search : (selectedOption?.label || selectedLabel || '');
 
-  const setSearchAndNotify = (q: string) => {
+  const setSearchAndNotify = useCallback((q: string) => {
     setSearch(q);
     onQueryChange?.(q);
-  };
+  }, [onQueryChange]);
 
   // Filter options by search
   const query = search.toLowerCase();
@@ -142,7 +142,7 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [isOpen]);
+  }, [isOpen, setSearchAndNotify]);
 
   const handleSelect = (id: string) => {
     onChange(id);

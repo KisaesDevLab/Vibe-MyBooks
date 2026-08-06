@@ -19,9 +19,12 @@ export function ValidationResults({ sessionId, importMode, onComplete }: Props) 
   const [showAllErrors, setShowAllErrors] = useState(false);
   const [showAllWarnings, setShowAllWarnings] = useState(false);
 
+  // mutateAsync has a stable identity (unlike the mutation object itself),
+  // so this effect fires only when the session changes.
+  const { mutateAsync: validate } = validateMutation;
   useEffect(() => {
-    validateMutation.mutateAsync(sessionId).then(setResult);
-  }, [sessionId]);
+    validate(sessionId).then(setResult);
+  }, [sessionId, validate]);
 
   if (validateMutation.isPending) {
     return (

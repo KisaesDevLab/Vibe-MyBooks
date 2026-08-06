@@ -162,6 +162,9 @@ export function InvoiceForm() {
       }));
     if (invLines.length > 0) setLines(invLines);
     setLoaded(true);
+    // Intentionally only [existingData]: this hydrates the form once from the
+    // fetched invoice, snapshotting `today`/`defaultTaxRatePercent` at that
+    // moment. Re-running on those would clobber the user's in-progress edits.
   }, [existingData]);
 
   const updateInvoice = useMutation({
