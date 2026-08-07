@@ -144,6 +144,7 @@ function UnitsCard() {
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editNumber, setEditNumber] = useState(1);
 
   const err = (e: unknown) => toast.error(isApiError(e) ? e.message : 'Operation failed');
 
@@ -165,12 +166,18 @@ function UnitsCard() {
             {data.units.map((u) => (
               <tr key={u.id} className={`border-b border-gray-100 ${u.archivedAt ? 'opacity-50' : ''}`}>
                 <td className="py-2 pr-3">{ACTIVITY_LABELS[u.activityType]}</td>
-                <td className="py-2 pr-3 tabular-nums">{u.instanceNumber}</td>
+                <td className="py-2 pr-3 tabular-nums">
+                  {editingId === u.id ? (
+                    <input type="number" min={1} max={999} value={editNumber} aria-label="Unit number"
+                      onChange={(e) => setEditNumber(Number(e.target.value) || 1)}
+                      className="w-16 rounded border border-gray-300 px-2 py-1 text-sm" />
+                  ) : u.instanceNumber}
+                </td>
                 <td className="py-2 pr-3">
                   {editingId === u.id ? (
                     <form className="flex gap-2" onSubmit={(e) => {
                       e.preventDefault();
-                      rename.mutate({ id: u.id, displayName: editName }, {
+                      rename.mutate({ id: u.id, displayName: editName, instanceNumber: editNumber }, {
                         onSuccess: () => setEditingId(null),
                         onError: err,
                       });
@@ -198,7 +205,7 @@ function UnitsCard() {
                   {!u.archivedAt && (
                     <>
                       <button className="text-xs text-gray-500 hover:text-blue-600 underline mr-3"
-                        onClick={() => { setEditingId(u.id); setEditName(u.displayName); }}>
+                        onClick={() => { setEditingId(u.id); setEditName(u.displayName); setEditNumber(u.instanceNumber); }}>
                         rename
                       </button>
                       <button className="text-xs text-gray-500 hover:text-red-600 underline"

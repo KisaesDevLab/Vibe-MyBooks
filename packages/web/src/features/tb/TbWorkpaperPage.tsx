@@ -15,6 +15,7 @@ import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useTbProfile } from '../../api/hooks/useTb';
 import { useActivityUnits } from '../../api/hooks/useTb';
 import { useMe } from '../../api/hooks/useAuth';
+import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
@@ -84,11 +85,13 @@ export function TbWorkpaperPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
-  const { data: wpData, isLoading, isError, refetch } = useWorkpaper(effPeriodEnd, prefs.basis);
+  const [tagFilter, setTagFilter] = useSessionState<string>('vibe:tb:tagFilter', '');
+  const { data: tagsData } = useTags({ isActive: true });
+  const { data: wpData, isLoading, isError, refetch } = useWorkpaper(effPeriodEnd, prefs.basis, true, tagFilter || null);
   const { data: diagData } = useTbDiagnostics(effPeriodEnd, prefs.basis);
   const { data: unitsData } = useActivityUnits();
   const pyEnd = profileData ? profileData.fiscal.priorFiscalYearEnd : null;
-  const { data: pyData } = useWorkpaper(pyEnd ?? '', prefs.basis, prefs.showPy && !!pyEnd);
+  const { data: pyData } = useWorkpaper(pyEnd ?? '', prefs.basis, prefs.showPy && !!pyEnd, tagFilter || null);
 
   const taxYear = wpData?.workpaper.taxYear ?? new Date().getFullYear();
   const { data: statusData } = useQuery({
@@ -192,6 +195,12 @@ export function TbWorkpaperPage() {
           <option value="expense">Expenses</option>
           <option value="other_revenue">Other Income</option>
           <option value="other_expense">Other Expenses</option>
+        </select>
+        <select value={tagFilter} aria-label="Tag filter"
+          onChange={(e) => setTagFilter(e.target.value)}
+          className="rounded-lg border border-gray-300 px-2 py-1.5">
+          <option value="">All tags</option>
+          {(tagsData?.tags ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
         <select value={prefs.activityView} aria-label="Activity view"
           onChange={(e) => savePrefs({ ...prefs, activityView: e.target.value })}

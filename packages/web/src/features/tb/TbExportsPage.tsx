@@ -34,6 +34,17 @@ interface Validation {
   ready: boolean;
 }
 
+interface DatasetLine {
+  key: string;
+  code: string;
+  description: string;
+  accountCount: number;
+  bookAmount: number;
+  taxAmount: number;
+  consolidated: { exportCode: string; description: string } | null;
+  accounts: Array<{ accountNumber: string | null; name: string; amount: number }>;
+}
+
 interface ExportRecord {
   id: string;
   taxYear: number;
@@ -59,10 +70,37 @@ export function TbExportsPage() {
     queryKey: ['tb', 'export-validate', effYear, basis, software],
     enabled: software !== 'workingtb',
     retry: false,
-    queryFn: () => apiClient<{ validation: Validation; lineCount: number }>(
+    queryFn: () => apiClient<{ validation: Validation; lineCount: number; lines: DatasetLine[] }>(
       `/tb/exports/validate?taxYear=${effYear}&basis=${basis}&software=${software}`,
     ),
   });
+
+  // ── Consolidation options (Vibe TB parity) ────────────────────
+  const { data: consolidationData } = useQuery({
+    queryKey: ['tb', 'consolidation'],
+    queryFn: () => apiClient<{ prefs: Record<string, { exportCode: string; description: string }> }>('/tb/exports/consolidation'),
+  });
+  const [prefsDraft, setPrefsDraft] = useState<Record<string, { exportCode: string; description: string }> | null>(null);
+  const prefs = prefsDraft ?? consolidationData?.prefs ?? {};
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const savePrefs = useMutation({
+    mutationFn: (next: Record<string, { exportCode: string; description: string }>) =>
+      apiClient('/tb/exports/consolidation', { method: 'PUT', body: JSON.stringify({ prefs: next }) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tb', 'consolidation'] });
+      queryClient.invalidateQueries({ queryKey: ['tb', 'export-validate'] });
+      toast.success('Consolidation saved');
+    },
+    onError: (e) => toast.error(isApiError(e) ? e.message : 'Save failed'),
+  });
+  const setPref = (key: string, pref: { exportCode: string; description: string } | null) => {
+    setPrefsDraft((cur) => {
+      const next = { ...(cur ?? consolidationData?.prefs ?? {}) };
+      if (pref) next[key] = pref; else delete next[key];
+      return next;
+    });
+  };
+  const dirty = prefsDraft !== null;
 
   const { data: historyData } = useQuery({
     queryKey: ['tb', 'exports'],
@@ -169,6 +207,68 @@ export function TbExportsPage() {
         <p className="text-xs text-gray-400 mt-2">Downloads as .{softwareMeta.ext}. DONOTMAP lines are excluded from vendor files.</p>
       </div>
 
+      {/* ── Consolidation options (Vibe TB parity) ────────── */}
+      {software !== 'workingtb' && (validationData?.lines ?? []).length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+            <h2 className="text-base font-medium text-gray-900">Consolidation options</h2>
+            <div className="flex items-center gap-3">
+              {dirty
+                ? <Button size="sm" loading={savePrefs.isPending}
+                    onClick={() => savePrefs.mutate(prefs, { onSuccess: () => setPrefsDraft(null) })}>Save</Button>
+                : <span className="text-xs text-green-700">Saved</span>}
+            </div>
+          </div>
+          <p className="text-sm text-gray-500 mb-3">
+            {Object.keys(prefs).length} tax code{Object.keys(prefs).length === 1 ? '' : 's'} consolidated —
+            checked codes export as a single line under your custom code instead of per-account rows.
+          </p>
+          <div className="flex items-center gap-3 text-sm mb-2">
+            <button className="text-blue-700 hover:underline"
+              onClick={() => {
+                const next = { ...prefs };
+                for (const l of validationData?.lines ?? []) {
+                  if (l.accountCount > 1 && !next[l.key]) next[l.key] = { exportCode: l.code, description: l.description };
+                }
+                setPrefsDraft(next);
+              }}>
+              Select all multi-account
+            </button>
+            <button className="text-gray-500 hover:underline" onClick={() => setPrefsDraft({})}>Clear all</button>
+          </div>
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-gray-500 border-b border-gray-200 sticky top-0 bg-white">
+                  <th className="py-2 pr-2 w-8" />
+                  <th className="py-2 pr-3">Tax code</th>
+                  <th className="py-2 pr-3">Description</th>
+                  <th className="py-2 pr-3 text-right">Accts</th>
+                  <th className="py-2 pr-3 text-right">Book basis</th>
+                  <th className="py-2 pr-3 text-right">Tax basis</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(validationData?.lines ?? []).map((l) => {
+                  const pref = prefs[l.key] ?? null;
+                  const isOpen = expanded.has(l.key);
+                  return (
+                    <FragmentRow key={l.key} line={l} pref={pref} isOpen={isOpen}
+                      onToggleOpen={() => setExpanded((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(l.key)) next.delete(l.key); else next.add(l.key);
+                        return next;
+                      })}
+                      onToggle={(checked) => setPref(l.key, checked ? { exportCode: pref?.exportCode || l.code, description: pref?.description || l.description } : null)}
+                      onEdit={(field, value) => pref && setPref(l.key, { ...pref, [field]: value })} />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* ── History (11.9) ───────────────────────────────── */}
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h2 className="text-base font-medium text-gray-900 mb-3">Export history</h2>
@@ -222,5 +322,65 @@ function ValRow({ label, ok, okText, badText }: { label: string; ok: boolean; ok
       <dt className="w-40 text-gray-500">{label}</dt>
       <dd className={ok ? 'text-green-700' : 'text-red-700'}>{ok ? `✓ ${okText}` : badText}</dd>
     </div>
+  );
+}
+
+
+// One consolidation row: checkbox + expandable member accounts +
+// "Export as" custom code/description when consolidated.
+function FragmentRow({ line, pref, isOpen, onToggleOpen, onToggle, onEdit }: {
+  line: DatasetLine;
+  pref: { exportCode: string; description: string } | null;
+  isOpen: boolean;
+  onToggleOpen: () => void;
+  onToggle: (checked: boolean) => void;
+  onEdit: (field: 'exportCode' | 'description', value: string) => void;
+}) {
+  const usd = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (
+    <>
+      <tr className={`border-b border-gray-100 ${pref ? 'bg-blue-50/40' : ''}`}>
+        <td className="py-1.5 pr-2">
+          <span className="flex items-center gap-1">
+            <input type="checkbox" checked={!!pref} aria-label={`Consolidate ${line.code}`}
+              onChange={(e) => onToggle(e.target.checked)} />
+            {line.accountCount > 1 && (
+              <button onClick={onToggleOpen} className="text-gray-400 hover:text-gray-700 text-xs" aria-label="Expand accounts">
+                {isOpen ? '▾' : '▸'}
+              </button>
+            )}
+          </span>
+        </td>
+        <td className="py-1.5 pr-3 font-mono text-xs">{line.code}</td>
+        <td className="py-1.5 pr-3">{line.description}</td>
+        <td className="py-1.5 pr-3 text-right tabular-nums">{line.accountCount}</td>
+        <td className="py-1.5 pr-3 text-right font-mono tabular-nums text-xs">{usd(line.bookAmount)}</td>
+        <td className="py-1.5 pr-3 text-right font-mono tabular-nums text-xs">{usd(line.taxAmount)}</td>
+      </tr>
+      {pref && (
+        <tr className="border-b border-gray-100 bg-blue-50/20">
+          <td />
+          <td colSpan={5} className="py-1.5 pr-3">
+            <span className="inline-flex items-center gap-2 text-xs text-gray-600">
+              Export as:
+              <input value={pref.exportCode} onChange={(e) => onEdit('exportCode', e.target.value)}
+                aria-label="Custom export code"
+                className="w-28 rounded border border-gray-300 px-2 py-1 text-xs font-mono" />
+              <input value={pref.description} onChange={(e) => onEdit('description', e.target.value)}
+                aria-label="Custom export description" placeholder="Description"
+                className="w-72 rounded border border-gray-300 px-2 py-1 text-xs" />
+            </span>
+          </td>
+        </tr>
+      )}
+      {isOpen && line.accounts.map((a, i) => (
+        <tr key={i} className="border-b border-gray-50 text-xs text-gray-500">
+          <td /><td className="py-1 pr-3 font-mono">{a.accountNumber ?? ''}</td>
+          <td className="py-1 pr-3">{a.name}</td>
+          <td /><td />
+          <td className="py-1 pr-3 text-right font-mono tabular-nums">{usd(a.amount)}</td>
+        </tr>
+      ))}
+    </>
   );
 }

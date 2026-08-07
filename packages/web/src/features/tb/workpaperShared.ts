@@ -70,11 +70,13 @@ export interface TbDiagnostic {
   message: string;
 }
 
-export function useWorkpaper(periodEnd: string, basis: 'accrual' | 'cash', enabled = true) {
+export function useWorkpaper(periodEnd: string, basis: 'accrual' | 'cash', enabled = true, tagId: string | null = null) {
   return useQuery({
-    queryKey: ['tb', 'workpaper', periodEnd, basis],
+    queryKey: ['tb', 'workpaper', periodEnd, basis, tagId ?? 'all'],
     enabled: enabled && !!periodEnd,
-    queryFn: () => apiClient<{ workpaper: TbWorkpaper }>(`/tb/workpaper?periodEnd=${periodEnd}&basis=${basis}`),
+    queryFn: () => apiClient<{ workpaper: TbWorkpaper }>(
+      `/tb/workpaper?periodEnd=${periodEnd}&basis=${basis}${tagId ? `&tagId=${tagId}` : ''}`,
+    ),
   });
 }
 

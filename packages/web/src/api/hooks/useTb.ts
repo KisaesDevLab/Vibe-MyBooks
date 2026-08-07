@@ -106,8 +106,11 @@ export function useCreateActivityUnit() {
 export function useRenameActivityUnit() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, displayName }: { id: string; displayName: string }) =>
-      apiClient<{ unit: TbActivityUnit }>(`/tb/activity-units/${id}`, { method: 'PUT', body: JSON.stringify({ displayName }) }),
+    mutationFn: ({ id, displayName, instanceNumber }: { id: string; displayName: string; instanceNumber?: number }) =>
+      apiClient<{ unit: TbActivityUnit }>(`/tb/activity-units/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ displayName, ...(instanceNumber !== undefined ? { instanceNumber } : {}) }),
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tb', 'activity-units'] }),
   });
 }
