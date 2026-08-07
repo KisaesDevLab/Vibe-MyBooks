@@ -19,6 +19,7 @@ import { Paperclip,
   KeyRound,
 } from 'lucide-react';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
+import { useToast } from '../../../components/ui/Toaster';
 import {
   usePortalContacts,
   useCreatePortalContact,
@@ -1314,6 +1315,7 @@ function QuestionDetailModal({
   questionId: string;
   onClose: () => void;
 }) {
+  const toast = useToast();
   const { data, isLoading } = useQuestionDetail(questionId);
   const reply = useBookkeeperReply(questionId);
   const resolve = useResolveQuestion();
@@ -1333,7 +1335,10 @@ function QuestionDetailModal({
       `${import.meta.env.BASE_URL}api/v1/practice/portal/questions/${questionId}/attachments/${attachmentId}/download`,
       { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } },
     );
-    if (!res.ok) return;
+    if (!res.ok) {
+      toast.error(`Download failed (${res.status}) — refresh and try again`);
+      return;
+    }
     const url = URL.createObjectURL(await res.blob());
     const a = document.createElement('a');
     a.href = url;

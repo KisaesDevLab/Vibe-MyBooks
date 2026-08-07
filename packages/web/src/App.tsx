@@ -384,6 +384,8 @@ export function App() {
           >
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/tenants" element={<AdminRoute><TenantListPage /></AdminRoute>} />
+            {/* Feature flags moved to each tenant's detail page — keep old bookmarks working. */}
+            <Route path="/admin/feature-flags" element={<AdminRoute><Navigate to="/admin/tenants" replace /></AdminRoute>} />
             <Route path="/admin/tenants/:id" element={<AdminRoute><TenantDetailPage /></AdminRoute>} />
             <Route path="/admin/users" element={<AdminRoute><UserListPage /></AdminRoute>} />
             <Route path="/admin/system" element={<AdminRoute><SystemSettingsPage /></AdminRoute>} />
