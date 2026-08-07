@@ -15,7 +15,7 @@ import { useTbProfile } from '../../api/hooks/useTb';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
-import { useTbYearOverride, fiscalYearEndFor, useWorkpaper, usd, type TbWorkpaperRow } from './workpaperShared';
+import { MARK_TONES, useTbYearOverride, fiscalYearEndFor, useWorkpaper, usd, type TbWorkpaperRow } from './workpaperShared';
 import { Download } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -31,12 +31,6 @@ interface Tickmark { id: string; symbol: string; description: string; color: str
 interface TickmarkApplication { id: string; accountId: string; column: string; tickmarkId: string; note: string | null }
 interface Note { id: string; accountId: string | null; body: string; resolvedAt: string | null; createdAt: string }
 interface Signoff { id: string; groupingId: string; role: 'preparer' | 'reviewer'; signedAt: string; stale: boolean; signedByName: string | null }
-
-const MARK_TONES: Record<string, string> = {
-  gray: 'bg-gray-100 text-gray-700', green: 'bg-green-100 text-green-700',
-  blue: 'bg-blue-100 text-blue-700', purple: 'bg-purple-100 text-purple-700',
-  yellow: 'bg-amber-100 text-amber-700', red: 'bg-red-100 text-red-700',
-};
 
 export function TbLeadsheetsPage() {
   const toast = useToast();

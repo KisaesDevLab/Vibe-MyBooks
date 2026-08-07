@@ -140,6 +140,14 @@ export function fiscalYearEndFor(taxYear: number, fyStartMonth: number): string 
   return `${taxYear}-${String(endMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 }
 
+// Tickmark chip color tones — single source for the grid, the cell
+// picker, and the leadsheets page.
+export const MARK_TONES: Record<string, string> = {
+  gray: 'bg-gray-100 text-gray-700', green: 'bg-green-100 text-green-700',
+  blue: 'bg-blue-100 text-blue-700', purple: 'bg-purple-100 text-purple-700',
+  yellow: 'bg-amber-100 text-amber-700', red: 'bg-red-100 text-red-700',
+};
+
 export const usd = (n: number) =>
   Math.abs(n) < 0.005 ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

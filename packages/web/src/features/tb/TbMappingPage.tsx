@@ -348,7 +348,9 @@ function SectionRows({ label, rows, total, assignments, codeOptions, codeLabels,
       </td>
       <td className="px-3 py-1.5">
         {current && (
-          <button onClick={() => onClear(r.accountId, unit?.id)} aria-label={`Clear mapping for ${unitLabel ?? r.name}`}
+          <button
+            onClick={() => onClear(r.accountId, current.activityUnitId ?? undefined)}
+            aria-label={`Clear mapping for ${unitLabel ?? r.name}`}
             className="text-gray-300 hover:text-red-600" title="Clear mapping">
             <X className="h-4 w-4" />
           </button>

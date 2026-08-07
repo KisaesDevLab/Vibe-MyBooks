@@ -10,7 +10,7 @@
 
 import { Fragment } from 'react';
 import clsx from 'clsx';
-import { usd, type TbWorkpaperRow, type TbWorkpaper } from './workpaperShared';
+import { MARK_TONES, usd, type TbWorkpaperRow, type TbWorkpaper } from './workpaperShared';
 
 export interface TbGridPrefs {
   drCrMode: boolean;   // false = netted single column per group
@@ -42,12 +42,6 @@ export interface TbGridProps {
   // Applied tickmarks per cell — chips render beside the amount.
   cellMarks?: (accountId: string, column: TbGridColumn) => TbCellMark[] | undefined;
 }
-
-const MARK_TONES: Record<string, string> = {
-  gray: 'bg-gray-100 text-gray-700', green: 'bg-green-100 text-green-700',
-  blue: 'bg-blue-100 text-blue-700', purple: 'bg-purple-100 text-purple-700',
-  yellow: 'bg-amber-100 text-amber-700', red: 'bg-red-100 text-red-700',
-};
 
 function MarkChips({ marks }: { marks?: TbCellMark[] }) {
   if (!marks || marks.length === 0) return null;

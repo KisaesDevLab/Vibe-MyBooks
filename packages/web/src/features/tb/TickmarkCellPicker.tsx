@@ -14,15 +14,10 @@ import { apiClient, isApiError } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
+import { MARK_TONES } from './workpaperShared';
 
 interface Tickmark { id: string; symbol: string; description: string; color: string | null }
 interface TickmarkApplication { id: string; accountId: string; column: string; tickmarkId: string }
-
-const MARK_TONES: Record<string, string> = {
-  gray: 'bg-gray-100 text-gray-700', green: 'bg-green-100 text-green-700',
-  blue: 'bg-blue-100 text-blue-700', purple: 'bg-purple-100 text-purple-700',
-  yellow: 'bg-amber-100 text-amber-700', red: 'bg-red-100 text-red-700',
-};
 
 const COLUMN_LABELS: Record<string, string> = {
   unadjusted: 'Unadjusted', aje: 'AJE', adjusted: 'Adjusted', tax_rje: 'Tax RJE', tax: 'Tax',
@@ -74,7 +69,6 @@ export function TickmarkCellPicker({ accountId, accountName, taxYear, initialCol
 
   const marks = marksData?.tickmarks ?? [];
   const appliedHere = (appsData?.applications ?? []).filter((a) => a.accountId === accountId && a.column === column);
-  const appliedIds = new Set(appliedHere.map((a) => a.tickmarkId));
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
