@@ -7,12 +7,12 @@
 // with per-row tax-code picker, source + confidence badges, and the
 // Auto-assign AI panel (relocated here from the workpaper view).
 
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, isApiError } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
-import { useTbProfile } from '../../api/hooks/useTb';
+import { useActivityUnits, useTbProfile } from '../../api/hooks/useTb';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
@@ -67,6 +67,10 @@ export function TbMappingPage() {
   const { data: wpData, isLoading, isError, refetch } = useWorkpaper(periodEnd, 'accrual');
   const { data: assignData } = useTbAssignmentsQuery();
   const { data: codesData, error: codesError } = useAvailableCodes();
+  const { data: unitsData } = useActivityUnits();
+  const unitById = useMemo(() => new Map(
+    (unitsData?.units ?? []).map((u) => [u.id, u]),
+  ), [unitsData]);
 
   const assignments = assignData?.assignments ?? [];
 
@@ -82,8 +86,8 @@ export function TbMappingPage() {
   });
 
   const clear = useMutation({
-    mutationFn: (accountId: string) =>
-      apiClient(`/tb/assignments/${accountId}`, { method: 'DELETE' }),
+    mutationFn: ({ accountId, activityUnitId }: { accountId: string; activityUnitId?: string }) =>
+      apiClient(`/tb/assignments/${accountId}${activityUnitId ? `?activityUnitId=${activityUnitId}` : ''}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tb', 'assignments'] });
       queryClient.invalidateQueries({ queryKey: ['tb', 'diagnostics'] });
@@ -115,22 +119,55 @@ export function TbMappingPage() {
     return m;
   }, [codesData]);
 
-  const onPickCode = (row: TbWorkpaperRow, optionId: string) => {
+  // unit=null → account-level; a real unit writes a unit-scoped
+  // assignment validated against that unit's activity type (the
+  // tag→unit split scenario: one account, Sch E codes on the rental
+  // slice, Sch F codes on the farm slice).
+  const onPickCode = (row: TbWorkpaperRow, optionId: string, unit: { id: string; activityType: string } | null) => {
     if (!optionId) return;
     const [kind, a, b] = optionId.split('|');
+    const scope = unit
+      ? { activityUnitId: unit.id, activityUnitType: unit.activityType }
+      : { activityUnitType: 'common' };
     if (kind === 'seed') {
-      assign.mutate({ accountId: row.accountId, seedCode: b, seedActivityType: a, activityUnitType: 'common' });
+      assign.mutate({ accountId: row.accountId, seedCode: b, seedActivityType: a, ...scope });
     } else {
-      assign.mutate({ accountId: row.accountId, firmCodeId: a, activityUnitType: 'common' });
+      assign.mutate({ accountId: row.accountId, firmCodeId: a, ...scope });
     }
+  };
+
+  // An account "splits" when it has balances in 2+ real activity units
+  // — those rows map per unit slice instead of account-level.
+  const splitUnits = (r: TbWorkpaperRow) => {
+    const real = r.units.filter((u) => unitById.has(u.unitId) && Math.abs(u.adjusted) >= 0.005);
+    return real.length >= 2 ? real : null;
   };
 
   // Mapping progress over real accounts (the virtual RE fold row has no
   // assignment surface).
   const rows = useMemo(() => (wpData?.workpaper.rows ?? []).filter((r) => !r.isVirtualRe), [wpData]);
-  const isMapped = (r: TbWorkpaperRow) => !!resolveAssignment(assignments, r.accountId, null);
-  const mappedCount = rows.filter(isMapped).length;
-  const pct = rows.length > 0 ? Math.round((mappedCount / rows.length) * 100) : 0;
+  // Progress counts unit slices: a split account is mapped only when
+  // every slice resolves a code.
+  const sliceStats = (r: TbWorkpaperRow): { total: number; mapped: number } => {
+    const split = splitUnits(r);
+    if (!split) {
+      return { total: 1, mapped: resolveAssignment(assignments, r.accountId, null) ? 1 : 0 };
+    }
+    return {
+      total: split.length,
+      mapped: split.filter((u) => resolveAssignment(assignments, r.accountId, u.unitId)).length,
+    };
+  };
+  const isMapped = (r: TbWorkpaperRow) => {
+    const st = sliceStats(r);
+    return st.mapped === st.total;
+  };
+  const totals = rows.reduce((acc, r) => {
+    const st = sliceStats(r);
+    return { total: acc.total + st.total, mapped: acc.mapped + st.mapped };
+  }, { total: 0, mapped: 0 });
+  const mappedCount = totals.mapped;
+  const pct = totals.total > 0 ? Math.round((totals.mapped / totals.total) * 100) : 0;
 
   const visible = rows.filter((r) => {
     if (filter === 'unmapped' && isMapped(r)) return false;
@@ -168,7 +205,7 @@ export function TbMappingPage() {
       {/* ── Progress ───────────────────────────────────────── */}
       <div className="mb-4">
         <p className={clsx('text-sm font-medium mb-1', pct === 100 ? 'text-green-700' : 'text-gray-700')}>
-          {mappedCount} of {rows.length} accounts mapped ({pct}%)
+          {mappedCount} of {totals.total} {totals.total === rows.length ? 'accounts' : 'activity slices'} mapped ({pct}%)
         </p>
         <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
           <div className={clsx('h-full rounded-full transition-all', pct === 100 ? 'bg-green-500' : 'bg-blue-500')}
@@ -235,8 +272,10 @@ export function TbMappingPage() {
                 return (
                   <SectionRows key={type} label={label} rows={sectionRows} total={total}
                     assignments={assignments} codeOptions={codeOptions} codeLabels={codeLabels}
-                    onPick={onPickCode} onClear={(accountId) => clear.mutate(accountId)}
-                    confidenceTone={confidenceTone} sourceBadge={sourceBadge} />
+                    onPick={onPickCode}
+                    onClear={(accountId, activityUnitId) => clear.mutate({ accountId, activityUnitId })}
+                    confidenceTone={confidenceTone} sourceBadge={sourceBadge}
+                    splitUnits={splitUnits} unitById={unitById} />
                 );
               })}
             </tbody>
@@ -265,59 +304,105 @@ export function TbMappingPage() {
   );
 }
 
-function SectionRows({ label, rows, total, assignments, codeOptions, codeLabels, onPick, onClear, confidenceTone, sourceBadge }: {
+function SectionRows({ label, rows, total, assignments, codeOptions, codeLabels, onPick, onClear, confidenceTone, sourceBadge, splitUnits, unitById }: {
   label: string;
   rows: TbWorkpaperRow[];
   total: number;
   assignments: TbAssignment[];
   codeOptions: DropdownOption[];
   codeLabels: Map<string, string>;
-  onPick: (row: TbWorkpaperRow, optionId: string) => void;
-  onClear: (accountId: string) => void;
+  onPick: (row: TbWorkpaperRow, optionId: string, unit: { id: string; activityType: string } | null) => void;
+  onClear: (accountId: string, activityUnitId?: string) => void;
   confidenceTone: (c: number) => string;
   sourceBadge: (a: TbAssignment) => JSX.Element;
+  splitUnits: (r: TbWorkpaperRow) => TbWorkpaperRow['units'] | null;
+  unitById: Map<string, { id: string; activityType: string; instanceNumber: number; displayName: string }>;
 }) {
+  const cells = (r: TbWorkpaperRow, current: TbAssignment | null, currentId: string, amount: number,
+    unit: { id: string; activityType: string } | null, unitLabel: string | null) => (
+    <>
+      <td className="px-3 py-1.5 font-mono text-xs text-gray-500">{unitLabel ? '' : r.accountNumber}</td>
+      <td className={clsx('px-3 py-1.5', unitLabel && 'pl-8 text-sm text-gray-600')}>
+        {unitLabel ?? r.name}
+      </td>
+      <td className={clsx('px-3 py-1.5 text-right font-mono tabular-nums text-xs', amount < 0 && 'text-red-700')}>
+        {amount < 0 ? `(${usd(-amount)})` : usd(amount)}
+      </td>
+      <td className="px-3 py-1">
+        <SearchableDropdown
+          options={unit
+            ? codeOptions.filter((o) => !o.group || o.group === 'common' || o.group === unit.activityType || o.group === 'firm custom')
+            : codeOptions}
+          value={currentId}
+          selectedLabel={current ? (codeLabels.get(currentId) ?? current.seedCode ?? 'FIRM code') : ''}
+          onChange={(id) => onPick(r, id, unit)}
+          placeholder="Assign…"
+          compact
+        />
+      </td>
+      <td className="px-3 py-1.5">{current ? sourceBadge(current) : <span className="text-xs text-gray-300">—</span>}</td>
+      <td className="px-3 py-1.5">
+        {current?.source === 'ai' && current.aiConfidence != null
+          ? <span className={clsx('text-xs px-2 py-0.5 rounded-full font-medium', confidenceTone(current.aiConfidence))}>{current.aiConfidence}%</span>
+          : <span className="text-xs text-gray-300">—</span>}
+      </td>
+      <td className="px-3 py-1.5">
+        {current && (
+          <button onClick={() => onClear(r.accountId, unit?.id)} aria-label={`Clear mapping for ${unitLabel ?? r.name}`}
+            className="text-gray-300 hover:text-red-600" title="Clear mapping">
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </td>
+    </>
+  );
   return (
     <>
       <tr className="bg-gray-50 border-b border-gray-200">
         <td colSpan={7} className="px-3 py-1.5 text-xs font-semibold uppercase text-gray-600">{label}</td>
       </tr>
       {rows.map((r) => {
+        const split = splitUnits(r);
+        if (split) {
+          // Multi-activity account (tag→unit splits): one sub-row per
+          // unit slice, each with its own activity-scoped picker.
+          return (
+            <React.Fragment key={r.accountId}>
+              <tr className="border-b border-gray-100 bg-gray-50/50">
+                <td className="px-3 py-1.5 font-mono text-xs text-gray-500">{r.accountNumber}</td>
+                <td className="px-3 py-1.5 font-medium">{r.name}</td>
+                <td className={clsx('px-3 py-1.5 text-right font-mono tabular-nums text-xs', r.adjusted < 0 && 'text-red-700')}>
+                  {r.adjusted < 0 ? `(${usd(-r.adjusted)})` : usd(r.adjusted)}
+                </td>
+                <td colSpan={4} className="px-3 py-1.5 text-xs text-gray-400">split across {split.length} activities</td>
+              </tr>
+              {split.map((u) => {
+                const meta = unitById.get(u.unitId)!;
+                const current = resolveAssignment(assignments, r.accountId, u.unitId);
+                // Show only the unit-scoped assignment on the slice row —
+                // an account-level fallback still resolves, and displays
+                // here so the preparer sees the effective code.
+                const currentId = current
+                  ? current.firmCodeId ? `firm|${current.firmCodeId}` : `seed|${current.seedActivityType}|${current.seedCode}`
+                  : '';
+                return (
+                  <tr key={`${r.accountId}-${u.unitId}`} className="border-b border-gray-100">
+                    {cells(r, current, currentId, u.adjusted,
+                      { id: meta.id, activityType: meta.activityType },
+                      `↳ ${meta.displayName} (#${meta.instanceNumber})`)}
+                  </tr>
+                );
+              })}
+            </React.Fragment>
+          );
+        }
         const current = resolveAssignment(assignments, r.accountId, null);
         const currentId = current
           ? current.firmCodeId ? `firm|${current.firmCodeId}` : `seed|${current.seedActivityType}|${current.seedCode}`
           : '';
         return (
           <tr key={r.accountId} className="border-b border-gray-100">
-            <td className="px-3 py-1.5 font-mono text-xs text-gray-500">{r.accountNumber}</td>
-            <td className="px-3 py-1.5">{r.name}</td>
-            <td className={clsx('px-3 py-1.5 text-right font-mono tabular-nums text-xs', r.adjusted < 0 && 'text-red-700')}>
-              {r.adjusted < 0 ? `(${usd(-r.adjusted)})` : usd(r.adjusted)}
-            </td>
-            <td className="px-3 py-1">
-              <SearchableDropdown
-                options={codeOptions}
-                value={currentId}
-                selectedLabel={current ? (codeLabels.get(currentId) ?? current.seedCode ?? 'FIRM code') : ''}
-                onChange={(id) => onPick(r, id)}
-                placeholder="Assign…"
-                compact
-              />
-            </td>
-            <td className="px-3 py-1.5">{current ? sourceBadge(current) : <span className="text-xs text-gray-300">—</span>}</td>
-            <td className="px-3 py-1.5">
-              {current?.source === 'ai' && current.aiConfidence != null
-                ? <span className={clsx('text-xs px-2 py-0.5 rounded-full font-medium', confidenceTone(current.aiConfidence))}>{current.aiConfidence}%</span>
-                : <span className="text-xs text-gray-300">—</span>}
-            </td>
-            <td className="px-3 py-1.5">
-              {current && (
-                <button onClick={() => onClear(r.accountId)} aria-label={`Clear mapping for ${r.name}`}
-                  className="text-gray-300 hover:text-red-600" title="Clear mapping">
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </td>
+            {cells(r, current, currentId, r.adjusted, null, null)}
           </tr>
         );
       })}
