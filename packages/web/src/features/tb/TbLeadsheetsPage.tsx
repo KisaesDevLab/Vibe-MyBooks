@@ -30,7 +30,7 @@ interface Grouping {
 interface Tickmark { id: string; symbol: string; description: string; color: string | null }
 interface TickmarkApplication { id: string; accountId: string; column: string; tickmarkId: string; note: string | null }
 interface Note { id: string; accountId: string | null; body: string; resolvedAt: string | null; createdAt: string }
-interface Signoff { id: string; groupingId: string; role: 'preparer' | 'reviewer'; signedAt: string; stale: boolean }
+interface Signoff { id: string; groupingId: string; role: 'preparer' | 'reviewer'; signedAt: string; stale: boolean; signedByName: string | null }
 
 const MARK_TONES: Record<string, string> = {
   gray: 'bg-gray-100 text-gray-700', green: 'bg-green-100 text-green-700',
@@ -89,6 +89,11 @@ export function TbLeadsheetsPage() {
   const signMutation = useMutation({
     mutationFn: (input: { groupingId: string; role: 'preparer' | 'reviewer' }) =>
       apiClient('/tb/signoffs', { method: 'POST', body: JSON.stringify({ ...input, taxYear }) }),
+    onSuccess: () => invalidate('signoffs'),
+    onError: err,
+  });
+  const unsignMutation = useMutation({
+    mutationFn: (signoffId: string) => apiClient(`/tb/signoffs/${signoffId}`, { method: 'DELETE' }),
     onSuccess: () => invalidate('signoffs'),
     onError: err,
   });
@@ -259,6 +264,25 @@ export function TbLeadsheetsPage() {
                     })}
                   </div>
                 </div>
+                {signoffsFor(selected.id).length > 0 && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 mb-3">
+                    {signoffsFor(selected.id).map((s) => (
+                      <span key={s.id} className="flex items-center gap-1.5">
+                        <span className="capitalize font-medium">{s.role}:</span>
+                        {s.signedByName ?? 'Unknown user'} · {new Date(s.signedAt).toLocaleString()}
+                        {s.stale && <span className="text-amber-700 font-medium">(stale)</span>}
+                        <button onClick={() => {
+                          if (window.confirm(`Remove the ${s.role} sign-off by ${s.signedByName ?? 'unknown user'}? This is recorded in the audit log.`)) {
+                            unsignMutation.mutate(s.id);
+                          }
+                        }} disabled={unsignMutation.isPending}
+                          className="text-gray-400 hover:text-red-600" title={`Remove ${s.role} sign-off`} aria-label={`Remove ${s.role} sign-off`}>
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {signoffsFor(selected.id).some((s) => s.stale) && (
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
                     Signed before subsequent changes — the GL, AJEs, or tax entries moved after this signature. Review and re-sign.
