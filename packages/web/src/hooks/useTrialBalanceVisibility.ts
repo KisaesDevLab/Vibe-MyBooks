@@ -41,6 +41,7 @@ export const TB_NAV_CATALOG: readonly TbNavItem[] = [
   { key: 'leadsheets', label: 'Leadsheets', path: '/tb/leadsheets', minRole: 'bookkeeper' },
   { key: 'tax-entries', label: 'Tax Adjustments', path: '/tb/tax-entries', minRole: 'bookkeeper' },
   { key: 'm1', label: 'Schedule M-1 / M-2', path: '/tb/m1', minRole: 'bookkeeper' },
+  { key: 'reports', label: 'TB Reports', path: '/tb/reports', minRole: 'bookkeeper' },
   { key: 'exports', label: 'Tax Exports', path: '/tb/exports', minRole: 'bookkeeper' },
   { key: 'settings', label: 'TB Settings', path: '/tb/settings', minRole: 'bookkeeper' },
 ];
