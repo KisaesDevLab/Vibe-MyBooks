@@ -1865,6 +1865,8 @@ Plaid connects Vibe MyBooks directly to your bank for automatic transaction sync
 3. Map each account to a Chart of Accounts entry with a sync start date
 4. Transactions sync automatically via webhooks
 
+Only **settled** transactions are imported — bank-pending charges are skipped and picked up automatically once they post. (Pending amounts can change at settlement, and banks re-issue them under new ids, which previously caused duplicates.)
+
 ### Cross-Company
 One Plaid connection can serve multiple companies. Each maps different accounts. Other companies' accounts are invisible to you — only a count is shown.
 
