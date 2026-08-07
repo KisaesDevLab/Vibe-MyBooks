@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, setTokens } from '../../api/client';
@@ -30,6 +30,8 @@ interface TenantRow {
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
 const DEFAULT_PAGE_SIZE = '50';
 const ALL_LIMIT = 5000;
+
+type SortKey = 'name' | 'slug' | 'userCount' | 'companyCount' | 'transactionCount' | 'createdAt';
 
 export function TenantListPage() {
   const navigate = useNavigate();
@@ -78,6 +80,29 @@ export function TenantListPage() {
 
   const tenants = data?.tenants;
   const total = data?.total ?? 0;
+
+  // Column sorting is client-side over the fetched page (page size
+  // 'all' sorts the entire set).
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const onSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'name' || key === 'slug' ? 'asc' : 'desc');
+    }
+  };
+  const sortedTenants = useMemo(() => {
+    if (!tenants) return tenants;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...tenants].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+      return String(av).localeCompare(String(bv), undefined, { sensitivity: 'base' }) * dir;
+    });
+  }, [tenants, sortKey, sortDir]);
 
   const disableMutation = useMutation({
     mutationFn: (id: string) =>
@@ -169,17 +194,25 @@ export function TenantListPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Slug</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Users</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Companies</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Transactions</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Created</th>
+                  {([
+                    ['name', 'Name', 'left'], ['slug', 'Slug', 'left'],
+                    ['userCount', 'Users', 'right'], ['companyCount', 'Companies', 'right'],
+                    ['transactionCount', 'Transactions', 'right'], ['createdAt', 'Created', 'left'],
+                  ] as Array<[SortKey, string, 'left' | 'right']>).map(([key, label, align]) => (
+                    <th key={key} className={`text-${align} px-4 py-3 font-medium text-gray-600`}>
+                      <button onClick={() => onSort(key)}
+                        className="inline-flex items-center gap-1 hover:text-gray-900"
+                        title={`Sort by ${label}`}>
+                        {label}
+                        <span className="text-xs">{sortKey === key ? (sortDir === 'asc' ? '▲' : '▼') : ''}</span>
+                      </button>
+                    </th>
+                  ))}
                   <th className="text-center px-4 py-3 font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {tenants.map((t) => (
+                {(sortedTenants ?? []).map((t) => (
                   <tr
                     key={t.id}
                     className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"

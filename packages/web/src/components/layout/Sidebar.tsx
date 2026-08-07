@@ -43,7 +43,6 @@ import {
   ClipboardList,
   Network,
   Cloud,
-  Flag,
   FileUp,
   History,
   Store,
@@ -112,7 +111,6 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/tailscale', label: 'Tailscale', icon: Network },
   { to: '/admin/tunnel', label: 'Cloudflare Tunnel', icon: Cloud },
   { to: '/admin/ip-allowlist', label: 'Staff IP Allowlist', icon: ShieldAlert },
-  { to: '/admin/feature-flags', label: 'Feature Flags', icon: Flag },
   { to: '/admin/tax-codes', label: 'Tax Codes', icon: Percent },
   { to: '/admin/system', label: 'System Settings', icon: Wrench },
 ];

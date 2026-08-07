@@ -10,8 +10,14 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/Toaster';
-import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen, CalendarRange, UserPlus, Search, X, Wrench } from 'lucide-react';
+import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen, CalendarRange, UserPlus, Search, X, Wrench, Flag } from 'lucide-react';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
+import {
+  PRACTICE_FEATURE_FLAGS,
+  type PracticeFeatureFlagKey,
+  type FeatureFlagsResponse,
+} from '@kis-books/shared';
+import { Button } from '../../components/ui/Button';
 
 interface TenantUser {
   id: string;
@@ -569,6 +575,8 @@ export function TenantDetailPage() {
         </div>
       </div>
 
+      <FeatureFlagsCard tenantId={id!} />
+
       <RetainedEarningsCard tenantId={id!} />
 
       <SystemAccountsCard tenantId={id!} />
@@ -1124,6 +1132,77 @@ function AddFirmUserModal({
 // 'retained_earnings'). Restores closing-entry targeting, system-account
 // protection, and the named RE row on the balance sheet.
 interface RetainedEarningsAccount { id: string; name: string; accountNumber: string | null; systemTag: string | null; isSystem: boolean }
+// Per-tenant feature flags, inline on the tenant page (the old
+// standalone /admin/feature-flags picker didn't scale with tenant
+// count). Same admin endpoints as before.
+function FeatureFlagsCard({ tenantId }: { tenantId: string }) {
+  const queryClient = useQueryClient();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['admin', 'feature-flags', tenantId],
+    queryFn: () => apiClient<FeatureFlagsResponse>(`/admin/feature-flags/${tenantId}`),
+  });
+
+  const toggle = useMutation({
+    mutationFn: ({ key, enabled }: { key: PracticeFeatureFlagKey; enabled: boolean }) =>
+      apiClient(`/admin/feature-flags/${tenantId}/${key}`, {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'feature-flags', tenantId] });
+      // The toggling super-admin may be flipping their own tenant.
+      queryClient.invalidateQueries({ queryKey: ['feature-flags'] });
+    },
+  });
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+      <div className="flex items-center gap-2 mb-3">
+        <Flag className="h-5 w-5 text-gray-400" />
+        <h2 className="text-lg font-semibold text-gray-900">Feature Flags</h2>
+      </div>
+      <p className="text-sm text-gray-500 mb-4">
+        Practice / module features for this tenant. Flags default ON for newly-created tenants and OFF
+        for tenants that predate the Practice foundation.
+      </p>
+      {isLoading && <LoadingSpinner className="py-6" />}
+      {isError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          Failed to load feature flags.
+          <button onClick={() => refetch()} className="ml-2 underline font-medium">Retry</button>
+        </div>
+      )}
+      {data && (
+        <div className="space-y-2">
+          {PRACTICE_FEATURE_FLAGS.map((key) => {
+            const status = data.flags?.[key] ?? { enabled: false, rolloutPercent: 0, activatedAt: null };
+            return (
+              <div key={key} className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-2.5">
+                <div>
+                  <div className="text-sm font-medium text-gray-900 font-mono">{key}</div>
+                  <div className="text-xs text-gray-500">
+                    {status.activatedAt
+                      ? `First activated ${new Date(status.activatedAt).toLocaleString()}`
+                      : 'Never activated'}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant={status.enabled ? 'secondary' : 'primary'}
+                  onClick={() => toggle.mutate({ key, enabled: !status.enabled })}
+                  disabled={toggle.isPending}
+                >
+                  {status.enabled ? 'Disable' : 'Enable'}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RetainedEarningsCard({ tenantId }: { tenantId: string }) {
   const queryClient = useQueryClient();
   const toast = useToast();
