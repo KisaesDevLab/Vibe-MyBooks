@@ -49,7 +49,7 @@ export function TbPopoutPage() {
       for (const [id, row] of next) {
         const prev = prevRows.current.get(id);
         if (!prev || prev.unadjusted !== row.unadjusted || prev.aje !== row.aje ||
-            prev.taxRje !== row.taxRje || prev.adjusted !== row.adjusted) {
+            prev.taxRje !== row.taxRje || prev.adjusted !== row.adjusted || prev.tax !== row.tax) {
           changed.add(id);
         }
       }
@@ -62,6 +62,10 @@ export function TbPopoutPage() {
         const t = setTimeout(() => setFlashIds(new Set()), 2500);
         return () => clearTimeout(t);
       }
+      // Zero-delta refetch (e.g. a stamp bump outside the period): make
+      // sure a previous flash doesn't stick after its timer was
+      // cancelled by this effect re-run.
+      setFlashIds((prev) => (prev.size ? new Set() : prev));
     }
     prevRows.current = next;
     return undefined;
@@ -110,6 +114,7 @@ export function TbPopoutPage() {
         if (!res.ok || !res.body) return;
         sseHealthy = true;
         const reader = res.body.getReader();
+        try {
         const decoder = new TextDecoder();
         let buffer = '';
         for (;;) {
@@ -131,6 +136,11 @@ export function TbPopoutPage() {
               // malformed frame — skip
             }
           }
+        }
+        } finally {
+          // Clean server close (30-min ceiling) or abort: hand off to
+          // the 15s poll so long-lived popouts keep refreshing.
+          sseHealthy = false;
         }
       } catch {
         sseHealthy = false;
@@ -206,6 +216,11 @@ export function TbPopoutPage() {
         </div>
       </div>
       {isLoading && <LoadingSpinner className="py-16" />}
+      {!isLoading && !wpData && (
+        <p className="py-16 text-center text-sm text-gray-500">
+          Couldn’t load the trial balance. Check that the module is enabled for this client, then reopen the popout.
+        </p>
+      )}
       {wpData && (
         <TbWorkpaperGrid
           workpaper={wpData.workpaper}

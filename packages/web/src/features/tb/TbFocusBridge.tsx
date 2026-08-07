@@ -23,8 +23,8 @@ export function TbFocusBridge() {
     const ch = new BroadcastChannel(tbChannelName(companyId));
     ch.onmessage = (ev: MessageEvent<TbChannelMessage>) => {
       if (ev.data?.type !== 'focus-account') return;
-      const params = new URLSearchParams({ accountId: ev.data.accountId });
-      if (ev.data.column === 'aje') params.set('txnType', 'aje');
+      const params = new URLSearchParams({ account: ev.data.accountId });
+      if (ev.data.column === 'aje') params.set('type', 'aje');
       navigate(`/transactions?${params}`);
       window.focus();
     };

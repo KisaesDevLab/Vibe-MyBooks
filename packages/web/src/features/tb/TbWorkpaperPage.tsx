@@ -72,6 +72,18 @@ export function TbWorkpaperPage() {
   }, [serverPrefs]);
   const savePrefs = (next: TbPrefsState) => {
     setPrefs(next);
+    // Patch the cached /auth/me too — otherwise a remount within the
+    // staleTime window re-seeds from the old server copy and visibly
+    // reverts the user's toggle.
+    queryClient.setQueryData(['me'], (prev: unknown) => {
+      if (!prev || typeof prev !== 'object') return prev;
+      const me = prev as { user?: { displayPreferences?: Record<string, unknown> } };
+      if (!me.user) return prev;
+      return {
+        ...me,
+        user: { ...me.user, displayPreferences: { ...(me.user.displayPreferences ?? {}), tb: next } },
+      };
+    });
     apiClient('/auth/me/preferences', { method: 'PUT', body: JSON.stringify({ tb: next }) }).catch(() => undefined);
   };
 
@@ -269,8 +281,8 @@ export function TbWorkpaperPage() {
           unitNames={unitNames}
           onAmountClick={(row, column) => {
             // 6.5 drill-down, respecting the column filter.
-            const params = new URLSearchParams({ accountId: row.accountId });
-            if (column === 'aje') params.set('txnType', 'aje');
+            const params = new URLSearchParams({ account: row.accountId });
+            if (column === 'aje') params.set('type', 'aje');
             navigate(`/transactions?${params}`);
           }}
           extraHeaders={<th className="px-2 py-2 text-left">Tax Code</th>}

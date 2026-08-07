@@ -97,13 +97,22 @@ export function TbWorkpaperGrid({
       Math.abs(r.unadjusted) >= 0.005 || Math.abs(r.aje) >= 0.005 || Math.abs(r.taxRje) >= 0.005);
 
   const colSpanPerGroup = prefs.drCrMode ? 2 : 1;
-  const totalsFor = (key: string): [number, number] => {
-    const t = workpaper.totals as Record<string, number>;
-    return [t[`${key}Dr`] ?? 0, t[`${key}Cr`] ?? 0];
+  // Totals + net income must foot to what's ON SCREEN — with an
+  // activity view or filters active, the engine's consolidated totals
+  // would visibly disagree with the rows above them.
+  const totalsFor = (key: 'unadjusted' | 'aje' | 'adjusted' | 'taxRje' | 'tax'): [number, number] => {
+    let dr = 0;
+    let cr = 0;
+    for (const r of rows) {
+      const v = r[key];
+      if (v > 0) dr += v;
+      else cr += -v;
+    }
+    return [Math.round(dr * 100) / 100, Math.round(cr * 100) / 100];
   };
 
   let netIncome = 0;
-  for (const r of workpaper.rows) {
+  for (const r of rows) {
     if (r.accountType === 'revenue' || r.accountType === 'expense') netIncome -= r.adjusted;
   }
 

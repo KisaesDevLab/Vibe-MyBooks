@@ -240,7 +240,7 @@ export function TbLeadsheetsPage() {
                           <td className="py-1.5 pr-3 font-mono text-xs text-gray-500">{r.accountNumber}</td>
                           <td className="py-1.5 pr-3">
                             <button className="hover:text-blue-700 hover:underline text-left"
-                              onClick={() => navigate(`/transactions?accountId=${r.accountId}`)}>
+                              onClick={() => navigate(`/transactions?account=${r.accountId}`)}>
                               {r.name}
                             </button>
                           </td>

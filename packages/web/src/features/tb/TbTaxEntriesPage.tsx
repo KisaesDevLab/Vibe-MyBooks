@@ -77,7 +77,7 @@ export function TbTaxEntriesPage() {
         <div className="flex items-center gap-3">
           <label className="text-sm text-gray-700" htmlFor="rje-year">Tax year</label>
           <input id="rje-year" type="number" value={effYear}
-            onChange={(e) => setTaxYear(Number(e.target.value))}
+            onChange={(e) => { const v = Number(e.target.value); if (v >= 2000 && v <= 2100) setTaxYear(v); }}
             className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           <Button onClick={() => setEditing('new')}>New tax entry</Button>
         </div>

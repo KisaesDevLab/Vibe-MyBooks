@@ -131,7 +131,7 @@ export function TbExportsPage() {
             {SOFTWARE.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
           <input type="number" value={effYear} aria-label="Tax year"
-            onChange={(e) => setTaxYear(Number(e.target.value))}
+            onChange={(e) => { const v = Number(e.target.value); if (v >= 2000 && v <= 2100) setTaxYear(v); }}
             className="w-24 rounded-lg border border-gray-300 px-3 py-2" />
           <select value={basis} aria-label="Basis" onChange={(e) => setBasis(e.target.value as 'accrual' | 'cash')}
             className="rounded-lg border border-gray-300 px-2 py-2">

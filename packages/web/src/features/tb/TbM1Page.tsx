@@ -107,7 +107,7 @@ export function TbM1Page() {
   const m1 = m1Data?.m1;
   const m2 = m2Data?.m2;
 
-  const drill = (accountId: string) => navigate(`/transactions?accountId=${accountId}`);
+  const drill = (accountId: string) => navigate(`/transactions?account=${accountId}`);
 
   return (
     <div className="p-6 space-y-6">
@@ -118,7 +118,7 @@ export function TbM1Page() {
         </div>
         <div className="flex items-center gap-3 text-sm">
           <input type="number" value={effYear} aria-label="Tax year"
-            onChange={(e) => setTaxYear(Number(e.target.value))}
+            onChange={(e) => { const v = Number(e.target.value); if (v >= 2000 && v <= 2100) setTaxYear(v); }}
             className="w-24 rounded-lg border border-gray-300 px-3 py-2" />
           <select value={basis} aria-label="Basis" onChange={(e) => setBasis(e.target.value as 'accrual' | 'cash')}
             className="rounded-lg border border-gray-300 px-2 py-2">
@@ -222,7 +222,11 @@ export function TbM1Page() {
                     <td className="py-1.5 pr-3">{a.accountNumber ? `${a.accountNumber} ` : ''}{a.name}</td>
                     <td className="py-1.5 pr-3">
                       <select value={rolesData?.roles[a.accountId] ?? a.role} aria-label={`Role for ${a.name}`}
-                        onChange={(e) => saveRole.mutate({ ...(rolesData?.roles ?? {}), [a.accountId]: e.target.value })}
+                        disabled={!rolesData}
+                        onChange={(e) => {
+                          if (!rolesData) return; // never overwrite the map before it loads
+                          saveRole.mutate({ ...rolesData.roles, [a.accountId]: e.target.value });
+                        }}
                         className="rounded border border-gray-300 px-1.5 py-1 text-xs">
                         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>

@@ -82,7 +82,7 @@ export function AjeListPage() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <label className="text-sm text-gray-700" htmlFor="aje-fy">Fiscal year</label>
         <input id="aje-fy" type="number" value={fiscalYear}
-          onChange={(e) => { setFiscalYear(Number(e.target.value)); setPage(0); }}
+          onChange={(e) => { const v = Number(e.target.value); if (v >= 2000 && v <= 2100) { setFiscalYear(v); setPage(0); } }}
           className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={includeVoid} onChange={(e) => { setIncludeVoid(e.target.checked); setPage(0); }} />
