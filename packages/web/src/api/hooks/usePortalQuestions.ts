@@ -45,6 +45,7 @@ export interface QuestionDetail {
     senderType: 'bookkeeper' | 'contact' | 'system';
     senderId: string;
     body: string;
+    attachments?: Array<{ attachmentId: string; filename: string; mimeType: string | null; sizeBytes: number | null }>;
     createdAt: string;
   }>;
 }

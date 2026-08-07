@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useMemo, useRef, useState } from 'react';
-import {
+import { Paperclip,
   Plus,
   Trash2,
   Pause,
@@ -1327,6 +1327,21 @@ function QuestionDetailModal({
     setText('');
   };
 
+  // Staff downloads need the JWT header, so fetch → blob → save.
+  const downloadAttachment = async (attachmentId: string, filename: string) => {
+    const res = await fetch(
+      `${import.meta.env.BASE_URL}api/v1/practice/portal/questions/${questionId}/attachments/${attachmentId}/download`,
+      { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } },
+    );
+    if (!res.ok) return;
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <ModalShell title={q ? `Question · ${q.companyName}` : 'Question'} onClose={onClose}>
       {isLoading || !q ? (
@@ -1360,6 +1375,20 @@ function QuestionDetailModal({
                   {new Date(m.createdAt).toLocaleString()}
                 </p>
                 <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{m.body}</p>
+                {(m.attachments ?? []).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(m.attachments ?? []).map((a) => (
+                      <button key={a.attachmentId} type="button"
+                        onClick={() => downloadAttachment(a.attachmentId, a.filename)}
+                        className="inline-flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 hover:bg-indigo-100"
+                        title={`Download ${a.filename}`}>
+                        <Paperclip className="h-3 w-3" />
+                        {a.filename}
+                        {a.sizeBytes != null && <span className="text-indigo-400">({Math.max(1, Math.round(a.sizeBytes / 1024))} KB)</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

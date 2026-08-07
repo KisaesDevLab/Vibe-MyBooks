@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ChevronRight, MessageSquare, Send, Plus } from 'lucide-react';
+import { Paperclip, ChevronRight, MessageSquare, Send, Plus } from 'lucide-react';
 import { usePortal } from './PortalLayout';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 10.5/10.6 — portal-side
@@ -30,6 +30,7 @@ interface QuestionDetail {
     id: string;
     senderType: 'bookkeeper' | 'contact' | 'system';
     body: string;
+    attachments?: Array<{ attachmentId: string; filename: string; mimeType: string | null; sizeBytes: number | null }>;
     createdAt: string;
   }>;
   transactionContext: { amount: string; memo: string | null; date: string | null } | null;
@@ -238,6 +239,7 @@ export function PortalQuestionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reply, setReply] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const reload = () =>
@@ -258,12 +260,23 @@ export function PortalQuestionDetailPage() {
     if (!reply.trim()) return;
     setSubmitting(true);
     try {
-      await fetchJson(`${import.meta.env.BASE_URL}api/portal/questions/${id}/answers`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: reply.trim() }),
-      });
+      // Multipart when files ride along; plain JSON otherwise.
+      let init: RequestInit;
+      if (files.length > 0) {
+        const fd = new FormData();
+        fd.append('body', reply.trim());
+        for (const f of files) fd.append('files', f);
+        init = { method: 'POST', body: fd };
+      } else {
+        init = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body: reply.trim() }),
+        };
+      }
+      await fetchJson(`${import.meta.env.BASE_URL}api/portal/questions/${id}/answers`, init);
       setReply('');
+      setFiles([]);
       await reload();
     } catch {
       setError('Could not send your answer. Please try again.');
@@ -322,6 +335,20 @@ export function PortalQuestionDetailPage() {
               · {new Date(m.createdAt).toLocaleString()}
             </p>
             <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{m.body}</p>
+            {(m.attachments ?? []).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(m.attachments ?? []).map((a) => (
+                  <a key={a.attachmentId}
+                    href={`${import.meta.env.BASE_URL}api/portal/questions/${q.id}/attachments/${a.attachmentId}/download`}
+                    className="inline-flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 hover:bg-indigo-100"
+                    download={a.filename}>
+                    <Paperclip className="h-3 w-3" />
+                    {a.filename}
+                    {a.sizeBytes != null && <span className="text-indigo-400">({Math.max(1, Math.round(a.sizeBytes / 1024))} KB)</span>}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </section>
@@ -339,6 +366,31 @@ export function PortalQuestionDetailPage() {
             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             placeholder="Share what you know — short and specific is best."
           />
+          <div className="mt-2">
+            <label htmlFor="portal-reply-files" className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 cursor-pointer">
+              <Paperclip className="h-4 w-4" /> Attach files
+            </label>
+            <input id="portal-reply-files" type="file" multiple className="hidden"
+              accept="image/jpeg,image/png,image/gif,image/webp,image/heic,application/pdf,text/csv,text/plain,.xlsx,.xls,.docx"
+              onChange={(e) => {
+                const picked = Array.from(e.target.files ?? []);
+                setFiles((prev) => [...prev, ...picked].slice(0, 5));
+                e.target.value = '';
+              }} />
+            {files.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {files.map((f, i) => (
+                  <span key={`${f.name}-${i}`} className="inline-flex items-center gap-1.5 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                    <Paperclip className="h-3 w-3" />
+                    {f.name}
+                    <button type="button" aria-label={`Remove ${f.name}`}
+                      onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                      className="text-gray-400 hover:text-red-600">✕</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="mt-2 flex justify-end">
             <button
               type="submit"
