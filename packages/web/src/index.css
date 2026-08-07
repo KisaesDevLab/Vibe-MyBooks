@@ -242,3 +242,15 @@ html.no-transition * {
     border-color: #d1d5db !important;
   }
 }
+
+/* ── TB popout diff-flash (TB module 6B.5) ─────────────────────── */
+@keyframes tb-flash-kf {
+  0% { background-color: rgb(254 243 199); }   /* amber-100 */
+  100% { background-color: transparent; }
+}
+.tb-flash-row td {
+  animation: tb-flash-kf 2.4s ease-out;
+}
+.tb-flash {
+  animation: tb-flash-kf 2.4s ease-out;
+}

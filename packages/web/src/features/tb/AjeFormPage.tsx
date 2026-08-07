@@ -13,6 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { todayLocalISO } from '../../utils/date';
 import { apiClient, isApiError } from '../../api/client';
+import { activeCompanyId, publishTbChange } from './workpaperShared';
 import { useTransaction } from '../../api/hooks/useTransactions';
 import type { JournalLine } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
@@ -79,6 +80,7 @@ export function AjeFormPage() {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['tb'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      publishTbChange(activeCompanyId());
       navigate(`/transactions/${res.aje.id}`);
     },
   });

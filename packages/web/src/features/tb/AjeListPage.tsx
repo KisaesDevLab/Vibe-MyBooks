@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, isApiError } from '../../api/client';
+import { activeCompanyId, publishTbChange } from './workpaperShared';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
@@ -60,6 +61,7 @@ export function AjeListPage() {
     onSuccess: (_res, { action }) => {
       queryClient.invalidateQueries({ queryKey: ['tb'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      publishTbChange(activeCompanyId());
       toast.success(action === 'void' ? 'AJE voided' : action === 'reverse' ? 'Reversing AJE posted' : 'AJE duplicated');
     },
     onError: (e) => toast.error(isApiError(e) ? e.message : 'Action failed'),

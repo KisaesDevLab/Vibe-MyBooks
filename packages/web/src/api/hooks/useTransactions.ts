@@ -8,6 +8,7 @@ import type {
   BulkUpdateTransactionsInput, BulkUpdateTransactionsResult,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
+import { activeCompanyId, publishTbChange } from '../../features/tb/workpaperShared';
 
 export function useTransactions(filters?: TransactionFilters) {
   const params = new URLSearchParams();
@@ -59,6 +60,8 @@ export function useCreateTransaction() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      // TB popout fast path (TB module 6B.3): GL changed in this browser.
+      publishTbChange(activeCompanyId());
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });
@@ -74,6 +77,8 @@ export function useUpdateTransaction() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      // TB popout fast path (TB module 6B.3): GL changed in this browser.
+      publishTbChange(activeCompanyId());
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });
@@ -89,6 +94,8 @@ export function useVoidTransaction() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      // TB popout fast path (TB module 6B.3): GL changed in this browser.
+      publishTbChange(activeCompanyId());
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });
@@ -114,6 +121,8 @@ export function useBulkUpdateTransactions() {
     onSuccess: () => {
       // Category moves change denormalised account balances; invalidate both.
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      // TB popout fast path (TB module 6B.3): GL changed in this browser.
+      publishTbChange(activeCompanyId());
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });

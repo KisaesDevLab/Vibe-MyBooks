@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { SharePanel } from '../../features/share/SharePanel';
+import { TbFocusBridge } from '../../features/tb/TbFocusBridge';
 import { ImpersonationBanner } from './ImpersonationBanner';
 import { Menu } from 'lucide-react';
 import { ChatFab } from '../../features/chat/ChatFab';
@@ -144,6 +145,10 @@ export function AppShell() {
           <Outlet />
         </div>
       </main>
+
+      {/* TB popout drill-down bridge (TB module 6B.6): renders nothing;
+          listens for focus-account messages from the popout window. */}
+      <TbFocusBridge />
 
       {/* AI chat assistant — only renders if chat is enabled at both
           the system and company level (handled inside ChatFab). */}
