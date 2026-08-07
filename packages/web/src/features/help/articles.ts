@@ -17,6 +17,7 @@ export const categories = [
   'Banking',
   'Checks',
   'Reports',
+  'Trial Balance',
   'Settings',
   'Security',
   'AI Processing',
@@ -2236,5 +2237,34 @@ Click **Configure** on S3, enter bucket/region/keys, click **Save & Connect**.
 ### Switching Providers
 Existing files can be migrated when switching. Migration runs in the background with progress tracking.
 `,
+  },
+  {
+    id: 'trial-balance-module',
+    title: 'Trial Balance module — tax workpapers over live books',
+    category: 'Trial Balance',
+    summary: 'Five-column workpaper, AJEs, tax codes, leadsheets, M-1/M-2, and vendor exports for the accounting firm.',
+    body: `The Trial Balance group appears in the sidebar for firm staff when the module is enabled (an administrator turns on TRIAL_BALANCE_V1 under Admin → Feature Flags).
+
+## The workpaper
+
+**Trial Balance → Trial Balance** shows every account in five columns: **Unadjusted → AJE → Adjusted → Tax RJE → Tax**, on accrual or cash basis. Balances always come from the live ledger — there is nothing to import or sync. Toggle DR/CR vs single-column, show prior year, filter by category, or view one activity unit at a time. Click any amount to drill into the underlying transactions. The **popout** button opens a read-only live view in its own window — changed rows flash as book work posts.
+
+Assign each account a **tax code** inline (the picker only offers codes valid for the client's return form and activity), or use **Auto-assign** to review AI suggestions — nothing commits until you accept.
+
+## Adjusting entries (AJEs)
+
+AJEs are real journal entries, numbered AJE-001 per client per fiscal year, badged purple in every register. They can be reversed onto the first day of the next month, duplicated, and posted even into a closed period. Clients see them read-only in published reports.
+
+## Tax adjustments (RJEs)
+
+Tax-basis-only entries that never touch the books — they shape the Tax column, Schedule M-1, and exports. Manage them under **Trial Balance → Tax Adjustments**.
+
+## Leadsheets, sign-offs & closing
+
+**Leadsheets** group accounts into workpapers with tickmarks and notes. The preparer signs first, then the reviewer; a later ledger change marks signatures "stale" for one-click re-sign. Setting the **closing date** (TB Settings) blocks client-side changes to the closed period — firm staff can override with a confirmation, and every override is audit-logged.
+
+## Reports & exports
+
+**TB Reports** covers the workpaper, grouped TB, Tax Return Order, Tax-Basis P&L, Flux Analysis, AJE/Bookkeeper listings, Schedule M-1/M-2, Workpaper Index, and Diagnostics — each downloadable as CSV/PDF and available in Report Packs. **Tax Exports** generates UltraTax CS, Lacerte, CCH Axcess, GoSystem RS, generic CSV, or an Excel working trial balance once validation passes; history shows whether the books changed after a file was generated.`,
   },
 ];
