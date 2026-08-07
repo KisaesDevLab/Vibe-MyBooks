@@ -193,7 +193,10 @@ export function TbWorkpaperPage() {
           <option value="liability">Liabilities</option>
           <option value="equity">Equity</option>
           <option value="revenue">Revenue</option>
+          <option value="cogs">Cost of Goods Sold</option>
           <option value="expense">Expenses</option>
+          <option value="other_revenue">Other Income</option>
+          <option value="other_expense">Other Expenses</option>
         </select>
         <select value={prefs.activityView} aria-label="Activity view"
           onChange={(e) => savePrefs({ ...prefs, activityView: e.target.value })}

@@ -113,7 +113,7 @@ export function TbWorkpaperGrid({
 
   let netIncome = 0;
   for (const r of rows) {
-    if (r.accountType === 'revenue' || r.accountType === 'expense') netIncome -= r.adjusted;
+    if (!['asset', 'liability', 'equity'].includes(r.accountType)) netIncome -= r.adjusted;
   }
 
   return (

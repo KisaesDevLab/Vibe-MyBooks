@@ -42,7 +42,10 @@ const TYPE_SECTIONS: Array<{ type: string; label: string }> = [
   { type: 'liability', label: 'Liabilities' },
   { type: 'equity', label: 'Equity' },
   { type: 'revenue', label: 'Revenue' },
+  { type: 'cogs', label: 'Cost of Goods Sold' },
   { type: 'expense', label: 'Expenses' },
+  { type: 'other_revenue', label: 'Other Income' },
+  { type: 'other_expense', label: 'Other Expenses' },
 ];
 
 export function TbMappingPage() {
@@ -219,8 +222,14 @@ export function TbMappingPage() {
               </tr>
             </thead>
             <tbody>
-              {TYPE_SECTIONS.map(({ type, label }) => {
-                const sectionRows = visible.filter((r) => r.accountType === type);
+              {[...TYPE_SECTIONS,
+                // Safety net: an account type outside the catalog must
+                // still render, never silently disappear.
+                { type: '__other__', label: 'Other' },
+              ].map(({ type, label }) => {
+                const sectionRows = type === '__other__'
+                  ? visible.filter((r) => !TYPE_SECTIONS.some((sec) => sec.type === r.accountType))
+                  : visible.filter((r) => r.accountType === type);
                 if (sectionRows.length === 0) return null;
                 const total = sectionRows.reduce((sum, r) => sum + r.adjusted, 0);
                 return (
