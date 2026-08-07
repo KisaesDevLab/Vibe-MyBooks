@@ -19,6 +19,9 @@ interface JournalEntryPayload extends Record<string, unknown> {
   basis: Basis;
   lines: JournalLineInput[];
   draftAttachmentId?: string;
+  // Closed-period override (TB module ADR-TB-04) — set only after the
+  // user confirms the warning modal; the server audit-logs the act.
+  overrideConfirmed?: boolean;
 }
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -33,6 +36,7 @@ import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Plus, Trash2, Repeat } from 'lucide-react';
 import { RecurringScheduleModal } from './RecurringScheduleModal';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
 // `tagId` + `userHasTouchedTag` land with ADR 0XY/0XZ. The stickiness flag
 // is false on newly-created lines so default-tag recomputation is free to
@@ -155,6 +159,27 @@ export function JournalEntryForm() {
     (l) => l.templateRequired && !(parseFloat(l.debit) > 0 || parseFloat(l.credit) > 0),
   );
 
+  // Closed-period override handshake (TB module ADR-TB-04): a 423 with
+  // canOverride prompts the warning modal; confirming resubmits the same
+  // payload with overrideConfirmed, which the server audit-logs.
+  const [lockPrompt, setLockPrompt] = useState<{ payload: JournalEntryPayload; message: string } | null>(null);
+
+  const submitPayload = (payload: JournalEntryPayload) => {
+    const onError = (err: unknown) => {
+      const apiErr = err as { status?: number; message?: string; details?: { canOverride?: boolean } };
+      if (apiErr?.status === 423 && apiErr.details?.canOverride && !payload.overrideConfirmed) {
+        setLockPrompt({ payload, message: apiErr.message ?? 'This period was closed.' });
+      }
+    };
+    if (isEdit) {
+      updateTxn.mutate({ id: editId!, ...payload }, { onSuccess: () => navigate(`/transactions/${editId}`), onError });
+    } else {
+      // Land on the new entry's detail page (not the list) so it can be acted
+      // on right after posting — e.g. "Make recurring".
+      createTxn.mutate(payload, { onSuccess: (res) => navigate(`/transactions/${res.transaction.id}`), onError });
+    }
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!isBalanced) return;
@@ -173,15 +198,8 @@ export function JournalEntryForm() {
         tagId: l.tagId,
       })),
     };
-
-    if (isEdit) {
-      updateTxn.mutate({ id: editId!, ...payload }, { onSuccess: () => navigate(`/transactions/${editId}`) });
-    } else {
-      payload.draftAttachmentId = draftId;
-      // Land on the new entry's detail page (not the list) so it can be acted
-      // on right after posting — e.g. "Make recurring".
-      createTxn.mutate(payload, { onSuccess: (res) => navigate(`/transactions/${res.transaction.id}`) });
-    }
+    if (!isEdit) payload.draftAttachmentId = draftId;
+    submitPayload(payload);
   };
 
   if (isEdit && loadingExisting) return <LoadingSpinner className="py-12" />;
@@ -343,6 +361,19 @@ export function JournalEntryForm() {
       {isEdit && showRecurring && (
         <RecurringScheduleModal transactionId={editId!} onClose={() => setShowRecurring(false)} />
       )}
+
+      <ConfirmDialog
+        open={lockPrompt !== null}
+        title="Post into a closed period?"
+        message={`${lockPrompt?.message ?? ''} Proceeding will change closed-period balances; the override is recorded in the audit log.`}
+        confirmLabel="Override and post"
+        variant="danger"
+        onConfirm={() => {
+          if (lockPrompt) submitPayload({ ...lockPrompt.payload, overrideConfirmed: true });
+          setLockPrompt(null);
+        }}
+        onCancel={() => setLockPrompt(null)}
+      />
     </div>
   );
 }

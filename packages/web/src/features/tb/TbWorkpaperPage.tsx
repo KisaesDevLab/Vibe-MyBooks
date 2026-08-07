@@ -230,6 +230,8 @@ export function TbWorkpaperPage() {
         </button>
       </div>
 
+      <ClosedPeriodBanner />
+
       {/* ── Diagnostics panel (6.4) ────────────────────────── */}
       {showDiagnostics && (
         <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
@@ -309,6 +311,39 @@ export function TbWorkpaperPage() {
             publishTbChange(companyId);
           }}
         />
+      )}
+    </div>
+  );
+}
+
+// ── "Closed period modified since close" banner (10.5) ──────────────
+
+function ClosedPeriodBanner() {
+  const [expanded, setExpanded] = useState(false);
+  const { data } = useQuery({
+    queryKey: ['tb', 'closed-period-changes'],
+    queryFn: () => apiClient<{
+      closingDate: string | null;
+      total: number;
+      changes: Array<{ id: string; txn_type: string; txn_date: string; memo: string | null; total: string | null }>;
+    }>('/tb/closed-period-changes'),
+  });
+  if (!data?.closingDate || data.total === 0) return null;
+  return (
+    <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+      <button className="font-medium" onClick={() => setExpanded((e) => !e)}>
+        ⚠ Closed period modified since close — {data.total} transaction{data.total === 1 ? '' : 's'} dated on or before {data.closingDate} changed after it was closed. {expanded ? '▴' : '▾'}
+      </button>
+      {expanded && (
+        <ul className="mt-2 space-y-0.5 text-xs">
+          {data.changes.map((c) => (
+            <li key={c.id}>
+              <a href={`${import.meta.env.BASE_URL}transactions/${c.id}`} className="underline">
+                {c.txn_date} · {c.txn_type}{c.memo ? ` — ${c.memo}` : ''}{c.total ? ` (${Number(c.total).toLocaleString('en-US', { style: 'currency', currency: 'USD' })})` : ''}
+              </a>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

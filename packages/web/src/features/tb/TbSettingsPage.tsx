@@ -396,6 +396,51 @@ function FirmCodesCard({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
+// ── Closing date (Phase 10, ADR-TB-04) ─────────────────────────────
+
+function ClosingDateCard({ isAdmin }: { isAdmin: boolean }) {
+  const toast = useToast();
+  const { data, refetch } = useQuery({
+    queryKey: ['tb', 'closing-date'],
+    queryFn: () => apiClient<{ closingDate: string | null; setAt: string | null }>('/tb/closing-date'),
+  });
+  const [draft, setDraft] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: (closingDate: string | null) =>
+      apiClient('/tb/closing-date', { method: 'PUT', body: JSON.stringify({ closingDate }) }),
+    onSuccess: () => { setDraft(null); refetch(); toast.success('Closing date updated'); },
+    onError: (e) => toast.error(isApiError(e) ? e.message : 'Save failed'),
+  });
+  const effective = draft ?? data?.closingDate ?? '';
+  return (
+    <Card title="Closing date"
+      subtitle="Locks client-side changes on or before this date. Firm staff can override with confirmation (audit-logged); AJEs are always allowed.">
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="tb-close">Closed through</label>
+          <input id="tb-close" type="date" value={effective} disabled={!isAdmin}
+            onChange={(e) => setDraft(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50" />
+        </div>
+        {isAdmin && (
+          <>
+            <Button variant="primary" disabled={save.isPending || !effective || effective === (data?.closingDate ?? '')}
+              onClick={() => save.mutate(effective)}>Set</Button>
+            {data?.closingDate && (
+              <Button variant="secondary" disabled={save.isPending}
+                onClick={() => save.mutate(null)}>Clear</Button>
+            )}
+          </>
+        )}
+      </div>
+      {data?.closingDate && data.setAt && (
+        <p className="text-xs text-gray-500 mt-2">Closed on {new Date(data.setAt).toLocaleString()}.</p>
+      )}
+      {!isAdmin && <p className="text-xs text-gray-500 mt-2">Only a firm administrator can change the closing date.</p>}
+    </Card>
+  );
+}
+
 // ── Tickmark library (7.3) ─────────────────────────────────────────
 
 interface TickmarkRow { id: string; symbol: string; description: string; color: string | null; sortOrder: number }
@@ -478,6 +523,7 @@ export function TbSettingsPage() {
         <p className="text-gray-600">Tax profile, return activities, tag routing, and firm custom codes for this client.</p>
       </div>
       <ProfileCard isAdmin={isAdmin} />
+      <ClosingDateCard isAdmin={isAdmin} />
       <UnitsCard />
       <TagMappingCard />
       <TickmarksCard />
