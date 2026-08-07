@@ -123,14 +123,12 @@ export function TbWorkpaperPage() {
     return [
       ...codesData.seedCodes.map((c) => ({
         id: `seed|${c.activityType}|${c.code}`,
-        label: `${c.code}`,
-        sublabel: c.description,
+        label: `${c.code} — ${c.description}`,
         group: c.activityType,
       })),
       ...codesData.firmCodes.map((c) => ({
         id: `firm|${c.id}`,
-        label: c.code,
-        sublabel: c.description,
+        label: `${c.code} — ${c.description}`,
         group: 'firm custom',
       })),
     ];

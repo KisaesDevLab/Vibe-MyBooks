@@ -15,6 +15,7 @@ export interface TbProfile {
   returnForm: '1040' | '1065' | '1120' | '1120S';
   pinnedSeedVersionId: string | null;
   sCorpElectionDate: string | null;
+  defaultActivityType: 'business' | 'rental' | 'farm' | 'farm_rental';
 }
 
 export interface TbFiscal {
@@ -78,7 +79,7 @@ export function useTbProfile() {
 export function useUpsertTbProfile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { returnForm: string; pinnedSeedVersionId?: string | null; sCorpElectionDate?: string | null }) =>
+    mutationFn: (input: { returnForm: string; pinnedSeedVersionId?: string | null; sCorpElectionDate?: string | null; defaultActivityType?: string }) =>
       apiClient<{ profile: TbProfile }>('/tb/profile', { method: 'PUT', body: JSON.stringify(input) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tb'] }),
   });

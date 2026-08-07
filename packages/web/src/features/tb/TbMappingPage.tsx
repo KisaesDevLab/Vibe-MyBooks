@@ -92,14 +92,12 @@ export function TbMappingPage() {
     return [
       ...codesData.seedCodes.map((c) => ({
         id: `seed|${c.activityType}|${c.code}`,
-        label: `${c.code}`,
-        sublabel: c.description,
+        label: `${c.code} — ${c.description}`,
         group: c.activityType,
       })),
       ...codesData.firmCodes.map((c) => ({
         id: `firm|${c.id}`,
-        label: c.code,
-        sublabel: c.description,
+        label: `${c.code} — ${c.description}`,
         group: 'firm custom',
       })),
     ];
@@ -153,7 +151,7 @@ export function TbMappingPage() {
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Tax Mapping</h1>
           <p className="text-sm text-gray-500">
-            {codesData ? `${codesData.returnForm} · ` : ''}
+            {codesData ? `${codesData.returnForm} · ${codesData.activityType.replace('_', ' ')} · ` : ''}
             {wpData ? `TY${wpData.workpaper.taxYear} · FY ${wpData.workpaper.fyStart} → ${wpData.workpaper.periodEnd}` : ' '}
           </p>
         </div>

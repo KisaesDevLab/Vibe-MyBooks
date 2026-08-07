@@ -56,6 +56,7 @@ export interface TbAssignment {
 
 export interface TbAvailableCodes {
   returnForm: string;
+  activityType: string;
   seedCodes: Array<{ code: string; description: string; activityType: string; sortOrder: number; isM1Adjustment: boolean }>;
   firmCodes: Array<{ id: string; code: string; description: string; activityType: string; sortOrder: number; isM1Adjustment: boolean }>;
 }

@@ -53,15 +53,18 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
   const [returnForm, setReturnForm] = useState<string | null>(null);
   const [pinned, setPinned] = useState<string | null | undefined>(undefined);
   const [electionDate, setElectionDate] = useState<string | null | undefined>(undefined);
+  const [activityType, setActivityType] = useState<string | null>(null);
 
   if (isLoading || !data) return <Card title="Tax profile"><LoadingSpinner className="py-6" /></Card>;
 
   const effForm = returnForm ?? data.profile?.returnForm ?? '';
   const effPinned = pinned !== undefined ? pinned : (data.profile?.pinnedSeedVersionId ?? null);
   const effElection = electionDate !== undefined ? electionDate : (data.profile?.sCorpElectionDate ?? null);
+  const effActivity = activityType ?? data.profile?.defaultActivityType ?? 'business';
   const dirty = effForm !== (data.profile?.returnForm ?? '') ||
     effPinned !== (data.profile?.pinnedSeedVersionId ?? null) ||
-    effElection !== (data.profile?.sCorpElectionDate ?? null);
+    effElection !== (data.profile?.sCorpElectionDate ?? null) ||
+    effActivity !== (data.profile?.defaultActivityType ?? 'business');
 
   const fyLabel = new Date(2000, data.fiscal.fiscalYearStartMonth - 1, 1).toLocaleString(undefined, { month: 'long' });
 
@@ -75,6 +78,17 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50">
             <option value="" disabled>Select…</option>
             {tbReturnForms.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="tb-activity">Activity type</label>
+          <select id="tb-activity" value={effActivity} disabled={!isAdmin}
+            onChange={(e) => setActivityType(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50">
+            <option value="business">Business</option>
+            <option value="rental">Rental</option>
+            <option value="farm">Farm</option>
+            <option value="farm_rental">Farm rental</option>
           </select>
         </div>
         <div>
@@ -99,7 +113,7 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
         {isAdmin && (
           <Button variant="primary" disabled={!dirty || !effForm || upsert.isPending}
             onClick={() => upsert.mutate(
-              { returnForm: effForm, pinnedSeedVersionId: effPinned, sCorpElectionDate: effForm === '1120S' ? effElection : null },
+              { returnForm: effForm, pinnedSeedVersionId: effPinned, sCorpElectionDate: effForm === '1120S' ? effElection : null, defaultActivityType: effActivity },
               {
                 onSuccess: () => toast.success('Tax profile saved'),
                 onError: (e) => toast.error(isApiError(e) ? e.message : 'Save failed'),
