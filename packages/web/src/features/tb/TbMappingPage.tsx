@@ -7,9 +7,9 @@
 // with per-row tax-code picker, source + confidence badges, and the
 // Auto-assign AI panel (relocated here from the workpaper view).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, isApiError } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useTbProfile } from '../../api/hooks/useTb';
@@ -336,13 +336,39 @@ function TbAiPanel({ periodEnd, basis, onClose, onAccepted }: {
   const [threshold, setThreshold] = useState(80);
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
 
-  const suggest = useQuery({
-    queryKey: ['tb', 'ai-suggest', periodEnd, basis],
-    retry: false,
-    queryFn: () => apiClient<{ suggestions: AiSuggestion[] }>('/tb/ai/suggest-assignments', {
-      method: 'POST', body: JSON.stringify({ periodEnd, basis }),
-    }),
-  });
+  // Batched analysis: the server caps each call (a full book in one
+  // generation blew the provider timeout), so loop until remaining=0,
+  // excluding everything already analyzed. Suggestions stream into the
+  // table as each batch lands.
+  const [allSuggestions, setAllSuggestions] = useState<AiSuggestion[]>([]);
+  const [progress, setProgress] = useState<{ analyzed: number; remaining: number } | null>(null);
+  const [analyzing, setAnalyzing] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const analyzedIds: string[] = [];
+        for (;;) {
+          const res = await apiClient<{ suggestions: AiSuggestion[]; analyzedAccountIds: string[]; remaining: number }>(
+            '/tb/ai/suggest-assignments',
+            { method: 'POST', body: JSON.stringify({ periodEnd, basis, excludeAccountIds: analyzedIds }) },
+          );
+          if (cancelled) return;
+          analyzedIds.push(...res.analyzedAccountIds);
+          setAllSuggestions((prev) => [...prev, ...res.suggestions]);
+          setProgress({ analyzed: analyzedIds.length, remaining: res.remaining });
+          if (res.remaining <= 0 || res.analyzedAccountIds.length === 0) break;
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(isApiError(e) ? e.message : 'AI suggestion failed');
+      } finally {
+        if (!cancelled) setAnalyzing(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const accept = useMutation({
     mutationFn: (s: AiSuggestion) => apiClient('/tb/assignments', {
@@ -359,7 +385,7 @@ function TbAiPanel({ periodEnd, basis, onClose, onAccepted }: {
     onError: (e) => toast.error(isApiError(e) ? e.message : 'Accept failed'),
   });
 
-  const pending = (suggest.data?.suggestions ?? []).filter((s) => !accepted.has(s.accountId));
+  const pending = allSuggestions.filter((s) => !accepted.has(s.accountId));
 
   const acceptOne = async (s: AiSuggestion) => {
     await accept.mutateAsync(s);
@@ -392,11 +418,18 @@ function TbAiPanel({ periodEnd, basis, onClose, onAccepted }: {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">✕</button>
         </div>
         <div className="p-5 overflow-y-auto grow">
-          {suggest.isLoading && <div className="py-8 text-center"><LoadingSpinner /> <p className="text-sm text-gray-500 mt-2">Analyzing unassigned accounts…</p></div>}
-          {suggest.isError && (
-            <p className="text-sm text-red-700">{isApiError(suggest.error) ? suggest.error.message : 'AI suggestion failed'}</p>
+          {analyzing && (
+            <div className="py-3 text-center">
+              <LoadingSpinner />
+              <p className="text-sm text-gray-500 mt-2">
+                {progress
+                  ? `Analyzing accounts… ${progress.analyzed} done, ${progress.remaining} to go`
+                  : 'Analyzing unassigned accounts…'}
+              </p>
+            </div>
           )}
-          {suggest.data && suggest.data.suggestions.length === 0 && (
+          {loadError && <p className="text-sm text-red-700">{loadError}</p>}
+          {!analyzing && !loadError && allSuggestions.length === 0 && (
             <p className="text-sm text-gray-500">Nothing to suggest — every account already has a tax code.</p>
           )}
           {pending.length > 0 && (
