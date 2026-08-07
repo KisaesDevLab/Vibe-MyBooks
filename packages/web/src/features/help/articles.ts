@@ -2243,7 +2243,7 @@ Existing files can be migrated when switching. Migration runs in the background 
     title: 'Trial Balance module — tax workpapers over live books',
     category: 'Trial Balance',
     summary: 'Five-column workpaper, AJEs, tax codes, leadsheets, M-1/M-2, and vendor exports for the accounting firm.',
-    body: `The Trial Balance group appears in the sidebar for firm staff when the module is enabled (an administrator turns on TRIAL_BALANCE_V1 under Admin → Feature Flags).
+    body: `The Trial Balance group appears in the sidebar for firm staff when the module is enabled (an administrator turns on TRIAL_BALANCE_V1 in the Feature Flags card on Admin → Tenants → the tenant's page).
 
 ## The workpaper
 
