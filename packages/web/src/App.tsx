@@ -266,6 +266,7 @@ const AjeListPage = lazyNamed(() => import('./features/tb/AjeListPage'), 'AjeLis
 const AjeFormPage = lazyNamed(() => import('./features/tb/AjeFormPage'), 'AjeFormPage');
 const TbWorkpaperPage = lazyNamed(() => import('./features/tb/TbWorkpaperPage'), 'TbWorkpaperPage');
 const TbPopoutPage = lazyNamed(() => import('./features/tb/TbPopoutPage'), 'TbPopoutPage');
+const TbLeadsheetsPage = lazyNamed(() => import('./features/tb/TbLeadsheetsPage'), 'TbLeadsheetsPage');
 
 // ─── Auth (cold-path + one-time setup) — kept out of the main bundle ─
 const RegisterPage = lazyNamed(() => import('./features/auth/RegisterPage'), 'RegisterPage');
@@ -580,6 +581,7 @@ export function App() {
               <Route path="ajes" element={<AjeListPage />} />
               <Route path="ajes/new" element={<AjeFormPage />} />
               <Route path="ajes/:id/edit" element={<AjeFormPage />} />
+              <Route path="leadsheets" element={<TbLeadsheetsPage />} />
               <Route path="settings" element={<TbSettingsPage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />

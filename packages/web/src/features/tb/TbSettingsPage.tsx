@@ -8,7 +8,7 @@
 // controls for other staff; the server enforces regardless.
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { tbReturnForms, tbActivityUnitTypes, tbActivityTypes } from '@kis-books/shared';
 import { apiClient, isApiError } from '../../api/client';
 import { useMe } from '../../api/hooks/useAuth';
@@ -396,6 +396,75 @@ function FirmCodesCard({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
+// ── Tickmark library (7.3) ─────────────────────────────────────────
+
+interface TickmarkRow { id: string; symbol: string; description: string; color: string | null; sortOrder: number }
+
+const TICK_COLORS = ['gray', 'blue', 'green', 'red', 'purple', 'yellow'];
+
+function TickmarksCard() {
+  const toast = useToast();
+  const { data, refetch } = useQuery({
+    queryKey: ['tb', 'tickmarks'],
+    queryFn: () => apiClient<{ tickmarks: TickmarkRow[] }>('/tb/tickmarks'),
+  });
+  const [draft, setDraft] = useState({ symbol: '', description: '', color: 'gray' });
+  const errT = (e: unknown) => toast.error(isApiError(e) ? e.message : 'Operation failed');
+  const save = useMutation({
+    mutationFn: () => apiClient('/tb/tickmarks', { method: 'POST', body: JSON.stringify(draft) }),
+    onSuccess: () => { setDraft({ symbol: '', description: '', color: 'gray' }); refetch(); },
+    onError: errT,
+  });
+  const seed = useMutation({
+    mutationFn: () => apiClient('/tb/tickmarks/seed-defaults', { method: 'POST' }),
+    onSuccess: () => refetch(),
+    onError: errT,
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => apiClient(`/tb/tickmarks/${id}`, { method: 'DELETE' }),
+    onSuccess: () => refetch(),
+    onError: errT,
+  });
+  const marks = data?.tickmarks ?? [];
+  return (
+    <Card title="Tickmark library" subtitle="Symbols used to annotate trial balance cells across all clients.">
+      <div className="flex flex-wrap gap-2 mb-3">
+        {marks.map((m) => (
+          <span key={m.id} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1 text-sm">
+            <span className="font-medium">{m.symbol}</span>
+            <span className="text-xs text-gray-500">{m.description}</span>
+            <button className="text-gray-300 hover:text-red-500 text-xs" aria-label={`Delete ${m.symbol}`}
+              onClick={() => remove.mutate(m.id)}>✕</button>
+          </span>
+        ))}
+        {marks.length === 0 && (
+          <Button variant="secondary" onClick={() => seed.mutate()} loading={seed.isPending}>Load standard library</Button>
+        )}
+      </div>
+      <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (draft.symbol && draft.description) save.mutate(); }}>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="tm-sym">Symbol</label>
+          <input id="tm-sym" value={draft.symbol} maxLength={8} onChange={(e) => setDraft({ ...draft, symbol: e.target.value })}
+            className="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-center" />
+        </div>
+        <div className="grow max-w-sm">
+          <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="tm-desc">Description</label>
+          <input id="tm-desc" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            placeholder="e.g. Agreed to loan statement" className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="tm-color">Color</label>
+          <select id="tm-color" value={draft.color} onChange={(e) => setDraft({ ...draft, color: e.target.value })}
+            className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
+            {TICK_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <Button type="submit" variant="secondary" size="sm" disabled={!draft.symbol || !draft.description || save.isPending}>Add</Button>
+      </form>
+    </Card>
+  );
+}
+
 export function TbSettingsPage() {
   const { data: meData } = useMe();
   const role = meData?.user?.role;
@@ -411,6 +480,7 @@ export function TbSettingsPage() {
       <ProfileCard isAdmin={isAdmin} />
       <UnitsCard />
       <TagMappingCard />
+      <TickmarksCard />
       <FirmCodesCard isAdmin={isAdmin} />
     </div>
   );
