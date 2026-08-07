@@ -7,14 +7,34 @@ between tax years. The crosswalk columns come from the tax-code seed
 (`ultratax_code`, `cch_code`, `lacerte_code`, `gosystem_code`,
 `generic_code`).
 
-| Software | File | Layout | Notes |
-|---|---|---|---|
-| UltraTax CS | `.xlsx` | `Tax Code, Description, Unit, Amount` — one row per (UltraTax code, activity unit) | UltraTax's Excel/ASCII import keys on its numeric tax codes; activity units map to the form-unit number. Amounts are tax-basis (Adjusted + RJE). |
-| Lacerte | `.csv` | `code, description, amount` | Lacerte import codes are screen/line references (e.g. `01A`). |
-| CCH Axcess | `.csv` | `code, description, amount` | CCH interview-form codes (e.g. `10200.0000`). |
-| GoSystem RS | `.csv` | `code, description, amount` | GoSystem field codes (e.g. `30-100`). |
-| Generic | `.csv` | `tax_code, description, …crosswalk…, activity_unit, amount` — one row per (code, unit, account) | Full-detail export for any other software or review. |
-| Working TB | `.xlsx` | Five columns + tax code, sectioned by account type with subtotals | The CPA-facing Excel workpaper (11.7a), not a vendor import. |
+| Software | File | Sheet | Layout | Notes |
+|---|---|---|---|---|
+| UltraTax CS | `.xlsx` | `UltraTax CS Export` | `AccountNumber, AccountName, TaxCode, Book Basis Amt, Tax Basis Amt` — one row per account | `TaxCode` = the seed's `ultratax_code` crosswalk. |
+| CCH Axcess | `.xlsx` | `CCH Axcess Export` | `AccountNumber, AccountName, CCHCode, Description, Book Basis Amt, Tax Basis Amt` | Header not centered (reference quirk). |
+| Lacerte | `.xlsx` | `Lacerte Export` | `LineCode, Description, Book Basis Amt, Tax Basis Amt` | `Description` is the ACCOUNT name; no account-number column. |
+| GoSystem Tax RS | `.xlsx` | `GoSystem Tax RS Export` | same as Lacerte | Sheet/filename differ only. |
+| Generic | `.xlsx` | `Generic Export` | `AccountNumber, AccountName, TaxCode, TaxDescription, Book Basis Amt, Tax Basis Amt` | Canonical code + description (no software crosswalk). |
+| Working TB | `.xlsx` | `Working TB` | Five columns + tax code, sectioned by account type with subtotals | The CPA-facing Excel workpaper (11.7a), not a vendor import. |
+
+Shared conventions (byte-matched to the Vibe Trial Balance reference
+implementation, `server/src/routes/exports.ts` there):
+
+- **Account grain** — one row per account, ordered by account number
+  ascending. When a book splits an account across activity units, one
+  row per unit slice with the unit number suffixed to the account
+  number (`6050-2`).
+- **Both bases** — every vendor file carries `Book Basis Amt`
+  (Adjusted) and `Tax Basis Amt` (Adjusted + RJE); debits positive,
+  credits negative, no normal-balance flip; `#,##0.00` number format.
+- **Styling** — header row bold white on `FF1E3A5F`, frozen top row,
+  workbook creator `Trial Balance App`; leading `= + - @ TAB CR` cells
+  get an apostrophe guard (formula injection).
+- **Consolidation** — checked tax codes collapse to ONE row whose
+  AccountNumber/AccountName become the custom "Export as" values (the
+  software code stays the tax line's). Consolidated rows are emitted
+  first, ordered by tax-code sort order, then pass-through accounts. A
+  consolidated identity colliding with a real account number is a 409
+  `DUPLICATE_ACCOUNT`.
 
 Validation gates before any vendor file generates (11.8):
 

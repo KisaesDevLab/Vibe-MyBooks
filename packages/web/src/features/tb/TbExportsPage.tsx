@@ -17,10 +17,10 @@ import { Download } from 'lucide-react';
 
 const SOFTWARE = [
   { id: 'ultratax', label: 'UltraTax CS', ext: 'xlsx' },
-  { id: 'lacerte', label: 'Lacerte', ext: 'csv' },
-  { id: 'cch', label: 'CCH Axcess', ext: 'csv' },
-  { id: 'gosystem', label: 'GoSystem RS', ext: 'csv' },
-  { id: 'generic', label: 'Generic CSV', ext: 'csv' },
+  { id: 'lacerte', label: 'Lacerte', ext: 'xlsx' },
+  { id: 'cch', label: 'CCH Axcess', ext: 'xlsx' },
+  { id: 'gosystem', label: 'GoSystem Tax RS', ext: 'xlsx' },
+  { id: 'generic', label: 'Generic', ext: 'xlsx' },
   { id: 'workingtb', label: 'Excel Working TB', ext: 'xlsx' },
 ] as const;
 
