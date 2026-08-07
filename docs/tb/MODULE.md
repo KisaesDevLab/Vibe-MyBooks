@@ -14,16 +14,17 @@ flag (Admin → Feature Flags); registered in the module manifest as
 
 | Surface | Route | What it does |
 |---|---|---|
-| Workpaper | `/tb/workpaper` | Five-column TB (Unadjusted → AJE → Adjusted → Tax RJE → Tax), basis + PY toggles, inline tax-code assignment, AI auto-assign, diagnostics, drill-down, workflow status, popout launcher |
+| Workpaper | `/tb/workpaper` | Five-column TB (Unadjusted → AJE → Adjusted → Tax RJE → Tax), basis + PY toggles, inline tax-code assignment, diagnostics, drill-down, workflow status, popout launcher |
+| Tax Mapping | `/tb/mapping` | Mapping-focused pass: progress bar, unmapped/mapped filters, per-account code picker with source + confidence badges, AI auto-assign panel |
 | Live popout | `/tb/popout` | Read-only live TB in its own window (BroadcastChannel + SSE + poll refresh, diff-flash) |
 | Adjusting entries | `/tb/ajes` | Firm-only AJE register + form; AJE-001 per client per FY; reverse/duplicate/void |
 | Tax adjustments | `/tb/tax-entries` | Tax-basis-only RJEs (never touch the GL); RJE-001 per tax year; M-1 flags |
-| Leadsheets | `/tb/leadsheets` | Grouping tree, per-group workpaper, tickmarks, notes, preparer→reviewer sign-offs with staleness |
+| Leadsheets | `/tb/leadsheets` | Grouping tree, per-group workpaper (basis toggle), tickmarks, notes, preparer→reviewer sign-offs with staleness, per-leadsheet PDF |
 | Schedule M-1/M-2 | `/tb/m1` | Book→tax bridge + equity rollforward with role mapping |
-| TB Reports | `/tb/reports` | 13-report family, CSV/PDF, all in Report Packs too |
+| TB Reports | `/tb/reports` | 14-report family (incl. Leadsheets), CSV/PDF, all in Report Packs too |
 | Tax Exports | `/tb/exports` | UltraTax / Lacerte / CCH / GoSystem / generic CSV / Excel working TB with validation gates + history |
 | TB Settings | `/tb/settings` | Tax profile, closing date, activity units, tag mapping, tickmark library, firm custom codes |
-| Seed admin | `/admin/tax-codes` | Super-admin tax-code seed library (versioned imports, dry-run diff) |
+| Seed admin | `/admin/tax-codes` | Super-admin tax-code seed library (versioned imports, dry-run diff, per-code CRUD with in-use guards, Excel download in the re-importable seed layout) |
 
 ## Operating notes
 

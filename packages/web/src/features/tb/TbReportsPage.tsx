@@ -21,6 +21,7 @@ import { Download } from 'lucide-react';
 const TB_REPORTS = [
   { id: 'tb-workpaper', label: 'TB Workpaper (5-column)' },
   { id: 'tb-grouped', label: 'Grouped Trial Balance' },
+  { id: 'tb-leadsheets', label: 'Leadsheets' },
   { id: 'tb-return-order', label: 'Tax Return Order' },
   { id: 'tb-tax-basis-pl', label: 'Tax-Basis P&L' },
   { id: 'tb-flux', label: 'Flux Analysis' },

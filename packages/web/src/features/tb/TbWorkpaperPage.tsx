@@ -19,23 +19,13 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { SearchableDropdown, type DropdownOption } from '../../components/forms/SearchableDropdown';
-import { ExternalLink, Sparkles, AlertTriangle } from 'lucide-react';
+import { ExternalLink, AlertTriangle } from 'lucide-react';
 import { TbWorkpaperGrid, type TbGridPrefs } from './TbWorkpaperGrid';
 import {
   activeCompanyId, openTbPopout, publishTbChange, resolveAssignment,
   useAvailableCodes, useTbAssignmentsQuery, useTbDiagnostics, useWorkpaper,
   type TbWorkpaperRow,
 } from './workpaperShared';
-
-interface AiSuggestion {
-  accountId: string;
-  accountName: string;
-  accountNumber: string | null;
-  code: string;
-  activityType: string;
-  description: string;
-  confidence: number;
-}
 
 // Per-user prefs (6.7) ride users.displayPreferences.tb via the
 // merge-patch preferences endpoint.
@@ -89,7 +79,6 @@ export function TbWorkpaperPage() {
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [showAi, setShowAi] = useState(false);
 
   const { data: wpData, isLoading, isError, refetch } = useWorkpaper(effPeriodEnd, prefs.basis);
   const { data: assignData } = useTbAssignmentsQuery();
@@ -182,9 +171,6 @@ export function TbWorkpaperPage() {
             <option value="in_review">In review</option>
             <option value="complete">Complete</option>
           </select>
-          <Button variant="secondary" onClick={() => setShowAi(true)}>
-            <Sparkles className="h-4 w-4 mr-1" /> Auto-assign
-          </Button>
           <Button variant="secondary" onClick={() => navigate('/tb/ajes/new')}>New AJE</Button>
           <Button variant="secondary" onClick={() => openTbPopout(companyId)} title="Open a live read-only popout window">
             <ExternalLink className="h-4 w-4" />
@@ -312,18 +298,6 @@ export function TbWorkpaperPage() {
         />
       )}
 
-      {showAi && wpData && (
-        <TbAiPanel
-          periodEnd={effPeriodEnd}
-          basis={prefs.basis}
-          onClose={() => setShowAi(false)}
-          onAccepted={() => {
-            queryClient.invalidateQueries({ queryKey: ['tb', 'assignments'] });
-            queryClient.invalidateQueries({ queryKey: ['tb', 'diagnostics'] });
-            publishTbChange(companyId);
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -357,125 +331,6 @@ function ClosedPeriodBanner() {
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-// ── AI suggestion review panel (6C.4) ───────────────────────────────
-
-function TbAiPanel({ periodEnd, basis, onClose, onAccepted }: {
-  periodEnd: string;
-  basis: 'accrual' | 'cash';
-  onClose: () => void;
-  onAccepted: () => void;
-}) {
-  const toast = useToast();
-  const [threshold, setThreshold] = useState(80);
-  const [accepted, setAccepted] = useState<Set<string>>(new Set());
-
-  const suggest = useQuery({
-    queryKey: ['tb', 'ai-suggest', periodEnd, basis],
-    retry: false,
-    queryFn: () => apiClient<{ suggestions: AiSuggestion[] }>('/tb/ai/suggest-assignments', {
-      method: 'POST', body: JSON.stringify({ periodEnd, basis }),
-    }),
-  });
-
-  const accept = useMutation({
-    mutationFn: (s: AiSuggestion) => apiClient('/tb/assignments', {
-      method: 'PUT',
-      body: JSON.stringify({
-        accountId: s.accountId,
-        seedCode: s.code,
-        seedActivityType: s.activityType,
-        activityUnitType: 'common',
-        source: 'ai',
-        aiConfidence: s.confidence,
-      }),
-    }),
-    onError: (e) => toast.error(isApiError(e) ? e.message : 'Accept failed'),
-  });
-
-  const pending = (suggest.data?.suggestions ?? []).filter((s) => !accepted.has(s.accountId));
-
-  const acceptOne = async (s: AiSuggestion) => {
-    await accept.mutateAsync(s);
-    setAccepted((prev) => new Set(prev).add(s.accountId));
-    onAccepted();
-  };
-
-  const acceptAll = async () => {
-    const targets = pending.filter((s) => s.confidence >= threshold);
-    for (const s of targets) {
-      try {
-        await accept.mutateAsync(s);
-        setAccepted((prev) => new Set(prev).add(s.accountId));
-      } catch {
-        // per-row toast already fired; keep going
-      }
-    }
-    onAccepted();
-    toast.success(`Accepted ${targets.length} suggestions`);
-  };
-
-  const confidenceTone = (c: number) =>
-    c >= 90 ? 'bg-green-100 text-green-700' : c >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
-
-  return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
-      <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">AI tax-code suggestions</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">✕</button>
-        </div>
-        <div className="p-5 overflow-y-auto grow">
-          {suggest.isLoading && <div className="py-8 text-center"><LoadingSpinner /> <p className="text-sm text-gray-500 mt-2">Analyzing unassigned accounts…</p></div>}
-          {suggest.isError && (
-            <p className="text-sm text-red-700">{isApiError(suggest.error) ? suggest.error.message : 'AI suggestion failed'}</p>
-          )}
-          {suggest.data && suggest.data.suggestions.length === 0 && (
-            <p className="text-sm text-gray-500">Nothing to suggest — every account already has a tax code.</p>
-          )}
-          {pending.length > 0 && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase text-gray-500 border-b border-gray-200">
-                  <th className="py-2 pr-3">Account</th>
-                  <th className="py-2 pr-3">Suggested code</th>
-                  <th className="py-2 pr-3">Confidence</th>
-                  <th className="py-2 text-right" />
-                </tr>
-              </thead>
-              <tbody>
-                {pending.map((s) => (
-                  <tr key={s.accountId} className="border-b border-gray-100">
-                    <td className="py-2 pr-3">{s.accountNumber ? `${s.accountNumber} ` : ''}{s.accountName}</td>
-                    <td className="py-2 pr-3"><span className="font-mono text-xs">{s.code}</span> <span className="text-gray-500 text-xs">{s.description}</span></td>
-                    <td className="py-2 pr-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${confidenceTone(s.confidence)}`}>{s.confidence}%</span>
-                    </td>
-                    <td className="py-2 text-right">
-                      <Button size="sm" variant="secondary" disabled={accept.isPending} onClick={() => acceptOne(s)}>Accept</Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        {pending.length > 0 && (
-          <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-200">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              Accept all at ≥
-              <input type="number" min={0} max={100} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))}
-                className="w-16 rounded border border-gray-300 px-2 py-1 text-sm" />%
-            </label>
-            <Button onClick={acceptAll} disabled={accept.isPending}>
-              Accept {pending.filter((s) => s.confidence >= threshold).length} suggestions
-            </Button>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

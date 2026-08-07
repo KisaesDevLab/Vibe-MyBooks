@@ -16,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { useWorkpaper, usd, type TbWorkpaperRow } from './workpaperShared';
+import { Download } from 'lucide-react';
 import clsx from 'clsx';
 
 interface Grouping {
@@ -47,12 +48,13 @@ export function TbLeadsheetsPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [markPicker, setMarkPicker] = useState<{ accountId: string; column: string } | null>(null);
+  const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
 
   const { data: groupData, isLoading } = useQuery({
     queryKey: ['tb', 'groupings'],
     queryFn: () => apiClient<{ groupings: Grouping[] }>('/tb/groupings'),
   });
-  const { data: wpData } = useWorkpaper(periodEnd, 'accrual');
+  const { data: wpData } = useWorkpaper(periodEnd, basis);
   const { data: marksData } = useQuery({
     queryKey: ['tb', 'tickmarks'],
     queryFn: () => apiClient<{ tickmarks: Tickmark[] }>('/tb/tickmarks'),
@@ -133,6 +135,34 @@ export function TbLeadsheetsPage() {
     memberRows.reduce((sum, r) => sum + r[col], 0);
 
   const [noteDraft, setNoteDraft] = useState('');
+  const [pdfBusy, setPdfBusy] = useState(false);
+
+  // Selected leadsheet → PDF via the tb-leadsheets report endpoint
+  // (grouping_id scopes it to the one on screen).
+  const downloadPdf = async (groupingId: string) => {
+    setPdfBusy(true);
+    try {
+      const params = new URLSearchParams({ as_of_date: periodEnd, basis, grouping_id: groupingId, format: 'pdf' });
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/reports/tb-leadsheets?${params}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+          'X-Company-Id': localStorage.getItem('activeCompanyId') ?? '',
+        },
+      });
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] ?? 'leadsheet.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'PDF download failed');
+    } finally {
+      setPdfBusy(false);
+    }
+  };
 
   if (isLoading) return <LoadingSpinner className="py-16" />;
 
@@ -143,9 +173,17 @@ export function TbLeadsheetsPage() {
           <h1 className="text-2xl font-semibold text-gray-900">Leadsheets</h1>
           <p className="text-sm text-gray-500">TY{taxYear} workpapers by grouping — sign-offs stamp the GL version and flag stale on later changes.</p>
         </div>
-        {marks.length === 0 && (
-          <Button variant="secondary" onClick={() => seedMarks.mutate()}>Load standard tickmarks</Button>
-        )}
+        <div className="flex items-center gap-2">
+          <select value={basis} aria-label="Accounting basis"
+            onChange={(e) => setBasis(e.target.value as 'accrual' | 'cash')}
+            className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
+            <option value="accrual">Accrual</option>
+            <option value="cash">Cash</option>
+          </select>
+          {marks.length === 0 && (
+            <Button variant="secondary" onClick={() => seedMarks.mutate()}>Load standard tickmarks</Button>
+          )}
+        </div>
       </div>
 
       {groupings.length === 0 && (
@@ -200,6 +238,10 @@ export function TbLeadsheetsPage() {
                     {selected.name}
                   </h2>
                   <div className="flex items-center gap-2">
+                    <Button size="sm" variant="secondary" disabled={pdfBusy}
+                      onClick={() => downloadPdf(selected.id)} title="Download this leadsheet as PDF">
+                      <Download className="h-4 w-4 mr-1" /> PDF
+                    </Button>
                     {(['preparer', 'reviewer'] as const).map((role) => {
                       const sig = signoffsFor(selected.id).find((s) => s.role === role);
                       return (

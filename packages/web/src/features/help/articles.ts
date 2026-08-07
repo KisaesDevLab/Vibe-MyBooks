@@ -2249,7 +2249,7 @@ Existing files can be migrated when switching. Migration runs in the background 
 
 **Trial Balance → Trial Balance** shows every account in five columns: **Unadjusted → AJE → Adjusted → Tax RJE → Tax**, on accrual or cash basis. Balances always come from the live ledger — there is nothing to import or sync. Toggle DR/CR vs single-column, show prior year, filter by category, or view one activity unit at a time. Click any amount to drill into the underlying transactions. The **popout** button opens a read-only live view in its own window — changed rows flash as book work posts.
 
-Assign each account a **tax code** inline (the picker only offers codes valid for the client's return form and activity), or use **Auto-assign** to review AI suggestions — nothing commits until you accept.
+Assign each account a **tax code** inline (the picker only offers codes valid for the client's return form and activity). For a mapping-focused pass, **Trial Balance → Tax Mapping** shows every account with a progress bar, Unmapped/Mapped filters, source and confidence badges, and the **Auto-assign Tax Codes** button for reviewing AI suggestions — nothing commits until you accept.
 
 ## Adjusting entries (AJEs)
 
@@ -2261,7 +2261,7 @@ Tax-basis-only entries that never touch the books — they shape the Tax column,
 
 ## Leadsheets, sign-offs & closing
 
-**Leadsheets** group accounts into workpapers with tickmarks and notes. The preparer signs first, then the reviewer; a later ledger change marks signatures "stale" for one-click re-sign. Setting the **closing date** (TB Settings) blocks client-side changes to the closed period — firm staff can override with a confirmation, and every override is audit-logged.
+**Leadsheets** group accounts into workpapers with tickmarks and notes. The preparer signs first, then the reviewer; a later ledger change marks signatures "stale" for one-click re-sign. Each leadsheet downloads as a **PDF** from its header, and the whole book is available as the **Leadsheets** report (TB Reports and Report Packs). Setting the **closing date** (TB Settings) blocks client-side changes to the closed period — firm staff can override with a confirmation, and every override is audit-logged.
 
 ## Reports & exports
 

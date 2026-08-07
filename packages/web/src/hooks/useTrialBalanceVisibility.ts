@@ -37,6 +37,7 @@ const TB_FLAG: PracticeFeatureFlagKey = 'TRIAL_BALANCE_V1';
 // Order = sidebar render order (mirrors the Vibe TB TAX menu).
 export const TB_NAV_CATALOG: readonly TbNavItem[] = [
   { key: 'workpaper', label: 'Trial Balance', path: '/tb/workpaper', minRole: 'bookkeeper' },
+  { key: 'mapping', label: 'Tax Mapping', path: '/tb/mapping', minRole: 'bookkeeper' },
   { key: 'ajes', label: 'Adjusting Entries', path: '/tb/ajes', minRole: 'bookkeeper' },
   { key: 'leadsheets', label: 'Leadsheets', path: '/tb/leadsheets', minRole: 'bookkeeper' },
   { key: 'tax-entries', label: 'Tax Adjustments', path: '/tb/tax-entries', minRole: 'bookkeeper' },

@@ -265,6 +265,7 @@ const TbSettingsPage = lazyNamed(() => import('./features/tb/TbSettingsPage'), '
 const AjeListPage = lazyNamed(() => import('./features/tb/AjeListPage'), 'AjeListPage');
 const AjeFormPage = lazyNamed(() => import('./features/tb/AjeFormPage'), 'AjeFormPage');
 const TbWorkpaperPage = lazyNamed(() => import('./features/tb/TbWorkpaperPage'), 'TbWorkpaperPage');
+const TbMappingPage = lazyNamed(() => import('./features/tb/TbMappingPage'), 'TbMappingPage');
 const TbPopoutPage = lazyNamed(() => import('./features/tb/TbPopoutPage'), 'TbPopoutPage');
 const TbLeadsheetsPage = lazyNamed(() => import('./features/tb/TbLeadsheetsPage'), 'TbLeadsheetsPage');
 const TbTaxEntriesPage = lazyNamed(() => import('./features/tb/TbTaxEntriesPage'), 'TbTaxEntriesPage');
@@ -582,6 +583,7 @@ export function App() {
                 guards on TRIAL_BALANCE_V1 + staff role. */}
             <Route path="/tb" element={<TbLayout />}>
               <Route path="workpaper" element={<TbWorkpaperPage />} />
+              <Route path="mapping" element={<TbMappingPage />} />
               <Route path="ajes" element={<AjeListPage />} />
               <Route path="ajes/new" element={<AjeFormPage />} />
               <Route path="ajes/:id/edit" element={<AjeFormPage />} />
