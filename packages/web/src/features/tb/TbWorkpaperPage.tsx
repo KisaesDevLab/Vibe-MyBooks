@@ -112,7 +112,7 @@ export function TbWorkpaperPage() {
     (unitsData?.units ?? []).map((u) => [u.id, `${u.displayName}`]),
   ), [unitsData]);
 
-  // WP Ref + Tickmark columns: leadsheet membership and the tax year's
+  // LS Ref + Tickmark columns: leadsheet membership and the tax year's
   // applied tickmarks (assignment moved to the Tax Mapping screen).
   const { data: groupData } = useQuery({
     queryKey: ['tb', 'groupings'],
@@ -286,7 +286,7 @@ export function TbWorkpaperPage() {
           }}
           cellMarks={cellMarks}
           extraHeaders={<>
-            <th className="px-2 py-2 text-left">WP Ref</th>
+            <th className="px-2 py-2 text-left">LS Ref</th>
             <th className="px-2 py-2 text-left">Tickmark</th>
           </>}
           renderRowExtra={(row) => {
