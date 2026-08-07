@@ -20,6 +20,10 @@ export interface TbGridPrefs {
   activityView: string; // '' = consolidated, else unitId
 }
 
+export type TbGridColumn = 'unadjusted' | 'aje' | 'adjusted' | 'taxRje' | 'tax';
+
+export interface TbCellMark { id: string; symbol: string; description: string; color: string | null }
+
 export interface TbGridProps {
   workpaper: TbWorkpaper;
   pyByAccount?: Map<string, number>;
@@ -31,7 +35,32 @@ export interface TbGridProps {
   // Render extra cells at the end of each row (tax code picker, marks…).
   renderRowExtra?: (row: TbWorkpaperRow) => React.ReactNode;
   extraHeaders?: React.ReactNode;
-  onAmountClick?: (row: TbWorkpaperRow, column: 'unadjusted' | 'aje') => void;
+  onAmountClick?: (row: TbWorkpaperRow, column: TbGridColumn) => void;
+  // Which amount columns fire onAmountClick (default: the drill-down
+  // pair). The popout adds adjusted/tax for the tickmark popup.
+  clickableColumns?: ReadonlyArray<TbGridColumn>;
+  // Applied tickmarks per cell — chips render beside the amount.
+  cellMarks?: (accountId: string, column: TbGridColumn) => TbCellMark[] | undefined;
+}
+
+const MARK_TONES: Record<string, string> = {
+  gray: 'bg-gray-100 text-gray-700', green: 'bg-green-100 text-green-700',
+  blue: 'bg-blue-100 text-blue-700', purple: 'bg-purple-100 text-purple-700',
+  yellow: 'bg-amber-100 text-amber-700', red: 'bg-red-100 text-red-700',
+};
+
+function MarkChips({ marks }: { marks?: TbCellMark[] }) {
+  if (!marks || marks.length === 0) return null;
+  return (
+    <span className="ml-1 inline-flex gap-0.5 align-middle">
+      {marks.map((m) => (
+        <span key={m.id} title={m.description}
+          className={clsx('inline-flex items-center justify-center h-4 min-w-4 px-0.5 rounded text-[10px] font-semibold', MARK_TONES[m.color ?? 'gray'] ?? MARK_TONES['gray'])}>
+          {m.symbol}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 const TYPE_ABBREV: Record<string, { label: string; tone: string }> = {
@@ -45,20 +74,22 @@ const TYPE_ABBREV: Record<string, { label: string; tone: string }> = {
   other_expense: { label: 'OExp', tone: 'text-red-500' },
 };
 
-function AmountPair({ value, onClick, flash }: { value: number; onClick?: () => void; flash?: boolean }) {
+function AmountPair({ value, onClick, flash, marks }: { value: number; onClick?: () => void; flash?: boolean; marks?: TbCellMark[] }) {
   const dr = value > 0 ? value : 0;
   const cr = value < 0 ? -value : 0;
-  const cell = (v: number, side: 'dr' | 'cr') => (
+  // Chips ride the populated side of the pair.
+  const cell = (v: number, side: 'dr' | 'cr', withMarks: boolean) => (
     <td key={side} className={clsx('px-2 py-1.5 text-right font-mono tabular-nums text-xs whitespace-nowrap', flash && 'tb-flash')}>
       {onClick && v !== 0 ? (
         <button className="underline decoration-dotted hover:text-blue-700" onClick={onClick}>{usd(v)}</button>
       ) : usd(v)}
+      {withMarks && <MarkChips marks={marks} />}
     </td>
   );
-  return <>{cell(dr, 'dr')}{cell(cr, 'cr')}</>;
+  return <>{cell(dr, 'dr', dr !== 0)}{cell(cr, 'cr', dr === 0)}</>;
 }
 
-function AmountSingle({ value, onClick, flash }: { value: number; onClick?: () => void; flash?: boolean }) {
+function AmountSingle({ value, onClick, flash, marks }: { value: number; onClick?: () => void; flash?: boolean; marks?: TbCellMark[] }) {
   const negative = value < -0.004;
   const text = Math.abs(value) < 0.005 ? '—' : negative ? `(${usd(-value)})` : usd(value);
   return (
@@ -66,6 +97,7 @@ function AmountSingle({ value, onClick, flash }: { value: number; onClick?: () =
       {onClick && Math.abs(value) >= 0.005 ? (
         <button className="underline decoration-dotted hover:text-blue-700" onClick={onClick}>{text}</button>
       ) : text}
+      <MarkChips marks={marks} />
     </td>
   );
 }
@@ -73,6 +105,8 @@ function AmountSingle({ value, onClick, flash }: { value: number; onClick?: () =
 export function TbWorkpaperGrid({
   workpaper, pyByAccount, prefs, search, typeFilter, flashIds, unitNames,
   renderRowExtra, extraHeaders, onAmountClick,
+  clickableColumns = ['unadjusted', 'aje'],
+  cellMarks,
 }: TbGridProps) {
   const groups: Array<{ key: 'unadjusted' | 'aje' | 'adjusted' | 'taxRje' | 'tax'; label: string; tone?: string }> = [
     { key: 'unadjusted', label: 'Unadjusted' },
@@ -162,12 +196,13 @@ export function TbWorkpaperGrid({
                     : <AmountSingle value={py} flash={flash} />)}
                   {groups.map((g) => {
                     const value = row[g.key];
-                    const clickable = (g.key === 'unadjusted' || g.key === 'aje') && onAmountClick
-                      ? () => onAmountClick(row, g.key as 'unadjusted' | 'aje')
+                    const clickable = clickableColumns.includes(g.key) && onAmountClick
+                      ? () => onAmountClick(row, g.key)
                       : undefined;
+                    const marks = cellMarks?.(row.accountId, g.key);
                     return prefs.drCrMode
-                      ? <AmountPair key={g.key} value={value} onClick={clickable} flash={flash} />
-                      : <AmountSingle key={g.key} value={value} onClick={clickable} flash={flash} />;
+                      ? <AmountPair key={g.key} value={value} onClick={clickable} flash={flash} marks={marks} />
+                      : <AmountSingle key={g.key} value={value} onClick={clickable} flash={flash} marks={marks} />;
                   })}
                   {renderRowExtra?.(row)}
                 </tr>

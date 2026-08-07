@@ -2,18 +2,21 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-// TB popout window (Phase 6B, ADR-TB-06): minimal chrome, READ-ONLY
-// grid that refreshes live while book work happens in the main window.
+// TB popout window (Phase 6B, ADR-TB-06): minimal chrome, live grid
+// that refreshes while book work happens in the main window. One
+// mutation affordance (owner-requested): clicking an Adjusted/Tax
+// amount opens the tickmark popup for that cell.
 // Refresh layers: BroadcastChannel (same browser, instant) → SSE stamp
 // stream (other users/devices/background jobs) → 15s /tb/version poll
 // fallback. Changed rows flash on refresh; drill-down clicks focus the
 // main window instead of navigating here (6B.6).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { TbWorkpaperGrid, type TbGridPrefs } from './TbWorkpaperGrid';
+import { TbWorkpaperGrid, type TbGridColumn, type TbGridPrefs } from './TbWorkpaperGrid';
+import { buildCellMarks, TickmarkCellPicker } from './TickmarkCellPicker';
 import {
   activeCompanyId, tbChannelName, useWorkpaper, type TbChannelMessage, type TbWorkpaper,
 } from './workpaperShared';
@@ -37,6 +40,23 @@ export function TbPopoutPage() {
 
   const { data: wpData, isLoading } = useWorkpaper(periodEnd, 'accrual');
   const { data: unitsData } = useActivityUnits();
+
+  // Tickmark popup on Adjusted/Tax amount clicks.
+  const taxYear = wpData?.workpaper.taxYear ?? new Date().getFullYear();
+  const [pickCell, setPickCell] = useState<{ accountId: string; accountName: string; column: 'adjusted' | 'tax' } | null>(null);
+  const { data: marksLib } = useQuery({
+    queryKey: ['tb', 'tickmarks'],
+    queryFn: () => apiClient<{ tickmarks: Array<{ id: string; symbol: string; description: string; color: string | null }> }>('/tb/tickmarks'),
+  });
+  const { data: appsData } = useQuery({
+    queryKey: ['tb', 'tickmark-applications', taxYear],
+    enabled: !!wpData,
+    queryFn: () => apiClient<{ applications: Array<{ id: string; accountId: string; column: string; tickmarkId: string }> }>(`/tb/tickmark-applications?taxYear=${taxYear}`),
+  });
+  const cellMarks = useMemo(
+    () => buildCellMarks(appsData?.applications, marksLib?.tickmarks),
+    [appsData, marksLib],
+  );
   const prevRows = useRef<Map<string, TbWorkpaper['rows'][number]> | null>(null);
 
   // Diff-and-flash (6B.5): compare incoming rows against the previous
@@ -232,10 +252,27 @@ export function TbPopoutPage() {
           typeFilter=""
           flashIds={flashIds}
           unitNames={unitNames}
-          onAmountClick={(row, column) => focusMain(row.accountId, column)}
+          clickableColumns={['unadjusted', 'aje', 'adjusted', 'tax']}
+          cellMarks={cellMarks}
+          onAmountClick={(row, column: TbGridColumn) => {
+            if (column === 'adjusted' || column === 'tax') {
+              setPickCell({ accountId: row.accountId, accountName: row.name, column });
+            } else if (column === 'unadjusted' || column === 'aje') {
+              focusMain(row.accountId, column);
+            }
+          }}
         />
       )}
-      <p className="mt-2 text-[11px] text-gray-400">Read-only. Amount clicks focus the main window. Updates arrive automatically as book work posts.</p>
+      {pickCell && (
+        <TickmarkCellPicker
+          accountId={pickCell.accountId}
+          accountName={pickCell.accountName}
+          taxYear={taxYear}
+          initialColumn={pickCell.column}
+          onClose={() => setPickCell(null)}
+        />
+      )}
+      <p className="mt-2 text-[11px] text-gray-400">Unadjusted/AJE clicks focus the main window; Adjusted/Tax clicks open the tickmark popup. Updates arrive automatically as book work posts.</p>
     </div>
   );
 }

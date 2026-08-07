@@ -16,7 +16,7 @@ flag (Admin → Feature Flags); registered in the module manifest as
 |---|---|---|
 | Workpaper | `/tb/workpaper` | Five-column TB (Unadjusted → AJE → Adjusted → Tax RJE → Tax), basis + PY toggles, inline tax-code assignment, diagnostics, drill-down, workflow status, popout launcher |
 | Tax Mapping | `/tb/mapping` | Mapping-focused pass: progress bar, unmapped/mapped filters, per-account code picker with source + confidence badges, AI auto-assign panel |
-| Live popout | `/tb/popout` | Read-only live TB in its own window (BroadcastChannel + SSE + poll refresh, diff-flash) |
+| Live popout | `/tb/popout` | Live TB in its own window (BroadcastChannel + SSE + poll refresh, diff-flash); Adjusted/Tax amount clicks open the tickmark popup |
 | Adjusting entries | `/tb/ajes` | Firm-only AJE register + form; AJE-001 per client per FY; reverse/duplicate/void |
 | Tax adjustments | `/tb/tax-entries` | Tax-basis-only RJEs (never touch the GL); RJE-001 per tax year; M-1 flags |
 | Leadsheets | `/tb/leadsheets` | Grouping tree, per-group workpaper (basis toggle), tickmarks, notes, preparer→reviewer sign-offs with staleness, per-leadsheet PDF |
