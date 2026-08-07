@@ -18,7 +18,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { SearchableDropdown, type DropdownOption } from '../../components/forms/SearchableDropdown';
 import { Sparkles, X } from 'lucide-react';
-import {
+import { useTbYearOverride,
   activeCompanyId, fiscalYearEndFor, publishTbChange, resolveAssignment, usd,
   useAvailableCodes, useTbAssignmentsQuery, useWorkpaper,
   type TbAssignment, type TbWorkpaperRow,
@@ -53,7 +53,7 @@ export function TbMappingPage() {
   const companyId = companyCtx?.activeCompanyId ?? activeCompanyId();
 
   const { data: profileData } = useTbProfile();
-  const [yearOverride, setYearOverride] = useState<number | null>(null);
+  const [yearOverride, setYearOverride] = useTbYearOverride();
   const taxYear = yearOverride ?? profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
   const periodEnd = fiscalYearEndFor(taxYear, profileData?.fiscal.fiscalYearStartMonth ?? 1);
 

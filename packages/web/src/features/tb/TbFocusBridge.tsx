@@ -25,6 +25,8 @@ export function TbFocusBridge() {
       if (ev.data?.type !== 'focus-account') return;
       const params = new URLSearchParams({ account: ev.data.accountId });
       if (ev.data.column === 'aje') params.set('type', 'aje');
+      if (ev.data.fyStart) params.set('from', ev.data.fyStart);
+      if (ev.data.periodEnd) params.set('to', ev.data.periodEnd);
       navigate(`/transactions?${params}`);
       window.focus();
     };

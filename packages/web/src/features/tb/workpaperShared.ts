@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { useSessionState } from '../../hooks/useSessionState';
 
 export interface TbUnitSplit {
   unitId: string;
@@ -114,6 +115,20 @@ export function resolveAssignment(assignments: TbAssignment[], accountId: string
   return forAccount.find((a) => a.activityUnitId === null) ?? null;
 }
 
+// One shared, session-persisted tax-year override for the whole TB
+// module: pick a year on any TB screen and every other TB screen (and
+// an in-tab refresh) stays on it. null = follow the profile's current
+// tax year.
+export function useTbYearOverride() {
+  return useSessionState<number | null>('vibe:tb:taxYear', null);
+}
+
+// Fiscal-year start (ISO) for a tax-year label.
+export function fiscalYearStartFor(taxYear: number, fyStartMonth: number): string {
+  if (fyStartMonth <= 1) return `${taxYear}-01-01`;
+  return `${taxYear - 1}-${String(fyStartMonth).padStart(2, '0')}-01`;
+}
+
 // Fiscal-year end (ISO) for a tax-year label — mirror of the server's
 // fiscalYearEnd in tax-profile.service (rule TB10).
 export function fiscalYearEndFor(taxYear: number, fyStartMonth: number): string {
@@ -132,7 +147,7 @@ export const tbChannelName = (companyId: string) => `tb:${companyId}`;
 
 export type TbChannelMessage =
   | { type: 'changed' }
-  | { type: 'focus-account'; accountId: string; column: 'unadjusted' | 'aje' };
+  | { type: 'focus-account'; accountId: string; column: 'unadjusted' | 'aje'; fyStart?: string; periodEnd?: string };
 
 export function publishTbChange(companyId: string | null | undefined) {
   if (!companyId || typeof BroadcastChannel === 'undefined') return;

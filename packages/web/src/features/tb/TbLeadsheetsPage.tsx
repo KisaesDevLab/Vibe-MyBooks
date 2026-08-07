@@ -15,7 +15,7 @@ import { useTbProfile } from '../../api/hooks/useTb';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
-import { fiscalYearEndFor, useWorkpaper, usd, type TbWorkpaperRow } from './workpaperShared';
+import { useTbYearOverride, fiscalYearEndFor, useWorkpaper, usd, type TbWorkpaperRow } from './workpaperShared';
 import { Download } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -43,7 +43,7 @@ export function TbLeadsheetsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: profileData } = useTbProfile();
-  const [yearOverride, setYearOverride] = useState<number | null>(null);
+  const [yearOverride, setYearOverride] = useTbYearOverride();
   const taxYear = yearOverride ?? profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
   const periodEnd = fiscalYearEndFor(taxYear, profileData?.fiscal.fiscalYearStartMonth ?? 1);
 
@@ -310,7 +310,7 @@ export function TbLeadsheetsPage() {
                           <td className="py-1.5 pr-3 font-mono text-xs text-gray-500">{r.accountNumber}</td>
                           <td className="py-1.5 pr-3">
                             <button className="hover:text-blue-700 hover:underline text-left"
-                              onClick={() => navigate(`/transactions?account=${r.accountId}`)}>
+                              onClick={() => navigate(`/transactions?account=${r.accountId}&from=${wpData?.workpaper.fyStart ?? ''}&to=${periodEnd}`)}>
                               {r.name}
                             </button>
                           </td>

@@ -17,7 +17,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
-import { activeCompanyId, publishTbChange } from './workpaperShared';
+import { useTbYearOverride, activeCompanyId, publishTbChange } from './workpaperShared';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface RjeLine {
@@ -45,7 +45,7 @@ export function TbTaxEntriesPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: profileData } = useTbProfile();
-  const [taxYear, setTaxYear] = useState<number | null>(null);
+  const [taxYear, setTaxYear] = useTbYearOverride();
   const effYear = taxYear ?? profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
   const [editing, setEditing] = useState<Rje | 'new' | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Rje | null>(null);

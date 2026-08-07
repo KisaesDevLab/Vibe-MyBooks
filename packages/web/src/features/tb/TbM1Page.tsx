@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, isApiError } from '../../api/client';
 import { useTbProfile } from '../../api/hooks/useTb';
+import { useTbYearOverride, fiscalYearEndFor, fiscalYearStartFor } from './workpaperShared';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import clsx from 'clsx';
@@ -77,7 +78,7 @@ export function TbM1Page() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: profileData } = useTbProfile();
-  const [taxYear, setTaxYear] = useState<number | null>(null);
+  const [taxYear, setTaxYear] = useTbYearOverride();
   const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
   const effYear = taxYear ?? profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
 
@@ -107,7 +108,9 @@ export function TbM1Page() {
   const m1 = m1Data?.m1;
   const m2 = m2Data?.m2;
 
-  const drill = (accountId: string) => navigate(`/transactions?account=${accountId}`);
+  const fyMonth = profileData?.fiscal.fiscalYearStartMonth ?? 1;
+  const drill = (accountId: string) =>
+    navigate(`/transactions?account=${accountId}&from=${fiscalYearStartFor(effYear, fyMonth)}&to=${fiscalYearEndFor(effYear, fyMonth)}`);
 
   return (
     <div className="p-6 space-y-6">

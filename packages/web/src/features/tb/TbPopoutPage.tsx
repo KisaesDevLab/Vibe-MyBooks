@@ -172,7 +172,10 @@ export function TbPopoutPage() {
   const focusMain = (accountId: string, column: 'unadjusted' | 'aje') => {
     if (!companyId || typeof BroadcastChannel === 'undefined') return;
     const ch = new BroadcastChannel(tbChannelName(companyId));
-    ch.postMessage({ type: 'focus-account', accountId, column } satisfies TbChannelMessage);
+    ch.postMessage({
+      type: 'focus-account', accountId, column,
+      fyStart: wpData?.workpaper.fyStart, periodEnd: wpData?.workpaper.periodEnd,
+    } satisfies TbChannelMessage);
     ch.close();
   };
 

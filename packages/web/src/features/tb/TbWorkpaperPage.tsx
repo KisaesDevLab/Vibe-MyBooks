@@ -18,10 +18,11 @@ import { useMe } from '../../api/hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
+import { useSessionState } from '../../hooks/useSessionState';
 import { SearchableDropdown, type DropdownOption } from '../../components/forms/SearchableDropdown';
 import { ExternalLink, AlertTriangle } from 'lucide-react';
 import { TbWorkpaperGrid, type TbGridPrefs } from './TbWorkpaperGrid';
-import {
+import { fiscalYearEndFor, useTbYearOverride,
   activeCompanyId, openTbPopout, publishTbChange, resolveAssignment,
   useAvailableCodes, useTbAssignmentsQuery, useTbDiagnostics, useWorkpaper,
   type TbWorkpaperRow,
@@ -46,8 +47,13 @@ export function TbWorkpaperPage() {
   const companyId = companyCtx?.activeCompanyId ?? activeCompanyId();
 
   const { data: profileData } = useTbProfile();
-  const defaultPeriodEnd = profileData?.fiscal.currentFiscalYearEnd ?? `${new Date().getFullYear()}-12-31`;
-  const [periodEnd, setPeriodEnd] = useState('');
+  // Session-persisted period: an explicit date wins; otherwise follow
+  // the module-wide tax-year override, then the profile's current FY.
+  const [yearOverride] = useTbYearOverride();
+  const [periodEnd, setPeriodEnd] = useSessionState('vibe:tb:periodEnd', '');
+  const defaultPeriodEnd = profileData
+    ? fiscalYearEndFor(yearOverride ?? profileData.fiscal.currentTaxYear, profileData.fiscal.fiscalYearStartMonth)
+    : `${new Date().getFullYear()}-12-31`;
   const effPeriodEnd = periodEnd || defaultPeriodEnd;
 
   // Prefs: seed from server displayPreferences.tb once, persist on change.
@@ -264,9 +270,11 @@ export function TbWorkpaperPage() {
           typeFilter={typeFilter}
           unitNames={unitNames}
           onAmountClick={(row, column) => {
-            // 6.5 drill-down, respecting the column filter.
+            // 6.5 drill-down, respecting the column filter and TB period.
             const params = new URLSearchParams({ account: row.accountId });
             if (column === 'aje') params.set('type', 'aje');
+            params.set('from', wpData.workpaper.fyStart);
+            params.set('to', effPeriodEnd);
             navigate(`/transactions?${params}`);
           }}
           extraHeaders={<th className="px-2 py-2 text-left">Tax Code</th>}

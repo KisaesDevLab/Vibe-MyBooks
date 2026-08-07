@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, isApiError } from '../../api/client';
 import { useTbProfile } from '../../api/hooks/useTb';
+import { useTbYearOverride } from './workpaperShared';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
@@ -49,7 +50,7 @@ export function TbExportsPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: profileData } = useTbProfile();
-  const [taxYear, setTaxYear] = useState<number | null>(null);
+  const [taxYear, setTaxYear] = useTbYearOverride();
   const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
   const [software, setSoftware] = useState<string>('ultratax');
   const effYear = taxYear ?? profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
