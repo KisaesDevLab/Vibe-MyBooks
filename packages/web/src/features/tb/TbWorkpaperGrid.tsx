@@ -39,7 +39,10 @@ const TYPE_ABBREV: Record<string, { label: string; tone: string }> = {
   liability: { label: 'Lia', tone: 'text-orange-600' },
   equity: { label: 'Equ', tone: 'text-purple-600' },
   revenue: { label: 'Rev', tone: 'text-green-700' },
+  cogs: { label: 'COGS', tone: 'text-amber-700' },
   expense: { label: 'Exp', tone: 'text-red-600' },
+  other_revenue: { label: 'OInc', tone: 'text-green-600' },
+  other_expense: { label: 'OExp', tone: 'text-red-500' },
 };
 
 function AmountPair({ value, onClick, flash }: { value: number; onClick?: () => void; flash?: boolean }) {
