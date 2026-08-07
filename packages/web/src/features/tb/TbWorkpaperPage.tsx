@@ -19,13 +19,11 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { useSessionState } from '../../hooks/useSessionState';
-import { SearchableDropdown, type DropdownOption } from '../../components/forms/SearchableDropdown';
 import { ExternalLink, AlertTriangle } from 'lucide-react';
 import { TbWorkpaperGrid, type TbGridPrefs } from './TbWorkpaperGrid';
-import { fiscalYearEndFor, useTbYearOverride,
-  activeCompanyId, openTbPopout, publishTbChange, resolveAssignment,
-  useAvailableCodes, useTbAssignmentsQuery, useTbDiagnostics, useWorkpaper,
-  type TbWorkpaperRow,
+import {
+  activeCompanyId, fiscalYearEndFor, openTbPopout, useTbDiagnostics,
+  useTbYearOverride, useWorkpaper,
 } from './workpaperShared';
 
 // Per-user prefs (6.7) ride users.displayPreferences.tb via the
@@ -87,8 +85,6 @@ export function TbWorkpaperPage() {
   const [typeFilter, setTypeFilter] = useState('');
 
   const { data: wpData, isLoading, isError, refetch } = useWorkpaper(effPeriodEnd, prefs.basis);
-  const { data: assignData } = useTbAssignmentsQuery();
-  const { data: codesData, error: codesError } = useAvailableCodes();
   const { data: diagData } = useTbDiagnostics(effPeriodEnd, prefs.basis);
   const { data: unitsData } = useActivityUnits();
   const pyEnd = profileData ? profileData.fiscal.priorFiscalYearEnd : null;
@@ -108,49 +104,48 @@ export function TbWorkpaperPage() {
     onError: (e) => toast.error(isApiError(e) ? e.message : 'Status change failed'),
   });
 
-  const assign = useMutation({
-    mutationFn: (input: Record<string, unknown>) =>
-      apiClient('/tb/assignments', { method: 'PUT', body: JSON.stringify(input) }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tb', 'assignments'] });
-      queryClient.invalidateQueries({ queryKey: ['tb', 'diagnostics'] });
-      publishTbChange(companyId);
-    },
-    onError: (e) => toast.error(isApiError(e) ? e.message : 'Assignment failed'),
-  });
-
   const unitNames = useMemo(() => new Map(
     (unitsData?.units ?? []).map((u) => [u.id, `${u.displayName}`]),
   ), [unitsData]);
 
-  // Tax-code picker options, filtered per row activity context lazily.
-  const codeOptions = useMemo<DropdownOption[]>(() => {
-    if (!codesData) return [];
-    return [
-      ...codesData.seedCodes.map((c) => ({
-        id: `seed|${c.activityType}|${c.code}`,
-        label: `${c.code} — ${c.description}`,
-        group: c.activityType,
-      })),
-      ...codesData.firmCodes.map((c) => ({
-        id: `firm|${c.id}`,
-        label: `${c.code} — ${c.description}`,
-        group: 'firm custom',
-      })),
-    ];
-  }, [codesData]);
+  // WP Ref + Tickmark columns: leadsheet membership and the tax year's
+  // applied tickmarks (assignment moved to the Tax Mapping screen).
+  const { data: groupData } = useQuery({
+    queryKey: ['tb', 'groupings'],
+    queryFn: () => apiClient<{ groupings: Array<{ id: string; name: string; leadsheetCode: string | null; accountIds: string[] }> }>('/tb/groupings'),
+  });
+  const { data: marksData } = useQuery({
+    queryKey: ['tb', 'tickmarks'],
+    queryFn: () => apiClient<{ tickmarks: Array<{ id: string; symbol: string; description: string }> }>('/tb/tickmarks'),
+  });
+  const { data: appsData } = useQuery({
+    queryKey: ['tb', 'tickmark-applications', taxYear],
+    enabled: !!wpData,
+    queryFn: () => apiClient<{ applications: Array<{ id: string; accountId: string; tickmarkId: string }> }>(`/tb/tickmark-applications?taxYear=${taxYear}`),
+  });
 
-  const assignments = assignData?.assignments ?? [];
-
-  const onPickCode = (row: TbWorkpaperRow, optionId: string) => {
-    if (!optionId) return;
-    const [kind, a, b] = optionId.split('|');
-    if (kind === 'seed') {
-      assign.mutate({ accountId: row.accountId, seedCode: b, seedActivityType: a, activityUnitType: 'common' });
-    } else {
-      assign.mutate({ accountId: row.accountId, firmCodeId: a, activityUnitType: 'common' });
+  const wpRefByAccount = useMemo(() => {
+    const m = new Map<string, { code: string; name: string }>();
+    for (const g of groupData?.groupings ?? []) {
+      for (const accountId of g.accountIds) {
+        m.set(accountId, { code: g.leadsheetCode ?? '·', name: g.name });
+      }
     }
-  };
+    return m;
+  }, [groupData]);
+
+  const marksByAccount = useMemo(() => {
+    const lib = new Map((marksData?.tickmarks ?? []).map((t) => [t.id, t]));
+    const m = new Map<string, Array<{ symbol: string; description: string }>>();
+    for (const a of appsData?.applications ?? []) {
+      const mark = lib.get(a.tickmarkId);
+      if (!mark) continue;
+      const list = m.get(a.accountId) ?? [];
+      if (!list.some((x) => x.symbol === mark.symbol)) list.push({ symbol: mark.symbol, description: mark.description });
+      m.set(a.accountId, list);
+    }
+    return m;
+  }, [marksData, appsData]);
 
   const diagnostics = diagData?.diagnostics ?? [];
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -252,12 +247,6 @@ export function TbWorkpaperPage() {
         </div>
       )}
 
-      {codesError != null && (
-        <div className="mb-4 p-3 rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-800">
-          {isApiError(codesError) ? codesError.message : 'Tax codes unavailable'} — set the return form in <button className="underline" onClick={() => navigate('/tb/settings')}>TB Settings</button>.
-        </div>
-      )}
-
       {isLoading && <LoadingSpinner className="py-16" />}
       {isError && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
@@ -280,28 +269,37 @@ export function TbWorkpaperPage() {
             params.set('to', effPeriodEnd);
             navigate(`/transactions?${params}`);
           }}
-          extraHeaders={<th className="px-2 py-2 text-left">Tax Code</th>}
+          extraHeaders={<>
+            <th className="px-2 py-2 text-left">WP Ref</th>
+            <th className="px-2 py-2 text-left">Tickmark</th>
+          </>}
           renderRowExtra={(row) => {
-            if (row.isVirtualRe) return <td className="px-2 py-1.5 text-xs text-gray-400">—</td>;
-            const current = resolveAssignment(assignments, row.accountId, prefs.activityView || null);
-            const currentId = current
-              ? current.firmCodeId ? `firm|${current.firmCodeId}` : `seed|${current.seedActivityType}|${current.seedCode}`
-              : '';
-            const currentLabel = current ? (current.seedCode ?? 'FIRM code') : '';
+            if (row.isVirtualRe) {
+              return <><td className="px-2 py-1.5 text-xs text-gray-400">—</td><td className="px-2 py-1.5 text-xs text-gray-400">—</td></>;
+            }
+            const ref = wpRefByAccount.get(row.accountId);
+            const marks = marksByAccount.get(row.accountId) ?? [];
             return (
-              <td className="px-2 py-1 min-w-[180px]">
-                <SearchableDropdown
-                  options={codeOptions}
-                  value={currentId}
-                  selectedLabel={currentLabel}
-                  onChange={(id) => onPickCode(row, id)}
-                  placeholder="Assign…"
-                  compact
-                />
-                {current?.source === 'ai' && (
-                  <span className="ml-1 text-[10px] text-purple-600" title={`AI-assigned (${current.aiConfidence ?? '?'}% confidence)`}>AI</span>
-                )}
-              </td>
+              <>
+                <td className="px-2 py-1.5">
+                  {ref ? (
+                    <button className="font-mono text-xs text-blue-700 hover:underline" title={ref.name}
+                      onClick={() => navigate('/tb/leadsheets')}>
+                      {ref.code}
+                    </button>
+                  ) : <span className="text-xs text-gray-300">—</span>}
+                </td>
+                <td className="px-2 py-1.5 whitespace-nowrap">
+                  {marks.length > 0
+                    ? marks.map((m) => (
+                      <span key={m.symbol} title={m.description}
+                        className="inline-flex items-center justify-center h-5 min-w-5 px-1 mr-1 rounded bg-gray-100 text-gray-700 text-xs font-medium">
+                        {m.symbol}
+                      </span>
+                    ))
+                    : <span className="text-xs text-gray-300">—</span>}
+                </td>
+              </>
             );
           }}
         />
