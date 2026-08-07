@@ -13,10 +13,14 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient, isApiError } from '../../api/client';
 import { useTbProfile } from '../../api/hooks/useTb';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { Download } from 'lucide-react';
+
+// Reports that accept the tag view (workpaper-derived).
+const TAG_CAPABLE = new Set(['tb-workpaper', 'tb-grouped', 'tb-leadsheets', 'tb-tax-basis-pl', 'tb-flux']);
 
 const TB_REPORTS = [
   { id: 'tb-workpaper', label: 'TB Workpaper (5-column)' },
@@ -60,6 +64,8 @@ export function TbReportsPage() {
   const [basis, setBasis] = useSessionState<'accrual' | 'cash'>('vibe:tb-reports:basis', 'accrual');
   const [thresholdAmount, setThresholdAmount] = useSessionState('vibe:tb-reports:fluxAmt', '0');
   const [thresholdPct, setThresholdPct] = useSessionState('vibe:tb-reports:fluxPct', '0');
+  const [tagId, setTagId] = useSessionState('vibe:tb-reports:tagId', '');
+  const { data: tagsData } = useTags({ isActive: true });
   const effEnd = endDate || profileData?.fiscal.currentFiscalYearEnd || `${new Date().getFullYear()}-12-31`;
 
   const params = new URLSearchParams({ as_of_date: effEnd, basis });
@@ -67,9 +73,10 @@ export function TbReportsPage() {
     params.set('threshold_amount', thresholdAmount);
     params.set('threshold_pct', thresholdPct);
   }
+  if (tagId && TAG_CAPABLE.has(reportId)) params.set('tag_id', tagId);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['tb', 'report', reportId, effEnd, basis, thresholdAmount, thresholdPct],
+    queryKey: ['tb', 'report', reportId, effEnd, basis, thresholdAmount, thresholdPct, tagId],
     retry: false,
     queryFn: () => apiClient<ReportData>(`/reports/${reportId}?${params}`),
   });
@@ -119,6 +126,13 @@ export function TbReportsPage() {
           <option value="accrual">Accrual</option>
           <option value="cash">Cash</option>
         </select>
+        {TAG_CAPABLE.has(reportId) && (
+          <select value={tagId} onChange={(e) => setTagId(e.target.value)} aria-label="Tag view"
+            className="rounded-lg border border-gray-300 px-2 py-2">
+            <option value="">All tags</option>
+            {(tagsData?.tags ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
         {reportId === 'tb-flux' && (
           <>
             <label className="text-gray-600">Threshold $
