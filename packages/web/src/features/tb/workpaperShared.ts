@@ -114,6 +114,15 @@ export function resolveAssignment(assignments: TbAssignment[], accountId: string
   return forAccount.find((a) => a.activityUnitId === null) ?? null;
 }
 
+// Fiscal-year end (ISO) for a tax-year label — mirror of the server's
+// fiscalYearEnd in tax-profile.service (rule TB10).
+export function fiscalYearEndFor(taxYear: number, fyStartMonth: number): string {
+  if (fyStartMonth <= 1) return `${taxYear}-12-31`;
+  const endMonth = fyStartMonth - 1;
+  const lastDay = new Date(Date.UTC(taxYear, endMonth, 0)).getUTCDate();
+  return `${taxYear}-${String(endMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+}
+
 export const usd = (n: number) =>
   Math.abs(n) < 0.005 ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

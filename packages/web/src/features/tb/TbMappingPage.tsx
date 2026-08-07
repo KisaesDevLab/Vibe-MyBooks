@@ -19,7 +19,7 @@ import { useToast } from '../../components/ui/Toaster';
 import { SearchableDropdown, type DropdownOption } from '../../components/forms/SearchableDropdown';
 import { Sparkles, X } from 'lucide-react';
 import {
-  activeCompanyId, publishTbChange, resolveAssignment, usd,
+  activeCompanyId, fiscalYearEndFor, publishTbChange, resolveAssignment, usd,
   useAvailableCodes, useTbAssignmentsQuery, useWorkpaper,
   type TbAssignment, type TbWorkpaperRow,
 } from './workpaperShared';
@@ -53,7 +53,9 @@ export function TbMappingPage() {
   const companyId = companyCtx?.activeCompanyId ?? activeCompanyId();
 
   const { data: profileData } = useTbProfile();
-  const periodEnd = profileData?.fiscal.currentFiscalYearEnd ?? `${new Date().getFullYear()}-12-31`;
+  const [yearOverride, setYearOverride] = useState<number | null>(null);
+  const taxYear = yearOverride ?? profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
+  const periodEnd = fiscalYearEndFor(taxYear, profileData?.fiscal.fiscalYearStartMonth ?? 1);
 
   const [filter, setFilter] = useState<MapFilter>('all');
   const [search, setSearch] = useState('');
@@ -180,8 +182,13 @@ export function TbMappingPage() {
             {label}
           </button>
         ))}
-        <input type="search" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search accounts…" className="ml-auto rounded-lg border border-gray-300 px-3 py-1.5 text-sm w-52" />
+        <div className="ml-auto flex items-center gap-2">
+          <input type="number" value={taxYear} aria-label="Tax year"
+            onChange={(e) => { const v = Number(e.target.value); if (v >= 2000 && v <= 2100) setYearOverride(v); }}
+            className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search accounts…" className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm w-52" />
+        </div>
       </div>
 
       {codesError != null && (

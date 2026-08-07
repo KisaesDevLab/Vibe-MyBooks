@@ -15,7 +15,7 @@ import { useTbProfile } from '../../api/hooks/useTb';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
-import { useWorkpaper, usd, type TbWorkpaperRow } from './workpaperShared';
+import { fiscalYearEndFor, useWorkpaper, usd, type TbWorkpaperRow } from './workpaperShared';
 import { Download } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -43,8 +43,9 @@ export function TbLeadsheetsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: profileData } = useTbProfile();
-  const periodEnd = profileData?.fiscal.currentFiscalYearEnd ?? `${new Date().getFullYear()}-12-31`;
-  const taxYear = profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
+  const [yearOverride, setYearOverride] = useState<number | null>(null);
+  const taxYear = yearOverride ?? profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
+  const periodEnd = fiscalYearEndFor(taxYear, profileData?.fiscal.fiscalYearStartMonth ?? 1);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [markPicker, setMarkPicker] = useState<{ accountId: string; column: string } | null>(null);
@@ -174,6 +175,9 @@ export function TbLeadsheetsPage() {
           <p className="text-sm text-gray-500">TY{taxYear} workpapers by grouping — sign-offs stamp the GL version and flag stale on later changes.</p>
         </div>
         <div className="flex items-center gap-2">
+          <input type="number" value={taxYear} aria-label="Tax year"
+            onChange={(e) => { const v = Number(e.target.value); if (v >= 2000 && v <= 2100) setYearOverride(v); }}
+            className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
           <select value={basis} aria-label="Accounting basis"
             onChange={(e) => setBasis(e.target.value as 'accrual' | 'cash')}
             className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
