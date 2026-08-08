@@ -16,7 +16,8 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { MARK_TONES, useTbYearOverride, fiscalYearEndFor, useWorkpaper, usd, type TbWorkpaperRow } from './workpaperShared';
-import { Download } from 'lucide-react';
+import { Download, Paperclip, Pencil } from 'lucide-react';
+import { TbPdfViewer } from './TbPdfViewer';
 import clsx from 'clsx';
 
 interface Grouping {
@@ -31,6 +32,11 @@ interface Tickmark { id: string; symbol: string; description: string; color: str
 interface TickmarkApplication { id: string; accountId: string; column: string; tickmarkId: string; note: string | null }
 interface Note { id: string; accountId: string | null; body: string; resolvedAt: string | null; createdAt: string }
 interface Signoff { id: string; groupingId: string; role: 'preparer' | 'reviewer'; signedAt: string; stale: boolean; signedByName: string | null }
+interface RowAttachment {
+  id: string; groupingId: string; accountId: string; taxYear: number; refCode: string;
+  sourceFileName: string; fileSize: number | null;
+  annotations: Array<{ id: string; page: number; xPct: number; yPct: number; symbol: string; color: string | null; note: string | null }>;
+}
 
 export function TbLeadsheetsPage() {
   const toast = useToast();
@@ -86,6 +92,60 @@ export function TbLeadsheetsPage() {
     onSuccess: () => invalidate('signoffs'),
     onError: err,
   });
+  // Per-row PDF attachments (ref-coded A001…).
+  const { data: rowAttachData } = useQuery({
+    queryKey: ['tb', 'row-attachments', taxYear],
+    queryFn: () => apiClient<{ attachments: RowAttachment[] }>(`/tb/row-attachments?taxYear=${taxYear}`),
+  });
+  const [viewerAttachment, setViewerAttachment] = useState<string | null>(null);
+  const [uploadingRow, setUploadingRow] = useState<string | null>(null);
+  const uploadRowPdf = async (accountId: string, file: File) => {
+    if (!selected) return;
+    setUploadingRow(accountId);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('groupingId', selected.id);
+      fd.append('accountId', accountId);
+      fd.append('taxYear', String(taxYear));
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/tb/row-attachments`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+          'X-Company-Id': localStorage.getItem('activeCompanyId') ?? '',
+        },
+        body: fd,
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error?.message ?? `Upload failed (${res.status})`);
+      queryClient.invalidateQueries({ queryKey: ['tb', 'row-attachments'] });
+      toast.success(`Attached as ${body?.attachment?.refCode ?? 'PDF'}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setUploadingRow(null);
+    }
+  };
+  const deleteRowAttachment = useMutation({
+    mutationFn: (id: string) => apiClient(`/tb/row-attachments/${id}`, { method: 'DELETE' }),
+    onSuccess: () => invalidate('row-attachments'),
+    onError: err,
+  });
+
+  // Rename the selected leadsheet (name + code).
+  const [renaming, setRenaming] = useState(false);
+  const [renameName, setRenameName] = useState('');
+  const [renameCode, setRenameCode] = useState('');
+  const renameMutation = useMutation({
+    mutationFn: (input: { id: string; name: string; leadsheetCode: string | null }) =>
+      apiClient(`/tb/groupings/${input.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: input.name, leadsheetCode: input.leadsheetCode }),
+      }),
+    onSuccess: () => { invalidate('groupings'); setRenaming(false); },
+    onError: err,
+  });
+
   const unsignMutation = useMutation({
     mutationFn: (signoffId: string) => apiClient(`/tb/signoffs/${signoffId}`, { method: 'DELETE' }),
     onSuccess: () => invalidate('signoffs'),
@@ -237,8 +297,33 @@ export function TbLeadsheetsPage() {
               <div className="rounded-lg border border-gray-200 bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <h2 className="text-lg font-medium text-gray-900">
-                    {selected.leadsheetCode && <span className="font-mono text-sm text-gray-400 mr-2">{selected.leadsheetCode}</span>}
-                    {selected.name}
+                    {renaming ? (
+                      <form className="flex items-center gap-2" onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!renameName.trim()) return;
+                        renameMutation.mutate({ id: selected.id, name: renameName.trim(), leadsheetCode: renameCode.trim() || null });
+                      }}>
+                        <input value={renameCode} onChange={(e) => setRenameCode(e.target.value)} maxLength={10}
+                          aria-label="Leadsheet code" placeholder="Code"
+                          className="w-16 rounded border border-gray-300 px-2 py-1 text-sm font-mono" />
+                        <input autoFocus value={renameName} onChange={(e) => setRenameName(e.target.value)} maxLength={200}
+                          aria-label="Leadsheet name" placeholder="Name"
+                          className="w-56 rounded border border-gray-300 px-2 py-1 text-sm" />
+                        <button type="submit" className="text-blue-600 text-xs font-medium" disabled={renameMutation.isPending}>Save</button>
+                        <button type="button" className="text-gray-500 text-xs" onClick={() => setRenaming(false)}>Cancel</button>
+                        <span className="text-[10px] text-gray-400">Code changes affect future attachment numbering only.</span>
+                      </form>
+                    ) : (
+                      <>
+                        {selected.leadsheetCode && <span className="font-mono text-sm text-gray-400 mr-2">{selected.leadsheetCode}</span>}
+                        {selected.name}
+                        <button className="ml-2 text-gray-300 hover:text-blue-600 align-middle" title="Rename leadsheet"
+                          aria-label="Rename leadsheet"
+                          onClick={() => { setRenaming(true); setRenameName(selected.name); setRenameCode(selected.leadsheetCode ?? ''); }}>
+                          <Pencil className="h-3.5 w-3.5 inline" />
+                        </button>
+                      </>
+                    )}
                   </h2>
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="secondary" disabled={pdfBusy}
@@ -293,7 +378,8 @@ export function TbLeadsheetsPage() {
                       <th className="py-2 pr-3 text-right">Adjusted</th>
                       <th className="py-2 pr-3 text-right">Tax RJE</th>
                       <th className="py-2 pr-3 text-right">Tax</th>
-                      <th className="py-2">Marks</th>
+                      <th className="py-2 pr-3">Marks</th>
+                      <th className="py-2">Files</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -357,11 +443,44 @@ export function TbLeadsheetsPage() {
                               </div>
                             )}
                           </td>
+                          <td className="py-1.5 whitespace-nowrap">
+                            <span className="flex items-center gap-1 flex-wrap">
+                              {(rowAttachData?.attachments ?? [])
+                                .filter((att) => att.accountId === r.accountId && att.groupingId === selected.id)
+                                .map((att) => (
+                                  <span key={att.id} className="inline-flex items-center gap-0.5">
+                                    <button className="text-[11px] px-1.5 py-0.5 rounded font-mono font-medium bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                      title={`${att.sourceFileName}${att.annotations.length ? ` · ${att.annotations.length} stamp(s)` : ''} — click to view`}
+                                      onClick={() => setViewerAttachment(att.id)}>
+                                      {att.refCode}
+                                    </button>
+                                    <button className="text-gray-300 hover:text-red-600 text-xs" title={`Delete ${att.refCode}`}
+                                      aria-label={`Delete ${att.refCode}`}
+                                      onClick={() => {
+                                        if (window.confirm(`Delete ${att.refCode} (${att.sourceFileName})? The file is removed permanently.`)) {
+                                          deleteRowAttachment.mutate(att.id);
+                                        }
+                                      }}>✕</button>
+                                  </span>
+                                ))}
+                              <label className={clsx('cursor-pointer text-gray-400 hover:text-blue-600', uploadingRow === r.accountId && 'animate-pulse')}
+                                title="Attach a PDF to this row">
+                                <Paperclip className="h-3.5 w-3.5" />
+                                <input type="file" accept="application/pdf" className="hidden"
+                                  disabled={uploadingRow !== null}
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) uploadRowPdf(r.accountId, f);
+                                    e.target.value = '';
+                                  }} />
+                              </label>
+                            </span>
+                          </td>
                         </tr>
                       );
                     })}
                     {memberRows.length === 0 && (
-                      <tr><td colSpan={8} className="py-4 text-sm text-gray-500">No accounts with activity in this grouping.</td></tr>
+                      <tr><td colSpan={9} className="py-4 text-sm text-gray-500">No accounts with activity in this grouping.</td></tr>
                     )}
                   </tbody>
                   <tfoot>
@@ -371,6 +490,7 @@ export function TbLeadsheetsPage() {
                         const v = subtotal(c);
                         return <td key={c} className="py-2 pr-3 text-right font-mono tabular-nums text-xs">{v < 0 ? `(${usd(-v)})` : usd(v)}</td>;
                       })}
+                      <td />
                       <td />
                     </tr>
                   </tfoot>
@@ -410,6 +530,19 @@ export function TbLeadsheetsPage() {
           )}
         </div>
       )}
+      {viewerAttachment && (() => {
+        const att = (rowAttachData?.attachments ?? []).find((a) => a.id === viewerAttachment);
+        if (!att) return null;
+        return (
+          <TbPdfViewer
+            attachmentId={att.id}
+            refCode={att.refCode}
+            sourceFileName={att.sourceFileName}
+            annotations={att.annotations}
+            onClose={() => setViewerAttachment(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

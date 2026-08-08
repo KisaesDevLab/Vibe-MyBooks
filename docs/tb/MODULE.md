@@ -19,7 +19,7 @@ flag (Admin → Feature Flags); registered in the module manifest as
 | Live popout | `/tb/popout` | Live TB in its own window (BroadcastChannel + SSE + poll refresh, diff-flash); Adjusted/Tax amount clicks open the tickmark popup |
 | Adjusting entries | `/tb/ajes` | Firm-only AJE register + form; AJE-001 per client per FY; reverse/duplicate/void |
 | Tax adjustments | `/tb/tax-entries` | Tax-basis-only RJEs (never touch the GL); RJE-001 per tax year; M-1 flags |
-| Leadsheets | `/tb/leadsheets` | Grouping tree, per-group workpaper (basis toggle), tickmarks, notes, preparer→reviewer sign-offs with staleness, per-leadsheet PDF |
+| Leadsheets | `/tb/leadsheets` | Grouping tree (renamable), per-group workpaper (basis toggle), tickmarks, notes, sign-offs with staleness + attribution, per-leadsheet PDF, per-row PDF attachments ref-coded A001… per tax year with click-to-place tickmark stamps burned at download |
 | Schedule M-1/M-2 | `/tb/m1` | Book→tax bridge + equity rollforward with role mapping |
 | TB Reports | `/tb/reports` | 14-report family (incl. Leadsheets), CSV/PDF, all in Report Packs too |
 | Tax Exports | `/tb/exports` | UltraTax / Lacerte / CCH / GoSystem / generic CSV / Excel working TB with validation gates + history |

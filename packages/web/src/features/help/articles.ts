@@ -2263,7 +2263,7 @@ Tax-basis-only entries that never touch the books — they shape the Tax column,
 
 ## Leadsheets, sign-offs & closing
 
-**Leadsheets** group accounts into workpapers with tickmarks and notes. The preparer signs first, then the reviewer; a later ledger change marks signatures "stale" for one-click re-sign. Each leadsheet downloads as a **PDF** from its header, and the whole book is available as the **Leadsheets** report (TB Reports and Report Packs). Setting the **closing date** (TB Settings) blocks client-side changes to the closed period — firm staff can override with a confirmation, and every override is audit-logged.
+**Leadsheets** group accounts into workpapers with tickmarks and notes. The preparer signs first, then the reviewer; a later ledger change marks signatures "stale" for one-click re-sign. Each leadsheet downloads as a **PDF** from its header, and the whole book is available as the **Leadsheets** report (TB Reports and Report Packs). Leadsheets can be renamed (name and code) from the header pencil. Attach supporting **PDFs to any row** — each file takes an automatic reference (A001, A002, B001…) per leadsheet per tax year, shown on screen and in reports. Open an attachment to page through it and **click-to-place tickmark stamps** from your library; stamps are burned into the PDF when downloaded but the stored original stays untouched, so they can always be removed. Setting the **closing date** (TB Settings) blocks client-side changes to the closed period — firm staff can override with a confirmation, and every override is audit-logged.
 
 ## Reports & exports
 
