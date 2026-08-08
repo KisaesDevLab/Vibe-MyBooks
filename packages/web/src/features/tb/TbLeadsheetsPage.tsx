@@ -94,8 +94,8 @@ export function TbLeadsheetsPage() {
   });
   // Per-row PDF attachments (ref-coded A001…).
   const { data: rowAttachData } = useQuery({
-    queryKey: ['tb', 'row-attachments', taxYear],
-    queryFn: () => apiClient<{ attachments: RowAttachment[] }>(`/tb/row-attachments?taxYear=${taxYear}`),
+    queryKey: ['tb', 'row-attachments', periodEnd],
+    queryFn: () => apiClient<{ attachments: RowAttachment[] }>(`/tb/row-attachments?periodEnd=${periodEnd}`),
   });
   const [viewerAttachment, setViewerAttachment] = useState<string | null>(null);
   const [uploadingRow, setUploadingRow] = useState<string | null>(null);
@@ -108,6 +108,7 @@ export function TbLeadsheetsPage() {
       fd.append('groupingId', selected.id);
       fd.append('accountId', accountId);
       fd.append('taxYear', String(taxYear));
+      fd.append('periodEnd', periodEnd);
       const res = await fetch(`${import.meta.env.BASE_URL}api/v1/tb/row-attachments`, {
         method: 'POST',
         headers: {
