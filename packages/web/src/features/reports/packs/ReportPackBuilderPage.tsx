@@ -93,7 +93,7 @@ function ReportItemOptions({
   onChange: (next: ReportPackItemOptions) => void;
 }) {
   const spec = def.options;
-  const hasAny = spec.basis || spec.compare || spec.groupBy || spec.showPct || spec.tagFilter;
+  const hasAny = spec.basis || spec.compare || spec.groupBy || spec.showPct || spec.tagFilter || spec.includeAttachments;
   if (!hasAny) return null;
 
   // Merge a patch and drop keys that carry no meaning (undefined / null /
@@ -166,6 +166,18 @@ function ReportItemOptions({
             aria-label={`${def.label} percent of income`}
           />
           % of income
+        </label>
+      )}
+      {spec.includeAttachments && (
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            checked={options.includeAttachments ?? false}
+            onChange={(e) => set({ includeAttachments: e.target.checked })}
+            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            aria-label={`${def.label} include row attachments`}
+          />
+          Include attachments
         </label>
       )}
       {spec.tagFilter && (
