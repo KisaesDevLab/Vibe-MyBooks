@@ -3,10 +3,12 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState, useEffect, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Eye, EyeOff, CheckCircle, Loader2, Info } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle, Loader2, Info, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../../api/client';
+import { friendlyErrorMessage } from '../setup/setupHelpers';
 
 interface SmtpSettings {
   smtpHost: string;
@@ -62,6 +64,14 @@ export function EmailSettingsPage() {
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  // Gmail rejects anything except a full email address + 16-char App
+  // Password with "535 BadCredentials" — the two misconfigurations we've
+  // actually seen in the field. Warn inline before the user saves; never
+  // block (Workspace relays can be set up differently).
+  const isGmail = form.smtpHost.trim().toLowerCase().includes('smtp.gmail.com');
+  const gmailUserWarning = isGmail && form.smtpUser.trim() !== '' && !form.smtpUser.includes('@');
+  const gmailPassWarning = isGmail && form.smtpPass !== '' && form.smtpPass.replace(/\s/g, '').length !== 16;
 
   const handleTest = async () => {
     setTestStatus('testing');
@@ -152,6 +162,12 @@ export function EmailSettingsPage() {
             <Input label="Port" value={form.smtpPort} onChange={set('smtpPort')} type="number" />
           </div>
           <Input label="Username" value={form.smtpUser} onChange={set('smtpUser')} />
+          {gmailUserWarning && (
+            <p className="flex items-start gap-1.5 text-xs text-amber-700 -mt-2">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              Gmail requires your full email address as the username (e.g. you@gmail.com).
+            </p>
+          )}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">Password</label>
             <div className="relative">
@@ -170,6 +186,13 @@ export function EmailSettingsPage() {
                 {showSmtpPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {gmailPassWarning && (
+              <p className="flex items-start gap-1.5 text-xs text-amber-700">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                This doesn't look like a Gmail App Password (16 characters). Gmail rejects regular
+                account passwords — create one under Google Account → Security → App Passwords.
+              </p>
+            )}
             {passwordConfigured && (
               <button
                 type="button"
@@ -208,16 +231,22 @@ export function EmailSettingsPage() {
                 <CheckCircle className="h-4 w-4" /> Connection successful
               </span>
             )}
-            {testStatus === 'error' && (
-              <span className="text-sm text-red-600">{testError}</span>
-            )}
           </div>
+          {testStatus === 'error' && (
+            <div className="text-sm text-red-600">
+              <p>{friendlyErrorMessage(testError)}</p>
+              {friendlyErrorMessage(testError) !== testError && (
+                <p className="text-xs text-red-400 mt-1">{testError}</p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-800 flex gap-2">
           <Info className="h-4 w-4 shrink-0 mt-0.5" />
           <div>
             Email settings are stored per company. Each company can use its own SMTP server so outbound emails come from the correct sender address.
+            {' '}See the <Link to="/help/email-smtp-setup" className="underline hover:text-blue-900">email setup guide</Link> for provider-specific notes (Gmail requires an App Password).
           </div>
         </div>
 

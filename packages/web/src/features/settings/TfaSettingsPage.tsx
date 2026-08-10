@@ -11,6 +11,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Shield, Mail, Smartphone, Key, Trash2, Copy, CheckCircle, AlertTriangle, Monitor } from 'lucide-react';
 import { LoginMethodSettings } from './LoginMethodSettings';
+import { ChangePasswordSection } from './ChangePasswordSection';
 import QRCode from 'qrcode';
 
 interface TrustedDevice {
@@ -435,6 +436,11 @@ export function TfaSettingsPage() {
             </Button>
           </>
         )}
+
+        {/* Change Password */}
+        <div className="mt-8">
+          <ChangePasswordSection />
+        </div>
 
         {/* Login Methods (Passkeys + Magic Link) */}
         <div className="mt-8">

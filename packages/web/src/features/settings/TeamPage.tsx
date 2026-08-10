@@ -69,6 +69,7 @@ export function TeamPage() {
   const [editTarget, setEditTarget] = useState<TeamUser | null>(null);
   const [editEmail, setEditEmail] = useState('');
   const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState('accountant');
 
   // Escape closes the invite dialog — but only before the temp password
   // has been generated. Once we're on the "User Invited" confirmation
@@ -126,10 +127,10 @@ export function TeamPage() {
   });
 
   const updateUser = useMutation({
-    mutationFn: (input: { userId: string; email: string; displayName: string }) =>
+    mutationFn: (input: { userId: string; email: string; displayName: string; role?: string }) =>
       apiClient(`/company/users/${input.userId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ email: input.email, displayName: input.displayName }),
+        body: JSON.stringify({ email: input.email, displayName: input.displayName, role: input.role }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company', 'users'] });
@@ -141,12 +142,24 @@ export function TeamPage() {
     setEditTarget(u);
     setEditEmail(u.email);
     setEditName(u.displayName || '');
+    setEditRole(u.role);
     updateUser.reset();
   };
 
+  // The role select is offered for everyone except yourself (the backend
+  // rejects self-changes — a tenant must always act through another owner)
+  // and external users, whose access is governed by permission templates
+  // rather than the role baseline.
+  const isRoleEditable = (u: TeamUser) => u.id !== currentUserId && u.userType !== 'client';
+
   const handleSaveEdit = () => {
     if (!editTarget || !editEmail || !editName) return;
-    updateUser.mutate({ userId: editTarget.id, email: editEmail, displayName: editName });
+    updateUser.mutate({
+      userId: editTarget.id,
+      email: editEmail,
+      displayName: editName,
+      ...(isRoleEditable(editTarget) && editRole !== editTarget.role ? { role: editRole } : {}),
+    });
   };
 
   const handleInvite = () => {
@@ -229,6 +242,27 @@ export function TeamPage() {
               <p className="text-xs text-gray-500">
                 Email is this user's login. Changing it updates how they sign in; they keep their existing password.
               </p>
+              {isRoleEditable(editTarget) ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select value={editRole} onChange={(e) => setEditRole(e.target.value)}
+                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <option value="owner">Owner</option>
+                    <option value="accountant">Accountant</option>
+                    <option value="bookkeeper">Bookkeeper</option>
+                    <option value="readonly">Read-only</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Role changes take effect within about 15 minutes (the user's next sign-in refresh).
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  {editTarget.id === currentUserId
+                    ? 'You cannot change your own role.'
+                    : 'External users start read-only; manage their access with the Permissions button on their row.'}
+                </p>
+              )}
             </div>
             {updateUser.error && <p className="text-sm text-red-600 mt-3">{(updateUser.error as Error).message}</p>}
             <div className="flex justify-end gap-3 mt-4">

@@ -857,8 +857,8 @@ Email settings allow Vibe MyBooks to send invoices, payment reminders, and payme
 2. Enter your SMTP server details:
    - **Host** — your email provider's SMTP server (e.g., smtp.gmail.com)
    - **Port** — usually 587 (TLS) or 465 (SSL)
-   - **Username** — your email login
-   - **Password** — your email password or app-specific password
+   - **Username** — your full email address (e.g., you@gmail.com — Gmail rejects a bare username)
+   - **Password** — your email password or app-specific password (Gmail requires an App Password)
    - **From Address** — the email address that appears as the sender
 3. Click **Test Connection** to verify
 4. Click **Save Email Settings**
@@ -1763,6 +1763,58 @@ Check "Trust this device for 30 days" after verifying to skip 2FA on that browse
 
 ### Disabling 2FA
 Click **Disable Two-Factor Authentication** (requires password). Clears all methods, codes, and trusted devices.
+`,
+  },
+  {
+    id: 'changing-password',
+    title: 'Changing Your Password',
+    category: 'Security',
+    summary: 'Change your password while logged in, or recover access when locked out.',
+    body: `
+## Changing Your Password
+
+### While Logged In
+1. Go to **Settings > Security**
+2. In the **Password** card, enter your current password and the new one (at least 8 characters)
+3. Click **Change Password**
+
+For your protection, changing your password signs you out on every other device — only the browser you changed it from stays signed in. Passwords that have appeared in known data breaches are rejected; pick something unique.
+
+### Forgot Your Password?
+Use **Forgot password?** on the login page to email yourself a reset link (valid for 1 hour).
+
+### Owner-Sent Reset
+An owner can send any team member a password-reset email from **Settings > Team** with the **Reset** button on the user's row. The owner never sees or sets the password itself.
+`,
+  },
+  {
+    id: 'team-roles',
+    title: 'Team Members & Roles',
+    category: 'Security',
+    summary: 'Invite team members, change their roles, and understand what each role can do.',
+    body: `
+## Team Members & Roles
+
+Manage who can access your books in **Settings > Team** (owners only).
+
+### Roles
+- **Owner** — full control, including team and permission management
+- **Accountant** — full access to the books
+- **Bookkeeper** — full access by default, restrictable via permission templates
+- **Read-only** — can view everything but change nothing
+
+### Inviting a User
+Click **Invite User**, choose Internal (your team) or External (an outside collaborator such as a client), and pick a role. External users start read-only — use the **Permissions** button on their row to grant exactly what they can see and do.
+
+### Changing a Role
+Click **Edit** on a user's row and pick a new role — this is also how you remove a read-only designation. Notes:
+- You cannot change your own role
+- A company must always keep at least one owner, so the last owner cannot be demoted
+- Role changes take effect within about 15 minutes (the user's next sign-in refresh)
+- External users don't use the role selector; manage them via **Permissions** instead
+
+### Deactivating
+**Deactivate** on a user's row removes their access to this company without deleting the account; **Reactivate** restores it.
 `,
   },
   {

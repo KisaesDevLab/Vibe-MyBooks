@@ -69,6 +69,22 @@ export function useLogout() {
   });
 }
 
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: async (input: { currentPassword: string; newPassword: string }) => {
+      const data = await apiClient<{ message: string; tokens: { accessToken: string } }>('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      // The server revokes every session and re-mints one for this device;
+      // adopt the new access token (the rotated refresh token arrives as an
+      // HttpOnly cookie automatically).
+      setTokens(data.tokens);
+      return data;
+    },
+  });
+}
+
 export interface AccessibleTenant {
   tenantId: string;
   tenantName: string;
