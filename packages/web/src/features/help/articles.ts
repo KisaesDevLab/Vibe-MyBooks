@@ -874,12 +874,21 @@ SMTP is configured per company. Each company can use its own email server so inv
 | Yahoo | smtp.mail.yahoo.com | 587 |
 | Amazon SES | email-smtp.us-east-1.amazonaws.com | 587 |
 
-### Gmail Notes
-If using Gmail, you'll need an **App Password** (not your regular password):
-1. Enable 2-factor authentication on your Google account
-2. Go to Security > App Passwords
-3. Generate a password for "Mail"
-4. Use that password in the SMTP settings
+### Using Gmail
+Gmail needs two things beyond the host and port above:
+
+**1. The username must be your full email address** — enter \`you@gmail.com\`, not just \`you\`. Gmail rejects a bare username with "535 BadCredentials".
+
+**2. The password must be an App Password** — a 16-character password Google generates specifically for apps like this one. Your regular account password will not work; Gmail rejects it with the same 535 error.
+
+To get an App Password:
+1. Turn on **2-Step Verification**: go to [myaccount.google.com/security](https://myaccount.google.com/security) and enable it under "How you sign in to Google". App Passwords are only offered on accounts with 2-Step Verification turned on.
+2. Open [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (or Google Account > Security > 2-Step Verification > App Passwords).
+3. Type a name such as "Vibe MyBooks" and click **Create**.
+4. Google shows a 16-character password (displayed in groups of four — the spaces don't matter). Copy it now; it is shown only once. If you lose it, just create a new one.
+5. Paste it into the **Password** field here, set **From Address** to the same Gmail address, click **Test Connection**, then **Save Email Settings**.
+
+If you later change your Google password or turn off 2-Step Verification, the App Password may be revoked — generate a new one and update it here.
 `,
   },
   {

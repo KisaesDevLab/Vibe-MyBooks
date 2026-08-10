@@ -161,6 +161,28 @@ export function EmailSettingsPage() {
             </div>
             <Input label="Port" value={form.smtpPort} onChange={set('smtpPort')} type="number" />
           </div>
+          {isGmail && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-800">
+              <p className="font-semibold mb-1">Using Gmail? Two things are required:</p>
+              <ol className="list-decimal ml-4 space-y-1">
+                <li><strong>Username</strong> must be your full email address (you@gmail.com), not just the name before the @.</li>
+                <li>
+                  <strong>Password</strong> must be a 16-character <strong>App Password</strong> — your regular Google
+                  password is rejected. To create one: turn on 2-Step Verification in your Google account, then open{' '}
+                  <a
+                    href="https://myaccount.google.com/apppasswords"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-blue-900"
+                  >
+                    myaccount.google.com/apppasswords
+                  </a>
+                  , name it (e.g. "Vibe MyBooks"), click Create, and paste the 16-character password below (spaces don't
+                  matter). It's shown only once — generate a new one if lost.
+                </li>
+              </ol>
+            </div>
+          )}
           <Input label="Username" value={form.smtpUser} onChange={set('smtpUser')} />
           {gmailUserWarning && (
             <p className="flex items-start gap-1.5 text-xs text-amber-700 -mt-2">
