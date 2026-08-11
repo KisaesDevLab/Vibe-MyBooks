@@ -2,7 +2,8 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAccounts } from '../../api/hooks/useAccounts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Landmark, CreditCard, Wallet, ScrollText } from 'lucide-react';
@@ -49,11 +50,23 @@ function AccountGroup({ title, accounts, icon: Icon }: { title: string; accounts
 }
 
 export function RegistersPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { data, isLoading } = useAccounts({ isActive: true, limit: 500, offset: 0 });
-
-  if (isLoading) return <LoadingSpinner className="py-12" />;
-
   const allAccounts = data?.data || [];
+
+  // Resume the last-viewed register (persisted by RegisterPage) so the
+  // operator lands back where they were instead of re-picking the account
+  // on every visit. The register page's "All Registers" link arrives with
+  // state {browse: true} to reach this picker deliberately.
+  const browse = (location.state as { browse?: boolean } | null)?.browse === true;
+  const lastId = localStorage.getItem('vibe:register:lastAccountId');
+  const resumeId = !browse && lastId && allAccounts.some((a) => a.id === lastId) ? lastId : null;
+  useEffect(() => {
+    if (resumeId) navigate(`/accounts/${resumeId}/register`, { replace: true });
+  }, [resumeId, navigate]);
+
+  if (isLoading || resumeId) return <LoadingSpinner className="py-12" />;
   const bankAccounts = allAccounts.filter((a) => a.detailType === 'bank');
   const ccAccounts = allAccounts.filter((a) => a.detailType === 'credit_card');
   const otherAssets = allAccounts.filter((a) => a.accountType === 'asset' && a.detailType !== 'bank' && a.detailType !== 'accounts_receivable');

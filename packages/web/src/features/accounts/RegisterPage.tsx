@@ -13,10 +13,15 @@ import { RegisterEntryRow } from './RegisterEntryRow';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
-import { Search, Download, Printer, ChevronLeft, ChevronRight, Ban } from 'lucide-react';
+import { Pagination } from '../../components/ui/Pagination';
+import { Search, Download, Printer, Ban } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
+import { useLocalState } from '../../hooks/useLocalState';
+
+// Server caps per_page at 200.
+const PAGE_SIZE_OPTIONS = ['25', '50', '100', '200'];
 
 const txnTypeLabels: Record<string, string> = {
   invoice: 'INV', customer_payment: 'PMT', cash_sale: 'SALE', expense: 'CHK',
@@ -42,8 +47,12 @@ export function RegisterPage() {
   const today = todayLocalISO();
   const ninetyAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]!;
 
-  const [startDate, setStartDate] = useState(ninetyAgo);
-  const [endDate, setEndDate] = useState(today);
+  // Date range and page size persist across refreshes/visits (durable
+  // display preferences); the defaults apply until the user changes them.
+  const [startDate, setStartDate] = useLocalState('vibe:register:startDate', ninetyAgo);
+  const [endDate, setEndDate] = useLocalState('vibe:register:endDate', today);
+  const [perPage, setPerPage] = useLocalState('vibe:register:perPage', '50');
+  const perPageNum = parseInt(perPage, 10) || 50;
   const [search, setSearch] = useState('');
   const [txnTypeFilter, setTxnTypeFilter] = useState('');
   const [sortBy, setSortBy] = useState<string>('date');
@@ -52,6 +61,12 @@ export function RegisterPage() {
   const [includeVoid, setIncludeVoid] = useState(false);
   const [voidingId, setVoidingId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState('');
+
+  // Remember the account so the Registers entry point can resume it on the
+  // next visit instead of asking the user to pick again.
+  useEffect(() => {
+    if (id) localStorage.setItem('vibe:register:lastAccountId', id);
+  }, [id]);
 
   // Typing stays responsive; the register query fires only once the
   // search text is stable and dates are complete (native date inputs
@@ -71,7 +86,7 @@ export function RegisterPage() {
 
   const { data, isLoading, isError, refetch } = useRegister(id!, {
     startDate: debStartDate, endDate: debEndDate, search: debouncedSearch || undefined, txnType: txnTypeFilter || undefined,
-    sortBy, sortDir, page, perPage: 50, includeVoid,
+    sortBy, sortDir, page, perPage: perPageNum, includeVoid,
   });
   const { data: summary } = useRegisterSummary(id!);
   const voidTxn = useVoidTransaction();
@@ -205,6 +220,11 @@ export function RegisterPage() {
             <h1 className="text-xl font-bold text-gray-900">{account.name}</h1>
             <span className="text-xs text-gray-500 capitalize">{account.detailType?.replace(/_/g, ' ') || account.accountType} {account.accountNumber && `#${account.accountNumber}`}</span>
           </div>
+          {/* state.browse suppresses the Registers page's auto-resume */}
+          <button onClick={() => navigate('/registers', { state: { browse: true } })}
+            className="text-xs text-primary-600 hover:underline whitespace-nowrap">
+            All Registers
+          </button>
         </div>
         <div className="text-right">
           <p className="text-sm text-gray-500">Current Balance</p>
@@ -278,8 +298,9 @@ export function RegisterPage() {
             </tr>
           </thead>
           <tbody>
-            {/* Balance forward row — top when ascending */}
-            {balanceForward !== 0 && sortDir === 'asc' && (
+            {/* Balance forward row — top when ascending (date sort only; under
+                other sorts its position in the list is meaningless) */}
+            {balanceForward !== 0 && sortBy === 'date' && sortDir === 'asc' && (
               <tr className="bg-gray-50 text-gray-500 italic">
                 <td colSpan={8} className="px-2 py-1">Balance Forward</td>
                 <td className="px-2 py-1 text-right font-mono font-bold">${fmt(balanceForward)}</td>
@@ -317,7 +338,7 @@ export function RegisterPage() {
             ))}
 
             {/* Balance forward row — bottom when descending */}
-            {balanceForward !== 0 && sortDir === 'desc' && (
+            {balanceForward !== 0 && sortBy === 'date' && sortDir === 'desc' && (
               <tr className="bg-gray-50 text-gray-500 italic">
                 <td colSpan={8} className="px-2 py-1">Balance Forward</td>
                 <td className="px-2 py-1 text-right font-mono font-bold">${fmt(balanceForward)}</td>
@@ -343,20 +364,17 @@ export function RegisterPage() {
         </table>
       </div>
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-4">
-          <button disabled={page <= 1} onClick={() => setPage(page - 1)}
-            className="p-1 text-gray-500 hover:text-gray-700 disabled:text-gray-300">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <span className="text-sm text-gray-600">Page {page} of {pagination.totalPages}</span>
-          <button disabled={page >= pagination.totalPages} onClick={() => setPage(page + 1)}
-            className="p-1 text-gray-500 hover:text-gray-700 disabled:text-gray-300">
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </div>
-      )}
+      {/* Pagination + page-size dropdown */}
+      <Pagination
+        total={pagination.totalRows}
+        limit={perPageNum}
+        offset={(page - 1) * perPageNum}
+        onChange={(nextOffset) => setPage(Math.floor(nextOffset / perPageNum) + 1)}
+        unit="transactions"
+        pageSize={perPage}
+        pageSizeOptions={PAGE_SIZE_OPTIONS}
+        onPageSizeChange={(s) => { setPerPage(s); setPage(1); }}
+      />
 
       {/* Void dialog */}
       {voidingId && (
