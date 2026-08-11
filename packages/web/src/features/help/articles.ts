@@ -567,16 +567,22 @@ Imported transactions appear in the **Bank Feed** where you can:
 Reconciliation ensures your books match your bank statement.
 
 ### Starting a Reconciliation
-1. Go to **Banking** in the sidebar
-2. Click **Reconcile** on the account you want to reconcile
-3. Enter the **statement date** and **statement ending balance** from your bank statement
+There are three ways to start, all from **Banking > Reconcile**:
+
+- **From a statement PDF** — click **Import statement (PDF)** and upload the bank statement (PDF or image). The extracted transactions power the Statement Match Engine, which auto-clears exact matches and suggests the rest.
+- **From a bank download file** — click **Import bank file (QFX/OFX/QBO)** and upload the file from your bank's website (Quicken, QuickBooks WebConnect, or plain OFX format). It's read instantly — no scanning — and appears under **Statements on File** ready to reconcile. The first file for a new account number asks which account it belongs to, then future files import without asking.
+- **Manually** — pick the account and enter the **statement date** and **statement ending balance** yourself.
 
 ### Reconciliation Process
 1. A list of uncleared transactions appears
-2. Check off each transaction that appears on your bank statement
+2. Check off each transaction that appears on your bank statement — or, for imported statements, run the matcher and confirm its suggestions
 3. The **difference** field shows the gap between your cleared balance and the statement balance
 4. When the difference is **$0.00**, your books are reconciled
 5. Click **Finish** to save
+
+### Keeping the Worksheet Current
+- **Refresh transactions** adds anything you entered after starting the reconciliation and removes transactions that were voided in the meantime
+- If a transaction on the worksheet is a duplicate, void it from its detail page, then refresh the worksheet
 
 ### Tips
 - Start with the most recent statement and work backwards if you've never reconciled
