@@ -987,7 +987,7 @@ function MatchCandidatesModal({ feedItemId, onClose, onMatch, isPending }: {
           </button>
         </div>
         <p className="text-sm text-gray-600 mb-4">
-          Same-amount transactions within ±5 days. Bill payments are listed first — match them
+          Same-amount transactions within ±15 days. Bill payments are listed first — match them
           to avoid creating a duplicate expense.
         </p>
         {isLoading ? (
