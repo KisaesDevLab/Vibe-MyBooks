@@ -57,6 +57,7 @@ import {
   Wand2,
   ClipboardCheck,
   Percent,
+  Inbox,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLogout, useMe } from '../../api/hooks/useAuth';
@@ -176,6 +177,7 @@ const navGroups: NavGroup[] = [
     label: 'Banking',
     items: [
       { to: '/banking', label: 'Banking', icon: Landmark, resource: 'banking' },
+      { to: '/banking/feed', label: 'Bank Feed', icon: Inbox, resource: 'banking' },
       { to: '/banking/statement-upload', label: 'Import Statement', icon: FileUp, resource: 'banking' },
       { to: '/banking/statement-imports', label: 'Statement Processing', icon: History, resource: 'banking' },
       { to: '/banking/reconcile', label: 'Reconcile', icon: CheckCheck, resource: 'banking' },

@@ -9,7 +9,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/Toaster';
-import { Landmark, CheckCircle, AlertTriangle, XCircle, Clock, AlertCircle, ChevronRight, ChevronDown, Link2, Link2Off, Trash2 } from 'lucide-react';
+import { Landmark, CheckCircle, AlertTriangle, XCircle, Clock, AlertCircle, ChevronRight, ChevronDown, Link2, Link2Off, Trash2, RefreshCw, Radio } from 'lucide-react';
 
 interface PlaidStats {
   totalItems: number;
@@ -52,6 +52,23 @@ interface PlaidWebhookLog {
   processed?: boolean;
   error?: string | null;
 }
+
+interface WebhookTestResult {
+  webhookUrl: string;
+  ok: boolean;
+  status?: number;
+  detail: string;
+}
+
+interface WebhookItemResult {
+  itemId: string;
+  institutionName: string | null;
+  previousWebhook: string | null;
+  updated: boolean;
+  error?: string;
+}
+
+interface WebhookUpdateResult { webhookUrl: string; results: WebhookItemResult[] }
 
 interface TenantOption { id: string; name: string }
 interface CoaOption { id: string; name: string; accountNumber: string | null; detailType: string | null }
@@ -223,6 +240,33 @@ export function PlaidConnectionsMonitorPage() {
       removeMutation.reset();
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : 'Force remove failed.'),
+  });
+
+  // Webhook maintenance: probe the configured URL, and push it to every
+  // existing item (Plaid pins the URL per item at link time, so a domain
+  // change strands old items until they're explicitly updated).
+  const [webhookTest, setWebhookTest] = useState<WebhookTestResult | null>(null);
+  const [webhookUpdate, setWebhookUpdate] = useState<WebhookUpdateResult | null>(null);
+  const testWebhookMutation = useMutation({
+    mutationFn: () => apiClient<WebhookTestResult>('/admin/plaid/webhooks/test', { method: 'POST' }),
+    onSuccess: (r) => {
+      setWebhookTest(r);
+      if (r.ok) toast.success('Webhook endpoint is reachable.');
+      else toast.error('Webhook test failed — see details below.');
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Webhook test failed.'),
+  });
+  const updateWebhooksMutation = useMutation({
+    mutationFn: () => apiClient<WebhookUpdateResult>('/admin/plaid/webhooks/update', { method: 'POST' }),
+    onSuccess: (r) => {
+      setWebhookUpdate(r);
+      const updated = r.results.filter((x) => x.updated).length;
+      const failed = r.results.filter((x) => x.error).length;
+      const current = r.results.length - updated - failed;
+      if (failed > 0) toast.error(`Webhook update: ${updated} updated, ${current} already current, ${failed} failed.`);
+      else toast.success(`Webhook update: ${updated} updated, ${current} already current.`);
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Webhook update failed.'),
   });
 
   const toggleRow = (id: string) => setExpanded((prev) => {
@@ -408,9 +452,54 @@ export function PlaidConnectionsMonitorPage() {
 
       {/* Webhook Log */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-800">Webhook Log</h2>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="secondary"
+              loading={testWebhookMutation.isPending}
+              onClick={() => testWebhookMutation.mutate()}>
+              <Radio className="h-4 w-4 mr-1" /> Test webhook
+            </Button>
+            <Button size="sm" variant="secondary"
+              loading={updateWebhooksMutation.isPending}
+              onClick={() => updateWebhooksMutation.mutate()}>
+              <RefreshCw className="h-4 w-4 mr-1" /> Update webhooks
+            </Button>
+          </div>
         </div>
+        {webhookTest && (
+          <div className={`flex items-start gap-2 px-4 py-3 border-b text-sm ${webhookTest.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+            {webhookTest.ok ? <CheckCircle className="h-4 w-4 mt-0.5 shrink-0" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />}
+            <div>
+              <span className="font-mono text-xs break-all">{webhookTest.webhookUrl}</span>
+              {webhookTest.status != null && <span className="ml-2 font-medium">HTTP {webhookTest.status}</span>}
+              <p>{webhookTest.detail}</p>
+            </div>
+          </div>
+        )}
+        {webhookUpdate && (
+          <div className="px-4 py-3 border-b border-gray-200 text-sm space-y-1">
+            <p className="text-xs text-gray-500">
+              Registered webhook target: <span className="font-mono break-all">{webhookUpdate.webhookUrl}</span>
+            </p>
+            {webhookUpdate.results.map((r) => (
+              <div key={r.itemId} className="flex flex-wrap items-center gap-2">
+                {r.error
+                  ? <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                  : r.updated
+                    ? <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                    : <CheckCircle className="h-4 w-4 text-gray-300 shrink-0" />}
+                <span className="font-medium text-gray-800">{r.institutionName || r.itemId}</span>
+                {r.error
+                  ? <span className="text-red-600 text-xs">{r.error}</span>
+                  : r.updated
+                    ? <span className="text-xs text-gray-500">updated from <span className="font-mono break-all">{r.previousWebhook || '(none)'}</span></span>
+                    : <span className="text-xs text-gray-400">already current</span>}
+              </div>
+            ))}
+            {webhookUpdate.results.length === 0 && <p className="text-xs text-gray-400">No active Plaid connections.</p>}
+          </div>
+        )}
         {logError ? (
           <div className="flex items-center gap-2 p-4 text-sm text-red-700">
             <AlertCircle className="h-4 w-4" />

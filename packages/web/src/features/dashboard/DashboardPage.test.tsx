@@ -101,6 +101,23 @@ describe('DashboardPage', () => {
     expect(screen.queryByText(/couldn't load part of the dashboard/i)).not.toBeInTheDocument();
   });
 
+  it('shows the bank-feed notification banner with the unprocessed count', async () => {
+    apiClientMock.mockResolvedValueOnce({
+      ...fullSummary,
+      actionItems: { ...fullSummary.actionItems, pendingFeedCount: 7 },
+    });
+    wrap(<DashboardPage />);
+    expect(await screen.findByText('7 unprocessed bank transactions in the bank feed')).toBeInTheDocument();
+    expect(screen.getByText('Open bank feed')).toBeInTheDocument();
+  });
+
+  it('hides the bank-feed notification banner when nothing is pending', async () => {
+    apiClientMock.mockResolvedValueOnce(fullSummary);
+    wrap(<DashboardPage />);
+    expect(await screen.findByText('Net Income (YTD)')).toBeInTheDocument();
+    expect(screen.queryByText(/unprocessed bank transaction/)).not.toBeInTheDocument();
+  });
+
   it('surfaces the server-reported per-panel error labels in the banner', async () => {
     apiClientMock.mockResolvedValueOnce({
       ...fullSummary,

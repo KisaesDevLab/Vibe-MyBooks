@@ -259,6 +259,28 @@ export function DashboardPage() {
         </div>
       )}
 
+      {/* Bank feed notification — unprocessed (pending) feed transactions
+          waiting for review, linking straight to the Bank Feed view. */}
+      {(actions?.pendingFeedCount || 0) > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg"><Inbox className="h-4 w-4 text-blue-700" /></div>
+            <div>
+              <p className="text-sm font-medium text-blue-900">
+                {actions!.pendingFeedCount} unprocessed bank transaction{actions!.pendingFeedCount === 1 ? '' : 's'} in the bank feed
+              </p>
+              <p className="text-xs text-blue-700 mt-0.5">Review, categorize, or match them to keep your books current.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/banking/feed')}
+            className="text-xs font-medium text-blue-900 underline whitespace-nowrap"
+          >
+            Open bank feed
+          </button>
+        </div>
+      )}
+
       {/* Client-portal activity — unread questions, unprocessed reminder
           responses, and overdue document requests, each linking to the
           page where it gets handled. */}
