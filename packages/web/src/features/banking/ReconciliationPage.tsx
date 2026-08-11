@@ -4,7 +4,7 @@
 
 
 import { todayLocalISO } from '../../utils/date';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -69,6 +69,19 @@ const STMT_DEFAULT_PAGE_SIZE = '50';
 
 // Statements on file for the tenant (optionally filtered by account), each
 // with derived reconciliation status, readiness, and a one-click Reconcile.
+interface OfxImportSummary {
+  transactionCount: number;
+  periodStart: string | null;
+  periodEnd: string | null;
+  closingBalance: string | null;
+  maskedAccountNumber: string | null;
+  institutionName: string | null;
+}
+
+type OfxImportResponse =
+  | { needsAccount: true; summary: OfxImportSummary }
+  | { needsAccount?: false; statementId: string; lineCount: number; periodEnd: string; closingBalance: string; accountId: string };
+
 function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }) {
   const navigate = useNavigate();
   const [accountFilter, setAccountFilter] = useSessionState('vibe:reconcile:accountFilter', '');
@@ -83,7 +96,44 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
   const { data, isLoading, isError, refetch } = useBankStatements(accountFilter || undefined, { limit, offset });
   const startRecon = useStartReconciliation();
   const toast = useToast();
+  const qc = useQueryClient();
   const [startingId, setStartingId] = useState('');
+
+  // OFX/QFX/QBO reconcile-only import. The file is read as text and posted;
+  // if the server can't infer the account from the file's masked account
+  // number, it answers needsAccount and a small picker dialog re-posts with
+  // the chosen account.
+  const ofxInputRef = useRef<HTMLInputElement>(null);
+  const [ofxPending, setOfxPending] = useState<{ content: string; fileName: string; summary: OfxImportSummary } | null>(null);
+  const [ofxAccountId, setOfxAccountId] = useState('');
+  const importOfx = useMutation({
+    mutationFn: (body: { content: string; fileName: string; accountId?: string }) =>
+      apiClient<OfxImportResponse>('/banking/statements/import-ofx', { method: 'POST', body: JSON.stringify(body) }),
+  });
+  const handleOfxResponse = (res: OfxImportResponse, content: string, fileName: string) => {
+    if ('needsAccount' in res && res.needsAccount) {
+      setOfxAccountId('');
+      setOfxPending({ content, fileName, summary: res.summary });
+      return;
+    }
+    setOfxPending(null);
+    qc.invalidateQueries({ queryKey: ['bank-statements'] });
+    toast.success(`Statement imported — ${res.lineCount} transaction${res.lineCount === 1 ? '' : 's'}, period ending ${res.periodEnd}. Click Reconcile to start matching.`);
+  };
+  const handleOfxFile = async (file: File) => {
+    const content = await file.text();
+    importOfx.mutate({ content, fileName: file.name }, {
+      onSuccess: (res) => handleOfxResponse(res, content, file.name),
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not import the bank file.'),
+    });
+  };
+  const handleOfxConfirmAccount = () => {
+    if (!ofxPending || !ofxAccountId) return;
+    importOfx.mutate({ content: ofxPending.content, fileName: ofxPending.fileName, accountId: ofxAccountId }, {
+      onSuccess: (res) => handleOfxResponse(res, ofxPending.content, ofxPending.fileName),
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not import the bank file.'),
+    });
+  };
 
   const visibleStatements = (data?.statements ?? []).filter(
     (s) => !statusFilter || s.status === statusFilter,
@@ -112,6 +162,21 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
         <h2 className="text-lg font-semibold text-gray-900">Statements on File</h2>
         <Button variant="secondary" size="sm" onClick={() => navigate('/banking/statement-upload')}>
           <FileUp className="h-4 w-4 mr-1" /> Import statement (PDF)
+        </Button>
+        <input
+          ref={ofxInputRef}
+          type="file"
+          accept=".ofx,.qfx,.qbo,application/x-ofx"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleOfxFile(f);
+            e.target.value = '';
+          }}
+        />
+        <Button variant="secondary" size="sm" loading={importOfx.isPending && !ofxPending}
+          onClick={() => ofxInputRef.current?.click()}>
+          <FileUp className="h-4 w-4 mr-1" /> Import bank file (QFX/OFX/QBO)
         </Button>
         <div className="w-64">
           <AccountSelector value={accountFilter} onChange={(v) => { setAccountFilter(v); setOffset(0); }} accountTypeFilter={['asset', 'liability']} />
@@ -263,6 +328,30 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
             onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
           />
         </>
+      )}
+
+      {/* OFX import — account picker (file's masked number wasn't seen before) */}
+      {ofxPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-label="Choose account for imported statement">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Which account is this statement for?</h2>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p>
+                {ofxPending.summary.institutionName ? `${ofxPending.summary.institutionName} — ` : ''}
+                {ofxPending.summary.maskedAccountNumber ? `account ··${ofxPending.summary.maskedAccountNumber}, ` : ''}
+                {ofxPending.summary.transactionCount} transaction{ofxPending.summary.transactionCount === 1 ? '' : 's'}
+                {ofxPending.summary.periodEnd ? `, period ending ${ofxPending.summary.periodEnd}` : ''}
+                {ofxPending.summary.closingBalance ? `, ending balance $${parseFloat(ofxPending.summary.closingBalance).toFixed(2)}` : ''}.
+              </p>
+              <p className="text-xs text-gray-400">Your choice is remembered — future files for this account number import without asking.</p>
+            </div>
+            <AccountSelector value={ofxAccountId} onChange={setOfxAccountId} accountTypeFilter={['asset', 'liability']} />
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setOfxPending(null)}>Cancel</Button>
+              <Button onClick={handleOfxConfirmAccount} disabled={!ofxAccountId} loading={importOfx.isPending}>Import statement</Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
