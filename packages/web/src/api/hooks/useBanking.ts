@@ -471,7 +471,7 @@ export function useCancelReconciliation() {
 export function useRefreshReconciliation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiClient<{ added: number }>(`/banking/reconciliations/${id}/refresh`, { method: 'POST' }),
+    mutationFn: (id: string) => apiClient<{ added: number; removed: number }>(`/banking/reconciliations/${id}/refresh`, { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reconciliation'] });
       qc.invalidateQueries({ queryKey: ['statement-matches'] });

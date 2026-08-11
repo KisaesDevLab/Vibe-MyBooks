@@ -990,10 +990,14 @@ export function ReconciliationPage() {
   const handleRefresh = () => {
     refreshRecon.mutate(reconId, {
       onSuccess: (res) => {
-        if (res.added > 0) {
-          toast.success(`Added ${res.added} new transaction${res.added === 1 ? '' : 's'} to the worksheet.`);
+        const removed = res.removed ?? 0;
+        const parts = [];
+        if (res.added > 0) parts.push(`added ${res.added} new transaction${res.added === 1 ? '' : 's'}`);
+        if (removed > 0) parts.push(`removed ${removed} voided transaction${removed === 1 ? '' : 's'}`);
+        if (parts.length > 0) {
+          toast.success(`Worksheet refreshed — ${parts.join(' and ')}.`);
         } else {
-          toast.info('No new transactions to add. (Anything dated after the statement date won’t appear here.)');
+          toast.info('Worksheet is up to date. (Anything dated after the statement date won’t appear here.)');
         }
       },
       onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not refresh transactions.'),
