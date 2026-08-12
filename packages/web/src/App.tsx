@@ -282,6 +282,8 @@ const FirstRunSetupWizard = lazyNamed(() => import('./features/setup/FirstRunSet
 const PublicInvoicePage = lazyNamed(() => import('./features/public/PublicInvoicePage'), 'PublicInvoicePage');
 const PublicReportPage = lazyNamed(() => import('./features/reports/PublicReportPage'), 'PublicReportPage');
 const W9SubmitPage = lazyNamed(() => import('./features/public/W9SubmitPage'), 'W9SubmitPage');
+const BankConnectPage = lazyNamed(() => import('./features/public/BankConnectPage'), 'BankConnectPage');
+const BankConnectOAuthReturnPage = lazyNamed(() => import('./features/public/BankConnectOAuthReturnPage'), 'BankConnectOAuthReturnPage');
 const SplitRowV2GalleryPage = lazyNamed(() => import('./features/__dev__/SplitRowV2Gallery'), 'SplitRowV2GalleryPage');
 
 const queryClient = new QueryClient({
@@ -339,6 +341,11 @@ export function App() {
           {/* Public W-9 collection — magic-link in URL is the auth.
               Backed by /api/w9/* (rate-limited public router). */}
           <Route path="/w9/:token" element={<W9SubmitPage />} />
+          {/* Public bank-connect invite (client runs Plaid Link, no login).
+              /connect/oauth-return is the FIXED Plaid-registered OAuth
+              redirect URI — static segment outranks the :token param. */}
+          <Route path="/connect/oauth-return" element={<BankConnectOAuthReturnPage />} />
+          <Route path="/connect/:token" element={<BankConnectPage />} />
 
           {/* Client portal — distinct namespace, magic-link cookie auth */}
           <Route path="/portal/login" element={<PortalLoginPage />} />

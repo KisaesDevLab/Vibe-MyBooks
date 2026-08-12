@@ -537,6 +537,14 @@ Vibe MyBooks can import transactions from your bank automatically.
 4. Select which accounts to connect
 5. Transactions are imported automatically
 
+### Inviting a Client to Connect (no login needed)
+If the bank login belongs to your client, you don't need their credentials — send them a secure link instead:
+1. Go to **Banking** and click **Invite client** (requires the Bank Connection Invites feature to be enabled)
+2. Enter their name and email and/or mobile number, then send
+3. The client opens the link and connects their bank through Plaid in about two minutes — no MyBooks account, and their credentials go to the bank, never to you
+4. You get an email when they connect; the new accounts appear under **Connected via Plaid** ready to map to the books
+- One link works for multiple banks and expires after 7 days; you can resend (issues a fresh link) or revoke it at any time from the invites list
+
 ### Manual Import
 If your bank isn't supported for automatic connection:
 1. Download a statement from your bank (CSV, OFX, or QFX format)

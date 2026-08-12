@@ -19,7 +19,10 @@ import { DisconnectDialog } from './DisconnectDialog';
 import { ExistingInstitutionDialog } from './ExistingInstitutionDialog';
 import { FullDisconnectDialog } from './FullDisconnectDialog';
 import { apiClient } from '../../api/client';
-import { Landmark, Upload, Unplug, RefreshCw, RotateCcw, AlertTriangle, CheckCircle, Link2, Wrench, Pencil, Share2, Clock, Trash2 } from 'lucide-react';
+import { InviteClientModal } from './InviteClientModal';
+import { useBankConnectInvites, useResendBankConnectInvite, useRevokeBankConnectInvite, type BankConnectInviteRow } from '../../api/hooks/useBankConnectInvites';
+import { useFeatureFlag } from '../../api/hooks/useFeatureFlag';
+import { Landmark, Upload, Unplug, RefreshCw, RotateCcw, AlertTriangle, CheckCircle, Link2, Wrench, Pencil, Share2, Clock, Trash2, Send, Mail, MessageSquare } from 'lucide-react';
 
 // The `/plaid/items/:id` detail endpoint returns the item plus its
 // child accounts and the denormalised hiddenAccountCount (accounts
@@ -42,6 +45,77 @@ function PlaidLinkButton({ onSuccess }: { onSuccess: (publicToken: string, metad
   });
   if (linkToken && ready) setTimeout(() => open(), 0);
   return <Button size="sm" onClick={startLink} loading={createLink.isPending}><Link2 className="h-4 w-4 mr-1" /> Connect Bank</Button>;
+}
+
+// Bank-connect invites (BANK_CONNECT_INVITES_V1): pending-invite list with
+// status badges + resend/revoke. The invite itself is sent from
+// InviteClientModal; connections made through an invite land in the
+// "Connected via Plaid" list below like any other, ready to map.
+function BankConnectInvitesCard() {
+  const { data, isLoading } = useBankConnectInvites();
+  const resend = useResendBankConnectInvite();
+  const revoke = useRevokeBankConnectInvite();
+  const toast = useToast();
+
+  const invites = data?.invites ?? [];
+  if (isLoading || invites.length === 0) return null;
+
+  const badge = (s: BankConnectInviteRow['status']) => {
+    const map: Record<BankConnectInviteRow['status'], string> = {
+      sent: 'bg-gray-100 text-gray-700',
+      viewed: 'bg-blue-100 text-blue-700',
+      connected: 'bg-green-100 text-green-700',
+      expired: 'bg-amber-100 text-amber-700',
+      revoked: 'bg-red-100 text-red-600',
+    };
+    return <span className={`px-2 py-0.5 rounded text-xs font-medium ${map[s]}`}>{s}</span>;
+  };
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
+      <div className="px-4 py-3 border-b border-gray-100">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Client connection invites</h2>
+      </div>
+      <div className="divide-y divide-gray-100">
+        {invites.map((inv) => (
+          <div key={inv.id} className="px-4 py-2.5 flex flex-wrap items-center gap-3 text-sm">
+            <span className="font-medium text-gray-900">{inv.recipientName}</span>
+            <span className="flex items-center gap-1 text-gray-400">
+              {(inv.sentVia === 'email' || inv.sentVia === 'both') && <Mail className="h-3.5 w-3.5" />}
+              {(inv.sentVia === 'sms' || inv.sentVia === 'both') && <MessageSquare className="h-3.5 w-3.5" />}
+            </span>
+            {badge(inv.status)}
+            {inv.status === 'connected' && inv.connectionsCount > 0 && (
+              <span className="text-xs text-green-700">{inv.connectionsCount} connection{inv.connectionsCount === 1 ? '' : 's'}</span>
+            )}
+            <span className="text-xs text-gray-400 ml-auto">
+              sent {new Date(inv.sentAt).toLocaleDateString()} · expires {new Date(inv.expiresAt).toLocaleDateString()}
+            </span>
+            {inv.status !== 'revoked' && (
+              <Button size="sm" variant="ghost"
+                loading={resend.isPending && resend.variables === inv.id}
+                onClick={() => resend.mutate(inv.id, {
+                  onSuccess: (r) => toast.success(`Invite re-sent via ${r.channels.join(' + ')} — the old link no longer works.`),
+                  onError: (err) => toast.error(err instanceof Error ? err.message : 'Resend failed.'),
+                })}>
+                Resend
+              </Button>
+            )}
+            {(inv.status === 'sent' || inv.status === 'viewed' || inv.status === 'connected') && (
+              <Button size="sm" variant="ghost"
+                loading={revoke.isPending && revoke.variables === inv.id}
+                onClick={() => revoke.mutate(inv.id, {
+                  onSuccess: () => toast.success('Invite revoked — the link is dead.'),
+                  onError: (err) => toast.error(err instanceof Error ? err.message : 'Revoke failed.'),
+                })}>
+                <Trash2 className="h-3.5 w-3.5 text-red-500" />
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // Repair a broken login via Plaid Link UPDATE MODE: mint an update link
@@ -112,6 +186,8 @@ export function BankConnectionsPage() {
   const toast = useToast();
   const unmapCompany = useUnmapCompany();
   const [showImport, setShowImport] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const invitesEnabled = useFeatureFlag('BANK_CONNECT_INVITES_V1') === true;
   const [mappingData, setMappingData] = useState<{ accounts: PlaidAccount[]; hiddenAccountCount: number } | null>(null);
   const [remapAccount, setRemapAccount] = useState<PlaidAccount | null>(null);
   const [disconnectItem, setDisconnectItem] = useState<{ id: string; name: string } | null>(null);
@@ -211,9 +287,16 @@ export function BankConnectionsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Bank Connections</h1>
         <div className="flex gap-2">
           <PlaidLinkButton onSuccess={handlePlaidSuccess} />
+          {invitesEnabled && (
+            <Button size="sm" variant="secondary" onClick={() => setShowInvite(true)}>
+              <Send className="h-4 w-4 mr-1" /> Invite client
+            </Button>
+          )}
           <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" /> Import File</Button>
         </div>
       </div>
+
+      {invitesEnabled && <BankConnectInvitesCard />}
 
       {needsAttention.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
@@ -374,6 +457,7 @@ export function BankConnectionsPage() {
       )}
 
       {showImport && <BankImportModal onClose={() => setShowImport(false)} />}
+      {showInvite && <InviteClientModal onClose={() => setShowInvite(false)} />}
       {mappingData && <PlaidMappingWizard accounts={mappingData.accounts} hiddenAccountCount={mappingData.hiddenAccountCount} onClose={() => setMappingData(null)} onComplete={() => { setMappingData(null); refetch(); }} />}
       {remapAccount && <RemapAccountModal account={remapAccount} onClose={() => setRemapAccount(null)} onSaved={() => { setRemapAccount(null); refetch(); }} />}
       {disconnectItem && <DisconnectDialog itemId={disconnectItem.id} institutionName={disconnectItem.name} onClose={() => setDisconnectItem(null)} onRemoved={() => { setDisconnectItem(null); refetch(); }} />}
