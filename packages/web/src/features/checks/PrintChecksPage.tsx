@@ -4,11 +4,11 @@
 
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CHECK_LAYOUTS, type CheckLayout } from '@kis-books/shared';
+import { CHECK_LAYOUTS, STEP_UP_REQUIRED, type CheckLayout } from '@kis-books/shared';
 import { usePrintQueue, usePrintChecks, useCheckSettings } from '../../api/hooks/useChecks';
 import { useMySignatures, useStepUpMethod, useStepUp } from '../../api/hooks/useCheckSignatures';
 import { useMutation } from '@tanstack/react-query';
-import { apiClient } from '../../api/client';
+import { apiClient, isApiError } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -228,6 +228,17 @@ export function PrintChecksPage() {
       // Step 3: Show confirmation
       setFlowStep('confirm');
     } catch (err) {
+      // The grace token can also expire between render and print — the
+      // /print 403 must re-prompt just like the render one (the print is
+      // atomic server-side, so nothing was recorded; safe to redo).
+      if (isApiError(err) && err.code === STEP_UP_REQUIRED) {
+        setStepUp(null);
+        setFlowStep('select');
+        setStepUpCredential('');
+        setStepUpError('');
+        setShowStepUpModal(true);
+        return;
+      }
       setPrintError(err instanceof Error ? err.message : 'Print failed');
       setFlowStep('select');
     }
