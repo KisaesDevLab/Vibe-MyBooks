@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Camera, FileText, MessageSquare, Upload, Clock, CheckCircle2 } from 'lucide-react';
+import { Camera, FileText, MessageSquare, Upload, Clock, CheckCircle2, Landmark, CreditCard, ChevronRight } from 'lucide-react';
 import { usePortal } from './PortalLayout';
 
 interface PortalDocRequest {
@@ -27,6 +27,16 @@ interface DashboardCounts {
   publishedReports: number | null;
 }
 
+// PORTAL_BANKING_V1 — dashboard "Balances" section rows.
+interface DashboardBankAccount {
+  id: string;
+  name: string;
+  kind: 'bank' | 'card';
+  balance: number;
+}
+
+const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+
 export function PortalDashboardPage() {
   const { me, fullName, activeCompanyId } = usePortal();
   const activeCompany = me.contact.companies.find((c) => c.companyId === activeCompanyId);
@@ -37,6 +47,10 @@ export function PortalDashboardPage() {
     !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.financialsAccess;
   const questionsEnabled =
     !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.questionsForUsAccess;
+  const bankingEnabled =
+    !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.bankingAccess;
+  const billPayEnabled =
+    !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.billPayAccess;
 
   const [counts, setCounts] = useState<DashboardCounts>({
     openQuestions: null,
@@ -44,6 +58,28 @@ export function PortalDashboardPage() {
     publishedReports: null,
   });
   const [docRequests, setDocRequests] = useState<PortalDocRequest[] | null>(null);
+  // null = hidden (feature off, permission off, or fetch failed).
+  const [bankAccounts, setBankAccounts] = useState<DashboardBankAccount[] | null>(null);
+
+  // PORTAL_BANKING_V1 — separate request because the response carries
+  // featureEnabled (tenant flag) which the /me permission can't know.
+  useEffect(() => {
+    if (!activeCompanyId || !bankingEnabled) {
+      setBankAccounts(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${import.meta.env.BASE_URL}api/portal/banking/accounts?companyId=${activeCompanyId}`, {
+      credentials: 'include',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (cancelled || !body || body.featureEnabled === false) return;
+        setBankAccounts(Array.isArray(body.accounts) ? body.accounts : []);
+      })
+      .catch(() => { /* feature off or transport error — hide section */ });
+    return () => { cancelled = true; };
+  }, [activeCompanyId, bankingEnabled]);
 
   useEffect(() => {
     if (!activeCompanyId) return;
@@ -170,6 +206,41 @@ export function PortalDashboardPage() {
         </Link>
       </div>
 
+      {bankAccounts && bankAccounts.length > 0 && (
+        <section className="mt-8 bg-white border border-gray-200 rounded-lg p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-gray-900">Balances</h2>
+            <Link to="/portal/banking" className="text-xs font-medium text-indigo-700 hover:underline">
+              View activity
+            </Link>
+          </div>
+          <ul className="divide-y divide-gray-100">
+            {bankAccounts.map((a) => (
+              <li key={a.id}>
+                <Link
+                  to={`/portal/banking/${a.id}`}
+                  className="flex items-center gap-3 py-2.5 hover:bg-gray-50 -mx-2 px-2 rounded-md"
+                >
+                  {a.kind === 'card' ? (
+                    <CreditCard className="h-4 w-4 text-gray-400 shrink-0" />
+                  ) : (
+                    <Landmark className="h-4 w-4 text-gray-400 shrink-0" />
+                  )}
+                  <p className="flex-1 min-w-0 text-sm text-gray-900 truncate">{a.name}</p>
+                  <p className="text-sm font-semibold text-gray-900 tabular-nums">
+                    {money.format(a.balance)}
+                  </p>
+                  <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-gray-400">
+            Book balances — may differ from your bank&apos;s available balance.
+          </p>
+        </section>
+      )}
+
       {docRequests && docRequests.length > 0 && filesEnabled && activeCompanyId && (
         <section className="mt-8 bg-white border border-gray-200 rounded-lg p-5">
           <h2 className="text-base font-semibold text-gray-900 mb-3">Documents requested</h2>
@@ -226,6 +297,28 @@ export function PortalDashboardPage() {
             <p className="text-sm font-medium text-gray-900">View financials</p>
             <p className="text-xs text-gray-500 mt-1">
               Browse published reports your bookkeeper has shared.
+            </p>
+          </Link>
+        )}
+        {bankingEnabled && (
+          <Link
+            to="/portal/banking"
+            className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+          >
+            <p className="text-sm font-medium text-gray-900">Balances &amp; activity</p>
+            <p className="text-xs text-gray-500 mt-1">
+              See your bank and card balances and recent activity.
+            </p>
+          </Link>
+        )}
+        {billPayEnabled && (
+          <Link
+            to="/portal/bills"
+            className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+          >
+            <p className="text-sm font-medium text-gray-900">Pay bills</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Review unpaid bills and queue checks for your firm to print.
             </p>
           </Link>
         )}

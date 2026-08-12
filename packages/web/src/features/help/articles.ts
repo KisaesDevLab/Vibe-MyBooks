@@ -18,6 +18,7 @@ export const categories = [
   'Checks',
   'Reports',
   'Trial Balance',
+  'Client Portal',
   'Settings',
   'Security',
   'AI Processing',
@@ -2374,5 +2375,40 @@ Tax-basis-only entries that never touch the books — they shape the Tax column,
 ## Reports & exports
 
 **TB Reports** covers the workpaper, grouped TB, Tax Return Order, Tax-Basis P&L, Flux Analysis, AJE/Bookkeeper listings, Schedule M-1/M-2, Workpaper Index, and Diagnostics — each downloadable as CSV/PDF and available in Report Packs. **Tax Exports** generates UltraTax CS, Lacerte, CCH Axcess, GoSystem RS, generic CSV, or an Excel working trial balance once validation passes; history shows whether the books changed after a file was generated.`,
+  },
+
+  // ─── Client Portal ────────────────────────────────────────────
+  {
+    id: 'portal-banking-views',
+    title: 'Client Portal: balances & account activity',
+    category: 'Client Portal',
+    summary: 'Let portal clients see checking and credit-card book balances and a simplified register on their phone.',
+    body: `When enabled, clients signing into the Client Portal see a **Balances** section: each checking/savings account and credit card with its current **book balance** — what the books say, which can differ from the bank's available balance while checks are outstanding. Credit cards show a positive "balance owed."
+
+Tapping an account opens its activity — a simplified, mobile-friendly register showing date, description, category, check number, payment/deposit, and running balance, with range chips (last 30/90 days, this year), search, and "Load more." Clients never see voided transactions, memos, or reconciliation details.
+
+## Enabling it
+
+1. An administrator turns on **PORTAL_BANKING_V1** in the Feature Flags card (Admin → Tenants → the tenant's page).
+2. In **Practice → Client Portal → Contacts**, edit a contact and switch on **Can view bank & card activity** for the company. It's off by default — you decide who sees the books.
+
+"View as Client" preview works with these pages and stays read-only.`,
+  },
+  {
+    id: 'portal-bill-pay',
+    title: 'Client Portal: clients mark bills for payment',
+    category: 'Client Portal',
+    summary: 'Clients select unpaid bills in the portal; checks queue for the firm to print, and a staff member is emailed.',
+    body: `With bill pay enabled, a portal client sees their company's **unpaid bills** — vendor, invoice number, due date, overdue age, and balance due — selects the ones to pay, and confirms. Each selected bill is paid **in full** (no partial payments from the portal).
+
+On confirm the system posts one bill payment per vendor (several bills to the same vendor combine into one check) drawn on the bank account you configured, and the checks land **unnumbered** in **Checks → Print Checks** with a "Client requested" badge. Nothing negotiable exists until firm staff print through the normal flow — including signature step-up authentication when signature images are configured. The designated staff member (or all owners if none is chosen) gets a **"Checks ready to print"** email listing vendors and amounts with a link to the print queue.
+
+The client's portal shows those payments under "Queued for printing" until you print. Marking is safe against double-pay: bills someone else already paid are skipped, and a simultaneous marking conflict asks the client to refresh.
+
+## Enabling it — three steps, all required
+
+1. An administrator turns on **PORTAL_BILL_PAY_V1** in the Feature Flags card (Admin → Tenants → the tenant's page).
+2. In **Practice → Client Portal → Settings → Client bill pay**, pick — per company — the **checking account** payments draw on and **who gets the email**. Without a bank account set, clients see "contact your accountant" instead of a pay button.
+3. Edit each contact (**Practice → Client Portal → Contacts**) and switch on **Can pay bills** for the company.`,
   },
 ];

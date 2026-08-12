@@ -399,7 +399,14 @@ export function PrintChecksPage() {
                           onClick={(e) => e.stopPropagation()} className="rounded" />
                       </td>
                       <td className="px-6 py-3 text-sm text-gray-500">{item.txnDate}</td>
-                      <td className="px-6 py-3 text-sm text-gray-900">{item.payeeNameOnCheck || item.contactName}</td>
+                      <td className="px-6 py-3 text-sm text-gray-900">
+                        {item.payeeNameOnCheck || item.contactName}
+                        {item.source === 'client_portal' && (
+                          <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 align-middle">
+                            Client requested
+                          </span>
+                        )}
+                      </td>
                       <td className="px-6 py-3 text-sm text-gray-900 text-right font-mono">{formatAmount(item.amount)}</td>
                       <td className="px-6 py-3 text-sm text-gray-500">{item.printedMemo || item.memo || '--'}</td>
                     </tr>

@@ -250,6 +250,9 @@ const PortalQuestionsListPage = lazyNamed(() => import('./features/portal/Portal
 const PortalQuestionDetailPage = lazyNamed(() => import('./features/portal/PortalQuestionsPage'), 'PortalQuestionDetailPage');
 const PortalCapturePage = lazyNamed(() => import('./features/portal/PortalCapturePage'), 'PortalCapturePage');
 const PortalFinancialsPage = lazyNamed(() => import('./features/portal/PortalFinancialsPage'), 'PortalFinancialsPage');
+const PortalBankingPage = lazyNamed(() => import('./features/portal/PortalBankingPage'), 'PortalBankingPage');
+const PortalBankingRegisterPage = lazyNamed(() => import('./features/portal/PortalBankingRegisterPage'), 'PortalBankingRegisterPage');
+const PortalBillsPage = lazyNamed(() => import('./features/portal/PortalBillsPage'), 'PortalBillsPage');
 const RemindersPage = lazyNamed(() => import('./features/practice/reminders/RemindersPage'), 'RemindersPage');
 const ReportBuilderPage = lazyNamed(() => import('./features/practice/report-builder/ReportBuilderPage'), 'ReportBuilderPage');
 // 3-tier rules plan, Phase 1 — firm admin pages.
@@ -356,6 +359,9 @@ export function App() {
             <Route path="questions/:id" element={<PortalQuestionDetailPage />} />
             <Route path="capture" element={<PortalCapturePage />} />
             <Route path="financials" element={<PortalFinancialsPage />} />
+            <Route path="banking" element={<PortalBankingPage />} />
+            <Route path="banking/:accountId" element={<PortalBankingRegisterPage />} />
+            <Route path="bills" element={<PortalBillsPage />} />
           </Route>
 
           {/* Setup wizard */}

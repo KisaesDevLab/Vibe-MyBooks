@@ -28,6 +28,8 @@ export interface PortalContactCompanyLink {
   financialsAccess: boolean;
   filesAccess: boolean;
   questionsForUsAccess: boolean;
+  bankingAccess: boolean;
+  billPayAccess: boolean;
 }
 
 export interface PortalContactDetail {
@@ -54,6 +56,8 @@ export interface CreatePortalContactInput {
     financialsAccess?: boolean;
     filesAccess?: boolean;
     questionsForUsAccess?: boolean;
+    bankingAccess?: boolean;
+    billPayAccess?: boolean;
   }>;
 }
 
@@ -174,5 +178,41 @@ export function useUpdatePortalPracticeSettings() {
       }),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ['practice', 'portal', 'settings', 'practice'] }),
+  });
+}
+
+// Per-company portal settings (PORTAL_BILL_PAY_V1 bank account + notify
+// staff live here alongside the older per-company overrides).
+export interface CompanyPortalSettings {
+  remindersEnabled: boolean | null;
+  reminderCadenceDays: number[] | null;
+  assignableQuestionsEnabled: boolean | null;
+  financialsAccessDefault: boolean | null;
+  filesAccessDefault: boolean | null;
+  previewRequireReauth: boolean;
+  paused: boolean;
+  billPayBankAccountId: string | null;
+  billPayNotifyUserId: string | null;
+}
+
+export function usePortalCompanySettings(companyId: string | null) {
+  return useQuery({
+    queryKey: ['practice', 'portal', 'settings', 'company', companyId],
+    queryFn: () =>
+      apiClient<{ settings: CompanyPortalSettings }>(`/practice/portal/settings/company/${companyId}`),
+    enabled: !!companyId,
+  });
+}
+
+export function useUpdatePortalCompanySettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ companyId, input }: { companyId: string; input: Partial<CompanyPortalSettings> }) =>
+      apiClient<{ settings: CompanyPortalSettings }>(`/practice/portal/settings/company/${companyId}`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({ queryKey: ['practice', 'portal', 'settings', 'company', vars.companyId] }),
   });
 }

@@ -52,6 +52,7 @@ export function usePrintQueue(bankAccountId?: string) {
       printedMemo: string | null;
       contactName?: string | null;
       memo?: string | null;
+      source?: string | null;
     }>; total: number }>(`/checks/print-queue${qs ? `?${qs}` : ''}`),
     enabled: !!bankAccountId,
   });

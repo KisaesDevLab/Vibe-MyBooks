@@ -29,9 +29,13 @@ import {
   usePortalContact,
   usePortalPracticeSettings,
   useUpdatePortalPracticeSettings,
+  usePortalCompanySettings,
+  useUpdatePortalCompanySettings,
   type PortalContactSummary,
   type CreatePortalContactInput,
 } from '../../../api/hooks/usePortalContacts';
+import { useAccounts } from '../../../api/hooks/useAccounts';
+import { useQuery } from '@tanstack/react-query';
 import {
   useQuestionsList,
   useQuestionDetail,
@@ -668,6 +672,8 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
     financialsAccess: boolean;
     filesAccess: boolean;
     questionsForUsAccess: boolean;
+    bankingAccess: boolean;
+    billPayAccess: boolean;
   }
   const [assignments, setAssignments] = useState<CoAssign[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -686,6 +692,8 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
         financialsAccess: c.financialsAccess,
         filesAccess: c.filesAccess,
         questionsForUsAccess: c.questionsForUsAccess,
+        bankingAccess: c.bankingAccess,
+        billPayAccess: c.billPayAccess,
       })),
     );
     setHydrated(true);
@@ -706,6 +714,8 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
                 financialsAccess: false,
                 filesAccess: true,
                 questionsForUsAccess: true,
+                bankingAccess: false,
+                billPayAccess: false,
               },
             ]
         : prev.filter((a) => a.companyId !== id),
@@ -745,6 +755,8 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
           financialsAccess: a.financialsAccess,
           filesAccess: a.filesAccess,
           questionsForUsAccess: a.questionsForUsAccess,
+          bankingAccess: a.bankingAccess,
+          billPayAccess: a.billPayAccess,
         })),
       });
       onClose();
@@ -837,6 +849,16 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
                             checked={a.financialsAccess}
                             onChange={(v) => setFlag(c.id, 'financialsAccess', v)}
                           />
+                          <FlagToggle
+                            label="Can view bank & card activity"
+                            checked={a.bankingAccess}
+                            onChange={(v) => setFlag(c.id, 'bankingAccess', v)}
+                          />
+                          <FlagToggle
+                            label="Can pay bills"
+                            checked={a.billPayAccess}
+                            onChange={(v) => setFlag(c.id, 'billPayAccess', v)}
+                          />
                         </div>
                       )}
                     </div>
@@ -845,7 +867,8 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
               )}
             </div>
             <p className="mt-1 text-[11px] text-gray-500">
-              Defaults: questions + receipts on, financials off (you decide who sees the books).
+              Defaults: questions + receipts on; financials, bank activity, and bill pay off
+              (you decide who sees the books and who can queue payments).
             </p>
           </Field>
 
@@ -947,7 +970,106 @@ function SettingsTab() {
           onChange={(v) => toggle({ previewEnabled: v })}
         />
       </Section>
+
+      <BillPaySettingsSection />
     </div>
+  );
+}
+
+// PORTAL_BILL_PAY_V1 — per-company: which bank account client-marked
+// payments draw on, and which staff member is emailed when checks are
+// queued. Both required-ish: without a bank account the portal shows
+// "contact your accountant" to clients who have the toggle on.
+function BillPaySettingsSection() {
+  const { companies } = useCompanyContext();
+  const [companyId, setCompanyId] = useState<string | null>(companies[0]?.id ?? null);
+  const { data, isLoading } = usePortalCompanySettings(companyId);
+  const update = useUpdatePortalCompanySettings();
+  const toast = useToast();
+
+  const { data: accountsData } = useAccounts({ isActive: true, limit: 500, offset: 0 });
+  const bankAccounts = (accountsData?.data ?? []).filter(
+    (a) =>
+      a.accountType === 'asset' &&
+      ['bank', 'checking', 'savings'].includes((a as { detailType?: string | null }).detailType ?? ''),
+  );
+
+  const { data: usersData } = useQuery({
+    queryKey: ['company-users'],
+    queryFn: () => apiClient<{ users: Array<{ id: string; displayName: string; email: string; isActive: boolean }> }>('/company/users'),
+  });
+  const staff = (usersData?.users ?? []).filter((u) => u.isActive);
+
+  const settings = data?.settings;
+
+  const save = (patch: { billPayBankAccountId?: string | null; billPayNotifyUserId?: string | null }) => {
+    if (!companyId) return;
+    update.mutate(
+      { companyId, input: patch },
+      {
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : 'Failed to save bill pay settings.'),
+      },
+    );
+  };
+
+  return (
+    <Section
+      title="Client bill pay"
+      description="Per company: the bank account client-marked bill payments draw on, and who gets the 'checks ready to print' email."
+    >
+      <label className="block text-xs font-medium text-gray-600">
+        Company
+        <select
+          value={companyId ?? ''}
+          onChange={(e) => setCompanyId(e.target.value || null)}
+          className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>{c.businessName}</option>
+          ))}
+        </select>
+      </label>
+
+      {isLoading || !settings ? (
+        <div className="py-4 flex justify-center"><LoadingSpinner /></div>
+      ) : (
+        <>
+          <label className="block text-xs font-medium text-gray-600">
+            Checking account for client-requested payments
+            <select
+              value={settings.billPayBankAccountId ?? ''}
+              onChange={(e) => save({ billPayBankAccountId: e.target.value || null })}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">Not configured — portal bill pay disabled</option>
+              {bankAccounts.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-xs font-medium text-gray-600">
+            Notify when checks are queued
+            <select
+              value={settings.billPayNotifyUserId ?? ''}
+              onChange={(e) => save({ billPayNotifyUserId: e.target.value || null })}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">All owners (default)</option>
+              {staff.map((u) => (
+                <option key={u.id} value={u.id}>{u.displayName} ({u.email})</option>
+              ))}
+            </select>
+          </label>
+          {!settings.billPayBankAccountId && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              No bank account set — contacts with the &quot;Can pay bills&quot; toggle will see
+              &quot;contact your accountant&quot; instead of the pay button.
+            </p>
+          )}
+        </>
+      )}
+    </Section>
   );
 }
 
