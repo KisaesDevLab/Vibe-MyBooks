@@ -50,9 +50,12 @@ suppressions:
   # <Routes>, client-only, and every navigate() target is an
   # app-constructed path — no user-controlled redirect params. The only
   # fix is the react-router 7 major migration (6.x line has no patched
-  # release for CVE-2026-53668), tracked as deliberate deferred work;
-  # re-review these suppressions when that migration lands or if data
-  # routers/SSR are introduced.
+  # release for CVE-2026-53668; scanner confirms the only upgrade path
+  # for CVE-2026-53666/53669 is 7.18.0), tracked as deliberate deferred
+  # work; re-review these suppressions when that migration lands or if
+  # data routers/SSR are introduced. Re-verified 2026-08-12: App.tsx
+  # still uses declarative <BrowserRouter>+<Routes> only — no
+  # createBrowserRouter/RouterProvider/route loaders anywhere in web.
 
   - rule: R-B39C4 # Stored XSS via report-letter bodyHtml (report-letter.service.ts:239)
     reason: >
