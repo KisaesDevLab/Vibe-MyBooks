@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CHECK_LAYOUTS, type CheckLayout } from '@kis-books/shared';
 import { usePrintQueue, usePrintChecks, useCheckSettings } from '../../api/hooks/useChecks';
+import { useMySignatures, useStepUpMethod, useStepUp } from '../../api/hooks/useCheckSignatures';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
@@ -13,7 +14,7 @@ import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { AccountSelector } from '../../components/forms/AccountSelector';
-import { CheckCircle, Printer, AlertTriangle, RotateCcw, Mail } from 'lucide-react';
+import { CheckCircle, Printer, AlertTriangle, RotateCcw, Mail, PenLine, ShieldCheck } from 'lucide-react';
 
 type FlowStep = 'select' | 'rendering' | 'confirm';
 
@@ -35,6 +36,30 @@ export function PrintChecksPage() {
   const { data: settingsData } = useCheckSettings();
   const { data, isLoading, isError, refetch } = usePrintQueue(bankAccountId || undefined);
   const printChecks = usePrintChecks();
+
+  // Signature selection: none available = today's behavior; exactly one =
+  // auto-selected; several = dropdown (plus an explicit "no signature").
+  const { data: mySigData } = useMySignatures();
+  const mySignatures = mySigData?.signatures || [];
+  const [signatureId, setSignatureId] = useState('');
+  const sigDefaulted = useRef(false);
+  useEffect(() => {
+    if (!sigDefaulted.current && mySignatures.length === 1) {
+      setSignatureId(mySignatures[0]!.id);
+      sigDefaulted.current = true;
+    }
+  }, [mySignatures]);
+  const selectedSignature = mySignatures.find((s) => s.id === signatureId);
+
+  // Step-up: a short-lived server-issued token proves fresh re-auth. Kept in
+  // memory only; when it expires mid-session the server's 403 re-prompts.
+  const [stepUp, setStepUp] = useState<{ token: string; expiresAt: string } | null>(null);
+  const [showStepUpModal, setShowStepUpModal] = useState(false);
+  const stepUpIsFresh = !!stepUp && new Date(stepUp.expiresAt).getTime() - 15000 > Date.now();
+  const { data: stepUpMethodData } = useStepUpMethod(!!signatureId);
+  const stepUpMutation = useStepUp();
+  const [stepUpCredential, setStepUpCredential] = useState('');
+  const [stepUpError, setStepUpError] = useState('');
 
   // Default the layout to the tenant's configured check-printing format
   // (Settings → Check Printing). Runs once when settings first load, so a
@@ -101,10 +126,43 @@ export function PrintChecksPage() {
   const selectedItems = items.filter((i) => selected.has(i.id));
   const selectedTotal = selectedItems.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0);
 
+  // Over-cap checks in the selection print with a blank signature line —
+  // derived from data already on the page so the warning shows BEFORE the
+  // operator hits Print (the server enforces the same rule at render/print).
+  const overCapItems = selectedSignature?.maxAmount
+    ? selectedItems.filter((i) => (parseFloat(i.amount) || 0) > Number(selectedSignature.maxAmount))
+    : [];
+
   const handlePrint = async (e: FormEvent) => {
     e.preventDefault();
     if (selected.size === 0 || !bankAccountId) return;
+    // Signature-bearing prints require fresh re-authentication first.
+    if (signatureId && !stepUpIsFresh) {
+      setStepUpCredential('');
+      setStepUpError('');
+      setShowStepUpModal(true);
+      return;
+    }
+    await doPrint(signatureId ? stepUp?.token : undefined);
+  };
 
+  const handleStepUpSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setStepUpError('');
+    try {
+      const method = stepUpMethodData?.method || 'password';
+      const result = await stepUpMutation.mutateAsync(
+        method === 'totp' ? { totpCode: stepUpCredential } : { password: stepUpCredential },
+      );
+      setStepUp({ token: result.stepUpToken, expiresAt: result.expiresAt });
+      setShowStepUpModal(false);
+      await doPrint(result.stepUpToken);
+    } catch (err) {
+      setStepUpError(err instanceof Error ? err.message : 'Verification failed');
+    }
+  };
+
+  const doPrint = async (stepUpToken?: string) => {
     const checkIds = Array.from(selected);
     // Resolve the starting number ONCE for this batch so render and print use
     // the identical value even if the settings query refetches mid-flight.
@@ -122,10 +180,25 @@ export function PrintChecksPage() {
       const res = await fetch(`${import.meta.env.BASE_URL}api/v1/checks/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ checkIds, format, startingCheckNumber: startNum }),
+        body: JSON.stringify({
+          checkIds, format, startingCheckNumber: startNum,
+          ...(signatureId ? { signatureId, stepUpToken } : {}),
+        }),
       });
 
-      if (!res.ok) throw new Error('Failed to render checks');
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        if (body?.error?.code === 'STEP_UP_REQUIRED') {
+          // Grace window expired between prints — clear and re-prompt.
+          setStepUp(null);
+          setFlowStep('select');
+          setStepUpCredential('');
+          setStepUpError('');
+          setShowStepUpModal(true);
+          return;
+        }
+        throw new Error(body?.error?.message || 'Failed to render checks');
+      }
 
       // Server-rendered PDF (vector layout + MICR — print at 100% /
       // "Actual size", never "Fit to page").
@@ -144,6 +217,7 @@ export function PrintChecksPage() {
         checkIds,
         startingCheckNumber: startNum,
         format,
+        ...(signatureId ? { signatureId, stepUpToken } : {}),
       });
 
       // A manual starting number applies to THIS batch only — clear it so the
@@ -224,7 +298,60 @@ export function PrintChecksPage() {
               </div>
             </div>
           </div>
+
+          {/* Signature — only shown when this user is authorized for one */}
+          {mySignatures.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-3">
+              <PenLine className="h-4 w-4 text-gray-500" />
+              {mySignatures.length === 1 ? (
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" className="rounded" checked={!!signatureId}
+                    onChange={(e) => setSignatureId(e.target.checked ? mySignatures[0]!.id : '')} />
+                  Sign checks as <span className="font-medium">{mySignatures[0]!.label}</span>
+                </label>
+              ) : (
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  Sign checks as
+                  <select value={signatureId} onChange={(e) => setSignatureId(e.target.value)}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700">
+                    <option value="">No signature</option>
+                    {mySignatures.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </label>
+              )}
+              {selectedSignature?.maxAmount && (
+                <span className="text-xs text-gray-500">
+                  signs up to ${Number(selectedSignature.maxAmount).toFixed(2)}
+                </span>
+              )}
+              {signatureId && (
+                <span className="ml-auto inline-flex items-center gap-1 text-xs text-gray-500">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {stepUpIsFresh ? 'Identity verified' : 'Verification required at print'}
+                </span>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Over-cap warning — shown BEFORE printing so the operator knows
+            exactly which checks will come out unsigned. */}
+        {signatureId && overCapItems.length > 0 && (
+          <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p className="flex items-center gap-2 font-medium">
+              <AlertTriangle className="h-4 w-4" />
+              {overCapItems.length} of {selectedItems.length} selected check{overCapItems.length > 1 ? 's exceed' : ' exceeds'} the
+              ${Number(selectedSignature!.maxAmount).toFixed(2)} limit for “{selectedSignature!.label}” and will print
+              <span className="font-semibold"> without a signature</span>:
+            </p>
+            <ul className="mt-1 ml-6 list-disc">
+              {overCapItems.slice(0, 5).map((i) => (
+                <li key={i.id}>{i.payeeNameOnCheck || i.contactName} — {formatAmount(i.amount)}</li>
+              ))}
+              {overCapItems.length > 5 && <li>…and {overCapItems.length - 5} more</li>}
+            </ul>
+          </div>
+        )}
 
         {/* Print Queue Table */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
@@ -291,6 +418,38 @@ export function PrintChecksPage() {
           </Button>
         </div>
       </form>
+
+      {/* Step-up re-authentication — required before any signed print */}
+      {showStepUpModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <form onSubmit={handleStepUpSubmit} className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary-600" /> Verify it’s you
+            </h2>
+            <p className="text-sm text-gray-600">
+              Printing checks with the “{selectedSignature?.label}” signature requires re-authentication.
+              {stepUpMethodData?.method === 'totp'
+                ? ' Enter the 6-digit code from your authenticator app.'
+                : ' Enter your account password.'}
+            </p>
+            <Input
+              label={stepUpMethodData?.method === 'totp' ? 'Authenticator code' : 'Password'}
+              type={stepUpMethodData?.method === 'totp' ? 'text' : 'password'}
+              inputMode={stepUpMethodData?.method === 'totp' ? 'numeric' : undefined}
+              autoFocus
+              value={stepUpCredential}
+              onChange={(e) => setStepUpCredential(e.target.value)}
+            />
+            {stepUpError && <p className="text-sm text-red-600">{stepUpError}</p>}
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="secondary" onClick={() => setShowStepUpModal(false)}>Cancel</Button>
+              <Button type="submit" loading={stepUpMutation.isPending} disabled={!stepUpCredential}>
+                Verify &amp; Print
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Post-Print Confirmation Dialog */}
       {flowStep === 'confirm' && (

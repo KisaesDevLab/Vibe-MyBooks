@@ -725,6 +725,27 @@ Before printing, configure your check settings at **Settings > Check Printing**:
 4. Click **Print** — a PDF is generated for your printer
 5. After printing, confirm which checks printed correctly
 
+### Signature Images
+Owners can upload signature images so checks print pre-signed:
+
+- **Upload** — at **Settings > Check Printing**, the owner adds signatures under
+  **Check Signatures** (PNG or JPEG, up to 600×200 pixels). Images are stored
+  encrypted and are never shared outside the app.
+- **Authorize users** — each signature has its own list of users who may print
+  with it. A user with no signature assigned prints checks with a blank
+  signature line for hand-signing.
+- **Amount limit** — a signature can carry an optional maximum amount. Checks
+  over the limit print with a blank signature line instead, and the print page
+  warns you which checks those are before you print.
+- **Verification** — printing with a signature always requires re-entering your
+  password (or your authenticator code if you use two-factor). One verification
+  covers about 10 minutes of printing.
+
+At print time, if you're authorized for one signature it's applied
+automatically; if you're authorized for several, pick one from the dropdown
+(or choose "No signature"). The signature line always prints on top of the
+image.
+
 ### Tips
 - Print a test page on plain paper first to verify alignment
 - If a check didn't print correctly, you can re-queue it

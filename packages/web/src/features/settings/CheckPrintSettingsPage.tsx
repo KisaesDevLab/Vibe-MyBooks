@@ -11,10 +11,15 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { validateRoutingNumber, CHECK_LAYOUTS, type CheckLayout } from '@kis-books/shared';
 import { Printer } from 'lucide-react';
+import { useMe } from '../../api/hooks/useAuth';
+import { CheckSignaturesSection } from './CheckSignaturesSection';
 
 export function CheckPrintSettingsPage() {
   const { data, isLoading, isError, refetch } = useCheckSettings();
   const updateSettings = useUpdateCheckSettings();
+  const { data: meData } = useMe();
+  const isOwner = meData?.user?.role === 'owner'
+    || !!(meData?.user as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
 
   const [form, setForm] = useState({
     format: 'voucher' as CheckLayout,
@@ -360,6 +365,14 @@ export function CheckPrintSettingsPage() {
           Save Settings
         </Button>
       </form>
+
+      {/* Signature library — owner-only (hidden entirely for other roles;
+          the API separately enforces the owner gate). */}
+      {isOwner && (
+        <div className="mt-6">
+          <CheckSignaturesSection />
+        </div>
+      )}
     </div>
   );
 }
