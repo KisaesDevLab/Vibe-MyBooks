@@ -51,6 +51,10 @@ async function setupFetch<T>(path: string, options: RequestInit = {}): Promise<T
 // showing the upload form again (the proxy-timeout failure mode of the old
 // synchronous endpoint).
 const RESTORE_RUN_STORAGE_KEY = 'vmb-restore-run';
+// F22: claim token proving THIS browser performed the install/restore.
+// The server requires it to re-read (or acknowledge) the pending recovery
+// key — the installationId alone is public and must not unlock the key.
+const RECOVERY_CLAIM_STORAGE_KEY = 'vmb-recovery-claim';
 const RESTORE_POLL_INTERVAL_MS = 2500;
 const RESTORE_POLL_MAX_MS = 30 * 60 * 1000; // ~30 min ceiling
 
@@ -230,10 +234,12 @@ export function FirstRunSetupWizard() {
         // F22: setup is done but the recovery key was never acknowledged —
         // re-fetch it from the server-side pending map and render the
         // recovery-key screen.
-        if (status.setupComplete && status.pendingRecoveryKey && status.installationId) {
+        const storedClaimToken = localStorage.getItem(RECOVERY_CLAIM_STORAGE_KEY);
+        if (status.setupComplete && status.pendingRecoveryKey && status.installationId && storedClaimToken) {
           try {
             const pendingRes = await fetch(
-              `${SETUP_API}/pending-recovery-key?installationId=${encodeURIComponent(status.installationId)}`,
+              `${SETUP_API}/pending-recovery-key?installationId=${encodeURIComponent(status.installationId)}` +
+                `&claimToken=${encodeURIComponent(storedClaimToken)}`,
             );
             if (pendingRes.ok) {
               const body = await pendingRes.json();
@@ -472,7 +478,13 @@ export function FirstRunSetupWizard() {
       if (run.status === 'complete') {
         sessionStorage.removeItem(RESTORE_RUN_STORAGE_KEY);
         setRestoreExecuting(false);
-        setRestoreResult(run.result ?? {});
+        const result = run.result ?? {};
+        // F22: keep the claim token so a reload can re-fetch/acknowledge the
+        // pending recovery key surfaced by this restore.
+        if (typeof result['recoveryKeyClaimToken'] === 'string' && result['recoveryKeyClaimToken']) {
+          try { localStorage.setItem(RECOVERY_CLAIM_STORAGE_KEY, String(result['recoveryKeyClaimToken'])); } catch { /* ignore */ }
+        }
+        setRestoreResult(result);
         return;
       }
       if (run.status === 'failed') {
@@ -1142,7 +1154,7 @@ export function FirstRunSetupWizard() {
       updateStep(3, 'active');
 
       // The actual API call
-      const initResult = await setupFetch<{ recoveryKey?: string; installationId?: string }>('/initialize', {
+      const initResult = await setupFetch<{ recoveryKey?: string; installationId?: string; recoveryKeyClaimToken?: string }>('/initialize', {
         method: 'POST',
         body: JSON.stringify({
           db: {
@@ -1201,6 +1213,11 @@ export function FirstRunSetupWizard() {
       }
       if ((initResult as { installationId?: string })?.installationId) {
         setPendingInstallationId((initResult as { installationId?: string }).installationId!);
+      }
+      // Persist the claim token so a reload can re-fetch the pending key
+      // (and acknowledge it) — the server refuses both without it.
+      if (initResult?.recoveryKeyClaimToken) {
+        try { localStorage.setItem(RECOVERY_CLAIM_STORAGE_KEY, initResult.recoveryKeyClaimToken); } catch { /* ignore */ }
       }
 
       // Setup is committed. Wipe the localStorage progress snapshot so a
@@ -1428,18 +1445,20 @@ export function FirstRunSetupWizard() {
             className="w-full"
             disabled={!recoveryKeySaved || !recoveryKeyActionFired}
             onClick={async () => {
-              if (pendingInstallationId) {
+              const claimToken = localStorage.getItem(RECOVERY_CLAIM_STORAGE_KEY);
+              if (pendingInstallationId && claimToken) {
                 try {
                   await fetch(`${SETUP_API}/acknowledge-recovery-key`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ installationId: pendingInstallationId }),
+                    body: JSON.stringify({ installationId: pendingInstallationId, claimToken }),
                   });
                 } catch {
                   // Ignore — acknowledgement is best-effort; the TTL will
                   // clear it soon enough either way.
                 }
               }
+              try { localStorage.removeItem(RECOVERY_CLAIM_STORAGE_KEY); } catch { /* ignore */ }
               navigate('/login');
             }}
           >
@@ -2838,17 +2857,19 @@ export function FirstRunSetupWizard() {
                           // F22: acknowledge the pending key server-side so a
                           // refresh of the wizard URL no longer shows the
                           // recovery screen.
-                          if (recoveryKey && pendingInstallationId) {
+                          const claimToken = localStorage.getItem(RECOVERY_CLAIM_STORAGE_KEY);
+                          if (recoveryKey && pendingInstallationId && claimToken) {
                             try {
                               await fetch(`${SETUP_API}/acknowledge-recovery-key`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ installationId: pendingInstallationId }),
+                                body: JSON.stringify({ installationId: pendingInstallationId, claimToken }),
                               });
                             } catch {
                               // Non-fatal — TTL will clean up.
                             }
                           }
+                          try { localStorage.removeItem(RECOVERY_CLAIM_STORAGE_KEY); } catch { /* ignore */ }
                           navigate('/login');
                         }}
                         disabled={!!recoveryKey && (!recoveryKeySaved || !recoveryKeyActionFired)}
