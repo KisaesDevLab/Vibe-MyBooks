@@ -19,6 +19,7 @@ import {
 } from '../../api/hooks/useBanking';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useVoidTransaction } from '../../api/hooks/useTransactions';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { DatePicker } from '../../components/forms/DatePicker';
@@ -30,7 +31,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/Toaster';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw, ChevronUp, ChevronDown, FileUp } from 'lucide-react';
+import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw, ChevronUp, ChevronDown, FileUp, Ban } from 'lucide-react';
 
 // Open the statement PDF in a new tab via the single-use download token
 // (same pattern as ReportShell's openPdfInTab — window.open can't carry an
@@ -1127,6 +1128,37 @@ export function ReconciliationPage() {
   const recon = reconData?.reconciliation;
   const lines = recon?.lines || [];
 
+  // Void-duplicates-during-reconciliation: void an uncleared worksheet row
+  // (typically a double entry the statement will never match) without
+  // leaving the screen. Void posts reversing entries — never deletes — and
+  // the worksheet refresh drops the row + recomputes totals. Transactions
+  // cleared in a COMPLETED reconciliation are refused server-side.
+  const voidTxn = useVoidTransaction();
+  const [voidTarget, setVoidTarget] = useState<{ transactionId: string; label: string } | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const openVoidDialog = (line: (typeof lines)[number]) => {
+    const amt = parseFloat(line.debit) > 0 ? line.debit : line.credit;
+    setVoidTarget({
+      transactionId: line.transaction_id,
+      label: `${line.txn_date} · ${line.txn_type} · $${parseFloat(amt).toFixed(2)} — ${line.description || line.memo || 'no description'}`,
+    });
+    setVoidReason(`Duplicate entry — voided during reconciliation of ${recon?.statementDate ?? ''}`.trim());
+  };
+  const handleVoidConfirm = () => {
+    if (!voidTarget || !voidReason.trim()) return;
+    voidTxn.mutate({ id: voidTarget.transactionId, reason: voidReason.trim() }, {
+      onSuccess: () => {
+        setVoidTarget(null);
+        refreshRecon.mutate(reconId, {
+          onSuccess: () => toast.success('Transaction voided and removed from the worksheet.'),
+          // The void itself succeeded — never report it as a failure.
+          onError: () => toast.success('Transaction voided — click Refresh transactions to update the worksheet.'),
+        });
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not void the transaction.'),
+    });
+  };
+
   // Bank account (asset): deposit = debit > 0 (money in); payment = credit > 0.
   const isDeposit = (l: (typeof lines)[number]) => parseFloat(l.debit) > 0;
   const amountOf = (l: (typeof lines)[number]) => (isDeposit(l) ? parseFloat(l.debit) : parseFloat(l.credit));
@@ -1425,6 +1457,7 @@ export function ReconciliationPage() {
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('description')}>Description{sortArrow('description')}</th>
               <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('amount')}>Payment{sortArrow('amount')}</th>
               <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('amount')}>Deposit{sortArrow('amount')}</th>
+              {!isComplete && <th className="w-12 px-2 py-2" aria-label="Row actions" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -1436,9 +1469,36 @@ export function ReconciliationPage() {
                 </td>
                 <td className="px-4 py-2">{line.txn_date}</td>
                 <td className="px-4 py-2">{line.txn_type}</td>
-                <td className="px-4 py-2">{line.description || line.memo || '—'}</td>
+                <td className="px-4 py-2">
+                  {line.description || line.memo || '—'}
+                  {line.likely_duplicate && !line.is_cleared && !isComplete && (
+                    <span
+                      className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-xs whitespace-nowrap"
+                      title={`Same amount as a cleared ${line.duplicate_of?.txn_type ?? 'transaction'} on ${line.duplicate_of?.txn_date ?? ''}` +
+                        (line.duplicate_of?.check_number != null ? ` (check #${line.duplicate_of.check_number})` : '') +
+                        ' — if this is a double entry, void it.'}
+                    >
+                      <AlertTriangle className="h-3 w-3" /> Likely duplicate
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-2 text-right font-mono">{parseFloat(line.credit) > 0 ? `$${parseFloat(line.credit).toFixed(2)}` : ''}</td>
                 <td className="px-4 py-2 text-right font-mono">{parseFloat(line.debit) > 0 ? `$${parseFloat(line.debit).toFixed(2)}` : ''}</td>
+                {!isComplete && (
+                  <td className="px-2 py-2 text-right">
+                    {!line.is_cleared && (
+                      <button
+                        type="button"
+                        onClick={() => openVoidDialog(line)}
+                        className="text-gray-300 hover:text-red-600"
+                        title="Void this transaction (e.g. a duplicate entry) — it will be removed from the worksheet"
+                        aria-label="Void transaction"
+                      >
+                        <Ban className="h-4 w-4" />
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -1468,6 +1528,29 @@ export function ReconciliationPage() {
           <Link to={`/reports/reconciliation-detail?reconciliation_id=${reconId}`} className="text-primary-600 hover:underline font-medium">
             View reconciliation report
           </Link>
+        </div>
+      )}
+
+      {/* Void dialog (duplicate cleanup without leaving the worksheet) */}
+      {voidTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-label="Void transaction">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Void Transaction</h2>
+            <p className="text-sm text-gray-700">{voidTarget.label}</p>
+            <p className="text-xs text-gray-500">
+              Voiding posts reversing entries and keeps the transaction in the audit trail — nothing is deleted.
+              The row is removed from this worksheet and the totals recalculate.
+            </p>
+            <textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="Reason..." className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" rows={3} />
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setVoidTarget(null)} disabled={voidTxn.isPending}>Cancel</Button>
+              <Button variant="danger" onClick={handleVoidConfirm} disabled={!voidReason.trim()}
+                loading={voidTxn.isPending || refreshRecon.isPending}>
+                Void
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

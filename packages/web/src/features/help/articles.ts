@@ -582,7 +582,12 @@ There are three ways to start, all from **Banking > Reconcile**:
 
 ### Keeping the Worksheet Current
 - **Refresh transactions** adds anything you entered after starting the reconciliation and removes transactions that were voided in the meantime
-- If a transaction on the worksheet is a duplicate, void it from its detail page, then refresh the worksheet
+
+### Handling Duplicates
+- An uncleared row with the same amount as an already-cleared transaction (same check number, or dated within a few days) gets a **Likely duplicate** badge — the cleared one matched the statement, so its twin is probably a double entry
+- Click the **void icon** on any uncleared row to void it right from the worksheet — a reason is pre-filled, the void posts reversing entries (nothing is deleted), and the row disappears with totals recalculated
+- Nothing is ever voided automatically: two identical legitimate charges do happen, so you always confirm
+- Transactions cleared in a **completed** reconciliation can't be voided — undo that reconciliation first
 
 ### Tips
 - Start with the most recent statement and work backwards if you've never reconciled

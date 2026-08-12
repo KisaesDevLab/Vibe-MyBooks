@@ -361,6 +361,12 @@ export interface ReconciliationLineRow {
   payee_name_on_check: string | null;
   contact_id: string | null;
   contact_name: string | null;
+  // Void-duplicates-during-reconciliation: the parent transaction (void
+  // target) and the server's likely-duplicate flag (uncleared row with a
+  // cleared same-amount twin).
+  transaction_id: string;
+  likely_duplicate?: boolean;
+  duplicate_of?: { txn_date: string; txn_type: string; check_number: number | null; description: string | null } | null;
 }
 
 // Override clearedBalance/difference — the shared `Reconciliation` type
