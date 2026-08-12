@@ -1955,7 +1955,12 @@ One Plaid connection can serve multiple companies. Each maps different accounts.
 - **Delete Connection** — fully removes for all companies (requires admin of all affected companies)
 
 ### Re-Authentication
-If your bank requires re-login, a "Needs Attention" banner appears. Click **Fix Now** to re-authenticate.
+If your bank requires re-login, a "Needs Attention" banner appears on Bank Connections and on the Bank Feed. You have two ways to repair it:
+
+- **Update login / Fix Now** — re-authenticate yourself, in-app, via Plaid's update mode. Nothing is disconnected; mappings and history are untouched.
+- **Email fix link** — send the client who originally connected the bank a secure "fix your bank login" link (same style as connection invites, valid 7 days). They update their credentials on a public page without logging in to MyBooks.
+
+When a client-connected bank breaks, the system also **auto-sends the fix link** to the client of record (at most one every 3 days, three per month per connection). A system administrator can turn auto-send off under Admin > Plaid ("Auto-send fix your bank login links").
 `,
   },
   {

@@ -12,6 +12,8 @@ import { apiClient } from '../client';
 
 export interface BankConnectInviteRow {
   id: string;
+  kind: 'connect' | 'repair';
+  autoSent: boolean;
   recipientName: string;
   recipientEmail: string | null;
   recipientPhone: string | null;

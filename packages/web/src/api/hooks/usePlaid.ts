@@ -201,6 +201,21 @@ export function useCreateUpdateLinkToken() {
   });
 }
 
+// Email/SMS the client of record a public "fix your bank login" link
+// (repair invite, Plaid Link update mode). Server infers the recipient
+// from the item's invite trail unless one is provided.
+export function useSendRepairInvite() {
+  return useMutation({
+    mutationFn: (args: { itemId: string; recipientName?: string; email?: string; phone?: string; message?: string }) => {
+      const { itemId, ...body } = args;
+      return apiClient<{ inviteId: string; channels: Array<'email' | 'sms'>; recipientName: string }>(
+        `/plaid/items/${itemId}/send-repair-invite`,
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+    },
+  });
+}
+
 export function usePlaidActivity(itemId: string) {
   return useQuery({
     queryKey: ['plaid', 'activity', itemId],

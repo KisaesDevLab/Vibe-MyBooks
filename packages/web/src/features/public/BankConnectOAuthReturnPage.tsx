@@ -19,7 +19,7 @@ import { OAUTH_STATE_KEY } from './BankConnectPage';
 
 const MAX_STATE_AGE_MS = 4 * 60 * 60 * 1000;
 
-interface OAuthState { inviteToken: string; linkToken: string; ts: number }
+interface OAuthState { inviteToken: string; linkToken: string; kind?: 'connect' | 'repair'; ts: number }
 
 export function BankConnectOAuthReturnPage() {
   const navigate = useNavigate();
@@ -42,17 +42,21 @@ export function BankConnectOAuthReturnPage() {
     onSuccess: (publicToken, metadata) => {
       void (async () => {
         try {
-          const res = await fetch(`/api/bank-connect/${encodeURIComponent(state!.inviteToken)}/exchange`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              publicToken,
-              institutionId: metadata.institution?.institution_id,
-              institutionName: metadata.institution?.name,
-              accounts: metadata.accounts,
-              linkSessionId: metadata.link_session_id,
-            }),
-          });
+          // Repair invites ran Link in update mode — the item is already
+          // fixed at Plaid; confirm server-side instead of exchanging.
+          const res = state!.kind === 'repair'
+            ? await fetch(`/api/bank-connect/${encodeURIComponent(state!.inviteToken)}/repair-complete`, { method: 'POST' })
+            : await fetch(`/api/bank-connect/${encodeURIComponent(state!.inviteToken)}/exchange`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                publicToken,
+                institutionId: metadata.institution?.institution_id,
+                institutionName: metadata.institution?.name,
+                accounts: metadata.accounts,
+                linkSessionId: metadata.link_session_id,
+              }),
+            });
           if (!res.ok) {
             const body = await res.json().catch(() => ({}));
             setFailed(body?.error?.message || 'The connection could not be saved.');

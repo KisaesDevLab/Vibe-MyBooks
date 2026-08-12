@@ -23,8 +23,10 @@ export const OAUTH_STATE_KEY = 'vmb.bankConnect.oauth';
 
 interface InviteMeta {
   status: string;
+  kind: 'connect' | 'repair';
   recipientName: string;
   firmName: string;
+  institutionName: string | null;
   expiresAt: string;
   connectionsCount: number;
 }
@@ -101,9 +103,32 @@ export function BankConnectPage() {
     }
   }, [token, loadInvite]);
 
+  // Repair invites finish differently: update mode fixed the login inside
+  // Link, so there's no public token to exchange — just confirm server-side.
+  const repairComplete = useCallback(async () => {
+    setStatus('exchanging');
+    try {
+      const res = await fetch(`/api/bank-connect/${encodeURIComponent(token!)}/repair-complete`, { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus('error');
+        setError(body?.error?.message || 'The repair could not be confirmed. Please try again.');
+        return;
+      }
+      setLastResult({ institutionName: body.institutionName ?? null, accountCount: 0 });
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      await loadInvite(true);
+    } catch {
+      setStatus('error');
+      setError('Network problem while confirming the repair — please try again.');
+    }
+  }, [token, loadInvite]);
+
+  const isRepair = meta?.kind === 'repair';
+
   const { open, ready } = usePlaidLink({
     token: linkToken,
-    onSuccess: (pt, m) => { setLinkToken(null); void exchange(pt, m); },
+    onSuccess: (pt, m) => { setLinkToken(null); isRepair ? void repairComplete() : void exchange(pt, m); },
     onExit: () => setLinkToken(null),
   });
   if (linkToken && ready) setTimeout(() => open(), 0);
@@ -120,8 +145,9 @@ export function BankConnectPage() {
         return;
       }
       // Persist for the OAuth return page BEFORE Link opens — an OAuth bank
-      // navigates away from this page entirely.
-      localStorage.setItem(OAUTH_STATE_KEY, JSON.stringify({ inviteToken: token, linkToken: body.linkToken, ts: Date.now() }));
+      // navigates away from this page entirely. kind tells that page whether
+      // to exchange (connect) or just confirm (repair).
+      localStorage.setItem(OAUTH_STATE_KEY, JSON.stringify({ inviteToken: token, linkToken: body.linkToken, kind: meta?.kind ?? 'connect', ts: Date.now() }));
       setLinkToken(body.linkToken);
     } finally {
       setMinting(false);
@@ -167,18 +193,20 @@ export function BankConnectPage() {
           <div className="p-2.5 bg-primary-50 rounded-lg"><Landmark className="h-6 w-6 text-primary-600" /></div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">{meta?.firmName}</h1>
-            <p className="text-sm text-gray-500">Secure bank connection</p>
+            <p className="text-sm text-gray-500">{isRepair ? 'Bank connection repair' : 'Secure bank connection'}</p>
           </div>
         </div>
 
         {status === 'connected' ? (
           <div className="text-center space-y-3 py-2">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
-            <h2 className="text-lg font-semibold text-gray-900">You're all set!</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{isRepair ? 'Connection restored!' : "You're all set!"}</h2>
             <p className="text-sm text-gray-600">
-              {lastResult?.institutionName
-                ? `${lastResult.institutionName} is connected${lastResult.accountCount ? ` (${lastResult.accountCount} account${lastResult.accountCount === 1 ? '' : 's'})` : ''}. `
-                : 'Your bank is connected. '}
+              {isRepair
+                ? `Your ${lastResult?.institutionName || meta?.institutionName || 'bank'} login has been updated and transactions will resume shortly. `
+                : lastResult?.institutionName
+                  ? `${lastResult.institutionName} is connected${lastResult.accountCount ? ` (${lastResult.accountCount} account${lastResult.accountCount === 1 ? '' : 's'})` : ''}. `
+                  : 'Your bank is connected. '}
               {meta?.firmName} has been notified — you can close this page.
             </p>
           </div>
@@ -186,10 +214,11 @@ export function BankConnectPage() {
           <div className="space-y-3">
             <p className="text-gray-700">Hi {meta?.recipientName},</p>
             <p className="text-sm text-gray-600">
-              {meta?.firmName} has asked you to connect your bank account so your bookkeeping stays
-              accurate and up to date. It takes about two minutes.
+              {isRepair
+                ? `${meta?.institutionName || 'Your bank'} has stopped sharing transactions with ${meta?.firmName} — this usually happens after a password change or a security update at your bank. Updating your login takes about a minute.`
+                : `${meta?.firmName} has asked you to connect your bank account so your bookkeeping stays accurate and up to date. It takes about two minutes.`}
             </p>
-            {connectedAlready && (
+            {!isRepair && connectedAlready && (
               <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                 {meta!.connectionsCount} account connection{meta!.connectionsCount === 1 ? '' : 's'} already made with this link — you can add another bank below.
               </p>
@@ -202,7 +231,11 @@ export function BankConnectPage() {
           disabled={minting || status === 'exchanging'}
           className="w-full bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white font-medium rounded-lg px-4 py-3 text-sm"
         >
-          {status === 'exchanging' ? 'Saving your connection…' : minting ? 'Starting…' : status === 'connected' || connectedAlready ? 'Connect another bank' : 'Connect your bank'}
+          {status === 'exchanging'
+            ? (isRepair ? 'Confirming the repair…' : 'Saving your connection…')
+            : minting ? 'Starting…'
+              : isRepair ? (status === 'connected' ? 'Update login again' : 'Fix bank connection')
+                : status === 'connected' || connectedAlready ? 'Connect another bank' : 'Connect your bank'}
         </button>
         {error && status === 'ready' && <p className="text-sm text-red-600">{error}</p>}
 

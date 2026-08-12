@@ -7,7 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from 'react-plaid-link';
 import type { PlaidAccount, PlaidItem } from '@kis-books/shared';
 import { useBankConnections, useDisconnectBank } from '../../api/hooks/useBanking';
-import { usePlaidItems, useCreateLinkToken, useCreateUpdateLinkToken, useExchangeToken, useSyncPlaidItem, useResyncPlaidItem, useUnmapCompany, useTogglePlaidSync, usePlaidActivity } from '../../api/hooks/usePlaid';
+import { usePlaidItems, useCreateLinkToken, useExchangeToken, useSyncPlaidItem, useResyncPlaidItem, useUnmapCompany, useTogglePlaidSync, usePlaidActivity, useSendRepairInvite } from '../../api/hooks/usePlaid';
+import { FixConnectionButton } from './FixConnectionButton';
 import { useToast } from '../../components/ui/Toaster';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -22,7 +23,7 @@ import { apiClient } from '../../api/client';
 import { InviteClientModal } from './InviteClientModal';
 import { useBankConnectInvites, useResendBankConnectInvite, useRevokeBankConnectInvite, type BankConnectInviteRow } from '../../api/hooks/useBankConnectInvites';
 import { useFeatureFlag } from '../../api/hooks/useFeatureFlag';
-import { Landmark, Upload, Unplug, RefreshCw, RotateCcw, AlertTriangle, CheckCircle, Link2, Wrench, Pencil, Share2, Clock, Trash2, Send, Mail, MessageSquare } from 'lucide-react';
+import { Landmark, Upload, Unplug, RefreshCw, RotateCcw, AlertTriangle, CheckCircle, Link2, Pencil, Share2, Clock, Trash2, Send, Mail, MessageSquare } from 'lucide-react';
 
 // The `/plaid/items/:id` detail endpoint returns the item plus its
 // child accounts and the denormalised hiddenAccountCount (accounts
@@ -84,6 +85,11 @@ function BankConnectInvitesCard() {
               {(inv.sentVia === 'email' || inv.sentVia === 'both') && <Mail className="h-3.5 w-3.5" />}
               {(inv.sentVia === 'sms' || inv.sentVia === 'both') && <MessageSquare className="h-3.5 w-3.5" />}
             </span>
+            {inv.kind === 'repair' && (
+              <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                login fix{inv.autoSent ? ' · auto' : ''}
+              </span>
+            )}
             {badge(inv.status)}
             {inv.status === 'connected' && inv.connectionsCount > 0 && (
               <span className="text-xs text-green-700">{inv.connectionsCount} connection{inv.connectionsCount === 1 ? '' : 's'}</span>
@@ -118,31 +124,22 @@ function BankConnectInvitesCard() {
   );
 }
 
-// Repair a broken login via Plaid Link UPDATE MODE: mint an update link
-// token for the item, run Link, then trigger a sync (a successful sync
-// self-heals the item's error status server-side — no webhook required).
-function FixConnectionButton({ itemId, onRepaired }: { itemId: string; onRepaired: () => void }) {
-  const createUpdateLink = useCreateUpdateLinkToken();
-  const [linkToken, setLinkToken] = useState<string | null>(null);
-  const startFix = async () => {
-    const r = await createUpdateLink.mutateAsync(itemId);
-    setLinkToken(r.linkToken);
+// Repair a broken login: staff run Plaid Link update mode in-app, or email
+// the client of record a public fix-login link (repair invite).
+function SendRepairLinkButton({ itemId }: { itemId: string }) {
+  const toast = useToast();
+  const sendRepair = useSendRepairInvite();
+  const send = async () => {
+    try {
+      const r = await sendRepair.mutateAsync({ itemId });
+      toast.success(`Fix-login link sent to ${r.recipientName} (${r.channels.join(' + ')})`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not send the fix link');
+    }
   };
-  const { open, ready } = usePlaidLink({
-    token: linkToken,
-    onSuccess: async () => {
-      setLinkToken(null);
-      // Update mode repairs the existing item — no token exchange needed.
-      // Kick a sync so status heals immediately instead of on the next cycle.
-      try { await apiClient(`/plaid/items/${itemId}/sync`, { method: 'POST', body: JSON.stringify({}) }); } catch { /* scheduler will retry */ }
-      onRepaired();
-    },
-    onExit: () => setLinkToken(null),
-  });
-  if (linkToken && ready) setTimeout(() => open(), 0);
   return (
-    <Button size="sm" variant="secondary" onClick={startFix} loading={createUpdateLink.isPending}>
-      <Wrench className="h-3.5 w-3.5 mr-1" />Fix Now
+    <Button size="sm" variant="secondary" onClick={send} loading={sendRepair.isPending}>
+      <Send className="h-3.5 w-3.5 mr-1" />Email fix link
     </Button>
   );
 }
@@ -304,9 +301,12 @@ export function BankConnectionsPage() {
             <p className="text-sm font-medium text-amber-800">{needsAttention.length} connection{needsAttention.length > 1 ? 's' : ''} need attention</p>
           </div>
           {needsAttention.map((item) => (
-            <div key={item.id} className="mt-2 flex items-center justify-between">
+            <div key={item.id} className="mt-2 flex items-center justify-between gap-2">
               <span className="text-sm text-amber-700">{item.institutionName} — {item.errorMessage || item.itemStatus.replace(/_/g, ' ')}</span>
-              <FixConnectionButton itemId={item.id} onRepaired={() => { toast.success('Connection repaired — syncing now.'); refetch(); }} />
+              <div className="flex items-center gap-2 shrink-0">
+                {invitesEnabled && <SendRepairLinkButton itemId={item.id} />}
+                <FixConnectionButton itemId={item.id} onRepaired={() => { toast.success('Connection repaired — syncing now.'); refetch(); }} />
+              </div>
             </div>
           ))}
         </div>

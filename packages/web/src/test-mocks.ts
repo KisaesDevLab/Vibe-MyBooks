@@ -319,6 +319,7 @@ export const plaidMocks = () => ({
   useSyncPlaidItem: passthroughMutation,
   useResyncPlaidItem: passthroughMutation,
   useCreateUpdateLinkToken: passthroughMutation,
+  useSendRepairInvite: passthroughMutation,
   usePlaidActivity: passthroughQuery({ activity: [] }),
 });
 

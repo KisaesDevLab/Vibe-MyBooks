@@ -25,6 +25,7 @@ export function PlaidConfigPage() {
     webhookUrl: '',
     maxHistoricalDays: 90,
     autoSyncHours: null as number | null,
+    autoRepairInvites: true,
     isActive: true,
   });
   const [saved, setSaved] = useState(false);
@@ -38,6 +39,7 @@ export function PlaidConfigPage() {
         webhookUrl: data.webhookUrl || '',
         maxHistoricalDays: data.maxHistoricalDays || 90,
         autoSyncHours: data.autoSyncHours ?? null,
+        autoRepairInvites: data.autoRepairInvites ?? true,
         isActive: data.isActive ?? true,
       }));
     }
@@ -222,6 +224,25 @@ export function PlaidConfigPage() {
             <p className="text-xs text-gray-500 mt-1">
               Background safety net for installations Plaid webhooks can't reach. Webhooks still sync immediately when they arrive.
             </p>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="flex items-start gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={form.autoRepairInvites}
+                onChange={(e) => setForm((f) => ({ ...f, autoRepairInvites: e.target.checked }))}
+                className="mt-0.5 rounded border-gray-300"
+              />
+              <span>
+                <span className="font-medium">Auto-send "fix your bank login" links</span>
+                <span className="block text-xs text-gray-500">
+                  When a client-connected bank stops syncing because its login broke, email/text the client a
+                  secure repair link automatically (at most one every 3 days, three per month per connection).
+                  Staff can always send repair links manually regardless of this setting.
+                </span>
+              </span>
+            </label>
           </div>
         </div>
 

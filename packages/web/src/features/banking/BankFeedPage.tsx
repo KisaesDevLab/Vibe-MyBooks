@@ -14,6 +14,7 @@ import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
 import { BulkSetNameInput } from './BulkSetNameInput';
+import { BankConnectionErrorBanner } from './BankConnectionErrorBanner';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -454,6 +455,7 @@ export function BankFeedPage() {
           );
         }}
       />
+      <BankConnectionErrorBanner />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900">Bank Feed</h1>
