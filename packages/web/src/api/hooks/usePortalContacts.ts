@@ -81,6 +81,8 @@ export interface PracticePortalSettings {
   announcementEnabled: boolean;
   previewEnabled: boolean;
   previewAllowedRoles: string[];
+  smsOutboundEnabled: boolean;
+  smsAllowMultiSegment: boolean;
 }
 
 export function usePortalContacts(opts?: { status?: string; companyId?: string }) {

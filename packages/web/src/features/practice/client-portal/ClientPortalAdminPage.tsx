@@ -961,6 +961,22 @@ function SettingsTab() {
       </Section>
 
       <Section
+        title="Text messaging (SMS)"
+        description="Outbound texts for reminders and bank-connect invites. Requires an SMS provider under Admin settings; keep off until your number is registered for the destination country (e.g. US 10DLC)."
+      >
+        <ToggleRow
+          label="Enable outbound SMS"
+          checked={settings.smsOutboundEnabled}
+          onChange={(v) => toggle({ smsOutboundEnabled: v })}
+        />
+        <ToggleRow
+          label="Allow multi-segment texts (longer messages, higher cost)"
+          checked={settings.smsAllowMultiSegment}
+          onChange={(v) => toggle({ smsAllowMultiSegment: v })}
+        />
+      </Section>
+
+      <Section
         title="Preview mode (View as Client)"
         description="Lets staff load the portal as a specific contact to verify what they'll see. Wired in Phase 9."
       >
