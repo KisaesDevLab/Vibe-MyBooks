@@ -51,6 +51,10 @@ interface PlaidWebhookLog {
   receivedAt?: string;
   processed?: boolean;
   error?: string | null;
+  institutionName?: string | null;
+  // Items are system-scoped, so one webhook can relate to several tenants
+  // (accounts of one bank login mapped into different companies).
+  tenantNames?: string[];
 }
 
 interface WebhookTestResult {
@@ -512,6 +516,8 @@ export function PlaidConnectionsMonitorPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Time</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Institution</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Tenant(s)</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Type</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Code</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Processed</th>
@@ -521,13 +527,15 @@ export function PlaidConnectionsMonitorPage() {
               {(logData?.logs || []).map((log) => (
                 <tr key={log.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-gray-600 text-xs">{log.receivedAt ? new Date(log.receivedAt).toLocaleString() : '—'}</td>
+                  <td className="px-4 py-2 text-xs">{log.institutionName || '—'}</td>
+                  <td className="px-4 py-2 text-xs">{log.tenantNames && log.tenantNames.length > 0 ? log.tenantNames.join(', ') : '—'}</td>
                   <td className="px-4 py-2 font-mono text-xs">{log.webhookType}</td>
                   <td className="px-4 py-2 font-mono text-xs">{log.webhookCode}</td>
                   <td className="px-4 py-2">{log.processed ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Clock className="h-4 w-4 text-gray-400" />}</td>
                 </tr>
               ))}
               {(!logData?.logs || logData.logs.length === 0) && (
-                <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400">No webhooks received</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">No webhooks received</td></tr>
               )}
             </tbody>
           </table>
