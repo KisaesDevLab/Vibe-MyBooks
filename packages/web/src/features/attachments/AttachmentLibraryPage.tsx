@@ -9,7 +9,7 @@ import { apiClient, getAccessToken, API_BASE } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
-import { Paperclip, Download, Trash2, Eye, X, ChevronRight, User, FileText, FolderOpen, ReceiptText } from 'lucide-react';
+import { Paperclip, Download, Trash2, Eye, X, ChevronRight, User, FileText, FolderOpen, ReceiptText, CalendarRange } from 'lucide-react';
 
 interface LibraryAttachment {
   id: string;
@@ -108,6 +108,12 @@ function AttachmentThumb({ id }: { id: string }) {
   return <img src={url} alt="" className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0" />;
 }
 
+// The date a row displays and filters on: transaction date when linked,
+// else the upload date. Both normalized to yyyy-mm-dd for string compare.
+function effectiveDate(a: LibraryAttachment): string {
+  return a.txnDate || a.createdAt.slice(0, 10);
+}
+
 function fmtSize(bytes: number | null): string {
   if (!bytes) return '';
   if (bytes < 1024) return `${bytes}B`;
@@ -139,6 +145,10 @@ export function AttachmentLibraryPage() {
   // file table is paginated client-side.
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [offset, setOffset] = useState(0);
+  // Date-range filter (yyyy-mm-dd, inclusive). Applied BEFORE grouping so
+  // the folder tree counts reflect the filtered set.
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attachments', 'library'],
@@ -177,7 +187,25 @@ export function AttachmentLibraryPage() {
     },
   });
 
-  const all = useMemo(() => data?.data || [], [data]);
+  const all = useMemo(() => {
+    const rows = data?.data || [];
+    if (!dateFrom && !dateTo) return rows;
+    return rows.filter((a) => {
+      const d = effectiveDate(a);
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }, [data, dateFrom, dateTo]);
+
+  const setDateFilter = (from: string, to: string) => {
+    setDateFrom(from);
+    setDateTo(to);
+    setPreviewId(null);
+    setSelectedIds(new Set());
+    setBulkError(null);
+    setOffset(0);
+  };
 
   // Group by contact
   const byContact = useMemo(() => {
@@ -281,10 +309,13 @@ export function AttachmentLibraryPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Attachment Library</h1>
-        <span className="text-sm text-gray-500">{data?.total ?? all.length} files</span>
+        <span className="text-sm text-gray-500">
+          {(dateFrom || dateTo) ? `${all.length} of ${data?.total ?? 0} files` : `${data?.total ?? all.length} files`}
+        </span>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs + date range filter */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
       <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
         <button
           onClick={() => { setTab('contact'); setExpandedGroup(null); setPreviewId(null); setSelectedIds(new Set()); setBulkError(null); }}
@@ -306,8 +337,41 @@ export function AttachmentLibraryPage() {
         </button>
       </div>
 
+      {/* Date range (transaction date, falling back to upload date) */}
+      <div className="flex items-center gap-2 text-sm">
+        <CalendarRange className="h-4 w-4 text-gray-400" />
+        <input
+          type="date"
+          value={dateFrom}
+          max={dateTo || undefined}
+          onChange={(e) => setDateFilter(e.target.value, dateTo)}
+          className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
+          aria-label="From date"
+        />
+        <span className="text-gray-400">to</span>
+        <input
+          type="date"
+          value={dateTo}
+          min={dateFrom || undefined}
+          onChange={(e) => setDateFilter(dateFrom, e.target.value)}
+          className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
+          aria-label="To date"
+        />
+        {(dateFrom || dateTo) && (
+          <button
+            onClick={() => setDateFilter('', '')}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      </div>
+
       {all.length === 0 ? (
-        <div className="bg-white rounded-lg border p-12 text-center text-gray-500">No attachments yet.</div>
+        <div className="bg-white rounded-lg border p-12 text-center text-gray-500">
+          {(dateFrom || dateTo) && (data?.total ?? 0) > 0 ? 'No attachments in this date range.' : 'No attachments yet.'}
+        </div>
       ) : (
         <div className="flex gap-4">
           {/* Left panel — folder tree */}
