@@ -747,6 +747,21 @@ automatically; if you're authorized for several, pick one from the dropdown
 (or choose "No signature"). The signature line always prints on top of the
 image.
 
+### #10 Envelopes
+You can print standard #10 envelopes (9.5" × 4.125") addressed with your
+company's return address in the top-left corner and the recipient's mailing
+address in the delivery zone:
+
+- **For a check batch** — after printing checks and confirming they printed
+  correctly, click **Print #10 Envelopes** to generate one envelope per check,
+  addressed to each payee.
+- **For any contact** — open the contact from **Contacts** and click
+  **Print #10 Envelope** at the top of the detail page. The envelope uses the
+  contact's billing address (or shipping address if no billing address is set).
+
+Load envelopes in your printer's envelope feed and print the PDF at 100%
+("Actual size").
+
 ### Tips
 - Print a test page on plain paper first to verify alignment
 - If a check didn't print correctly, you can re-queue it
