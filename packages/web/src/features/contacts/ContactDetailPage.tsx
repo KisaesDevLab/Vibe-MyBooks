@@ -18,7 +18,6 @@ export function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useContact(id!);
-  const { data: txnData } = useContactTransactions(id!);
   const deactivateContact = useDeactivateContact();
   const [envelopeLoading, setEnvelopeLoading] = useState(false);
   const [envelopeError, setEnvelopeError] = useState<string | null>(null);
@@ -138,14 +137,7 @@ export function ContactDetailPage() {
         </div>
 
         {/* Transaction History */}
-        <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Transaction History</h2>
-          {(!txnData || txnData.total === 0) ? (
-            <p className="text-sm text-gray-500 text-center py-8">No transactions yet.</p>
-          ) : (
-            <p className="text-sm text-gray-500">{txnData.total} transactions</p>
-          )}
-        </div>
+        <ContactTransactionHistory contactId={contact.id} />
       </div>
 
       {isVendor && <VendorApSection contactId={contact.id} />}
@@ -154,6 +146,100 @@ export function ContactDetailPage() {
 }
 
 const AP_PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
+
+const txnTypeLabels: Record<string, string> = {
+  invoice: 'Invoice',
+  customer_payment: 'Payment',
+  cash_sale: 'Cash Sale',
+  expense: 'Expense',
+  deposit: 'Deposit',
+  transfer: 'Transfer',
+  journal_entry: 'Journal Entry',
+  aje: 'AJE',
+  credit_memo: 'Credit Memo',
+  customer_refund: 'Refund',
+  bill: 'Bill',
+  vendor_credit: 'Vendor Credit',
+  bill_payment: 'Bill Payment',
+  daily_sales: 'Daily Sales',
+};
+
+const txnStatusColors: Record<string, string> = {
+  posted: 'bg-green-100 text-green-700',
+  draft: 'bg-yellow-100 text-yellow-700',
+  void: 'bg-red-100 text-red-700',
+};
+
+function ContactTransactionHistory({ contactId }: { contactId: string }) {
+  const navigate = useNavigate();
+  const [pageSize, setPageSize] = useState('25');
+  const [offset, setOffset] = useState(0);
+  const limit = parseInt(pageSize, 10);
+  const { data, isLoading } = useContactTransactions(contactId, { limit, offset });
+  const txns = data?.data || [];
+
+  return (
+    <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+      <div className="px-6 py-4 border-b">
+        <h2 className="text-lg font-semibold text-gray-800">Transaction History</h2>
+      </div>
+      {isLoading ? (
+        <LoadingSpinner className="py-8" />
+      ) : txns.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-8">No transactions yet.</p>
+      ) : (
+        <table className="min-w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Date</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Type</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Number</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Memo</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Status</th>
+              <th className="text-right text-xs font-medium text-gray-500 uppercase py-2 px-3">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {txns.map((t) => (
+              <tr
+                key={t.id}
+                className="border-b last:border-0 hover:bg-gray-50 cursor-pointer"
+                onClick={() => navigate(`/transactions/${t.id}`)}
+              >
+                <td className="py-2 px-3 text-sm whitespace-nowrap">{t.txnDate}</td>
+                <td className="py-2 px-3 text-sm whitespace-nowrap">{txnTypeLabels[t.txnType] || t.txnType}</td>
+                <td className="py-2 px-3 text-sm font-mono">{t.txnNumber || '—'}</td>
+                <td className="py-2 px-3 text-sm max-w-[16rem] truncate">{t.memo || '—'}</td>
+                <td className="py-2 px-3">
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${txnStatusColors[t.status] || 'bg-gray-100 text-gray-600'}`}>
+                    {t.status}
+                  </span>
+                </td>
+                <td className="py-2 px-3 text-sm text-right font-mono">
+                  ${parseFloat(t.displayTotal ?? t.total ?? '0').toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {!isLoading && txns.length > 0 && (
+        <div className="px-4 pb-3">
+          <Pagination
+            total={data?.total ?? txns.length}
+            limit={limit}
+            offset={offset}
+            onChange={setOffset}
+            unit="transactions"
+            pageSize={pageSize}
+            pageSizeOptions={AP_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(s) => { setPageSize(s); setOffset(0); }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface VendorApSummary {
   unpaidCount: number;

@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Contact, CreateContactInput, UpdateContactInput, ContactFilters } from '@kis-books/shared';
+import type { Contact, CreateContactInput, UpdateContactInput, ContactFilters, Transaction } from '@kis-books/shared';
 import { apiClient, API_BASE, APP_BASE } from '../client';
 
 export function useContacts(filters?: ContactFilters) {
@@ -126,10 +126,14 @@ export function useImportContacts() {
   });
 }
 
-export function useContactTransactions(contactId: string) {
+export function useContactTransactions(contactId: string, pagination?: { limit?: number; offset?: number }) {
+  const params = new URLSearchParams();
+  if (pagination?.limit) params.set('limit', String(pagination.limit));
+  if (pagination?.offset !== undefined) params.set('offset', String(pagination.offset));
+  const qs = params.toString();
   return useQuery({
-    queryKey: ['contacts', contactId, 'transactions'],
-    queryFn: () => apiClient<{ data: unknown[]; total: number }>(`/contacts/${contactId}/transactions`),
+    queryKey: ['contacts', contactId, 'transactions', pagination],
+    queryFn: () => apiClient<{ data: Transaction[]; total: number }>(`/contacts/${contactId}/transactions${qs ? `?${qs}` : ''}`),
     enabled: !!contactId,
   });
 }
