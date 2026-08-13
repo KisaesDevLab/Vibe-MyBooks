@@ -20,6 +20,8 @@ export function ContactDetailPage() {
   const { data, isLoading, isError, refetch } = useContact(id!);
   const { data: txnData } = useContactTransactions(id!);
   const deactivateContact = useDeactivateContact();
+  const [envelopeLoading, setEnvelopeLoading] = useState(false);
+  const [envelopeError, setEnvelopeError] = useState<string | null>(null);
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
   if (isError || !data) return <ErrorMessage onRetry={() => refetch()} />;
@@ -29,6 +31,27 @@ export function ContactDetailPage() {
 
   const handleDeactivate = () => {
     deactivateContact.mutate(contact.id, { onSuccess: () => navigate('/contacts') });
+  };
+
+  // Render a #10 envelope PDF server-side and open it in a new tab to print.
+  const handlePrintEnvelope = async () => {
+    setEnvelopeLoading(true);
+    setEnvelopeError(null);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/contacts/${id}/envelope`, {
+        headers: { Authorization: `Bearer ${token ?? ''}` },
+      });
+      if (!res.ok) throw new Error('Failed to render envelope');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      setEnvelopeError(err instanceof Error ? err.message : 'Failed to render envelope');
+    } finally {
+      setEnvelopeLoading(false);
+    }
   };
 
   return (
@@ -45,15 +68,21 @@ export function ContactDetailPage() {
             </span>
           )}
         </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => navigate(`/contacts/${id}/edit`)}>
-            <Edit className="h-4 w-4 mr-1" /> Edit
-          </Button>
-          {contact.isActive && (
-            <Button variant="danger" size="sm" onClick={handleDeactivate} loading={deactivateContact.isPending}>
-              <UserX className="h-4 w-4 mr-1" /> Deactivate
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={handlePrintEnvelope} loading={envelopeLoading}>
+              <Mail className="h-4 w-4 mr-1" /> Print #10 Envelope
             </Button>
-          )}
+            <Button variant="secondary" size="sm" onClick={() => navigate(`/contacts/${id}/edit`)}>
+              <Edit className="h-4 w-4 mr-1" /> Edit
+            </Button>
+            {contact.isActive && (
+              <Button variant="danger" size="sm" onClick={handleDeactivate} loading={deactivateContact.isPending}>
+                <UserX className="h-4 w-4 mr-1" /> Deactivate
+              </Button>
+            )}
+          </div>
+          {envelopeError && <p className="text-xs text-red-600">{envelopeError}</p>}
         </div>
       </div>
 
