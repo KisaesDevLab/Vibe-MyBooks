@@ -56,7 +56,7 @@ export function ThemeEditor({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     Promise.all([
-      api<{ settings: PracticeSettings }>('/practice/portal/settings/practice'),
+      api<{ settings: PracticeSettings }>('/practice/reports/branding'),
       api<{ templates: Template[] }>('/practice/reports/templates'),
     ])
       .then(([s, t]) => {
@@ -95,10 +95,12 @@ export function ThemeEditor({ onClose }: { onClose: () => void }) {
     setSaving(true);
     try {
       if (scope === 'practice') {
-        // The practice branding endpoint only persists the primary color
-        // and logo URL (see portal-contacts.routes.ts) — the secondary
-        // color field is hidden in this scope so nothing is silently lost.
-        await api('/practice/portal/settings/practice', {
+        // Report Builder branding endpoint (staff-gated like the rest of the
+        // report builder — NOT owner-only): persists only the primary color and
+        // logo URL into the shared portal branding bucket (see
+        // portal-reports.routes.ts /branding). The secondary color field is
+        // hidden in this scope so nothing is silently lost.
+        await api('/practice/reports/branding', {
           method: 'PUT',
           body: JSON.stringify({
             brandingPrimaryColor: theme.primaryColor,
