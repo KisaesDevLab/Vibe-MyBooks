@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
@@ -31,7 +31,22 @@ vi.mock('../../hooks/usePracticeVisibility', () => ({
   usePracticeVisibility: () => practiceVisibilityMock(),
 }));
 
+// usePermissions reads /auth/me (disabled here — no access token) and
+// fails open. Mock it so the quick-actions tests can simulate a
+// restricted bookkeeper without wiring up a full /me payload.
+const canMock = vi.fn((_resource: string, _action?: string) => true);
+vi.mock('../../api/hooks/usePermissions', () => ({
+  usePermissions: () => ({ can: canMock, permissions: undefined, ready: true }),
+}));
+
 import { DashboardPage } from './DashboardPage';
+
+// Renders the current pathname so tests can assert where a shortcut
+// navigated without mounting the real destination pages.
+function LocationProbe() {
+  const loc = useLocation();
+  return <div data-testid="location">{loc.pathname}</div>;
+}
 
 function wrap(ui: ReactNode) {
   const client = new QueryClient({
@@ -39,7 +54,10 @@ function wrap(ui: ReactNode) {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <MemoryRouter>
+        {ui}
+        <LocationProbe />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -55,7 +73,11 @@ const fullSummary = {
     { month: 'Jan 26', revenue: 1000, expenses: 500 },
     { month: 'Feb 26', revenue: 1200, expenses: 600 },
   ] },
-  cashPosition: { bankAccounts: [{ name: 'Main Checking', balance: 8888 }], creditCards: [], totalBank: 8888, totalCC: 0 },
+  cashPosition: {
+    bankAccounts: [{ id: 'acct-chk', name: 'Main Checking', balance: 8888 }],
+    creditCards: [{ id: 'acct-cc', name: 'Biz Visa', balance: -1234 }],
+    totalBank: 8888, totalCC: 1234,
+  },
   receivables: { totalOutstanding: 2000, overdueCount: 1, overdueAmount: 500, invoiceCount: 3 },
   payables: {
     totalOwed: 800, billCount: 2, overdueCount: 0, overdueAmount: 0,
@@ -76,6 +98,8 @@ const fullSummary = {
 describe('DashboardPage', () => {
   beforeEach(() => {
     apiClientMock.mockReset();
+    canMock.mockReset();
+    canMock.mockReturnValue(true);
     practiceVisibilityMock.mockClear();
     practiceVisibilityMock.mockReturnValue({
       ready: true,
@@ -196,5 +220,52 @@ describe('DashboardPage', () => {
     await user.click(screen.getByRole('button', { name: /retry/i }));
     await screen.findByText('$5,556.00');
     expect(apiClientMock.mock.calls.length).toBeGreaterThan(callsBeforeRetry);
+  });
+
+  it('renders every quick-action shortcut and navigates on click', async () => {
+    const user = userEvent.setup();
+    apiClientMock.mockResolvedValue(fullSummary);
+    wrap(<DashboardPage />);
+    const panel = await screen.findByTestId('quick-actions');
+    for (const label of [
+      'Enter Expense', 'Write Check', 'Enter Deposit', 'Transfer Funds', 'Enter Bill',
+      'Pay Bills', 'Print Checks', 'Bank Feed', 'Create Invoice', 'Receive Payment',
+    ]) {
+      expect(within(panel).getByRole('button', { name: label })).toBeInTheDocument();
+    }
+    await user.click(within(panel).getByRole('button', { name: 'Write Check' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/checks/write');
+  });
+
+  it('hides quick actions the user lacks permission for', async () => {
+    canMock.mockImplementation((resource: string) => resource !== 'checks' && resource !== 'pay_bills');
+    apiClientMock.mockResolvedValue(fullSummary);
+    wrap(<DashboardPage />);
+    const panel = await screen.findByTestId('quick-actions');
+    expect(within(panel).queryByRole('button', { name: 'Write Check' })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'Print Checks' })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'Pay Bills' })).not.toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Enter Expense' })).toBeInTheDocument();
+  });
+
+  it('links each cash-position row to that account register', async () => {
+    const user = userEvent.setup();
+    apiClientMock.mockResolvedValue(fullSummary);
+    wrap(<DashboardPage />);
+    await screen.findByText('Net Income (YTD)');
+    await user.click(screen.getByRole('button', { name: /open biz visa register/i }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/accounts/acct-cc/register');
+    await user.click(screen.getByRole('button', { name: /open main checking register/i }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/accounts/acct-chk/register');
+  });
+
+  it('renders cash-position rows as plain text when the API omits account ids', async () => {
+    apiClientMock.mockResolvedValue({
+      ...fullSummary,
+      cashPosition: { bankAccounts: [{ name: 'Legacy Checking', balance: 10 }], creditCards: [], totalBank: 10, totalCC: 0 },
+    });
+    wrap(<DashboardPage />);
+    expect(await screen.findByText('Legacy Checking')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /open legacy checking register/i })).not.toBeInTheDocument();
   });
 });

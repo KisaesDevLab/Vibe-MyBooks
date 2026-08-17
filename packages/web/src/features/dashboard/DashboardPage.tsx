@@ -7,7 +7,9 @@ import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Landmark, FileText, ArrowRight, Wallet, Receipt, Banknote, MessageSquare, Inbox, CalendarClock } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Landmark, FileText, ArrowRight, Wallet, Receipt, Banknote, MessageSquare, Inbox, CalendarClock, CreditCard, PenLine, PiggyBank, ArrowLeftRight, Printer, FilePlus, HandCoins } from 'lucide-react';
+import type { ResourceKey, PermissionAction } from '@kis-books/shared';
+import { usePermissions } from '../../api/hooks/usePermissions';
 import { DashboardAiFooter } from '../../components/ui/DashboardAiFooter';
 import { OnboardingBanner } from './OnboardingBanner';
 import { useMe } from '../../api/hooks/useAuth';
@@ -74,12 +76,67 @@ function StatCard({ title, value, subtitle, icon: Icon, color }: {
   );
 }
 
+// One bank / credit-card line in the Cash Position panel. When the API
+// supplied the account id the whole row is a link to that account's
+// register; older API builds (no id) render the same row as plain text.
+function CashRow({ id, name, icon: Icon, iconClass, amount, amountClass, onOpen }: {
+  id?: string; name: string; icon: React.ElementType; iconClass: string;
+  amount: string; amountClass: string; onOpen: (id: string) => void;
+}) {
+  const inner = (
+    <>
+      <div className="flex items-center gap-2 min-w-0">
+        <Icon className={`h-4 w-4 shrink-0 ${iconClass}`} />
+        <span className="text-sm text-gray-700 truncate">{name}</span>
+      </div>
+      <span className={`text-sm font-mono ${amountClass}`}>{amount}</span>
+    </>
+  );
+  if (!id) return <div className="flex justify-between items-center">{inner}</div>;
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(id)}
+      title={`Open ${name} register`}
+      aria-label={`Open ${name} register`}
+      className="flex justify-between items-center w-full text-left -mx-2 px-2 py-1 rounded-md hover:bg-gray-50 group"
+    >
+      {inner}
+    </button>
+  );
+}
+
+// Dashboard shortcuts — one tap to the everyday entry screens. Each
+// carries the same permission resource its sidebar entry uses, so a
+// restricted bookkeeper never sees a card that would bounce off a
+// RequirePermission guard (can() fails open when the map is absent).
+interface QuickAction {
+  label: string;
+  to: string;
+  icon: React.ElementType;
+  color: string; // icon tile bg
+  resource: ResourceKey;
+  action?: PermissionAction;
+}
+const QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Enter Expense', to: '/transactions/new/expense', icon: Receipt, color: 'bg-orange-100 text-orange-700', resource: 'transactions', action: 'create' },
+  { label: 'Write Check', to: '/checks/write', icon: PenLine, color: 'bg-purple-100 text-purple-700', resource: 'checks', action: 'create' },
+  { label: 'Enter Deposit', to: '/transactions/new/deposit', icon: PiggyBank, color: 'bg-green-100 text-green-700', resource: 'transactions', action: 'create' },
+  { label: 'Transfer Funds', to: '/transactions/new/transfer', icon: ArrowLeftRight, color: 'bg-sky-100 text-sky-700', resource: 'transactions', action: 'create' },
+  { label: 'Enter Bill', to: '/bills/new', icon: FilePlus, color: 'bg-amber-100 text-amber-700', resource: 'bills', action: 'create' },
+  { label: 'Pay Bills', to: '/pay-bills', icon: Banknote, color: 'bg-red-100 text-red-700', resource: 'pay_bills' },
+  { label: 'Print Checks', to: '/checks/print', icon: Printer, color: 'bg-slate-100 text-slate-700', resource: 'checks' },
+  { label: 'Bank Feed', to: '/banking/feed', icon: Inbox, color: 'bg-blue-100 text-blue-700', resource: 'banking' },
+  { label: 'Create Invoice', to: '/invoices/new', icon: FileText, color: 'bg-indigo-100 text-indigo-700', resource: 'invoices', action: 'create' },
+  { label: 'Receive Payment', to: '/receive-payment', icon: HandCoins, color: 'bg-emerald-100 text-emerald-700', resource: 'receive_payment', action: 'create' },
+];
+
 interface BudgetPeriodPerf { revenueActual: number; revenueBudget: number; expenseActual: number; expenseBudget: number; netActual: number; netBudget: number }
 interface BudgetPerf { budgetName: string; budgetId: string; mtd: BudgetPeriodPerf; ytd: BudgetPeriodPerf }
 interface DashboardSummary {
   snapshot: { mtd: { revenue: number; expenses: number; netIncome: number }; ytd: { revenue: number; expenses: number; netIncome: number } } | null;
   trend: { data: Array<{ month: string; revenue: number; expenses: number }> } | null;
-  cashPosition: { bankAccounts: Array<{ name: string; balance: number }>; creditCards: Array<{ name: string; balance: number }>; totalBank: number; totalCC: number } | null;
+  cashPosition: { bankAccounts: Array<{ id?: string; name: string; balance: number }>; creditCards: Array<{ id?: string; name: string; balance: number }>; totalBank: number; totalCC: number } | null;
   receivables: { totalOutstanding: number; overdueCount: number; overdueAmount: number; invoiceCount: number } | null;
   payables: {
     totalOwed: number; billCount: number;
@@ -108,6 +165,9 @@ export function DashboardPage() {
   // flags) — the portal-activity banner only links where the click
   // won't bounce off the PracticeLayout guard.
   const practiceNav = usePracticeVisibility();
+
+  // Per-member permissions gate the quick-action cards (see QUICK_ACTIONS).
+  const { can } = usePermissions();
 
   // One consolidated query instead of the nine independent useQuery calls
   // this used to fire on mount. The backend runs the panels in parallel
@@ -207,9 +267,36 @@ export function DashboardPage() {
     },
   ].filter((r) => r.show);
 
+  const quickActions = QUICK_ACTIONS.filter((a) => can(a.resource, a.action));
+  const openRegister = (id: string) => navigate(`/accounts/${id}/register`);
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+
+      {/* Quick actions — shortcut cards to the everyday entry screens.
+          Filtered by the user's effective permissions so nothing here
+          leads to a "no access" bounce. */}
+      {quickActions.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4" data-testid="quick-actions">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Quick Actions</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+            {quickActions.map((a) => (
+              <button
+                key={a.to}
+                type="button"
+                onClick={() => navigate(a.to)}
+                className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-100 hover:border-primary-300 hover:bg-primary-50 text-left transition-colors"
+              >
+                <span className={`p-2 rounded-lg shrink-0 ${a.color}`}>
+                  <a.icon className="h-4 w-4" />
+                </span>
+                <span className="text-sm font-medium text-gray-800 leading-tight">{a.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* First-run onboarding banner — points new operators at the three
           most common next steps. Self-hides once every step is complete,
@@ -322,7 +409,10 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue vs Expense Chart */}
-        <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+        {/* flex-col so the chart area stretches to whatever height the
+            grid row takes — a long Cash Position list no longer leaves a
+            blank band under the chart. */}
+        <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 shadow-sm p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-700">Revenue vs Expenses</h2>
             <select
@@ -336,20 +426,25 @@ export function DashboardPage() {
               ))}
             </select>
           </div>
+          {/* Chart wrapper: flex-1 (0 basis) + min-height fills the
+              remaining card height, never below 280px; ResponsiveContainer
+              measures it. */}
           {trend?.data && trend.data.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={trend.data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v) => fmt(Number(v))} />
-                <Legend />
-                <Bar dataKey="revenue" name="Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Expenses" fill="#f97316" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="flex-1 min-h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trend.data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(v) => fmt(Number(v))} />
+                  <Legend />
+                  <Bar dataKey="revenue" name="Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expenses" name="Expenses" fill="#f97316" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
-            <div className="h-64 flex items-center justify-center text-gray-400 text-sm">
+            <div className="flex-1 min-h-[256px] flex items-center justify-center text-gray-400 text-sm">
               No transaction data yet. Create some transactions to see the chart.
             </div>
           )}
@@ -361,22 +456,15 @@ export function DashboardPage() {
           {cash?.bankAccounts.length ? (
             <div className="space-y-3">
               {cash.bankAccounts.map((a, i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Landmark className="h-4 w-4 text-blue-500" />
-                    <span className="text-sm text-gray-700">{a.name}</span>
-                  </div>
-                  <span className="text-sm font-mono font-medium">{fmt(a.balance)}</span>
-                </div>
+                <CashRow key={a.id ?? i} id={a.id} name={a.name} icon={Landmark} iconClass="text-blue-500"
+                  amount={fmt(a.balance)} amountClass="font-medium" onOpen={openRegister} />
               ))}
               {cash.creditCards.length > 0 && (
                 <>
                   <hr />
                   {cash.creditCards.map((a, i) => (
-                    <div key={i} className="flex justify-between items-center">
-                      <span className="text-sm text-gray-700">{a.name}</span>
-                      <span className="text-sm font-mono text-red-600">{fmt(Math.abs(a.balance))}</span>
-                    </div>
+                    <CashRow key={a.id ?? i} id={a.id} name={a.name} icon={CreditCard} iconClass="text-red-400"
+                      amount={fmt(Math.abs(a.balance))} amountClass="text-red-600" onOpen={openRegister} />
                   ))}
                 </>
               )}

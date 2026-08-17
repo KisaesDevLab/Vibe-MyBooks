@@ -71,25 +71,33 @@ Once your company is configured, you can start recording transactions, setting u
     body: `
 ## Understanding the Dashboard
 
-The Dashboard gives you a quick overview of your company's financial health.
+The Dashboard gives you a quick overview of your company's financial health and one-click access to the screens you use every day.
+
+### Quick Actions
+The row of shortcut cards under the page title jumps straight to the most common entry screens: **Enter Expense**, **Write Check**, **Enter Deposit**, **Transfer Funds**, **Enter Bill**, **Pay Bills**, **Print Checks**, **Bank Feed**, **Create Invoice**, and **Receive Payment**. Only shortcuts you have permission to use are shown, so a restricted bookkeeper sees a shorter row.
 
 ### Key Metrics
-- **Total Income** — sum of all revenue transactions for the selected period
-- **Total Expenses** — sum of all expense transactions for the selected period
-- **Net Income** — income minus expenses (profit or loss)
-- **Bank Balance** — current balance across all bank accounts
+- **Net Income (YTD)** — revenue minus expenses for the year to date (month-to-date shown beneath)
+- **Revenue (YTD)** and **Expenses (YTD)** — year-to-date totals with the month-to-date figure beneath
+- **Cash Position** — combined balance of all bank accounts, with total credit-card balances beneath
 
-### Charts
-- **Income vs. Expenses** — a bar chart comparing monthly income and expenses over the last 12 months
-- **Expense Breakdown** — a pie chart showing expenses by category
+### Revenue vs Expenses
+A bar chart comparing monthly revenue and expenses. Use the period picker to show the last 3, 6, 12, or 24 months, or year to date — the choice is remembered on this browser.
 
-### Recent Transactions
-The bottom section shows your most recent transactions for quick reference. Click any transaction to view its details.
+### Cash Position
+Lists every active bank account and credit card with its current balance. **Click any line to open that account's register**, where you can review, add, or edit its transactions.
+
+### Receivables, Payables, and Action Items
+- **Receivables** — outstanding and overdue invoice totals, with a link to the AR Aging report
+- **Payables** — total and overdue bills, plus available vendor credits, with a link to the AP Aging report
+- **Action Items** — things that need attention: bank-feed items to review, overdue invoices, accounts due for reconciliation, payments waiting to be deposited, checks in the print queue, and bills overdue or due this week. Each row links to the screen where you handle it.
+
+### Alerts
+Banners appear at the top when a bank connection needs attention, when unprocessed bank-feed transactions are waiting, or (for firms) when client-portal activity needs a reply. A **Budget Performance** panel appears when the company has an active budget.
 
 ### Tips
 - The dashboard reflects data for the **active company** shown in the company switcher at the top of the sidebar
 - All amounts are in your company's configured currency
-- Click on any metric card to navigate to the relevant report
 `,
   },
   {
