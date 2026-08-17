@@ -57,6 +57,29 @@ beforeEach(() => {
   useBankFeedSpy.mockClear();
 });
 
+describe('BankFeedPage — Hide processed default', () => {
+  it('opens with Hide processed ticked and requests actionableOnly:true', () => {
+    renderRoute(<BankFeedPage />);
+    expect(screen.getByLabelText('Hide processed')).toBeChecked();
+    const last = useBankFeedSpy.mock.calls.at(-1)![0] as { actionableOnly?: boolean };
+    expect(last.actionableOnly).toBe(true);
+    // The default is not an "active filter" — no Clear button until the
+    // user deviates from it.
+    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+  });
+
+  it('un-ticking shows everything, and Clear returns to the hidden-processed default', () => {
+    renderRoute(<BankFeedPage />);
+    fireEvent.click(screen.getByLabelText('Hide processed'));
+    let last = useBankFeedSpy.mock.calls.at(-1)![0] as { actionableOnly?: boolean };
+    expect(last.actionableOnly).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.getByLabelText('Hide processed')).toBeChecked();
+    last = useBankFeedSpy.mock.calls.at(-1)![0] as { actionableOnly?: boolean };
+    expect(last.actionableOnly).toBe(true);
+  });
+});
+
 describe('BankFeedPage — Rules filter', () => {
   it('does not request ruleOnly by default', () => {
     renderRoute(<BankFeedPage />);

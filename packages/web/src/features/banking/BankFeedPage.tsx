@@ -81,6 +81,9 @@ function SortHeader({ label, sortKey, currentSort, currentDir, onSort, align }: 
   );
 }
 
+// Default for the "Hide processed" toggle (see actionableOnly below).
+const DEFAULT_ACTIONABLE_ONLY = true;
+
 export function BankFeedPage() {
   // Feed filters persist for the tab session (sessionStorage).
   const [statusFilter, setStatusFilter] = useSessionState<BankFeedStatus | ''>('vibe:bank-feed:status', '');
@@ -104,7 +107,10 @@ export function BankFeedPage() {
   const [startDate, setStartDate] = useSessionState('vibe:bank-feed:startDate', '');
   const [endDate, setEndDate] = useSessionState('vibe:bank-feed:endDate', '');
   const [connectionFilter, setConnectionFilter] = useSessionState('vibe:bank-feed:connection', '');
-  const [actionableOnly, setActionableOnly] = useSessionState('vibe:bank-feed:actionableOnly', false);
+  // "Hide processed" defaults ON — the feed opens showing only the work
+  // still to do (pending / assigned); un-tick to review matched,
+  // categorized, or excluded rows. Session-persisted like the other filters.
+  const [actionableOnly, setActionableOnly] = useSessionState('vibe:bank-feed:actionableOnly', DEFAULT_ACTIONABLE_ONLY);
   const [ruleOnly, setRuleOnly] = useSessionState('vibe:bank-feed:ruleOnly', false);
   const [sortKey, setSortKey] = useState<SortKey>('feedDate');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -357,7 +363,9 @@ export function BankFeedPage() {
   // Rows eligible for selection/bulk actions: pending + assigned.
   const selectableCount = items.filter(isSelectable).length;
   const connections = connectionsData?.connections || [];
-  const hasFilters = search || startDate || endDate || connectionFilter || actionableOnly || ruleOnly;
+  // "Hide processed" only counts as an active filter when it deviates from
+  // its default; Clear returns it to the default rather than switching it off.
+  const hasFilters = search || startDate || endDate || connectionFilter || actionableOnly !== DEFAULT_ACTIONABLE_ONLY || ruleOnly;
 
   // Result toast for "Reprocess Rules" — built from the server counts so
   // the message reflects what actually happened, not what was requested.
@@ -535,7 +543,7 @@ export function BankFeedPage() {
             Rules
           </label>
           {hasFilters && (
-            <button onClick={() => { setSearch(''); setStartDate(''); setEndDate(''); setConnectionFilter(''); setActionableOnly(false); setRuleOnly(false); }}
+            <button onClick={() => { setSearch(''); setStartDate(''); setEndDate(''); setConnectionFilter(''); setActionableOnly(DEFAULT_ACTIONABLE_ONLY); setRuleOnly(false); }}
               className="text-xs text-gray-500 hover:text-gray-700 pb-2">Clear</button>
           )}
           {isFetching && <span className="text-xs text-gray-400 pb-2.5">Loading...</span>}
@@ -655,7 +663,9 @@ export function BankFeedPage() {
 
       {items.length === 0 ? (
         <div className="bg-white rounded-lg border p-12 text-center text-gray-500">
-          No bank feed items.{hasFilters ? ' Try adjusting your filters.' : ' Import a bank statement or connect a bank to get started.'}
+          {actionableOnly && !hasFilters && !statusFilter
+            ? 'All caught up — no unprocessed bank feed items. Un-tick "Hide processed" to see everything.'
+            : <>No bank feed items.{hasFilters ? ' Try adjusting your filters.' : ' Import a bank statement or connect a bank to get started.'}</>}
         </div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">

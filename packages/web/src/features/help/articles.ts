@@ -567,6 +567,8 @@ Imported transactions appear in the **Bank Feed** where you can:
 - **Create** new transactions from them
 - **Categorize** them with the correct accounts
 
+By default the feed opens with **Hide processed** ticked, so you only see transactions that still need work (pending or assigned). Un-tick it to review items you've already matched, categorized, or excluded; **Clear** returns the filters to that default. The setting is remembered for the browser tab.
+
 ### Tips
 - Bank rules can automatically categorize recurring transactions (see Bank Rules article)
 - Review the bank feed regularly to keep your books up to date
