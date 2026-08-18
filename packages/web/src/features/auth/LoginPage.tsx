@@ -158,6 +158,15 @@ export function LoginPage() {
       });
   }, [navigate]);
 
+  // Surface why the app bounced the user here (e.g. the absolute admin
+  // session age was exceeded — see api/client.ts). Read once on mount.
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get('reason');
+    if (reason === 'admin_session_expired') {
+      setError('For security, administrator sessions must be renewed periodically. Please sign in again.');
+    }
+  }, []);
+
   // Fetch available login methods on mount. Failures are silent — we just
   // fall back to the password-only form rather than blocking the page.
   useEffect(() => {

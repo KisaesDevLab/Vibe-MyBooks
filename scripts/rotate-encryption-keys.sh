@@ -21,6 +21,9 @@
 #   scripts/rotate-encryption-keys.sh --apply            # ~1-2 min api outage
 #   scripts/rotate-encryption-keys.sh --apply --keep-installation-key
 #                                                        # rotate PLAID key only
+#   scripts/rotate-encryption-keys.sh --apply --resume-from ~/keyrotate-<ts>
+#                                                        # finish an interrupted --apply
+#                                                        # with the SAME new keys
 #
 # What --apply does, in order:
 #   1. backs up .env and takes a pg_dump into ~/keyrotate-<ts>/ (0700)
@@ -32,23 +35,31 @@
 #   5. starts api + worker, restarts web (stale nginx DNS), checks /health
 #   6. prints the follow-ups: Admin → Security → "Generate new recovery key",
 #      then shred the backup dir once verified.
-# On any failure before step 4 nothing has changed and api/worker are
-# restarted on the OLD keys. Re-running is safe (idempotent).
+# On any failure before step 4 nothing has changed in the DB / .env and
+# api/worker are restarted on the OLD keys. The NEW keys are written to
+# <backup dir>/keys.new BEFORE anything is rewritten, and every signature
+# file gets a .pre-rotation copy, so an interrupted run is finished with
+# `--apply --resume-from <backup dir>` (same keys → idempotent). Never
+# re-run a plain --apply after a partial failure: it would mint different
+# keys and strand any file already rewritten under the first pair.
 
 set -euo pipefail
 
 MODE=""
 KEEP_INSTALL_KEY=0
-for a in "$@"; do
-  case "$a" in
+RESUME_FROM=""
+while [ $# -gt 0 ]; do
+  case "$1" in
     --dry-run) MODE=dry ;;
     --apply) MODE=apply ;;
     --keep-installation-key) KEEP_INSTALL_KEY=1 ;;
-    -h|--help) sed -n '5,40p' "$0"; exit 0 ;;
-    *) echo "unknown arg: $a" >&2; exit 2 ;;
+    --resume-from) shift; RESUME_FROM="${1:-}"; [ -n "$RESUME_FROM" ] || { echo "--resume-from needs a directory" >&2; exit 2; } ;;
+    -h|--help) sed -n '5,46p' "$0"; exit 0 ;;
+    *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
+  shift
 done
-[ -n "$MODE" ] || { echo "usage: $0 --dry-run | --apply [--keep-installation-key]" >&2; exit 2; }
+[ -n "$MODE" ] || { echo "usage: $0 --dry-run | --apply [--keep-installation-key] [--resume-from DIR]" >&2; exit 2; }
 
 DEPLOY_DIR="$(pwd)"
 [ -f "$DEPLOY_DIR/.env" ] || { echo "run from the deployment directory (no .env here: $DEPLOY_DIR)" >&2; exit 2; }
@@ -56,31 +67,39 @@ SCRIPT_TS="$DEPLOY_DIR/packages/api/src/scripts/rotate-encryption-keys.ts"
 [ -f "$SCRIPT_TS" ] || { echo "missing $SCRIPT_TS — pull the repo first" >&2; exit 2; }
 command -v docker >/dev/null || { echo "docker not found" >&2; exit 2; }
 
-envget() { grep -E "^$1=" "$DEPLOY_DIR/.env" | head -1 | cut -d= -f2- | tr -d '\r\n'; }
+# `|| true`: with pipefail a missing key would otherwise abort the script
+# (VITE_PORT is routinely absent from .env).
+envget() { { grep -E "^$1=" "$DEPLOY_DIR/.env" || true; } | head -1 | cut -d= -f2- | tr -d '\r\n'; }
 OLD_PLAID="$(envget PLAID_ENCRYPTION_KEY)"
 OLD_ENC="$(envget ENCRYPTION_KEY)"
 [ -n "$OLD_PLAID" ] || { echo "PLAID_ENCRYPTION_KEY not set in .env" >&2; exit 2; }
 [ -n "$OLD_ENC" ] || { echo "ENCRYPTION_KEY not set in .env" >&2; exit 2; }
 
-NEW_PLAID="$(openssl rand -hex 32)"
-NEW_ENC="$(openssl rand -hex 32)"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
-
-# Where the api's /data lives on the host (sentinel path). Parse compose;
-# fall back to the appliance default.
-DATA_HOST_DIR="$(docker compose config 2>/dev/null | awk '
-  $1=="source:" {src=$2}
-  $1=="target:" && $2=="/data" {print src; exit}')"
-DATA_HOST_DIR="${DATA_HOST_DIR:-/var/lib/vibe/mybooks/data}"
+if [ -n "$RESUME_FROM" ]; then
+  # Reuse the keys minted by the interrupted run so already-rewritten
+  # ciphertexts/files are recognised as "current" and the rest are rotated.
+  [ -f "$RESUME_FROM/keys.new" ] || { echo "no keys.new in $RESUME_FROM — cannot resume" >&2; exit 2; }
+  # shellcheck disable=SC1091
+  . "$RESUME_FROM/keys.new"
+  [ -n "${NEW_PLAID:-}" ] && [ -n "${NEW_ENC:-}" ] || { echo "keys.new is incomplete" >&2; exit 2; }
+  echo "resuming with the keys from $RESUME_FROM/keys.new"
+else
+  NEW_PLAID="$(openssl rand -hex 32)"
+  NEW_ENC="$(openssl rand -hex 32)"
+fi
 
 run_rotate() { # $1 = extra args ("" or "--apply")
   # --user 1001: the entrypoint (which normally drops to uid 1001) is
   # bypassed, and signature files rewritten as root would become
-  # unreadable to the app. -e overrides the env_file value for the NEW key.
+  # unreadable to the app. The keys are passed by NAME (-e VAR, value taken
+  # from this process's environment) so they never appear on the docker
+  # argv / in `ps`.
+  OLD_PLAID_ENCRYPTION_KEY="$OLD_PLAID" PLAID_ENCRYPTION_KEY="$NEW_PLAID" \
   docker compose run --rm --no-deps --user 1001 --entrypoint '' \
     -v "$SCRIPT_TS:/app/packages/api/src/scripts/rotate-encryption-keys.ts:ro" \
-    -e OLD_PLAID_ENCRYPTION_KEY="$OLD_PLAID" \
-    -e PLAID_ENCRYPTION_KEY="$NEW_PLAID" \
+    -e OLD_PLAID_ENCRYPTION_KEY \
+    -e PLAID_ENCRYPTION_KEY \
     api npx tsx packages/api/src/scripts/rotate-encryption-keys.ts $1
 }
 
@@ -93,13 +112,22 @@ if [ "$MODE" = dry ]; then
 fi
 
 # ── APPLY ────────────────────────────────────────────────────────────────
-BK="$HOME/keyrotate-$TS"
-mkdir -p "$BK" && chmod 700 "$BK"
-cp "$DEPLOY_DIR/.env" "$BK/env.before" && chmod 600 "$BK/env.before"
-echo "[1/6] backup: .env → $BK/env.before ; pg_dump → $BK/db.before.sql.gz"
-docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$BK/db.before.sql.gz"
-chmod 600 "$BK/db.before.sql.gz"
-[ -s "$BK/db.before.sql.gz" ] || { echo "pg_dump produced no output — aborting before any change" >&2; exit 1; }
+if [ -n "$RESUME_FROM" ]; then
+  BK="$RESUME_FROM"
+else
+  BK="$HOME/keyrotate-$TS"
+  mkdir -p "$BK" && chmod 700 "$BK"
+fi
+cp "$DEPLOY_DIR/.env" "$BK/env.before-$TS" && chmod 600 "$BK/env.before-$TS"
+# Persist the NEW keys before anything is rewritten: this is what makes an
+# interrupted run resumable (see --resume-from) instead of data-losing.
+umask 077
+printf 'NEW_PLAID=%s\nNEW_ENC=%s\n' "$NEW_PLAID" "$NEW_ENC" > "$BK/keys.new"
+chmod 600 "$BK/keys.new"
+echo "[1/6] backup: .env → $BK/env.before-$TS ; new keys → $BK/keys.new ; pg_dump → $BK/db.before-$TS.sql.gz"
+docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$BK/db.before-$TS.sql.gz"
+chmod 600 "$BK/db.before-$TS.sql.gz"
+[ -s "$BK/db.before-$TS.sql.gz" ] || { echo "pg_dump produced no output — aborting before any change" >&2; exit 1; }
 
 echo "[2/6] stopping api + worker (web stays up)"
 docker compose stop api worker >/dev/null
@@ -113,7 +141,9 @@ restart_on_old() {
 echo "[3/6] re-encrypting every stored credential (single DB transaction)…"
 if ! run_rotate "--apply"; then
   restart_on_old
-  echo "Rotation FAILED — .env unchanged, api/worker restarted on old keys. Backups in $BK. Fix the reported problem and re-run." >&2
+  echo "Rotation FAILED — .env unchanged, api/worker restarted on old keys. Backups in $BK." >&2
+  echo "Fix the reported problem, then finish with the SAME keys:  $0 --apply --resume-from $BK" >&2
+  echo "(do NOT run a plain --apply again — signature files already rewritten would be stranded under the first key pair)" >&2
   exit 1
 fi
 
@@ -132,13 +162,21 @@ PY
 chmod 600 "$DEPLOY_DIR/.env"
 
 if [ "$KEEP_INSTALL_KEY" = 0 ]; then
-  SENT="$DATA_HOST_DIR/.sentinel"
-  if sudo -n test -f "$SENT"; then
-    sudo -n mv "$SENT" "$SENT.pre-rotation-$TS"
-    echo "      moved $SENT aside → preflight will regenerate it under the new ENCRYPTION_KEY"
-  else
-    echo "      (no sentinel at $SENT — nothing to move)"
-  fi
+  # Move the sentinel from INSIDE a one-off api container (same /data
+  # mount, uid 1001): no sudo, no host-path guessing (named volume vs bind
+  # mount). Distinguish "moved" / "none" from a failed command — a silent
+  # miss here would leave the api booting BLOCKED (sentinel decrypt-failed
+  # under the new key) with no hint why.
+  SENT_OUT="$(docker compose run --rm --no-deps --user 1001 --entrypoint '' api sh -c \
+    "if [ -f /data/.sentinel ]; then mv /data/.sentinel /data/.sentinel.pre-rotation-$TS && echo moved; else echo none; fi" 2>&1 | tail -1 || true)"
+  case "$SENT_OUT" in
+    moved) echo "      moved /data/.sentinel aside → preflight will regenerate it under the new ENCRYPTION_KEY" ;;
+    none)  echo "      (no /data/.sentinel — nothing to move)" ;;
+    *)     echo "!! could not move /data/.sentinel ($SENT_OUT)." >&2
+           echo "!! The api will boot BLOCKED (sentinel decrypt failed). Either move it by hand:" >&2
+           echo "!!   docker compose run --rm --no-deps --user 1001 --entrypoint '' api mv /data/.sentinel /data/.sentinel.pre-rotation-$TS" >&2
+           echo "!! or use the diagnostic 'regenerate sentinel' flow after boot." >&2 ;;
+  esac
 fi
 
 echo "[5/6] starting api + worker; restarting web"
@@ -160,4 +198,6 @@ echo "    with the NEW keys; the old recovery file/key are now stale). Store the
 echo "  • Confirm one credential-backed feature works (e.g. Admin → SMS/2FA 'test', a Plaid sync, or Admin → Remote"
 echo "    Backup 'Test Connection'), then shred the backup dir (it holds the OLD keys + a DB dump):"
 echo "      shred -u $BK/* && rmdir $BK      # or keep it offline until you're satisfied"
-echo "  • The previous sentinel is at $DATA_HOST_DIR/.sentinel.pre-rotation-$TS (delete once the api has booted clean)."
+echo "  • The previous sentinel is at /data/.sentinel.pre-rotation-$TS inside the api's data volume, and each rewritten"
+echo "    signature file left a .pre-rotation-<ts> copy next to it (old-key ciphertext) — delete both once the api has"
+echo "    booted clean and signatures print."

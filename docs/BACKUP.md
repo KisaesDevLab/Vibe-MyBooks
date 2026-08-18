@@ -82,10 +82,15 @@ The default budget keeps every part under common proxy upload limits (e.g. Cloud
 
 ### From CLI (Legacy)
 ```bash
-docker exec kisbooks-app sh scripts/backup.sh
+# On the HOST (needs bash, pg_dump and gpg — the api image ships none of them);
+# run from the deployment directory that holds .env:
+bash scripts/backup.sh
 ```
 
-This creates a `.kbk` backup encrypted with `BACKUP_ENCRYPTION_KEY` from your `.env`.
+This creates a `.kbk` backup encrypted with `BACKUP_ENCRYPTION_KEY` from your
+`.env`. The script is bash-only (it hands gpg the passphrase over a private
+file descriptor rather than the command line), so `sh scripts/backup.sh` will
+not work.
 
 ### Automated Schedule
 Set the backup schedule in **Settings > Backup** (None / Daily / Weekly / Monthly). Scheduled backups use the legacy format.

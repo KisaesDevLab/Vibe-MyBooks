@@ -177,6 +177,17 @@ export async function apiClient<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: { message: 'Request failed' } }));
+    // Absolute admin session age (JWT_ADMIN_ABSOLUTE_MAX_AGE) exceeded: a
+    // token refresh cannot fix this (auth_time is carried across refresh),
+    // so the only way forward is a fresh sign-in. Drop the session and send
+    // the user to the login page with a reason instead of leaving admin
+    // pages erroring forever.
+    if (res.status === 403 && body?.error?.code === 'ADMIN_SESSION_EXPIRED') {
+      clearTokens();
+      localStorage.removeItem(IMPERSONATION_KEY);
+      window.location.href = `${import.meta.env.BASE_URL}login?reason=admin_session_expired`;
+      throw new ApiError(body?.error?.message || 'Session expired', 'ADMIN_SESSION_EXPIRED', undefined, 403);
+    }
     throw new ApiError(
       body?.error?.message || 'Request failed',
       body?.error?.code,

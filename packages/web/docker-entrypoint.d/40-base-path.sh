@@ -48,6 +48,14 @@ find /usr/share/nginx/html -type f \
   \( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.map' \) \
   -exec sed -i "s|/__VIBE_BASE_PATH__/|${base}|g" {} +
 
+# The CSP report-uri in the nginx security-headers snippet carries the same
+# sentinel (see packages/web/nginx/security-headers.conf) so violation
+# reports reach the API under a sub-path deployment too. nginx reads its
+# config after this hook runs, so an in-place edit is enough.
+if [ -f /etc/nginx/security-headers.conf ]; then
+  sed -i "s|/__VIBE_BASE_PATH__/|${base}|g" /etc/nginx/security-headers.conf
+fi
+
 # Drop a marker so the active value is observable inside the container
 # (operators can `docker exec ... cat /usr/share/nginx/html/.base-path`).
 echo "$base" > /usr/share/nginx/html/.base-path

@@ -25,6 +25,7 @@ import {
   ListTree,
   MonitorUp,
 } from 'lucide-react';
+import { usePermissions } from '../../api/hooks/usePermissions';
 
 const settingsCards = [
   {
@@ -143,7 +144,21 @@ const settingsCards = [
   },
 ];
 
+// Cards whose pages are gated server-side on company_settings:update
+// (readonly / templated roles get 403 there since 2026-08-18). Hiding them
+// keeps the UI honest with the API; the backend stays the real gate.
+const REQUIRES_COMPANY_SETTINGS_UPDATE = new Set([
+  '/settings/backup',
+  '/settings/export',
+  '/settings/tenant-export',
+  '/settings/tenant-import',
+  '/settings/remote-backup',
+  '/settings/storage',
+]);
+
 export function SettingsPage() {
+  const { can } = usePermissions();
+  const canManageCompany = can('company_settings', 'update');
   const allCards = [
     ...settingsCards,
     {
@@ -184,7 +199,7 @@ export function SettingsPage() {
       <p className="text-sm text-gray-500 mb-6">Manage your company configuration, data, and preferences.</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
-        {allCards.map((card) => (
+        {allCards.filter((card) => canManageCompany || !REQUIRES_COMPANY_SETTINGS_UPDATE.has(card.to)).map((card) => (
           <Link
             key={card.to}
             to={card.to}

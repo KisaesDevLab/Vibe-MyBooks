@@ -196,6 +196,10 @@ DELETE /api/v1/api-keys/:id          # Revoke (soft-delete)
 ```
 
 **Gotchas:**
+- Every `/api-keys` endpoint (create, list, update, revoke) requires an
+  interactive session (JWT). Calling them with an API key returns
+  `403 SESSION_AUTH_REQUIRED` — a leaked key must not be able to mint or
+  manage other keys.
 - Keys are tenant-scoped. A key issued while the user's active tenant was
   "Acme" can only access Acme data, even after the user switches to another
   tenant.

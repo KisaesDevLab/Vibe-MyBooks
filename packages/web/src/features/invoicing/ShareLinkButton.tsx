@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/Button';
-import { Link2, MessageSquare, Check } from 'lucide-react';
+import { Link2, Link2Off, MessageSquare, Check } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 interface Props {
@@ -18,6 +18,7 @@ export function ShareLinkButton({ invoiceId, invoiceNumber, total, contactPhone 
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [revoked, setRevoked] = useState(false);
   const [error, setError] = useState('');
 
   const isMobile = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
@@ -61,6 +62,23 @@ export function ShareLinkButton({ invoiceId, invoiceNumber, total, contactPhone 
     setLoading(false);
   };
 
+  // DELETE …/share-link kills the issued public token: whoever holds the
+  // old URL gets 404; the next "Copy Link" mints a fresh one.
+  const handleRevokeLink = async () => {
+    if (!window.confirm('Revoke the public link for this invoice? Anyone who has the current link will lose access.')) return;
+    setLoading(true);
+    setError('');
+    try {
+      await apiClient(`/invoices/${invoiceId}/share-link`, { method: 'DELETE' });
+      setShareLink(null);
+      setRevoked(true);
+      setTimeout(() => setRevoked(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to revoke link');
+    }
+    setLoading(false);
+  };
+
   const handleTextLink = async () => {
     setLoading(true);
     setError('');
@@ -89,6 +107,12 @@ export function ShareLinkButton({ invoiceId, invoiceNumber, total, contactPhone 
           <MessageSquare className="h-4 w-4 mr-1" /> Text Link
         </Button>
       )}
+      <Button variant="secondary" size="sm" onClick={handleRevokeLink} loading={loading} title="Revoke the public link (a new one is minted on the next Copy Link)">
+        {revoked
+          ? <><Check className="h-4 w-4 mr-1 text-green-600" /> Link revoked</>
+          : <><Link2Off className="h-4 w-4 mr-1" /> Revoke Link</>
+        }
+      </Button>
       {error && (
         <span role="alert" className="text-xs text-red-600 self-center">{error}</span>
       )}

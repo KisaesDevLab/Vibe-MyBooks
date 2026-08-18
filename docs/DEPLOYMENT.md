@@ -68,7 +68,9 @@ Create passphrase-encrypted `.vmb` backups from **Settings > Backup & Restore** 
 
 ### CLI Backup
 ```bash
-docker compose exec api sh scripts/backup.sh
+# On the host (bash + pg_dump + gpg required; the api image has none of them),
+# from the deployment directory that holds .env:
+bash scripts/backup.sh
 ```
 
 ### Automated Backups

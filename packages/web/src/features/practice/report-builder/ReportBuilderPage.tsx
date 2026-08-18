@@ -30,6 +30,7 @@ import {
   Sparkles,
   Archive,
   Link2,
+  Link2Off,
   Check,
 } from 'lucide-react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
@@ -91,6 +92,7 @@ export function ReportBuilderPage() {
   // Row whose share link was just copied (drives the transient "Copied!"
   // affordance on the Copy-link button).
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [revokedId, setRevokedId] = useState<string | null>(null);
   // Initial-load failure state (distinct from per-action errors) so the
   // page can render a Retry instead of spinning forever.
   const [loadFailed, setLoadFailed] = useState(false);
@@ -209,6 +211,24 @@ export function ReportBuilderPage() {
   // published report and copy it to the clipboard. Mirrors the invoice
   // ShareLinkButton: clipboard.writeText with an execCommand fallback for
   // non-HTTPS origins, plus a transient "Copied!" state.
+  // Kill the anonymous link (DELETE …/share-link): anyone holding the old
+  // URL gets 404 from then on; "Copy link" mints a fresh token afterwards.
+  const revokeShareLink = async (i: Instance) => {
+    if (busyId) return;
+    if (!window.confirm('Revoke the client view link for this report? Anyone who has the current link will lose access.')) return;
+    setBusyId(i.id);
+    setError(null);
+    try {
+      await api(`/practice/reports/instances/${i.id}/share-link`, { method: 'DELETE' });
+      setRevokedId(i.id);
+      setTimeout(() => setRevokedId((c) => (c === i.id ? null : c)), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to revoke share link.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const copyShareLink = async (i: Instance) => {
     if (busyId) return;
     setBusyId(i.id);
@@ -451,6 +471,18 @@ export function ReportBuilderPage() {
                               <><Check className="h-3.5 w-3.5 text-green-600" /> Copied!</>
                             ) : (
                               <><Link2 className="h-3.5 w-3.5" /> Copy link</>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => revokeShareLink(i)}
+                            disabled={busy}
+                            title="Revoke the client view link (a new one can be copied afterwards)"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:underline mr-2 disabled:opacity-50"
+                          >
+                            {revokedId === i.id ? (
+                              <><Check className="h-3.5 w-3.5 text-green-600" /> Link revoked</>
+                            ) : (
+                              <><Link2Off className="h-3.5 w-3.5" /> Revoke link</>
                             )}
                           </button>
                           <button
