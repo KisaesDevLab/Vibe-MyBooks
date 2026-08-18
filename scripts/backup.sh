@@ -31,10 +31,12 @@ echo "Dump complete: $(du -h "${BACKUP_DIR}/${FILENAME}" | cut -f1)"
 # Encrypt if key is provided
 if [ -n "${BACKUP_ENCRYPTION_KEY}" ]; then
   echo "Encrypting backup..."
+  # Passphrase via fd 3 (not argv): argv is world-readable in `ps` for the
+  # duration of the encryption.
   gpg --batch --yes --symmetric --cipher-algo AES256 \
-    --passphrase "${BACKUP_ENCRYPTION_KEY}" \
+    --pinentry-mode loopback --passphrase-fd 3 \
     --output "${BACKUP_DIR}/${ENCRYPTED_FILENAME}" \
-    "${BACKUP_DIR}/${FILENAME}"
+    "${BACKUP_DIR}/${FILENAME}" 3< <(printf '%s' "${BACKUP_ENCRYPTION_KEY}")
   rm "${BACKUP_DIR}/${FILENAME}"
   echo "Encrypted: ${ENCRYPTED_FILENAME}"
 else
