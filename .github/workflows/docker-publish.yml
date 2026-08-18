@@ -146,7 +146,7 @@ jobs:
           - vibe-mybooks-web
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           # Only this image's per-arch digests; the build job uploaded
