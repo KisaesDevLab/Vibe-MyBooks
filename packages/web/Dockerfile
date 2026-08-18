@@ -31,6 +31,11 @@ COPY packages/shared/ ./packages/shared/
 COPY packages/web/ ./packages/web/
 
 RUN npm run build --workspace=@kis-books/shared
+# CSP inline-script hash guard: the document CSP below pins the two static
+# inline scripts in index.html (crypto shim + pre-paint theme resolver) by
+# sha256. If either script is edited without updating the hash, the build
+# fails here so the CSP can never silently drift out of sync.
+RUN node -e "const fs=require('fs'),c=require('crypto');const h=fs.readFileSync('packages/web/index.html','utf8');const m=[...h.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)].map(x=>'sha256-'+c.createHash('sha256').update(x[1]).digest('base64'));const want=['sha256-kp4I/hU7BOtqvPhnou0wcu8M6WPZCOX57gNSQ0TFOHw=','sha256-ytvBjpo4wUPLnd0xtdTN66/sq9CnYwbrNmghQJiz7ZE='];if(JSON.stringify(m)!==JSON.stringify(want)){console.error('CSP inline-script hash drift.\\n got:',m,'\\nwant:',want,'\\nUpdate the hashes in packages/web/Dockerfile.');process.exit(1)}console.log('[csp] inline-script hashes verified')"
 RUN npm run build --workspace=@kis-books/web
 
 # ── Stage 2: serve ────────────────────────────────────────────────
@@ -51,7 +56,7 @@ LABEL org.opencontainers.image.source="https://github.com/KisaesDevLab/Vibe-MyBo
 # so each static location includes this snippet explicitly. CSP for the
 # document is intentionally NOT set here (Plaid Link / Stripe / Turnstile
 # script origins vary per deployment); set it at the edge if desired.
-RUN printf 'add_header Strict-Transport-Security "max-age=15552000; includeSubDomains" always;\nadd_header X-Content-Type-Options "nosniff" always;\nadd_header X-Frame-Options "SAMEORIGIN" always;\nadd_header Referrer-Policy "strict-origin-when-cross-origin" always;\nadd_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(self)" always;\n' > /etc/nginx/security-headers.conf
+RUN printf 'add_header Strict-Transport-Security "max-age=15552000; includeSubDomains" always;\nadd_header X-Content-Type-Options "nosniff" always;\nadd_header X-Frame-Options "SAMEORIGIN" always;\nadd_header Referrer-Policy "strict-origin-when-cross-origin" always;\nadd_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(self)" always;\nadd_header Content-Security-Policy-Report-Only "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; script-src 'self' 'sha256-kp4I/hU7BOtqvPhnou0wcu8M6WPZCOX57gNSQ0TFOHw=' 'sha256-ytvBjpo4wUPLnd0xtdTN66/sq9CnYwbrNmghQJiz7ZE=' https://cdn.plaid.com https://js.stripe.com https://challenges.cloudflare.com; connect-src 'self' https://*.plaid.com https://api.stripe.com https://production.plaid.com https://sandbox.plaid.com; frame-src 'self' https://cdn.plaid.com https://*.plaid.com https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com; report-uri /api/v1/csp-report" always;\n' > /etc/nginx/security-headers.conf
 
 # SPA fallback: unknown paths fall through to index.html so client-side
 # routing works on refresh. /api and /oauth are proxied to the API
