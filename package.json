@@ -35,7 +35,7 @@
     "node": ">=24.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "^1.62.1",
     "husky": "9.1.7",
     "lint-staged": "16.4.0"
   },
