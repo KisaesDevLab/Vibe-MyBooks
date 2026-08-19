@@ -442,62 +442,79 @@ export function InvoiceForm() {
             })}
           </div>
 
-          {/* ── Mobile: compact card layout ── */}
-          <div className="md:hidden space-y-2">
+          {/* ── Mobile: labelled card per line. Every control keeps the
+              standard py-2 / text-sm height so the row reads as one form,
+              and the tag picker is present here too (it was desktop-only). ── */}
+          <div className="md:hidden space-y-3">
             {lines.map((line, i) => {
               const lineAmount = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
+              const lbl = 'block text-xs font-medium text-gray-500 uppercase mb-1';
               return (
-                <div key={i} className="border border-gray-200 rounded-lg p-2.5 space-y-2">
-                  {/* Row 1: Account/Item selector + delete */}
-                  <div className="flex gap-2 items-start">
-                    <div className="flex-1">
-                      {line.entryMode === 'item' ? (
-                        <SearchableDropdown
-                          options={itemOptions}
-                          value={line.itemId}
-                          onChange={(val) => handleItemSelect(i, val)}
-                          placeholder="Select item..."
-                        />
-                      ) : (
-                        <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
-                      )}
-                    </div>
+                <div key={i} className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3">
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-700">Line {i + 1}</span>
                     {lines.length > 1 && (
-                      <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500 mt-2 shrink-0">
-                        <Trash2 className="h-4 w-4" />
+                      <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500" aria-label={`Remove line ${i + 1}`}>
+                        <Trash2 className="h-4 w-4" /> Remove
                       </button>
                     )}
                   </div>
-
-                  {/* Row 2: Description */}
-                  <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
-                    className="block w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm" placeholder="Description" />
-
-                  {/* Row 3: Qty × Rate = Amount */}
-                  <div className="flex items-center gap-2">
-                    <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
-                      className="w-14 rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-center shrink-0" type="number" min="0" step="any" placeholder="Qty" />
-                    <span className="text-gray-400 text-xs shrink-0">&times;</span>
-                    <div className="flex-1"><MoneyInput value={line.unitPrice} onChange={(v) => updateLine(i, 'unitPrice', v)} /></div>
-                    <span className="text-gray-400 text-xs shrink-0">=</span>
-                    <span className="font-mono font-semibold text-sm w-20 text-right shrink-0">${lineAmount.toFixed(2)}</span>
+                  <div className="col-span-2">
+                    <span className={lbl}>{line.entryMode === 'item' ? 'Item' : 'Account'}</span>
+                    {line.entryMode === 'item' ? (
+                      <SearchableDropdown
+                        options={itemOptions}
+                        value={line.itemId}
+                        onChange={(val) => handleItemSelect(i, val)}
+                        placeholder="Select item..."
+                      />
+                    ) : (
+                      <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
+                    )}
                   </div>
-
-                  {/* Row 4: Tax toggle (compact) */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={line.isTaxable}
-                      onChange={(e) => setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, isTaxable: e.target.checked } : l))}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                    <span className="text-gray-600 text-xs">Tax</span>
+                  <div className="col-span-2">
+                    <span className={lbl}>Description</span>
+                    <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
+                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Description" />
+                  </div>
+                  <div className="col-span-1">
+                    <span className={lbl}>Qty</span>
+                    <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
+                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" type="number" min="0" step="any" placeholder="Qty" />
+                  </div>
+                  <div className="col-span-1">
+                    <span className={lbl}>Rate</span>
+                    <MoneyInput value={line.unitPrice} onChange={(v) => updateLine(i, 'unitPrice', v)} />
+                  </div>
+                  <div className="col-span-1">
+                    <span className={lbl}>Taxable</span>
+                    <label className="inline-flex h-[38px] items-center gap-2 text-sm text-gray-700">
+                      <input type="checkbox" checked={line.isTaxable}
+                        onChange={(e) => setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, isTaxable: e.target.checked } : l))}
+                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                      {line.isTaxable ? 'Yes' : 'No'}
+                    </label>
+                  </div>
+                  <div className="col-span-1">
                     {line.isTaxable && (
                       <>
+                        <span className={lbl}>Tax %</span>
                         <input type="number" step="0.0001" value={line.taxRate}
                           onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
-                          className="w-16 rounded border border-gray-300 px-1.5 py-0.5 text-xs text-right" />
-                        <span className="text-xs text-gray-400">%</span>
+                          className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
                       </>
                     )}
                   </div>
+                  <div className="col-span-2 text-right">
+                    <span className={lbl}>Amount</span>
+                    <div className="font-mono text-base font-semibold text-gray-900 leading-[38px]">${lineAmount.toFixed(2)}</div>
+                  </div>
+                  {ENTRY_FORMS_V2 && (
+                    <div className="col-span-2">
+                      <span className={lbl}>Tag</span>
+                      <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
+                    </div>
+                  )}
                 </div>
               );
             })}

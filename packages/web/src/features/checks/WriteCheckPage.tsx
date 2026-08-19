@@ -216,8 +216,9 @@ export function WriteCheckPage() {
           <h2 className="text-sm font-medium text-gray-700 mb-3">
             Expense Line Items
           </h2>
-          <table className="min-w-full">
-            <thead>
+          {/* Phones: labelled card per line; md+: the table. */}
+          <table className="w-full">
+            <thead className="hidden md:table-header-group">
               <tr>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">
                   Account
@@ -236,46 +237,52 @@ export function WriteCheckPage() {
                 <th className="w-10 pb-2" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="block space-y-3 md:table-row-group md:space-y-0">
               {lines.map((line, i) => (
-                <tr key={i}>
-                  <td className="pr-2 py-1">
+                <tr key={i} className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3 md:table-row md:border-0 md:bg-transparent md:p-0 md:align-top">
+                  <td className="col-span-2 md:table-cell md:pr-2 md:py-1">
+                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Account</span>
                     <AccountSelector
                       value={line.accountId}
                       onChange={(v) => updateLine(i, 'accountId', v)}
                     />
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="col-span-2 md:table-cell md:px-2 md:py-1">
+                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Amount</span>
                     <MoneyInput
                       value={line.amount}
                       onChange={(v) => updateLine(i, 'amount', v)}
                     />
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="col-span-2 md:table-cell md:px-2 md:py-1">
+                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Description</span>
                     <input
                       value={line.description}
                       onChange={(e) =>
                         updateLine(i, 'description', e.target.value)
                       }
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                       placeholder="Description"
                     />
                   </td>
                   {ENTRY_FORMS_V2 && (
-                    <td className="px-2 py-1">
+                    <td className="col-span-2 order-last md:order-none md:table-cell md:px-2 md:py-1">
+                      <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Tag</span>
                       <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                     </td>
                   )}
-                  <td className="pl-2 py-1">
+                  <td className="col-span-2 order-first flex items-center justify-between md:order-none md:table-cell md:pl-2 md:py-1">
+                    <span className="md:hidden text-xs font-semibold text-gray-700">Line {i + 1}</span>
                     {lines.length > 1 && (
                       <button
                         type="button"
                         onClick={() =>
                           setLines((p) => p.filter((_, idx) => idx !== i))
                         }
-                        className="text-gray-400 hover:text-red-500"
+                        className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500"
+                        aria-label={`Remove line ${i + 1}`}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" /><span className="md:hidden">Remove</span>
                       </button>
                     )}
                   </td>

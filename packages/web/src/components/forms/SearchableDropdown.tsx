@@ -228,8 +228,12 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
         onKeyDown={handleKeyDown}
         className={clsx(
           'block w-full border focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500',
+          // `compact` only tightens horizontal padding: the control keeps the
+          // standard py-2 / text-sm height so a compact selector sits flush
+          // with the MoneyInput / text inputs / tag picker beside it in an
+          // entry row (mixed heights read as broken on phones).
           compact
-            ? 'rounded px-1.5 py-1 text-xs border-gray-300'
+            ? 'rounded-lg px-2 py-2 text-sm border-gray-300'
             : 'rounded-lg px-3 py-2 text-sm border-gray-300',
           value ? 'text-gray-900' : 'text-gray-500',
         )}

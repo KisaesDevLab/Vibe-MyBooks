@@ -241,26 +241,35 @@ export function JournalEntryForm() {
                   } : undefined}
                   line1={
                     <>
-                      <div className="flex-1 min-w-0">
+                      {/* Phones: account full width, debit + credit split the
+                          next row (with labels); md+: the dense single row. */}
+                      <div className="w-full md:w-auto md:flex-1 min-w-0">
+                        <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Account</span>
                         <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
                       </div>
-                      <div className="w-32">
+                      <div className="flex-1 min-w-0 md:flex-none md:w-32">
+                        <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Debit</span>
                         <MoneyInput value={line.debit} onChange={(v) => updateLine(i, 'debit', v)} />
                       </div>
-                      <div className="w-32">
+                      <div className="flex-1 min-w-0 md:flex-none md:w-32">
+                        <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Credit</span>
                         <MoneyInput value={line.credit} onChange={(v) => updateLine(i, 'credit', v)} />
                       </div>
                     </>
                   }
                   line2={
                     <>
-                      <input
-                        value={line.description}
-                        onChange={(e) => updateLine(i, 'description', e.target.value)}
-                        className="flex-1 min-w-0 rounded border border-gray-300 px-3 py-1.5 text-sm"
-                        placeholder="Description"
-                      />
-                      <div className="w-44">
+                      <div className="w-full md:w-auto md:flex-1 min-w-0">
+                        <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Description</span>
+                        <input
+                          value={line.description}
+                          onChange={(e) => updateLine(i, 'description', e.target.value)}
+                          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Description"
+                        />
+                      </div>
+                      <div className="w-full md:w-44">
+                        <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Tag</span>
                         <LineTagPicker
                           value={line.tagId}
                           onChange={(tagId, touched) => updateLineTag(i, tagId, touched)}
@@ -273,8 +282,8 @@ export function JournalEntryForm() {
               ))}
             </div>
           ) : (
-            <table className="min-w-full">
-              <thead>
+            <table className="w-full">
+              <thead className="hidden md:table-header-group">
                 <tr>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
@@ -283,19 +292,32 @@ export function JournalEntryForm() {
                   <th className="w-10 pb-2" />
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="block space-y-3 md:table-row-group md:space-y-0">
                 {lines.map((line, i) => (
-                  <tr key={i}>
-                    <td className="pr-2 py-1"><AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} /></td>
-                    <td className="px-2 py-1">
-                      <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
+                  <tr key={i} className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3 md:table-row md:border-0 md:bg-transparent md:p-0">
+                    <td className="col-span-2 md:table-cell md:pr-2 md:py-1">
+                      <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Account</span>
+                      <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
                     </td>
-                    <td className="px-2 py-1"><MoneyInput value={line.debit} onChange={(v) => updateLine(i, 'debit', v)} /></td>
-                    <td className="px-2 py-1"><MoneyInput value={line.credit} onChange={(v) => updateLine(i, 'credit', v)} /></td>
-                    <td className="pl-2 py-1">
+                    <td className="col-span-2 order-last md:order-none md:table-cell md:px-2 md:py-1">
+                      <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Description</span>
+                      <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Description" />
+                    </td>
+                    <td className="col-span-1 md:table-cell md:px-2 md:py-1">
+                      <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Debit</span>
+                      <MoneyInput value={line.debit} onChange={(v) => updateLine(i, 'debit', v)} />
+                    </td>
+                    <td className="col-span-1 md:table-cell md:px-2 md:py-1">
+                      <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Credit</span>
+                      <MoneyInput value={line.credit} onChange={(v) => updateLine(i, 'credit', v)} />
+                    </td>
+                    <td className="col-span-2 order-first flex items-center justify-between md:order-none md:table-cell md:pl-2 md:py-1">
+                      <span className="md:hidden text-xs font-semibold text-gray-700">Line {i + 1}</span>
                       {lines.length > 2 && (
-                        <button type="button" onClick={() => removeLine(i)} className="text-gray-400 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => removeLine(i)} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500" aria-label={`Remove line ${i + 1}`}>
+                          <Trash2 className="h-4 w-4" /><span className="md:hidden">Remove</span>
+                        </button>
                       )}
                     </td>
                   </tr>

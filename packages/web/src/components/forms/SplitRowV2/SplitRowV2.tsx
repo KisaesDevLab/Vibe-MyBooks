@@ -134,8 +134,14 @@ export function SplitRowV2(props: SplitRowV2Props) {
           rather than horizontally scrolling. Line 1 and Line 2 still
           render as separate blocks but the inner fields stack. */}
       <div className={clsx('flex items-center gap-2 flex-wrap md:flex-nowrap', padX, padY)}>
-        <div className="flex-1 min-w-0 flex flex-wrap md:flex-nowrap items-center gap-2">{line1}</div>
-        <div className="flex items-center gap-1">
+        {/* Below md the action icons move into a full-width "Line N" header
+            row ABOVE the fields (order-first) instead of sitting beside them
+            and squeezing the account selector; from md up they stay inline
+            at the end of line 1 as before. */}
+        <div className="w-full md:w-auto md:flex-1 min-w-0 flex flex-wrap md:flex-nowrap items-center gap-2 order-2 md:order-none">{line1}</div>
+        <div className="w-full md:w-auto flex items-center justify-between md:justify-start gap-1 order-1 md:order-none">
+          <span className="md:hidden text-xs font-semibold text-gray-700">Line {index + 1}</span>
+          <span className="flex items-center gap-1">
           {isFirst && onApplyTagToAll && (
             <button
               type="button"
@@ -169,6 +175,7 @@ export function SplitRowV2(props: SplitRowV2Props) {
               <X className="h-4 w-4" />
             </button>
           )}
+          </span>
         </div>
       </div>
 

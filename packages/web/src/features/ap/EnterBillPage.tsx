@@ -372,6 +372,14 @@ export function EnterBillPage() {
   const updateLine = (i: number, field: 'accountId' | 'description' | 'amount', value: string) =>
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
 
+  // ADR 0XY §4.3 — copy the first row's tag to every untouched row (desktop
+  // column header + mobile per-card label share this).
+  const canApplyTagToAll = !!lines[0]?.tagId && lines.length > 1;
+  const applyFirstTagToAll = () => {
+    const firstTag = lines[0]?.tagId ?? null;
+    setLines((prev) => prev.map((l, idx) => (idx === 0 || l.userHasTouchedTag ? l : { ...l, tagId: firstTag })));
+  };
+
   const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
     setLines((prev) =>
       prev.map((l, idx) =>
@@ -672,8 +680,10 @@ export function EnterBillPage() {
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h2 className="text-sm font-medium text-gray-700 mb-3">Expense Lines</h2>
-          <table className="min-w-full">
-            <thead>
+          {/* Phones: labelled card per line (account/description full width,
+              amount + tag paired, "Line N" + Remove); md+: the table. */}
+          <table className="w-full">
+            <thead className="hidden md:table-header-group">
               <tr>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-44">Amount</th>
@@ -682,17 +692,10 @@ export function EnterBillPage() {
                   <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-40">
                     <div className="flex items-center gap-2">
                       <span>Tag</span>
-                      {lines[0]?.tagId && lines.length > 1 && (
+                      {canApplyTagToAll && (
                         <button
                           type="button"
-                          onClick={() => {
-                            const firstTag = lines[0]?.tagId ?? null;
-                            setLines((prev) =>
-                              prev.map((l, idx) =>
-                                idx === 0 || l.userHasTouchedTag ? l : { ...l, tagId: firstTag },
-                              ),
-                            );
-                          }}
+                          onClick={applyFirstTagToAll}
                           className="text-[10px] normal-case font-normal text-primary-600 hover:text-primary-700 underline"
                           title="Copy this row's tag to every untouched row below"
                         >
@@ -705,39 +708,52 @@ export function EnterBillPage() {
                 <th className="w-8 pb-2" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="block space-y-3 md:table-row-group md:space-y-0">
               {lines.map((line, i) => (
-                <tr key={i} className="align-top">
-                  <td className="pr-2 py-1">
+                <tr key={i} className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3 md:table-row md:border-0 md:bg-transparent md:p-0 md:align-top">
+                  <td className="col-span-2 md:table-cell md:pr-2 md:py-1">
+                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Account</span>
                     <AccountSelector
                       value={line.accountId}
                       onChange={(v) => updateLine(i, 'accountId', v)}
                     />
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="col-span-2 md:table-cell md:px-2 md:py-1">
+                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Amount</span>
                     <MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} />
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="col-span-2 md:table-cell md:px-2 md:py-1">
+                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Description</span>
                     <input
                       value={line.description}
                       onChange={(e) => updateLine(i, 'description', e.target.value)}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                       placeholder="Description"
                     />
                   </td>
                   {ENTRY_FORMS_V2 && (
-                    <td className="px-2 py-1">
+                    <td className="col-span-2 order-last md:order-none md:table-cell md:px-2 md:py-1">
+                      <span className="flex md:hidden items-center gap-2 text-xs font-medium text-gray-500 uppercase mb-1">
+                        Tag
+                        {i === 0 && canApplyTagToAll && (
+                          <button type="button" onClick={applyFirstTagToAll} className="text-[10px] normal-case font-normal text-primary-600 underline">
+                            Apply to all
+                          </button>
+                        )}
+                      </span>
                       <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                     </td>
                   )}
-                  <td className="pl-1 py-1 pt-2.5">
+                  <td className="col-span-2 order-first flex items-center justify-between md:order-none md:table-cell md:pl-1 md:py-1 md:pt-2.5">
+                    <span className="md:hidden text-xs font-semibold text-gray-700">Line {i + 1}</span>
                     {lines.length > 1 && (
                       <button
                         type="button"
                         onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))}
-                        className="text-gray-400 hover:text-red-500"
+                        className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500"
+                        aria-label={`Remove line ${i + 1}`}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" /><span className="md:hidden">Remove</span>
                       </button>
                     )}
                   </td>

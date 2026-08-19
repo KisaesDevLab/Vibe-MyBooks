@@ -174,8 +174,11 @@ export function CashSaleForm() {
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h2 className="text-sm font-medium text-gray-700 mb-3">Line Items</h2>
-          <table className="min-w-full">
-            <thead>
+          {/* Nine columns never fit a phone: below lg each line is a labelled
+              card (account + description full width, qty/rate and tax/amount
+              paired, "Line N" + Remove header); lg and up keeps the table. */}
+          <table className="w-full">
+            <thead className="hidden lg:table-header-group">
               <tr>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
@@ -190,41 +193,62 @@ export function CashSaleForm() {
                 <th className="w-8 pb-2" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="block space-y-3 lg:table-row-group lg:space-y-0">
               {lines.map((line, i) => {
                 const lineAmount = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
+                const lbl = 'block lg:hidden text-xs font-medium text-gray-500 uppercase mb-1';
                 return (
-                  <tr key={i} className="align-top">
-                    <td className="pr-2 py-1"><AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} /></td>
-                    <td className="px-2 py-1">
+                  <tr key={i} className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3 lg:table-row lg:border-0 lg:bg-transparent lg:p-0 lg:align-top">
+                    <td className="col-span-2 lg:table-cell lg:pr-2 lg:py-1">
+                      <span className={lbl}>Account</span>
+                      <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
+                    </td>
+                    <td className="col-span-2 lg:table-cell lg:px-2 lg:py-1">
+                      <span className={lbl}>Description</span>
                       <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Description" />
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="col-span-1 lg:table-cell lg:px-2 lg:py-1">
+                      <span className={lbl}>Qty</span>
                       <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center" type="number" min="1" />
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" type="number" min="1" />
                     </td>
-                    <td className="px-2 py-1"><MoneyInput value={line.unitPrice} onChange={(v) => updateLine(i, 'unitPrice', v)} /></td>
-                    <td className="px-2 py-1 text-center pt-2.5">
-                      <input type="checkbox" checked={line.isTaxable} onChange={(e) => updateLine(i, 'isTaxable', e.target.checked)}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                    <td className="col-span-1 lg:table-cell lg:px-2 lg:py-1">
+                      <span className={lbl}>Rate</span>
+                      <MoneyInput value={line.unitPrice} onChange={(v) => updateLine(i, 'unitPrice', v)} />
                     </td>
-                    <td className="px-1 py-1">
+                    <td className="col-span-1 lg:table-cell lg:px-2 lg:py-1 lg:text-center lg:pt-2.5">
+                      <span className={lbl}>Taxable</span>
+                      <label className="inline-flex items-center gap-2 h-[38px] lg:h-auto text-sm text-gray-700 lg:justify-center">
+                        <input type="checkbox" checked={line.isTaxable} onChange={(e) => updateLine(i, 'isTaxable', e.target.checked)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                        <span className="lg:hidden">{line.isTaxable ? 'Yes' : 'No'}</span>
+                      </label>
+                    </td>
+                    <td className="col-span-1 lg:table-cell lg:px-1 lg:py-1">
                       {line.isTaxable && (
-                        <input type="number" step="0.0001" value={line.taxRate} onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
-                          className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right" />
+                        <>
+                          <span className={lbl}>Tax %</span>
+                          <input type="number" step="0.0001" value={line.taxRate} onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
+                            className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                        </>
                       )}
                     </td>
-                    <td className="px-2 py-1 text-right font-mono text-sm pt-2.5">${lineAmount.toFixed(2)}</td>
+                    <td className="col-span-2 lg:table-cell lg:px-2 lg:py-1 lg:text-right lg:pt-2.5">
+                      <span className={lbl}>Amount</span>
+                      <span className="block font-mono text-sm leading-[38px] lg:leading-normal">${lineAmount.toFixed(2)}</span>
+                    </td>
                     {ENTRY_FORMS_V2 && (
-                      <td className="px-1 py-1">
+                      <td className="col-span-2 order-last lg:order-none lg:table-cell lg:px-1 lg:py-1">
+                        <span className={lbl}>Tag</span>
                         <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                       </td>
                     )}
-                    <td className="pl-1 py-1 pt-2.5">
+                    <td className="col-span-2 order-first flex items-center justify-between lg:order-none lg:table-cell lg:pl-1 lg:py-1 lg:pt-2.5">
+                      <span className="lg:hidden text-xs font-semibold text-gray-700">Line {i + 1}</span>
                       {lines.length > 1 && (
-                        <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
-                          <Trash2 className="h-4 w-4" />
+                        <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500" aria-label={`Remove line ${i + 1}`}>
+                          <Trash2 className="h-4 w-4" /><span className="lg:hidden">Remove</span>
                         </button>
                       )}
                     </td>

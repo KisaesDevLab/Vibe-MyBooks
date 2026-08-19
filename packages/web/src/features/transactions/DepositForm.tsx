@@ -145,22 +145,43 @@ export function DepositForm() {
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h2 className="text-sm font-medium text-gray-700 mb-3">Deposit Lines</h2>
+          {/* Phones: each line is a labelled card (every field full width,
+              "Line N" + Remove header). sm and up: the dense flex row. */}
           {lines.map((line, i) => (
-            <div key={i} className="flex flex-wrap gap-3 mb-2 pb-2 sm:pb-0 border-b sm:border-b-0 border-gray-100 last:border-b-0">
-              <div className="w-full sm:flex-1 sm:min-w-[180px]"><ContactSelector value={line.contactId || ''} onChange={(v) => updateLineContact(i, v)} compact /></div>
-              <div className="w-full sm:flex-1 sm:min-w-[216px]"><AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} /></div>
-              <div className="w-full sm:w-44"><MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} /></div>
+            <div key={i} className="flex flex-wrap gap-3 mb-3 rounded-lg border border-gray-200 bg-gray-50/60 p-3 sm:mb-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0">
+              <div className="flex w-full items-center justify-between sm:hidden">
+                <span className="text-xs font-semibold text-gray-700">Line {i + 1}</span>
+                {lines.length > 1 && (
+                  <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500" aria-label={`Remove line ${i + 1}`}>
+                    <Trash2 className="h-4 w-4" /> Remove
+                  </button>
+                )}
+              </div>
+              <div className="w-full sm:flex-1 sm:min-w-[180px]">
+                <span className="block sm:hidden text-xs font-medium text-gray-500 uppercase mb-1">Received from</span>
+                <ContactSelector value={line.contactId || ''} onChange={(v) => updateLineContact(i, v)} compact />
+              </div>
+              <div className="w-full sm:flex-1 sm:min-w-[216px]">
+                <span className="block sm:hidden text-xs font-medium text-gray-500 uppercase mb-1">Account</span>
+                <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
+              </div>
+              <div className="w-full sm:w-44">
+                <span className="block sm:hidden text-xs font-medium text-gray-500 uppercase mb-1">Amount</span>
+                <MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} />
+              </div>
               <div className="w-full sm:flex-1 sm:min-w-[160px]">
+                <span className="block sm:hidden text-xs font-medium text-gray-500 uppercase mb-1">Description</span>
                 <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Description" />
               </div>
               {ENTRY_FORMS_V2 && (
                 <div className="w-full sm:w-40">
+                  <span className="block sm:hidden text-xs font-medium text-gray-500 uppercase mb-1">Tag</span>
                   <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                 </div>
               )}
               {lines.length > 1 && (
-                <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500 self-start sm:self-center">
+                <button type="button" onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="hidden sm:block text-gray-400 hover:text-red-500 self-start sm:self-center" aria-label={`Remove line ${i + 1}`}>
                   <Trash2 className="h-4 w-4" />
                 </button>
               )}

@@ -91,6 +91,14 @@ export function ExpenseForm() {
     setLines((prev) => prev.map((line, i) => i === index ? { ...line, [field]: value } : line));
   };
 
+  // ADR 0XY §4.3 — copy the first row's tag to every untouched row (shared by
+  // the desktop column header and the mobile per-card label).
+  const canApplyTagToAll = !!lines[0]?.tagId && lines.length > 1;
+  const applyFirstTagToAll = () => {
+    const firstTag = lines[0]?.tagId ?? null;
+    setLines((prev) => prev.map((l, idx) => (idx === 0 || l.userHasTouchedTag ? l : { ...l, tagId: firstTag })));
+  };
+
   const updateLineTag = (index: number, tagId: string | null, touched: boolean) => {
     setLines((prev) =>
       prev.map((line, i) =>
@@ -244,8 +252,13 @@ export function ExpenseForm() {
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Line Items</h2>
-          <table className="min-w-full">
-            <thead>
+          {/* Responsive line grid: a real <table> from md up (dense entry,
+              keyboard-friendly), and on phones each line becomes a stacked
+              card — full-width category/description, amount + tag side by
+              side, a "Line N" header with Remove — so every field is
+              readable and tappable instead of four 60px-wide stubs. */}
+          <table className="w-full">
+            <thead className="hidden md:table-header-group">
               <tr>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 pr-2 w-1/3">Category</th>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 px-2 w-44">Amount</th>
@@ -258,17 +271,10 @@ export function ExpenseForm() {
                           untouched row. Skips touched rows so user edits
                           aren't overwritten. Rendered only when the
                           first row actually has a tag to apply. */}
-                      {lines[0]?.tagId && lines.length > 1 && (
+                      {canApplyTagToAll && (
                         <button
                           type="button"
-                          onClick={() => {
-                            const firstTag = lines[0]?.tagId ?? null;
-                            setLines((prev) =>
-                              prev.map((l, idx) =>
-                                idx === 0 || l.userHasTouchedTag ? l : { ...l, tagId: firstTag },
-                              ),
-                            );
-                          }}
+                          onClick={applyFirstTagToAll}
                           className="text-[10px] normal-case font-normal text-primary-600 hover:text-primary-700 underline"
                           title="Copy this row's tag to every untouched row below"
                         >
@@ -281,31 +287,43 @@ export function ExpenseForm() {
                 <th className="w-8 pb-2" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="block space-y-3 md:table-row-group md:space-y-0">
               {lines.map((line, i) => (
-                <tr key={i} className="align-top">
-                  <td className="pr-2 py-1">
+                <tr key={i} className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3 md:table-row md:border-0 md:bg-transparent md:p-0 md:align-top">
+                  <td className="col-span-2 md:table-cell md:pr-2 md:py-1">
+                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Category</span>
                     {/* No account-type filter: an expense can be booked to any
                         account (e.g. a prepaid/fixed asset, a liability paydown,
                         or owner draws), not just expense accounts. */}
                     <AccountSelector value={line.expenseAccountId} onChange={(val) => updateLine(i, 'expenseAccountId', val)} required={i === 0} />
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="col-span-2 md:table-cell md:px-2 md:py-1">
+                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Amount</span>
                     <MoneyInput value={line.amount} onChange={(val) => updateLine(i, 'amount', val)} required={i === 0} />
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="col-span-2 md:table-cell md:px-2 md:py-1">
+                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Description</span>
                     <input type="text" value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)} placeholder="Description"
                       className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
                   </td>
                   {ENTRY_FORMS_V2 && (
-                    <td className="px-2 py-1">
+                    <td className="col-span-2 order-last md:order-none md:table-cell md:px-2 md:py-1">
+                      <span className="flex md:hidden items-center gap-2 text-xs font-medium text-gray-500 uppercase mb-1">
+                        Tag
+                        {i === 0 && canApplyTagToAll && (
+                          <button type="button" onClick={applyFirstTagToAll} className="text-[10px] normal-case font-normal text-primary-600 underline">
+                            Apply to all
+                          </button>
+                        )}
+                      </span>
                       <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
                     </td>
                   )}
-                  <td className="pl-2 py-1">
+                  <td className="col-span-2 order-first flex items-center justify-between md:order-none md:table-cell md:pl-2 md:py-1">
+                    <span className="md:hidden text-xs font-semibold text-gray-700">Line {i + 1}</span>
                     {lines.length > 1 && (
-                      <button type="button" onClick={() => removeLine(i)} className="text-gray-400 hover:text-red-500 transition-colors pt-2">
-                        <Trash2 className="h-4 w-4" />
+                      <button type="button" onClick={() => removeLine(i)} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors md:pt-2" aria-label={`Remove line ${i + 1}`}>
+                        <Trash2 className="h-4 w-4" /><span className="md:hidden">Remove</span>
                       </button>
                     )}
                   </td>
