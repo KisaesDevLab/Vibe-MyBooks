@@ -3,12 +3,12 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Link, Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { SharePanel } from '../../features/share/SharePanel';
 import { TbFocusBridge } from '../../features/tb/TbFocusBridge';
 import { ImpersonationBanner } from './ImpersonationBanner';
-import { Menu } from 'lucide-react';
+import { LayoutDashboard, Menu } from 'lucide-react';
 import { ChatFab } from '../../features/chat/ChatFab';
 import { ChatProvider } from '../../features/chat/ChatController';
 import { useMe } from '../../api/hooks/useAuth';
@@ -140,6 +140,17 @@ export function AppShell() {
           {/* Peer screen share — renders nothing unless the feature is
               enabled for this tenant + user (capabilities probe 404s). */}
           <SharePanel />
+          {/* Dashboard shortcut — mirrors the sidebar's Dashboard entry so
+              the user can get home from anywhere, even with the rail
+              collapsed or the drawer closed. */}
+          <Link
+            to="/"
+            aria-label="Go to dashboard"
+            title="Dashboard"
+            className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100"
+          >
+            <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
+          </Link>
         </div>
         <div className="p-4 lg:p-6">
           <Outlet />
