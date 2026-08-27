@@ -4,10 +4,10 @@
 
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CHECK_LAYOUTS, STEP_UP_REQUIRED, type CheckLayout } from '@kis-books/shared';
-import { usePrintQueue, usePrintChecks, useCheckSettings } from '../../api/hooks/useChecks';
+import { CHECK_LAYOUTS, CHECK_MEMO_PRINT_LIMIT, STEP_UP_REQUIRED, type CheckLayout } from '@kis-books/shared';
+import { usePrintQueue, usePrintChecks, useCheckSettings, useUpdateCheckMemo, CHECK_MEMO_MUTATION_KEY } from '../../api/hooks/useChecks';
 import { useMySignatures, useStepUpMethod, useStepUp } from '../../api/hooks/useCheckSignatures';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useIsMutating } from '@tanstack/react-query';
 import { apiClient, isApiError } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -17,6 +17,75 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { CheckCircle, Printer, AlertTriangle, RotateCcw, Mail, PenLine, ShieldCheck } from 'lucide-react';
 
 type FlowStep = 'select' | 'rendering' | 'confirm';
+
+/**
+ * The memo line as it will print, editable in place. `printedMemo` wins over
+ * the internal memo and an empty string is a real value meaning "no memo",
+ * hence `??` rather than `||`.
+ */
+function MemoCell({ checkId, printedMemo, memo }: {
+  checkId: string;
+  printedMemo: string | null;
+  memo?: string | null;
+}) {
+  const current = printedMemo ?? memo ?? '';
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(current);
+  const updateMemo = useUpdateCheckMemo();
+
+  const open = () => { setDraft(current); setEditing(true); };
+  const commit = () => {
+    setEditing(false);
+    if (draft === current) return;
+    updateMemo.mutate({ id: checkId, printedMemo: draft });
+  };
+
+  if (editing) {
+    return (
+      <div>
+        <input
+          autoFocus
+          value={draft}
+          maxLength={255}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit(); }
+            if (e.key === 'Escape') { e.preventDefault(); setEditing(false); }
+          }}
+          className="block w-full rounded border border-primary-400 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          aria-label="Memo printed on this check"
+        />
+        {draft.length > CHECK_MEMO_PRINT_LIMIT && (
+          <p className="mt-1 text-xs text-amber-600">
+            Only about the first {CHECK_MEMO_PRINT_LIMIT} characters fit on the memo line.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={open}
+        className="group flex w-full items-center gap-1.5 text-left text-sm text-gray-500 hover:text-gray-900"
+        title="Click to edit the memo that prints on this check"
+      >
+        <span className={current ? '' : 'italic text-gray-400'}>
+          {updateMemo.isPending ? draft : current || 'Add memo'}
+        </span>
+        <PenLine className="h-3 w-3 shrink-0 text-gray-300 group-hover:text-primary-600" />
+      </button>
+      {/* The list refetches on failure, so without this the memo would just
+          snap back to its old value with no explanation. */}
+      {updateMemo.isError && (
+        <p className="mt-1 text-xs text-red-600">{updateMemo.error.message}</p>
+      )}
+    </div>
+  );
+}
 
 export function PrintChecksPage() {
   const navigate = useNavigate();
@@ -36,6 +105,8 @@ export function PrintChecksPage() {
   const { data: settingsData } = useCheckSettings();
   const { data, isLoading, isError, refetch } = usePrintQueue(bankAccountId || undefined);
   const printChecks = usePrintChecks();
+  // In-flight inline memo edits from the queue table (see MemoCell).
+  const memoSaving = useIsMutating({ mutationKey: CHECK_MEMO_MUTATION_KEY });
 
   // Signature selection: none available = today's behavior; exactly one =
   // auto-selected; several = dropdown (plus an explicit "no signature").
@@ -408,7 +479,10 @@ export function PrintChecksPage() {
                         )}
                       </td>
                       <td className="px-6 py-3 text-sm text-gray-900 text-right font-mono">{formatAmount(item.amount)}</td>
-                      <td className="px-6 py-3 text-sm text-gray-500">{item.printedMemo || item.memo || '--'}</td>
+                      {/* Row click toggles selection; keep memo edits out of it. */}
+                      <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
+                        <MemoCell checkId={item.id} printedMemo={item.printedMemo} memo={item.memo} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -430,7 +504,14 @@ export function PrintChecksPage() {
         {/* Actions */}
         <div className="flex justify-end gap-3">
           <Button type="button" variant="secondary" onClick={() => navigate('/transactions')}>Cancel</Button>
-          <Button type="submit" loading={flowStep === 'rendering'} disabled={selected.size === 0 || !bankAccountId}>
+          {/* A memo edit commits on blur, so clicking Print straight from the
+              input races the save. Hold the print until it lands, or the PDF
+              carries the old memo while the record keeps the new one. */}
+          <Button
+            type="submit"
+            loading={flowStep === 'rendering' || memoSaving > 0}
+            disabled={selected.size === 0 || !bankAccountId || memoSaving > 0}
+          >
             <Printer className="h-4 w-4 mr-2" />
             Print {selected.size > 0 ? `${selected.size} Check${selected.size > 1 ? 's' : ''}` : 'Checks'}
           </Button>

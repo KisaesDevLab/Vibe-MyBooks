@@ -45,4 +45,14 @@ describe('checks pages', () => {
     renderRoute(<WriteCheckPage />);
     expect(screen.queryByText(/^Tags$/)).toBeNull();
   });
+
+  it('WriteCheckPage offers a mailing address to review before printing', () => {
+    renderRoute(<WriteCheckPage />);
+    expect(screen.getByLabelText('Mailing Address')).toBeTruthy();
+  });
+
+  it('WriteCheckPage lets you attach a file to the check', () => {
+    renderRoute(<WriteCheckPage />);
+    expect(screen.getByText(/attachments/i)).toBeTruthy();
+  });
 });

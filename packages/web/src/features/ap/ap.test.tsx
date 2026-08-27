@@ -2,7 +2,8 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { describe, it, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { screen } from '@testing-library/react';
 import { renderRoute, expectPageRendered } from '../../test-utils';
 import {
   apMocks, contactsMocks, accountsMocks, companyMocks, tagsMocks,
@@ -44,4 +45,11 @@ describe('accounts payable pages', () => {
       expectPageRendered();
     });
   }
+
+  // Paying by check is the default method, so the memo that will print on
+  // those checks has to be settable here.
+  it('PayBillsPage offers a check memo when paying by check', () => {
+    renderRoute(<PayBillsPage />, { route: '/pay-bills', path: '/pay-bills' });
+    expect(screen.getByLabelText('Memo on check')).toBeTruthy();
+  });
 });

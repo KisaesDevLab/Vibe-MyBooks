@@ -4,9 +4,11 @@
 
 
 import { todayLocalISO } from '../../utils/date';
-import { useState, useRef, type FormEvent, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWriteCheck, useCheckSettings } from '../../api/hooks/useChecks';
+import { useContact } from '../../api/hooks/useContacts';
+import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
@@ -16,7 +18,7 @@ import { MoneyInput } from '../../components/forms/MoneyInput';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
-import { numberToWords } from '@kis-books/shared';
+import { numberToWords, addressText, CHECK_MEMO_PRINT_LIMIT } from '@kis-books/shared';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface ExpenseLine {
@@ -46,6 +48,11 @@ export function WriteCheckPage() {
   );
   const [contactId, setContactId] = useState('');
   const [payeeNameOnCheck, setPayeeNameOnCheck] = useState('');
+  // Mailing address printed on the z-fold panel / #10 envelope. Prefilled
+  // from the vendor record, but the check carries its own copy so a
+  // one-off "send it here instead" doesn't rewrite the contact.
+  const [payeeAddress, setPayeeAddress] = useState('');
+  const [addressEdited, setAddressEdited] = useState(false);
   const [txnDate, setTxnDate] = useState(today);
   const [amount, setAmount] = useState('');
   const [printedMemo, setPrintedMemo] = useState('');
@@ -56,6 +63,29 @@ export function WriteCheckPage() {
   // queueing for print — print assigns numbers at print time.
   const [checkNumber, setCheckNumber] = useState('');
   const [lines, setLines] = useState<ExpenseLine[]>([emptyLine()]);
+  // Attachments upload against this id while the check is still a draft;
+  // POST /checks relinks them to the saved transaction.
+  const [draftId] = useState(() => crypto.randomUUID());
+
+  // The vendor's address on file. Billing is the payment address; shipping
+  // stands in for vendors who only ever filled that one out.
+  const { data: contactData } = useContact(contactId);
+  const onFileAddress = useMemo(() => {
+    const c = contactData?.contact;
+    if (!c) return '';
+    return addressText({
+      line1: c.billingLine1, line2: c.billingLine2,
+      city: c.billingCity, state: c.billingState, zip: c.billingZip,
+    }) || addressText({
+      line1: c.shippingLine1, line2: c.shippingLine2,
+      city: c.shippingCity, state: c.shippingState, zip: c.shippingZip,
+    });
+  }, [contactData]);
+
+  useEffect(() => {
+    if (addressEdited) return;
+    setPayeeAddress(onFileAddress);
+  }, [onFileAddress, addressEdited]);
 
   const amountWords = numberToWords(amount);
   const linesTotal = lines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0);
@@ -71,6 +101,9 @@ export function WriteCheckPage() {
     );
 
   const handleContactSelect = (contact: ContactSelection | null) => {
+    // A different payee means a different address — drop any edit that was
+    // aimed at the previous one so the new vendor's address loads.
+    setAddressEdited(false);
     if (contact) {
       setPayeeNameOnCheck(contact.displayName);
       // Auto-fill first expense line account if the contact has a default
@@ -103,11 +136,13 @@ export function WriteCheckPage() {
         bankAccountId,
         contactId: contactId || undefined,
         payeeNameOnCheck,
+        payeeAddress: payeeAddress.trim() || undefined,
         txnDate,
         amount,
         printedMemo: printedMemo || undefined,
         memo: memo || undefined,
         printLater: queueForPrint,
+        draftAttachmentId: draftId,
         checkNumber: !queueForPrint && checkNumber.trim() ? Number(checkNumber) : undefined,
         lines: lines
           .filter((l) => l.accountId && l.amount)
@@ -176,6 +211,34 @@ export function WriteCheckPage() {
             required
             placeholder="Name as it will appear on the check"
           />
+          <div className="space-y-1">
+            <div className="flex items-baseline justify-between gap-3">
+              <label htmlFor="payee-address" className="block text-sm font-medium text-gray-700">
+                Mailing Address
+              </label>
+              {addressEdited && onFileAddress && payeeAddress.trim() !== onFileAddress && (
+                <button
+                  type="button"
+                  onClick={() => { setPayeeAddress(onFileAddress); setAddressEdited(false); }}
+                  className="text-xs text-primary-600 hover:underline"
+                >
+                  Use address on file
+                </button>
+              )}
+            </div>
+            <textarea
+              id="payee-address"
+              value={payeeAddress}
+              onChange={(e) => { setPayeeAddress(e.target.value); setAddressEdited(true); }}
+              rows={3}
+              placeholder={contactId ? 'No address on this vendor record' : 'Street, then City, ST ZIP'}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+            <p className="text-xs text-gray-500">
+              Prints on the mailing panel of z-fold checks and on #10 envelopes.
+              {contactId && !onFileAddress && ' This vendor has no address on file.'}
+            </p>
+          </div>
           <div>
             <MoneyInput
               label="Amount"
@@ -197,12 +260,20 @@ export function WriteCheckPage() {
 
         {/* Memo fields */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-          <Input
-            label="Printed Memo"
-            value={printedMemo}
-            onChange={(e) => setPrintedMemo(e.target.value)}
-            placeholder="Memo printed on the check"
-          />
+          <div>
+            <Input
+              label="Printed Memo"
+              value={printedMemo}
+              onChange={(e) => setPrintedMemo(e.target.value)}
+              maxLength={255}
+              placeholder="Memo printed on the check"
+            />
+            {printedMemo.length > CHECK_MEMO_PRINT_LIMIT && (
+              <p className="mt-1 text-xs text-amber-600">
+                Only about the first {CHECK_MEMO_PRINT_LIMIT} characters fit on the memo line.
+              </p>
+            )}
+          </div>
           <Input
             label="Internal Memo"
             value={memo}
@@ -321,6 +392,9 @@ export function WriteCheckPage() {
             </div>
           </div>
         </div>
+
+        {/* Attachments — uploaded against the draft id, relinked on save */}
+        <AttachmentPanel attachableType="draft" attachableId={draftId} />
 
         {/* Print Later Toggle */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">

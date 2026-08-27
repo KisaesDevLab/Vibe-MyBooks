@@ -9,11 +9,12 @@ import { useNavigate } from 'react-router-dom';
 import { usePayableBills, usePayBills } from '../../api/hooks/useAp';
 import { useCheckSettings } from '../../api/hooks/useChecks';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import type { BillPaymentMethod } from '@kis-books/shared';
+import { CHECK_MEMO_PRINT_LIMIT, type BillPaymentMethod } from '@kis-books/shared';
 
 interface BillSelection {
   selected: boolean;
@@ -38,6 +39,10 @@ export function PayBillsPage() {
   );
   const [txnDate, setTxnDate] = useState(today);
   const [method, setMethod] = useState<BillPaymentMethod>('check');
+  // Memo line for the check face. Left blank the server fills in the bill /
+  // vendor-invoice numbers being paid, which is what a vendor needs to apply
+  // the payment; it stays editable in the print queue until the check prints.
+  const [printedMemo, setPrintedMemo] = useState('');
   const [vendorFilter, setVendorFilter] = useState<string>('');
   const [dueOnOrBefore, setDueOnOrBefore] = useState<string>('');
 
@@ -196,6 +201,7 @@ export function PayBillsPage() {
   // fires on form submit; keeping it in canSubmit guards the
   // imperative button click path too.
   const canSubmit = bankAccountId && selectedBillIds.length > 0 && txnDate.length > 0;
+  const paysByCheck = method === 'check' || method === 'check_handwritten';
 
   const handlePay = () => {
     if (!canSubmit) return;
@@ -216,6 +222,7 @@ export function PayBillsPage() {
         txnDate,
         method,
         printLater: method === 'check',
+        printedMemo: printedMemo.trim() || undefined,
         bills: billsPayload,
         credits: creditsPayload.length > 0 ? creditsPayload : undefined,
       },
@@ -261,6 +268,29 @@ export function PayBillsPage() {
             </select>
           </div>
         </div>
+        {paysByCheck && (
+          <div className="mt-4">
+            <Input
+              label="Memo on check"
+              value={printedMemo}
+              onChange={(e) => setPrintedMemo(e.target.value)}
+              maxLength={255}
+              placeholder="Blank prints the bill numbers being paid"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Prints on the check's memo line — one memo for every check in this run.
+              {method === 'check'
+                ? ' You can still edit any individual check’s memo from Print Checks before it prints.'
+                : ' Hand-written checks skip the print queue, so this is your only chance to set it.'}
+            </p>
+            {printedMemo.length > CHECK_MEMO_PRINT_LIMIT && (
+              <p className="mt-1 text-xs text-amber-600">
+                Only about the first {CHECK_MEMO_PRINT_LIMIT} characters fit on the
+                memo line — the rest won't print.
+              </p>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
           <DatePicker
             label="Show bills due on or before"

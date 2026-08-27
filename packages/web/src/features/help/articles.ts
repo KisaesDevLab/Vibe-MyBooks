@@ -701,6 +701,18 @@ The Write Check feature records a payment by check, creating the proper accounti
 4. Add line items with categories and amounts
 5. Click **Save**
 
+### Mailing Address
+Selecting a payee fills in their **mailing address** from the vendor's billing
+address, falling back to the shipping address if that's all they have on file.
+The check keeps its own copy, so you can edit it for a one-off "send it here
+instead" without changing the vendor record — **Use address on file** puts it
+back. This address prints on the mailing panel of z-fold checks and on #10
+envelopes, so it's worth a glance before you save.
+
+### Attachments
+Attach the invoice, receipt, or supporting document before saving. The files
+follow the check into the ledger and appear on its transaction detail page.
+
 ### What Happens
 - A transaction is created debiting the expense account(s) and crediting the bank account
 - The check number is recorded for reference
@@ -735,6 +747,21 @@ Before printing, configure your check settings at **Settings > Check Printing**:
 3. Select the checks you want to print
 4. Click **Print** — a PDF is generated for your printer
 5. After printing, confirm which checks printed correctly
+
+### The Memo Line
+Click a queued check's **Memo** cell to retype what prints on its memo line, then
+press Enter or click away to save. Clearing it prints no memo at all.
+
+Checks created by **Pay Bills** start with the vendor invoice numbers they cover
+(our bill number where the vendor gave none), so the vendor can tell what the
+check is for. You can override that for the whole run in the **Memo on check**
+field on Pay Bills, or per check here. Keep it under about 60 characters — the
+memo line is only about three inches wide, and anything longer is cut off.
+
+Only checks still waiting in the queue can be edited, because once the memo
+exists on paper it is the record. Reprint a batch to return it to the queue if
+you need to change it. Hand-written checks skip the queue entirely, so their
+memo is fixed when you record them.
 
 ### Signature Images
 Owners can upload signature images so checks print pre-signed:

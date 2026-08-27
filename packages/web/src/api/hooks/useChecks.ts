@@ -58,6 +58,29 @@ export function usePrintQueue(bankAccountId?: string) {
   });
 }
 
+/** Shared key so the print flow can tell when a memo edit is still in
+ *  flight (useIsMutating) and wait rather than render a stale PDF. */
+export const CHECK_MEMO_MUTATION_KEY = ['check-memo'] as const;
+
+/** Retype the memo line of a check that hasn't printed yet. An empty string
+ *  is a deliberate "print no memo", so it is sent as-is. */
+export function useUpdateCheckMemo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: CHECK_MEMO_MUTATION_KEY,
+    mutationFn: ({ id, printedMemo }: { id: string; printedMemo: string }) =>
+      apiClient<{ id: string; printedMemo: string }>(`/checks/${id}/memo`, {
+        method: 'PATCH',
+        body: JSON.stringify({ printedMemo }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['print-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['checks'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
 export function usePrintChecks() {
   const queryClient = useQueryClient();
   return useMutation({

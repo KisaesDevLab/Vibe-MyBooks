@@ -191,6 +191,10 @@ export const checksMocks = () => ({
   useChecks: () => emptyList,
   usePrintQueue: passthroughQuery({ checks: [] }),
   usePrintChecks: passthroughMutation,
+  useUpdateCheckMemo: passthroughMutation,
+  // PrintChecksPage reads this key with useIsMutating, so the mock has to
+  // carry it too or the page throws on render.
+  CHECK_MEMO_MUTATION_KEY: ['check-memo'] as const,
   useCheckSettings: passthroughQuery({ checkSettings: {} }),
   useUpdateCheckSettings: passthroughMutation,
 });
