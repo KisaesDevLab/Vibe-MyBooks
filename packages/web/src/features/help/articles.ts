@@ -167,6 +167,26 @@ Each company has completely separate data:
 - Its own preferences (fiscal year, tax rate, etc.)
 
 Data from one company is never visible in another.
+
+### The Clients Screen
+If you work across several clients, **View all clients…** at the bottom of the
+switcher opens the **Clients** page: every client you have access to in one
+sortable table. Click a row to switch into it.
+
+Two columns tell you where the work is without opening each client:
+
+- **Unprocessed bank txns** — bank feed items still waiting on someone. It counts
+  untouched items *and* ones with a category staged but not yet approved, which is
+  the same set the Bank Feed shows with "Hide processed" turned on — so the number
+  matches what you'll see after clicking through. Sort by it to find the biggest
+  backlog first.
+- **Last bank sync** — when this client's bank connections last synced with Plaid,
+  or "No Plaid connection" (clients whose transactions arrive by CSV/OFX import
+  have no Plaid connection, so this column stays blank for them). An amber warning triangle means a connection is failing
+  or the client needs to re-enter their bank login. Note the time shown is the last
+  sync *attempt*: a broken connection can show a recent time even though no
+  transactions came in, which is exactly what the warning is telling you. Sort
+  ascending to bring the quietest feeds to the top.
 `,
   },
   {

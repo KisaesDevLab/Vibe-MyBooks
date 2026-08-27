@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { LoginInput, RegisterInput, User, UserType, EffectivePermissions } from '@kis-books/shared';
+import type { LoginInput, RegisterInput, User, UserType, EffectivePermissions, ClientBankingStatus } from '@kis-books/shared';
 import { apiClient, setTokens, clearTokens } from '../client';
 
 // The wire User type from shared has userType optional; the
@@ -113,5 +113,19 @@ export function useMe() {
     retry: false,
     staleTime: 5 * 60 * 1000,
     enabled: !!localStorage.getItem('accessToken'),
+  });
+}
+
+/**
+ * Bank-feed backlog + Plaid freshness per client, for the Clients screen.
+ * Separate from useMe so the aggregate queries don't sit on the app-boot path;
+ * the table renders from /me immediately and fills these columns in after.
+ */
+export function useClientBankingStatus(enabled = true) {
+  return useQuery({
+    queryKey: ['client-banking-status'],
+    queryFn: () => apiClient<{ data: ClientBankingStatus[] }>('/auth/accessible-tenants/banking'),
+    staleTime: 60 * 1000,
+    enabled: enabled && !!localStorage.getItem('accessToken'),
   });
 }

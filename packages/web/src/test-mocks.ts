@@ -40,6 +40,8 @@ export const passthroughMutation = () => ({
 export const passthroughQuery = <T>(data: T) => () => ({
   data,
   isLoading: false,
+  // react-query v5 name for the same idea; components use either.
+  isPending: false,
   isError: false,
   error: null,
   refetch: vi.fn(),
@@ -115,6 +117,8 @@ export const authMocks = () => ({
     accessibleTenants: [],
     activeTenantId: 't1',
   }),
+  // Clients screen reads this alongside useMe; without it the page throws.
+  useClientBankingStatus: passthroughQuery({ data: [] }),
 });
 
 export const bankingMocks = () => ({

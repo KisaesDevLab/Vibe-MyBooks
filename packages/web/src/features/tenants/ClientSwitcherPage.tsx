@@ -3,19 +3,31 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState, useMemo } from 'react';
-import { useMe, type AccessibleTenant } from '../../api/hooks/useAuth';
+import { useMe, useClientBankingStatus, type AccessibleTenant } from '../../api/hooks/useAuth';
 import { apiClient, setTokens } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useQueryClient } from '@tanstack/react-query';
-import { Users, Search, Check, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
+import { Users, Search, Check, ChevronUp, ChevronDown, AlertCircle, AlertTriangle } from 'lucide-react';
+import type { ClientBankingStatus } from '@kis-books/shared';
 
-type SortKey = 'name' | 'role' | 'lastAccessed';
+type SortKey = 'name' | 'role' | 'lastAccessed' | 'unprocessed' | 'lastSync';
 type SortDir = 'asc' | 'desc';
 const PAGE_SIZE = 25;
 
 function fmtLastAccessed(iso: string | null | undefined): string {
   if (!iso) return 'Never';
   const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? 'Never' : d.toLocaleString();
+}
+
+// Matches the "Last sync" wording on the Bank Connections page so the two
+// screens read the same way. Says "Plaid" specifically — a client importing
+// CSV/OFX statements has a bank feed but no Plaid item, and telling them "no
+// bank connected" next to a backlog of 37 would contradict itself.
+function fmtLastSync(s: ClientBankingStatus | undefined): string {
+  if (!s || s.plaidConnectionCount === 0) return 'No Plaid connection';
+  if (!s.lastPlaidSyncAt) return 'Never';
+  const d = new Date(s.lastPlaidSyncAt);
   return Number.isNaN(d.getTime()) ? 'Never' : d.toLocaleString();
 }
 
@@ -26,6 +38,17 @@ export function ClientSwitcherPage() {
 
   const tenants = useMemo(() => meData?.accessibleTenants ?? [], [meData]);
   const activeTenantId = meData?.activeTenantId;
+
+  const { data: bankingData, isPending: bankingPending, isError: bankingFailed } = useClientBankingStatus();
+  const bankingByTenant = useMemo(() => {
+    const m = new Map<string, ClientBankingStatus>();
+    for (const s of bankingData?.data ?? []) m.set(s.tenantId, s);
+    return m;
+  }, [bankingData]);
+  // A failed lookup must not render as "0 unprocessed / no bank connected" —
+  // that reads as good news when we simply don't know.
+  const bankingState: 'pending' | 'failed' | 'ready' =
+    bankingFailed ? 'failed' : bankingPending ? 'pending' : 'ready';
 
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('lastAccessed');
@@ -42,19 +65,35 @@ export function ClientSwitcherPage() {
       let c = 0;
       if (sortKey === 'name') c = a.tenantName.localeCompare(b.tenantName);
       else if (sortKey === 'role') c = (a.role ?? '').localeCompare(b.role ?? '');
-      else c = (a.lastAccessedAt ?? '').localeCompare(b.lastAccessedAt ?? '');
+      else if (sortKey === 'unprocessed') {
+        c = (bankingByTenant.get(a.tenantId)?.unprocessedBankTxns ?? 0)
+          - (bankingByTenant.get(b.tenantId)?.unprocessedBankTxns ?? 0);
+      } else if (sortKey === 'lastSync') {
+        // Never-synced and never-connected sort as empty, so ascending puts
+        // the clients whose feeds have gone quiet at the top — which is the
+        // reason to sort by this column at all.
+        c = (bankingByTenant.get(a.tenantId)?.lastPlaidSyncAt ?? '')
+          .localeCompare(bankingByTenant.get(b.tenantId)?.lastPlaidSyncAt ?? '');
+      } else c = (a.lastAccessedAt ?? '').localeCompare(b.lastAccessedAt ?? '');
       return c * dir;
     });
     return rows;
-  }, [tenants, search, sortKey, sortDir]);
+  }, [tenants, search, sortKey, sortDir, bankingByTenant]);
 
   const pageCount = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
   const clampedPage = Math.min(page, pageCount - 1);
   const pageRows = filteredSorted.slice(clampedPage * PAGE_SIZE, clampedPage * PAGE_SIZE + PAGE_SIZE);
 
+  // Sorting on the banking columns is meaningless until their data lands —
+  // every row would compare equal, the arrow would look active, and the table
+  // would silently reorder under the cursor when the request resolved.
+  const bankingSortable = bankingState === 'ready';
+
   const toggleSort = (key: SortKey) => {
+    if ((key === 'unprocessed' || key === 'lastSync') && !bankingSortable) return;
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortKey(key); setSortDir(key === 'lastAccessed' ? 'desc' : 'asc'); }
+    // Backlog is most useful biggest-first; the sync column oldest-first.
+    else { setSortKey(key); setSortDir(key === 'lastAccessed' || key === 'unprocessed' ? 'desc' : 'asc'); }
     setPage(0);
   };
 
@@ -119,12 +158,23 @@ export function ClientSwitcherPage() {
               <th className="px-4 py-3 text-left font-medium text-gray-600 cursor-pointer select-none" onClick={() => toggleSort('name')}>Name {sortIcon('name')}</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600 cursor-pointer select-none" onClick={() => toggleSort('role')}>Role {sortIcon('role')}</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600 cursor-pointer select-none" onClick={() => toggleSort('lastAccessed')}>Last accessed {sortIcon('lastAccessed')}</th>
+              <th
+                className={`px-4 py-3 text-right font-medium text-gray-600 select-none ${bankingSortable ? 'cursor-pointer' : ''}`}
+                onClick={() => toggleSort('unprocessed')}
+                title="Bank feed items still waiting to be reviewed or approved"
+              >Unprocessed bank txns {sortIcon('unprocessed')}</th>
+              <th
+                className={`px-4 py-3 text-left font-medium text-gray-600 select-none ${bankingSortable ? 'cursor-pointer' : ''}`}
+                onClick={() => toggleSort('lastSync')}
+                title="Most recent Plaid sync attempt across this client's bank connections"
+              >Last bank sync {sortIcon('lastSync')}</th>
               <th className="px-4 py-3 text-right font-medium text-gray-600" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {pageRows.map((t) => {
               const isActive = t.tenantId === activeTenantId;
+              const banking = bankingByTenant.get(t.tenantId);
               return (
                 <tr
                   key={t.tenantId}
@@ -137,6 +187,34 @@ export function ClientSwitcherPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-600">{t.role ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{fmtLastAccessed(t.lastAccessedAt)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {bankingState === 'pending' ? (
+                      <span className="text-gray-300">…</span>
+                    ) : bankingState === 'failed' ? (
+                      <span className="text-gray-400" title="Could not load bank feed status">—</span>
+                    ) : banking && banking.unprocessedBankTxns > 0 ? (
+                      <span className="font-medium text-gray-900">{banking.unprocessedBankTxns}</span>
+                    ) : (
+                      <span className="text-gray-400">0</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {bankingState === 'pending' ? (
+                      <span className="text-gray-300">…</span>
+                    ) : bankingState === 'failed' ? (
+                      <span className="text-gray-400" title="Could not load bank sync status">—</span>
+                    ) : (
+                      <span className={banking?.plaidNeedsAttention ? 'inline-flex items-center gap-1 text-amber-700' : undefined}>
+                        {banking?.plaidNeedsAttention && (
+                          <AlertTriangle
+                            className="h-3.5 w-3.5 flex-shrink-0"
+                            aria-label="A bank connection needs attention — this time may be a failed attempt"
+                          />
+                        )}
+                        {fmtLastSync(banking)}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     {switchingId === t.tenantId ? (
                       <span className="text-xs text-gray-400">switching…</span>
@@ -148,7 +226,7 @@ export function ClientSwitcherPage() {
               );
             })}
             {pageRows.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                 {search ? 'No clients match your search.' : 'No clients found.'}
               </td></tr>
             )}
