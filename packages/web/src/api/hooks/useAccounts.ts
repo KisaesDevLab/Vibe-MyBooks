@@ -104,13 +104,22 @@ export function useExportAccounts() {
   });
 }
 
+export interface ImportAccountsResult {
+  imported: number;
+  updated: number;
+  skipped: Array<{ row: number; accountNumber: string | null; name: string; reason: string }>;
+}
+
 export function useImportAccounts() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (accounts: Array<{ name: string; accountNumber?: string; accountType: string; detailType?: string }>) =>
+  return useMutation<ImportAccountsResult, Error, {
+    accounts: Array<{ name: string; accountNumber?: string; accountType: string; detailType?: string }>;
+    updateExisting?: boolean;
+  }>({
+    mutationFn: (payload) =>
       apiClient('/accounts/import', {
         method: 'POST',
-        body: JSON.stringify({ accounts }),
+        body: JSON.stringify(payload),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
   });
