@@ -54,6 +54,7 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
   const [pinned, setPinned] = useState<string | null | undefined>(undefined);
   const [electionDate, setElectionDate] = useState<string | null | undefined>(undefined);
   const [activityType, setActivityType] = useState<string | null>(null);
+  const [unitPlacement, setUnitPlacement] = useState<'suffix' | 'prefix' | null>(null);
 
   if (isLoading || !data) return <Card title="Tax profile"><LoadingSpinner className="py-6" /></Card>;
 
@@ -61,10 +62,12 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
   const effPinned = pinned !== undefined ? pinned : (data.profile?.pinnedSeedVersionId ?? null);
   const effElection = electionDate !== undefined ? electionDate : (data.profile?.sCorpElectionDate ?? null);
   const effActivity = activityType ?? data.profile?.defaultActivityType ?? 'business';
+  const effPlacement = unitPlacement ?? data.profile?.unitNumberPlacement ?? 'suffix';
   const dirty = effForm !== (data.profile?.returnForm ?? '') ||
     effPinned !== (data.profile?.pinnedSeedVersionId ?? null) ||
     effElection !== (data.profile?.sCorpElectionDate ?? null) ||
-    effActivity !== (data.profile?.defaultActivityType ?? 'business');
+    effActivity !== (data.profile?.defaultActivityType ?? 'business') ||
+    effPlacement !== (data.profile?.unitNumberPlacement ?? 'suffix');
 
   const fyLabel = new Date(2000, data.fiscal.fiscalYearStartMonth - 1, 1).toLocaleString(undefined, { month: 'long' });
 
@@ -102,6 +105,15 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
             ))}
           </select>
         </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="tb-unit-place">Unit # on exports</label>
+          <select id="tb-unit-place" value={effPlacement} disabled={!isAdmin}
+            onChange={(e) => setUnitPlacement(e.target.value as 'suffix' | 'prefix')}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50">
+            <option value="suffix">Append (1000-2)</option>
+            <option value="prefix">Prepend (2-1000)</option>
+          </select>
+        </div>
         {effForm === '1120S' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="tb-election">S-corp election date</label>
@@ -113,7 +125,7 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
         {isAdmin && (
           <Button variant="primary" disabled={!dirty || !effForm || upsert.isPending}
             onClick={() => upsert.mutate(
-              { returnForm: effForm, pinnedSeedVersionId: effPinned, sCorpElectionDate: effForm === '1120S' ? effElection : null, defaultActivityType: effActivity },
+              { returnForm: effForm, pinnedSeedVersionId: effPinned, sCorpElectionDate: effForm === '1120S' ? effElection : null, defaultActivityType: effActivity, unitNumberPlacement: effPlacement },
               {
                 onSuccess: () => toast.success('Tax profile saved'),
                 onError: (e) => toast.error(isApiError(e) ? e.message : 'Save failed'),
@@ -206,7 +218,7 @@ function UnitsCard() {
                     <>
                       <button className="text-xs text-gray-500 hover:text-blue-600 underline mr-3"
                         onClick={() => { setEditingId(u.id); setEditName(u.displayName); setEditNumber(u.instanceNumber); }}>
-                        rename
+                        edit
                       </button>
                       <button className="text-xs text-gray-500 hover:text-red-600 underline"
                         onClick={() => archive.mutate(u.id, {

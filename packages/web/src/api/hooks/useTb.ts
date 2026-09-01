@@ -16,6 +16,8 @@ export interface TbProfile {
   pinnedSeedVersionId: string | null;
   sCorpElectionDate: string | null;
   defaultActivityType: 'business' | 'rental' | 'farm' | 'farm_rental';
+  // Where vendor exports attach the unit number on unit-split account rows.
+  unitNumberPlacement: 'suffix' | 'prefix';
 }
 
 export interface TbFiscal {
@@ -79,7 +81,7 @@ export function useTbProfile() {
 export function useUpsertTbProfile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { returnForm: string; pinnedSeedVersionId?: string | null; sCorpElectionDate?: string | null; defaultActivityType?: string }) =>
+    mutationFn: (input: { returnForm: string; pinnedSeedVersionId?: string | null; sCorpElectionDate?: string | null; defaultActivityType?: string; unitNumberPlacement?: 'suffix' | 'prefix' }) =>
       apiClient<{ profile: TbProfile }>('/tb/profile', { method: 'PUT', body: JSON.stringify(input) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tb'] }),
   });
