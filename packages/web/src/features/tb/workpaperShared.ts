@@ -30,7 +30,21 @@ export interface TbWorkpaperRow {
   adjusted: number;
   taxRje: number;
   tax: number;
+  // Activity-unit splits (untagged lines folded into the default unit;
+  // balance sheet accounts collapsed to one bucket).
   units: TbUnitSplit[];
+  // Literal tag resolution: mapped unit, else the zero uuid ("no tag →
+  // unit 0"). Balance sheet accounts are a single zero bucket.
+  byTag: TbUnitSplit[];
+}
+
+export const TB_ZERO_UNIT = '00000000-0000-0000-0000-000000000000';
+
+// Account number with the activity-unit number attached the way vendor
+// exports do it (tax profile "Unit # on exports"): 1000-2 or 2-1000.
+export function unitAccountNumber(accountNumber: string | null, unitNumber: number, placement: 'suffix' | 'prefix'): string {
+  const base = accountNumber ?? '';
+  return placement === 'prefix' ? `${unitNumber}-${base}` : `${base}-${unitNumber}`;
 }
 
 export interface TbWorkpaper {

@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { TbWorkpaperGrid, type TbGridColumn, type TbGridPrefs } from './TbWorkpaperGrid';
+import { TbWorkpaperGrid, TB_VIEW_BY_TAG, type TbGridColumn, type TbGridPrefs } from './TbWorkpaperGrid';
 import { buildCellMarks, TickmarkCellPicker } from './TickmarkCellPicker';
 import {
   activeCompanyId, tbChannelName, useWorkpaper, type TbChannelMessage, type TbWorkpaper,
@@ -200,6 +200,7 @@ export function TbPopoutPage() {
   };
 
   const unitNames = useMemo(() => new Map((unitsData?.units ?? []).map((u) => [u.id, u.displayName])), [unitsData]);
+  const unitNumbers = useMemo(() => new Map((unitsData?.units ?? []).map((u) => [u.id, u.instanceNumber])), [unitsData]);
 
   if (authLost) {
     return (
@@ -234,6 +235,7 @@ export function TbPopoutPage() {
             onChange={(e) => setPrefs({ ...prefs, activityView: e.target.value })}
             className="rounded border border-gray-300 px-1.5 py-1">
             <option value="">Consolidated</option>
+            <option value={TB_VIEW_BY_TAG}>By tag / unit #</option>
             {(unitsData?.units ?? []).map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
           </select>
         </div>
@@ -252,6 +254,8 @@ export function TbPopoutPage() {
           typeFilter=""
           flashIds={flashIds}
           unitNames={unitNames}
+          unitNumbers={unitNumbers}
+          unitNumberPlacement={profileData?.profile?.unitNumberPlacement ?? 'suffix'}
           clickableColumns={['unadjusted', 'aje', 'adjusted', 'tax']}
           cellMarks={cellMarks}
           onAmountClick={(row, column: TbGridColumn) => {

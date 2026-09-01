@@ -5,19 +5,26 @@
 // Presentational five-column TB grid shared by the workpaper screen
 // and the read-only popout (6B). Signed nets arrive from the engine;
 // this component renders DR/CR pairs or the netted "single" mode, the
-// optional PY comparative and tax columns, per-unit expansion, and the
-// diff-flash highlight used by the popout.
+// optional PY comparative and tax columns, per-unit expansion, the
+// by-tag segmented view, and the diff-flash highlight used by the
+// popout.
 
 import { Fragment } from 'react';
 import clsx from 'clsx';
-import { MARK_TONES, usd, type TbWorkpaperRow, type TbWorkpaper } from './workpaperShared';
+import {
+  MARK_TONES, TB_ZERO_UNIT, unitAccountNumber, usd,
+  type TbUnitSplit, type TbWorkpaperRow, type TbWorkpaper,
+} from './workpaperShared';
+
+// activityView sentinel: one row per account × tag-resolved unit.
+export const TB_VIEW_BY_TAG = 'tags';
 
 export interface TbGridPrefs {
   drCrMode: boolean;   // false = netted single column per group
   showPy: boolean;
   showTax: boolean;    // tax rje + tax columns
   nonZeroOnly: boolean;
-  activityView: string; // '' = consolidated, else unitId
+  activityView: string; // '' = consolidated, TB_VIEW_BY_TAG, else unitId
 }
 
 export type TbGridColumn = 'unadjusted' | 'aje' | 'adjusted' | 'taxRje' | 'tax';
@@ -26,12 +33,18 @@ export interface TbCellMark { id: string; symbol: string; description: string; c
 
 export interface TbGridProps {
   workpaper: TbWorkpaper;
-  pyByAccount?: Map<string, number>;
+  // Prior-year workpaper rows (same basis); sliced per view like the
+  // current-year rows so the comparative lines up in every mode.
+  pyRows?: TbWorkpaperRow[];
   prefs: TbGridPrefs;
   search: string;
   typeFilter: string;
   flashIds?: Set<string>;
   unitNames?: Map<string, string>;
+  // Activity-unit instance numbers + the tax profile's placement, for
+  // the by-tag view's account numbers (1000-2 / 2-1000; no tag → 0).
+  unitNumbers?: Map<string, number>;
+  unitNumberPlacement?: 'suffix' | 'prefix';
   // Render extra cells at the end of each row (tax code picker, marks…).
   renderRowExtra?: (row: TbWorkpaperRow) => React.ReactNode;
   extraHeaders?: React.ReactNode;
@@ -96,8 +109,28 @@ function AmountSingle({ value, onClick, flash, marks }: { value: number; onClick
   );
 }
 
+type Amounts = Pick<TbWorkpaperRow, 'unadjusted' | 'aje' | 'adjusted' | 'taxRje' | 'tax'>;
+
+// One rendered line. In the by-tag view an account fans out into one
+// line per segment; `primary` marks the first so per-account extras
+// (LS ref, tickmarks) render once.
+interface DisplayRow {
+  key: string;
+  row: TbWorkpaperRow;
+  amounts: Amounts;
+  accountNumber: string;
+  segmentLabel: string | null;
+  primary: boolean;
+  py: number;
+}
+
+const ZERO_AMOUNTS: Amounts = { unadjusted: 0, aje: 0, adjusted: 0, taxRje: 0, tax: 0 };
+const pick = (s: TbUnitSplit | Amounts | undefined): Amounts =>
+  s ? { unadjusted: s.unadjusted, aje: s.aje, adjusted: s.adjusted, taxRje: s.taxRje, tax: s.tax } : ZERO_AMOUNTS;
+
 export function TbWorkpaperGrid({
-  workpaper, pyByAccount, prefs, search, typeFilter, flashIds, unitNames,
+  workpaper, pyRows, prefs, search, typeFilter, flashIds, unitNames,
+  unitNumbers, unitNumberPlacement = 'suffix',
   renderRowExtra, extraHeaders, onAmountClick,
   clickableColumns = ['unadjusted', 'aje'],
   cellMarks,
@@ -113,29 +146,64 @@ export function TbWorkpaperGrid({
   }
 
   const term = search.trim().toLowerCase();
-  const filterUnit = prefs.activityView;
-  const rows = workpaper.rows
-    .map((r) => {
-      if (!filterUnit) return r;
-      const u = r.units.find((x) => x.unitId === filterUnit);
-      if (!u) return null;
-      return { ...r, unadjusted: u.unadjusted, aje: u.aje, adjusted: u.adjusted, taxRje: u.taxRje, tax: u.tax, units: [] };
-    })
-    .filter((r): r is TbWorkpaperRow => !!r)
+  const byTagView = prefs.activityView === TB_VIEW_BY_TAG;
+  const filterUnit = byTagView ? '' : prefs.activityView;
+  const pyByAccount = new Map((pyRows ?? []).map((r) => [r.accountId, r]));
+  const unitNumberOf = (unitId: string) => (unitId === TB_ZERO_UNIT ? 0 : unitNumbers?.get(unitId) ?? 0);
+
+  const accountRows = workpaper.rows
     .filter((r) => !typeFilter || r.accountType === typeFilter)
-    .filter((r) => !term || r.name.toLowerCase().includes(term) || (r.accountNumber ?? '').includes(term))
-    .filter((r) => !prefs.nonZeroOnly ||
-      Math.abs(r.unadjusted) >= 0.005 || Math.abs(r.aje) >= 0.005 || Math.abs(r.taxRje) >= 0.005);
+    .filter((r) => !term || r.name.toLowerCase().includes(term) || (r.accountNumber ?? '').includes(term));
+
+  const rows: DisplayRow[] = accountRows.flatMap((row): DisplayRow[] => {
+    const py = pyByAccount.get(row.accountId);
+    if (filterUnit) {
+      const u = row.units.find((x) => x.unitId === filterUnit);
+      if (!u) return [];
+      return [{
+        key: row.accountId, row, amounts: pick(u), accountNumber: row.accountNumber ?? '',
+        segmentLabel: null, primary: true,
+        py: pick(py?.units.find((x) => x.unitId === filterUnit)).adjusted,
+      }];
+    }
+    if (!byTagView) {
+      return [{
+        key: row.accountId, row, amounts: pick(row), accountNumber: row.accountNumber ?? '',
+        segmentLabel: null, primary: true, py: py?.adjusted ?? 0,
+      }];
+    }
+    // By tag: one line per segment, unit 0 (no tag / balance sheet)
+    // first, then ascending unit number. Segments that only exist in
+    // the prior year still get a line so the comparative isn't lost.
+    const segmentIds = new Set<string>(row.byTag.map((s) => s.unitId));
+    for (const s of py?.byTag ?? []) segmentIds.add(s.unitId);
+    if (segmentIds.size === 0) segmentIds.add(TB_ZERO_UNIT);
+    const balanceSheet = ['asset', 'liability', 'equity'].includes(row.accountType);
+    return [...segmentIds]
+      .sort((a, b) => unitNumberOf(a) - unitNumberOf(b) || a.localeCompare(b))
+      .map((unitId, i) => ({
+        key: `${row.accountId}:${unitId}`,
+        row,
+        amounts: pick(row.byTag.find((s) => s.unitId === unitId)),
+        accountNumber: unitAccountNumber(row.accountNumber, unitNumberOf(unitId), unitNumberPlacement),
+        segmentLabel: unitId === TB_ZERO_UNIT
+          ? (balanceSheet ? 'balance sheet · not segmented' : 'no tag')
+          : (unitNames?.get(unitId) ?? 'Unmapped unit'),
+        primary: i === 0,
+        py: pick(py?.byTag.find((s) => s.unitId === unitId)).adjusted,
+      }));
+  }).filter((d) => !prefs.nonZeroOnly ||
+    Math.abs(d.amounts.unadjusted) >= 0.005 || Math.abs(d.amounts.aje) >= 0.005 || Math.abs(d.amounts.taxRje) >= 0.005);
 
   const colSpanPerGroup = prefs.drCrMode ? 2 : 1;
   // Totals + net income must foot to what's ON SCREEN — with an
   // activity view or filters active, the engine's consolidated totals
   // would visibly disagree with the rows above them.
-  const totalsFor = (key: 'unadjusted' | 'aje' | 'adjusted' | 'taxRje' | 'tax'): [number, number] => {
+  const totalsFor = (key: TbGridColumn): [number, number] => {
     let dr = 0;
     let cr = 0;
-    for (const r of rows) {
-      const v = r[key];
+    for (const d of rows) {
+      const v = d.amounts[key];
       if (v > 0) dr += v;
       else cr += -v;
     }
@@ -143,8 +211,8 @@ export function TbWorkpaperGrid({
   };
 
   let netIncome = 0;
-  for (const r of rows) {
-    if (!['asset', 'liability', 'equity'].includes(r.accountType)) netIncome -= r.adjusted;
+  for (const d of rows) {
+    if (!['asset', 'liability', 'equity'].includes(d.row.accountType)) netIncome -= d.amounts.adjusted;
   }
 
   return (
@@ -175,33 +243,36 @@ export function TbWorkpaperGrid({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
+          {rows.map(({ key, row, amounts, accountNumber, segmentLabel, primary, py }) => {
             const flash = flashIds?.has(row.accountId);
-            const py = pyByAccount?.get(row.accountId) ?? 0;
             const type = TYPE_ABBREV[row.accountType];
             return (
-              <Fragment key={row.accountId}>
+              <Fragment key={key}>
                 <tr className={clsx('border-b border-gray-100 hover:bg-gray-50', flash && 'tb-flash-row')}>
-                  <td className="px-3 py-1.5 font-mono text-xs text-gray-500">{row.accountNumber ?? ''}</td>
-                  <td className="px-3 py-1.5">{row.name}</td>
+                  <td className="px-3 py-1.5 font-mono text-xs text-gray-500 whitespace-nowrap">{accountNumber}</td>
+                  <td className="px-3 py-1.5">
+                    {row.name}
+                    {segmentLabel && <span className="ml-2 text-xs italic text-gray-400">{segmentLabel}</span>}
+                  </td>
                   <td className={clsx('px-2 py-1.5 text-xs font-medium', type?.tone)}>{type?.label ?? '—'}</td>
                   {prefs.showPy && (prefs.drCrMode
                     ? <AmountPair value={py} flash={flash} />
                     : <AmountSingle value={py} flash={flash} />)}
                   {groups.map((g) => {
-                    const value = row[g.key];
+                    const value = amounts[g.key];
                     const clickable = clickableColumns.includes(g.key) && onAmountClick
                       ? () => onAmountClick(row, g.key)
                       : undefined;
-                    const marks = cellMarks?.(row.accountId, g.key);
+                    // Tickmarks are per account/column — once per account.
+                    const marks = primary ? cellMarks?.(row.accountId, g.key) : undefined;
                     return prefs.drCrMode
                       ? <AmountPair key={g.key} value={value} onClick={clickable} flash={flash} marks={marks} />
                       : <AmountSingle key={g.key} value={value} onClick={clickable} flash={flash} marks={marks} />;
                   })}
-                  {renderRowExtra?.(row)}
+                  {renderRowExtra ? (primary ? renderRowExtra(row) : <td colSpan={99} />) : null}
                 </tr>
                 {/* Per-unit split sub-rows in consolidated view. */}
-                {!filterUnit && row.units.length > 1 && row.units.map((u) => (
+                {!filterUnit && !byTagView && row.units.length > 1 && row.units.map((u) => (
                   <tr key={row.accountId + u.unitId} className="border-b border-gray-50 bg-gray-50/50 text-gray-500">
                     <td />
                     <td className="px-3 py-1 pl-8 text-xs italic">↳ {unitNames?.get(u.unitId) ?? 'Unmapped unit'}</td>

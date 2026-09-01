@@ -20,9 +20,13 @@ Shared conventions (byte-matched to the Vibe Trial Balance reference
 implementation, `server/src/routes/exports.ts` there):
 
 - **Account grain** — one row per account, ordered by account number
-  ascending. When a book splits an account across activity units, one
-  row per unit slice with the unit number suffixed to the account
-  number (`6050-2`).
+  ascending. When a book splits a P&L account across activity units,
+  one row per unit slice with the unit number attached to the account
+  number — suffix `6050-2` by default, or prefix `2-6050` when the tax
+  profile's "Unit # on exports" is set to prepend. Balance sheet
+  accounts are never segmented by tag/unit: they always export as a
+  single row with the plain account number (a balance sheet cannot
+  balance per activity, and Schedule L is entity-level).
 - **Both bases** — every vendor file carries `Book Basis Amt`
   (Adjusted) and `Tax Basis Amt` (Adjusted + RJE); debits positive,
   credits negative, no normal-balance flip; `#,##0.00` number format.

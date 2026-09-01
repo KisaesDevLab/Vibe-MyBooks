@@ -21,7 +21,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { useSessionState } from '../../hooks/useSessionState';
 import { ExternalLink, AlertTriangle } from 'lucide-react';
-import { TbWorkpaperGrid, type TbGridPrefs } from './TbWorkpaperGrid';
+import { TbWorkpaperGrid, TB_VIEW_BY_TAG, type TbGridPrefs } from './TbWorkpaperGrid';
 import { buildCellMarks, TickmarkCellPicker } from './TickmarkCellPicker';
 import {
   activeCompanyId, fiscalYearEndFor, openTbPopout, useTbDiagnostics,
@@ -110,6 +110,9 @@ export function TbWorkpaperPage() {
 
   const unitNames = useMemo(() => new Map(
     (unitsData?.units ?? []).map((u) => [u.id, `${u.displayName}`]),
+  ), [unitsData]);
+  const unitNumbers = useMemo(() => new Map(
+    (unitsData?.units ?? []).map((u) => [u.id, u.instanceNumber]),
   ), [unitsData]);
 
   // LS Ref + Tickmark columns: leadsheet membership and the tax year's
@@ -212,6 +215,7 @@ export function TbWorkpaperPage() {
           onChange={(e) => savePrefs({ ...prefs, activityView: e.target.value })}
           className="rounded-lg border border-gray-300 px-2 py-1.5">
           <option value="">Consolidated</option>
+          <option value={TB_VIEW_BY_TAG}>By tag / unit #</option>
           {(unitsData?.units ?? []).map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
         </select>
         <label className="flex items-center gap-1.5">
@@ -271,11 +275,13 @@ export function TbWorkpaperPage() {
       {wpData && (
         <TbWorkpaperGrid
           workpaper={wpData.workpaper}
-          pyByAccount={prefs.showPy && pyData ? new Map(pyData.workpaper.rows.map((r) => [r.accountId, r.adjusted])) : undefined}
+          pyRows={prefs.showPy && pyData ? pyData.workpaper.rows : undefined}
           prefs={prefs}
           search={search}
           typeFilter={typeFilter}
           unitNames={unitNames}
+          unitNumbers={unitNumbers}
+          unitNumberPlacement={profileData?.profile?.unitNumberPlacement ?? 'suffix'}
           onAmountClick={(row, column) => {
             // 6.5 drill-down, respecting the column filter and TB period.
             const params = new URLSearchParams({ account: row.accountId });
