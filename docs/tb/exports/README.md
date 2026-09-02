@@ -14,7 +14,7 @@ between tax years. The crosswalk columns come from the tax-code seed
 | Lacerte | `.xlsx` | `Lacerte Export` | `LineCode, Description, Book Basis Amt, Tax Basis Amt` | `Description` is the ACCOUNT name; no account-number column. |
 | GoSystem Tax RS | `.xlsx` | `GoSystem Tax RS Export` | same as Lacerte | Sheet/filename differ only. |
 | Generic | `.xlsx` | `Generic Export` | `AccountNumber, AccountName, TaxCode, TaxDescription, Book Basis Amt, Tax Basis Amt` | Canonical code + description (no software crosswalk). |
-| Working TB | `.xlsx` | `Working TB` | Five columns + tax code, sectioned by account type with subtotals | The CPA-facing Excel workpaper (11.7a), not a vendor import. |
+| Working TB | `.xlsx` | `Working TB` | Five columns + tax code, sectioned by account type with subtotals | The CPA-facing Excel workpaper (11.7a), not a vendor import. Accepts the workpaper screen's activity view (`view.activityView`: `''` consolidated, `'tags'` by tag / unit # with a `Unit` column and unit-numbered account numbers — untagged and balance sheet = unit 0 — or a unit id), plus `periodEnd`, `tagId` and toolbar filters, so the screen's Download matches what's shown. The same options drive the `tb-workpaper` report (`activity_view`, `account_type`, `q`, `nonzero_only`). |
 
 Shared conventions (byte-matched to the Vibe Trial Balance reference
 implementation, `server/src/routes/exports.ts` there):

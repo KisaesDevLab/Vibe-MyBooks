@@ -20,7 +20,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { useSessionState } from '../../hooks/useSessionState';
-import { ExternalLink, AlertTriangle } from 'lucide-react';
+import { ExternalLink, AlertTriangle, Download } from 'lucide-react';
 import { TbWorkpaperGrid, TB_VIEW_BY_TAG, type TbGridPrefs } from './TbWorkpaperGrid';
 import { buildCellMarks, TickmarkCellPicker } from './TickmarkCellPicker';
 import {
@@ -164,6 +164,69 @@ export function TbWorkpaperPage() {
 
   const workflowState = statusData?.status.workflowState ?? 'open';
 
+  // ── Download what's on screen ───────────────────────────────
+  // CSV/PDF ride the tb-workpaper report; Excel rides the Working TB
+  // export. Both take the current period, basis, tag filter, activity
+  // view and toolbar filters so the file foots to the grid.
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const downloadRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!downloadOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!downloadRef.current?.contains(e.target as Node)) setDownloadOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [downloadOpen]);
+  const [downloading, setDownloading] = useState(false);
+
+  const saveBlob = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const authHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+    'X-Company-Id': localStorage.getItem('activeCompanyId') ?? '',
+  });
+  const downloadScreen = async (format: 'csv' | 'pdf' | 'xlsx') => {
+    setDownloadOpen(false);
+    setDownloading(true);
+    try {
+      if (format === 'xlsx') {
+        const res = await apiClient<{ export: { id: string; fileName: string } }>('/tb/exports', {
+          method: 'POST',
+          body: JSON.stringify({
+            taxYear: wpData?.workpaper.taxYear, basis: prefs.basis, software: 'workingtb',
+            periodEnd: effPeriodEnd, tagId: tagFilter || undefined,
+            view: { activityView: prefs.activityView, accountType: typeFilter, search, nonZeroOnly: prefs.nonZeroOnly },
+          }),
+        });
+        queryClient.invalidateQueries({ queryKey: ['tb', 'exports'] });
+        const file = await fetch(`${import.meta.env.BASE_URL}api/v1/tb/exports/${res.export.id}/download`, { headers: authHeaders() });
+        if (!file.ok) throw new Error('Download failed');
+        saveBlob(await file.blob(), res.export.fileName);
+        return;
+      }
+      const params = new URLSearchParams({ as_of_date: effPeriodEnd, basis: prefs.basis, format });
+      if (tagFilter) params.set('tag_id', tagFilter);
+      if (prefs.activityView) params.set('activity_view', prefs.activityView);
+      if (typeFilter) params.set('account_type', typeFilter);
+      if (search.trim()) params.set('q', search.trim());
+      if (prefs.nonZeroOnly) params.set('nonzero_only', '1');
+      const res = await fetch(`${import.meta.env.BASE_URL}api/v1/reports/tb-workpaper?${params}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error('Download failed');
+      saveBlob(await res.blob(), `tb-workpaper-${effPeriodEnd}${prefs.activityView === TB_VIEW_BY_TAG ? '-by-tag' : ''}.${format}`);
+    } catch (e) {
+      toast.error(isApiError(e) ? e.message : 'Download failed');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="p-6">
       {/* ── Header ─────────────────────────────────────────── */}
@@ -183,6 +246,27 @@ export function TbWorkpaperPage() {
             <option value="complete">Complete</option>
           </select>
           <Button variant="secondary" onClick={() => navigate('/tb/ajes/new')}>New AJE</Button>
+          <div className="relative" ref={downloadRef}>
+            <Button variant="secondary" onClick={() => setDownloadOpen((v) => !v)} disabled={!wpData || downloading}
+              title="Download the trial balance as shown on screen">
+              <Download className="h-4 w-4 mr-1" />{downloading ? 'Preparing…' : 'Download'}
+            </Button>
+            {downloadOpen && (
+              <div className="absolute right-0 mt-2 z-20 w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-2 text-sm">
+                <div className="px-3 pb-2 text-xs text-gray-500">
+                  As shown: {prefs.basis} · {effPeriodEnd}
+                  {prefs.activityView === TB_VIEW_BY_TAG ? ' · by tag / unit #' : prefs.activityView ? ` · ${unitNames.get(prefs.activityView) ?? 'unit'}` : ''}
+                  {tagFilter ? ' · tag filter' : ''}{typeFilter || search.trim() || prefs.nonZeroOnly ? ' · filtered' : ''}
+                </div>
+                {([['csv', 'CSV'], ['pdf', 'PDF'], ['xlsx', 'Excel (Working TB)']] as const).map(([fmt, label]) => (
+                  <button key={fmt} type="button" onClick={() => downloadScreen(fmt)}
+                    className="w-full text-left px-3 py-1.5 hover:bg-gray-50">
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <Button variant="secondary" onClick={() => openTbPopout(companyId)} title="Open a live read-only popout window">
             <ExternalLink className="h-4 w-4" />
           </Button>

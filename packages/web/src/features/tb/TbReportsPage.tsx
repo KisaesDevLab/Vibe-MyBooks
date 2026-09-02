@@ -11,7 +11,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, isApiError } from '../../api/client';
-import { useTbProfile } from '../../api/hooks/useTb';
+import { useActivityUnits, useTbProfile } from '../../api/hooks/useTb';
+import { TB_VIEW_BY_TAG } from './TbWorkpaperGrid';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
@@ -65,6 +66,9 @@ export function TbReportsPage() {
   const [thresholdAmount, setThresholdAmount] = useSessionState('vibe:tb-reports:fluxAmt', '0');
   const [thresholdPct, setThresholdPct] = useSessionState('vibe:tb-reports:fluxPct', '0');
   const [tagId, setTagId] = useSessionState('vibe:tb-reports:tagId', '');
+  // Workpaper only: '' consolidated | 'tags' by tag / unit # | unit id.
+  const [activityView, setActivityView] = useSessionState('vibe:tb-reports:activityView', '');
+  const { data: unitsData } = useActivityUnits();
   const { data: tagsData } = useTags({ isActive: true });
   const effEnd = endDate || profileData?.fiscal.currentFiscalYearEnd || `${new Date().getFullYear()}-12-31`;
 
@@ -74,9 +78,10 @@ export function TbReportsPage() {
     params.set('threshold_pct', thresholdPct);
   }
   if (tagId && TAG_CAPABLE.has(reportId)) params.set('tag_id', tagId);
+  if (activityView && reportId === 'tb-workpaper') params.set('activity_view', activityView);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['tb', 'report', reportId, effEnd, basis, thresholdAmount, thresholdPct, tagId],
+    queryKey: ['tb', 'report', reportId, effEnd, basis, thresholdAmount, thresholdPct, tagId, activityView],
     retry: false,
     queryFn: () => apiClient<ReportData>(`/reports/${reportId}?${params}`),
   });
@@ -131,6 +136,14 @@ export function TbReportsPage() {
             className="rounded-lg border border-gray-300 px-2 py-2">
             <option value="">All tags</option>
             {(tagsData?.tags ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
+        {reportId === 'tb-workpaper' && (
+          <select value={activityView} onChange={(e) => setActivityView(e.target.value)} aria-label="Activity view"
+            className="rounded-lg border border-gray-300 px-2 py-2">
+            <option value="">Consolidated</option>
+            <option value={TB_VIEW_BY_TAG}>By tag / unit #</option>
+            {(unitsData?.units ?? []).map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
           </select>
         )}
         {reportId === 'tb-flux' && (
