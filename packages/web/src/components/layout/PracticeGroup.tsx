@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Briefcase,
   Sparkles,
+  HelpCircle,
   Scale,
   Inbox,
   FileText,
@@ -29,6 +30,7 @@ const PRACTICE_COLLAPSED_STORAGE_KEY = 'practice-group-collapsed';
 
 const ICONS: Record<string, LucideIcon> = {
   'close-review': Sparkles,
+  'uncategorized': HelpCircle,
   'rules': Scale,
   'receipts-inbox': Inbox,
   '1099': FileText,

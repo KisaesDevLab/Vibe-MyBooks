@@ -162,7 +162,13 @@ export function useBulkCategorize() {
   return useMutation({
     mutationFn: (input: { feedItemIds: string[]; accountId: string; contactId?: string; memo?: string; tagId?: string | null }) =>
       apiClient('/banking/feed/bulk-categorize', { method: 'POST', body: JSON.stringify(input) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); },
+    // Also refresh the Uncategorized page: it counts the same rows, so
+    // categorizing from either screen has to move both.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bank-feed'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['uncategorized'] });
+    },
   });
 }
 

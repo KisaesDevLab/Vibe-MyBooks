@@ -7,18 +7,12 @@ import type { PracticeFeatureFlagKey } from '@kis-books/shared';
 import { filterPracticeNav,
   isPracticeStaff, PRACTICE_NAV_CATALOG } from './usePracticeVisibility';
 
-// Every flag turned on — lets us isolate the role / user_type
-// gates in tests that aren't about flags.
-const allFlagsOn: Partial<Record<PracticeFeatureFlagKey, { enabled: boolean }>> = {
-  CLOSE_REVIEW_V1: { enabled: true },
-  AI_BUCKET_WORKFLOW_V1: { enabled: true },
-  CONDITIONAL_RULES_V1: { enabled: true },
-  CLIENT_PORTAL_V1: { enabled: true },
-  REMINDERS_V1: { enabled: true },
-  TAX_1099_V1: { enabled: true },
-  REPORT_BUILDER_V1: { enabled: true },
-  RECEIPT_PWA_V1: { enabled: true },
-};
+// Every flag a nav item gates on, turned on — lets us isolate the role /
+// user_type gates in tests that aren't about flags. Derived from the catalog
+// rather than hand-listed: the hand-listed version silently dropped any newly
+// added nav item from the "full set" assertions instead of failing loudly.
+const allFlagsOn: Partial<Record<PracticeFeatureFlagKey, { enabled: boolean }>> =
+  Object.fromEntries(PRACTICE_NAV_CATALOG.map((item) => [item.flag, { enabled: true }]));
 
 describe('filterPracticeNav', () => {
   describe('user_type gate', () => {
@@ -56,7 +50,7 @@ describe('filterPracticeNav', () => {
       const keys = items.map((i) => i.key).sort();
       // Client Portal + Reminders were lowered from owner-tier to
       // bookkeeper-tier so firm staff can manage them.
-      expect(keys).toEqual(['1099', 'client-portal', 'close-review', 'receipts-inbox', 'reminders', 'report-builder', 'rules']);
+      expect(keys).toEqual(['1099', 'client-portal', 'close-review', 'receipts-inbox', 'reminders', 'report-builder', 'rules', 'uncategorized']);
       expect(keys).toContain('client-portal');
       expect(keys).toContain('reminders');
     });

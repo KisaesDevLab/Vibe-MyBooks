@@ -674,6 +674,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
     questionsForUsAccess: boolean;
     bankingAccess: boolean;
     billPayAccess: boolean;
+    categorizeAccess: boolean;
   }
   const [assignments, setAssignments] = useState<CoAssign[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -694,6 +695,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
         questionsForUsAccess: c.questionsForUsAccess,
         bankingAccess: c.bankingAccess,
         billPayAccess: c.billPayAccess,
+        categorizeAccess: c.categorizeAccess,
       })),
     );
     setHydrated(true);
@@ -716,6 +718,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
                 questionsForUsAccess: true,
                 bankingAccess: false,
                 billPayAccess: false,
+                categorizeAccess: false,
               },
             ]
         : prev.filter((a) => a.companyId !== id),
@@ -757,6 +760,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
           questionsForUsAccess: a.questionsForUsAccess,
           bankingAccess: a.bankingAccess,
           billPayAccess: a.billPayAccess,
+          categorizeAccess: a.categorizeAccess,
         })),
       });
       onClose();
@@ -859,6 +863,11 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
                             checked={a.billPayAccess}
                             onChange={(v) => setFlag(c.id, 'billPayAccess', v)}
                           />
+                          <FlagToggle
+                            label="Can suggest categories"
+                            checked={a.categorizeAccess}
+                            onChange={(v) => setFlag(c.id, 'categorizeAccess', v)}
+                          />
                         </div>
                       )}
                     </div>
@@ -867,8 +876,9 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
               )}
             </div>
             <p className="mt-1 text-[11px] text-gray-500">
-              Defaults: questions + receipts on; financials, bank activity, and bill pay off
-              (you decide who sees the books and who can queue payments).
+              Defaults: questions + receipts on; financials, bank activity, bill pay and
+              category suggestions off (you decide who sees the books, who can queue payments,
+              and who gets asked "what was this?"). A suggested category never posts on its own.
             </p>
           </Field>
 

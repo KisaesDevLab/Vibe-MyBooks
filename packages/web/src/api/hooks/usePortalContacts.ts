@@ -30,6 +30,7 @@ export interface PortalContactCompanyLink {
   questionsForUsAccess: boolean;
   bankingAccess: boolean;
   billPayAccess: boolean;
+  categorizeAccess: boolean;
 }
 
 export interface PortalContactDetail {

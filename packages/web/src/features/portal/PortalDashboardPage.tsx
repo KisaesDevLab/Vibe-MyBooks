@@ -51,6 +51,8 @@ export function PortalDashboardPage() {
     !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.bankingAccess;
   const billPayEnabled =
     !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.billPayAccess;
+  const categorizeEnabled =
+    !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.categorizeAccess;
 
   const [counts, setCounts] = useState<DashboardCounts>({
     openQuestions: null,
@@ -60,6 +62,8 @@ export function PortalDashboardPage() {
   const [docRequests, setDocRequests] = useState<PortalDocRequest[] | null>(null);
   // null = hidden (feature off, permission off, or fetch failed).
   const [bankAccounts, setBankAccounts] = useState<DashboardBankAccount[] | null>(null);
+  // PORTAL_CATEGORIZE_V1 — how many transactions are waiting on this client.
+  const [categorizeCount, setCategorizeCount] = useState<number | null>(null);
 
   // PORTAL_BANKING_V1 — separate request because the response carries
   // featureEnabled (tenant flag) which the /me permission can't know.
@@ -80,6 +84,26 @@ export function PortalDashboardPage() {
       .catch(() => { /* feature off or transport error — hide section */ });
     return () => { cancelled = true; };
   }, [activeCompanyId, bankingEnabled]);
+
+  // Separate request for the same reason as banking: the response carries
+  // featureEnabled (the tenant flag), which the /me permission cannot know.
+  useEffect(() => {
+    if (!activeCompanyId || !categorizeEnabled) {
+      setCategorizeCount(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${import.meta.env.BASE_URL}api/portal/categorize/queue?companyId=${activeCompanyId}&limit=1`, {
+      credentials: 'include',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (cancelled || !body || body.featureEnabled === false) return;
+        setCategorizeCount(typeof body.total === 'number' ? body.total : null);
+      })
+      .catch(() => { /* feature off or transport error — hide the tile */ });
+    return () => { cancelled = true; };
+  }, [activeCompanyId, categorizeEnabled]);
 
   useEffect(() => {
     if (!activeCompanyId) return;
@@ -308,6 +332,19 @@ export function PortalDashboardPage() {
             <p className="text-sm font-medium text-gray-900">Balances &amp; activity</p>
             <p className="text-xs text-gray-500 mt-1">
               See your bank and card balances and recent activity.
+            </p>
+          </Link>
+        )}
+        {categorizeCount !== null && categorizeCount > 0 && (
+          <Link
+            to="/portal/categorize"
+            className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+          >
+            <p className="text-sm font-medium text-gray-900">
+              {categorizeCount} transaction{categorizeCount === 1 ? '' : 's'} need your input
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Tell your bookkeeper what these were for. Nothing changes your books until they review it.
             </p>
           </Link>
         )}

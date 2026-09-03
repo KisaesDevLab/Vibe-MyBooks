@@ -26,6 +26,7 @@ export interface PortalMe {
       questionsForUsAccess: boolean;
       bankingAccess: boolean;
       billPayAccess: boolean;
+      categorizeAccess: boolean;
     }>;
   };
   preview: {

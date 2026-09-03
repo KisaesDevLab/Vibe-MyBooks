@@ -236,6 +236,7 @@ const ArticlePage = lazyNamed(() => import('./features/help/ArticlePage'), 'Arti
 // ─── Practice Management ─────────────────────────────────────
 const PracticeLayout = lazyNamed(() => import('./features/practice/PracticeLayout'), 'PracticeLayout');
 const CloseReviewPage = lazyNamed(() => import('./features/practice/close-review/CloseReviewPage'), 'CloseReviewPage');
+const UncategorizedPage = lazyNamed(() => import('./features/practice/uncategorized/UncategorizedPage'), 'UncategorizedPage');
 const PracticeSettingsPage = lazyNamed(() => import('./features/practice/settings/PracticeSettingsPage'), 'PracticeSettingsPage');
 const RulesPage = lazyNamed(() => import('./features/practice/rules/RulesPage'), 'RulesPage');
 const BankingRulesRoute = lazyNamed(() => import('./features/practice/rules/BankingRulesRoute'), 'BankingRulesRoute');
@@ -253,6 +254,7 @@ const PortalFinancialsPage = lazyNamed(() => import('./features/portal/PortalFin
 const PortalBankingPage = lazyNamed(() => import('./features/portal/PortalBankingPage'), 'PortalBankingPage');
 const PortalBankingRegisterPage = lazyNamed(() => import('./features/portal/PortalBankingRegisterPage'), 'PortalBankingRegisterPage');
 const PortalBillsPage = lazyNamed(() => import('./features/portal/PortalBillsPage'), 'PortalBillsPage');
+const PortalCategorizePage = lazyNamed(() => import('./features/portal/PortalCategorizePage'), 'PortalCategorizePage');
 const RemindersPage = lazyNamed(() => import('./features/practice/reminders/RemindersPage'), 'RemindersPage');
 const ReportBuilderPage = lazyNamed(() => import('./features/practice/report-builder/ReportBuilderPage'), 'ReportBuilderPage');
 // 3-tier rules plan, Phase 1 — firm admin pages.
@@ -362,6 +364,7 @@ export function App() {
             <Route path="banking" element={<PortalBankingPage />} />
             <Route path="banking/:accountId" element={<PortalBankingRegisterPage />} />
             <Route path="bills" element={<PortalBillsPage />} />
+            <Route path="categorize" element={<PortalCategorizePage />} />
           </Route>
 
           {/* Setup wizard */}
@@ -558,6 +561,9 @@ export function App() {
             <Route path="/practice" element={<Navigate to="/practice/close-review" replace />} />
             <Route path="/practice/close-review" element={
               <PracticeLayout flag="CLOSE_REVIEW_V1" minRole="bookkeeper"><CloseReviewPage /></PracticeLayout>
+            } />
+            <Route path="/practice/uncategorized" element={
+              <PracticeLayout flag="UNCATEGORIZED_REVIEW_V1" minRole="bookkeeper"><UncategorizedPage /></PracticeLayout>
             } />
             <Route path="/practice/settings" element={
               <PracticeLayout flag="AI_BUCKET_WORKFLOW_V1" minRole="bookkeeper"><PracticeSettingsPage /></PracticeLayout>

@@ -2558,4 +2558,72 @@ In the rule editor, **Email staff when the client submits** lists the active sta
 
 Requires the tenant flag **RECURRING_DOC_REQUESTS_V1**.`,
   },
+  {
+    id: 'suspense-and-uncategorized',
+    title: 'The suspense account and the Uncategorized screen',
+    category: 'Banking',
+    summary: 'Post unclassified amounts to a real holding account so the bank reconciles, then clear them individually or in bulk from Practice \u2192 Uncategorized.',
+    body: `Before this, "uncategorized" meant a bank line still sitting in the feed at **pending** \u2014 off the ledger entirely. The books understated real activity until somebody touched every line, and a bookkeeper who could not classify something had two bad options: leave it off, or guess.
+
+The **suspense account** gives those amounts somewhere to go.
+
+## What the suspense account is
+
+It is a real general-ledger account, **89999 Uncategorized** (Other Expense), now marked as a system account so it cannot be deleted and its type cannot change. Most charts of accounts already had it; the rest get one created on first use. Because it is a real account, an amount posted there hits the bank balance and the reconciliation immediately \u2014 the books are complete, and the account's balance is the exact size of the work still outstanding.
+
+Nothing lands there on its own. Only two paths post to suspense:
+
+- **You choose to.** Select bank lines on Practice \u2192 Uncategorized and click **Post to suspense**.
+- **An import names an account you do not have.** A QuickBooks or trial-balance import used to abort on an unknown account ("Import the CoA first"). It now posts that line to suspense, keeps the entry balanced, and tells you which account names it could not match. Turn this off per import if you would rather it fail.
+
+## The Uncategorized screen
+
+**Practice \u2192 Uncategorized** has three tabs and a header showing the suspense balance.
+
+- **Not posted** \u2014 bank lines still off the ledger. Give one a real category, or park it in suspense.
+- **In suspense** \u2014 amounts on the ledger awaiting a category. Tick rows, pick an account, click **Set category**.
+- **Client suggested** \u2014 what your clients answered from the portal.
+
+A row moves from the first tab to the second when you post it to suspense; it leaves the second when you give it a real category. Nothing disappears.
+
+## Clearing suspense
+
+Setting a category moves **every** suspense line on that transaction to the account you pick. Split entries are flagged with a **Split** badge for exactly that reason: if one suspense amount needs dividing across several categories, open the transaction and edit it there instead.
+
+Clearing respects the same rules as everything else in the ledger. A closed period, a voided entry or an adjusting entry is **skipped and reported**, never forced, and the message tells you which reason applied.
+
+## Consolidating old accounts
+
+If a client has accumulated several hand-made "Uncategorized" or "Ask my accountant" accounts, an admin can fold them into the one suspense account (Admin \u2192 tenant \u2192 suspense consolidation). It previews what would move, with balances and line counts, and skips anything inside a completed reconciliation or a closed period. It does rewrite posted journal lines, so take a backup first.
+
+Requires the tenant flag **UNCATEGORIZED_REVIEW_V1**.`,
+  },
+  {
+    id: 'portal-client-categorization',
+    title: 'Letting clients suggest categories',
+    category: 'Client Portal',
+    summary: 'Clients answer "what was this?" in the portal; staff approve, override or send back from Practice \u2192 Uncategorized. A suggestion never posts on its own.',
+    body: `Chasing a client for "what was this $340 payment?" by email is slow and the answer arrives detached from the transaction. Turn this on and the client sees the list themselves.
+
+## What the client sees
+
+A **What was this?** page in the portal, listing only the activity nobody could classify: bank lines the categorizer could not place, and amounts already sitting in suspense. Rows the software categorized confidently are **not** shown \u2014 inviting a client to second-guess a correct answer just manufactures review work.
+
+Each row shows the date, the cleaned-up description, and the amount. The picker offers income and expense categories only, by name, with no balances and no account numbers. There are two extra answers: **Personal, not business** and **I am not sure** (which asks for a note). Answers collect up behind a **Send to my bookkeeper** button, so it is one submission and one email even if they work through forty rows on a phone.
+
+## What staff see
+
+Answers arrive on **Practice \u2192 Uncategorized \u2192 Client suggested**, and an email goes to staff who have access to that client. Nothing has posted. For each answer you can:
+
+- **Approve** \u2014 posts it, using the same machinery every other categorization uses, so closed periods and voided entries are refused rather than forced.
+- **Approve with override** \u2014 pick a different account when the client was close but not right, or when they said "not sure" or "personal".
+- **Send back** \u2014 with a reason, which the client sees in the portal.
+- **Mark all read** \u2014 clears the unread badge without approving anything.
+
+An answer whose amount or date has **changed** since the client gave it is flagged **Changed** and is excluded from bulk approval; you have to look at it and use **Approve anyway**. This matters because bank feeds rewrite amounts as a transaction settles, so an answer given against $42.50 must not be swept through once the row reads $58.10. An answer for something already handled by someone else is marked **Already handled** rather than blamed on the client.
+
+## Turning it on
+
+Two switches, both off by default. Enable **PORTAL_CATEGORIZE_V1** for the tenant, then tick **Can suggest categories** for each portal contact on Practice \u2192 Client Portal. Staff also need **UNCATEGORIZED_REVIEW_V1** to see the review queue.`,
+  },
 ];
