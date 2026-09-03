@@ -1897,7 +1897,7 @@ Click **Disable Two-Factor Authentication** (requires password). Clears all meth
 
 ### While Logged In
 1. Go to **Settings > Security**
-2. In the **Password** card, enter your current password and the new one (at least 8 characters)
+2. In the **Password** card, enter your current password and the new one (at least 12 characters)
 3. Click **Change Password**
 
 For your protection, changing your password signs you out on every other device — only the browser you changed it from stays signed in. Passwords that have appeared in known data breaches are rejected; pick something unique.
