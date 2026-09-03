@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toaster';
 import { useChangePassword } from '../../api/hooks/useAuth';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE, PASSWORD_HINT } from '@kis-books/shared';
 
 export function ChangePasswordSection() {
   const toast = useToast();
@@ -20,7 +21,7 @@ export function ChangePasswordSection() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirm) { setError('New passwords do not match'); return; }
-    if (newPassword.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (newPassword.length < PASSWORD_MIN_LENGTH) { setError(PASSWORD_MIN_MESSAGE); return; }
     setError('');
     changePassword.mutate(
       { currentPassword, newPassword },
@@ -61,7 +62,7 @@ export function ChangePasswordSection() {
           onChange={(e) => setNewPassword(e.target.value)}
           required
           autoComplete="new-password"
-          placeholder="At least 8 characters"
+          placeholder={PASSWORD_HINT}
         />
         <Input
           label="Confirm New Password"

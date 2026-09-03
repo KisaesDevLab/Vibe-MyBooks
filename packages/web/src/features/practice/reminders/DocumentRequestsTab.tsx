@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Inbox, Send, CheckSquare, XCircle, Eye, MailOpen, Paperclip } from 'lucide-react';
+import { Inbox, Send, CheckSquare, XCircle, Eye, MailOpen, Paperclip, Download, X } from 'lucide-react';
 import type { DocRequestStatus, DocumentRequestSummary } from '@kis-books/shared';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -43,6 +43,8 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
   const [info, setInfo] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [drawerFor, setDrawerFor] = useState<DocumentRequestSummary | null>(null);
+  // Inline viewer for the file the client actually uploaded.
+  const [viewerFor, setViewerFor] = useState<DocumentRequestSummary | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -247,10 +249,15 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
                       {r.status === 'submitted' && (
                         <div className="text-xs text-gray-500 mt-1 flex items-center gap-1 max-w-xs">
                           {r.submittedFilename ? (
-                            <>
+                            <button
+                              type="button"
+                              onClick={() => setViewerFor(r)}
+                              className="inline-flex items-center gap-1 min-w-0 text-indigo-700 hover:text-indigo-900 hover:underline"
+                              title={`View ${r.submittedFilename}`}
+                            >
                               <Paperclip className="h-3 w-3 shrink-0" />
-                              <span className="truncate" title={r.submittedFilename}>{r.submittedFilename}</span>
-                            </>
+                              <span className="truncate">{r.submittedFilename}</span>
+                            </button>
                           ) : (
                             <span>Marked received by staff</span>
                           )}
@@ -326,6 +333,14 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
       )}
 
       {drawerFor && <ThreadDrawer request={drawerFor} onClose={() => setDrawerFor(null)} />}
+      {viewerFor?.submittedReceiptId && (
+        <AttachmentViewer
+          receiptId={viewerFor.submittedReceiptId}
+          filename={viewerFor.submittedFilename ?? 'attachment'}
+          caption={`${viewerFor.contactName ?? viewerFor.contactEmail} · ${viewerFor.description} · ${viewerFor.periodLabel}`}
+          onClose={() => setViewerFor(null)}
+        />
+      )}
     </section>
   );
 }
@@ -422,6 +437,128 @@ function ThreadDrawer({ request, onClose }: { request: DocumentRequestSummary; o
             ))}
           </ol>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Authorized fetch of a submitted receipt's bytes as an object URL. The
+// file route takes a Bearer header (or a single-use ?_dl= token), so a
+// bare <iframe src> would 401 — same blob-backed approach the attachment
+// library uses. The URL is revoked on close so the blob isn't retained.
+function useReceiptObjectUrl(receiptId: string | null): {
+  url: string | null;
+  mimeType: string | null;
+  error: string | null;
+} {
+  const [state, setState] = useState<{ url: string | null; mimeType: string | null; error: string | null }>({
+    url: null, mimeType: null, error: null,
+  });
+
+  useEffect(() => {
+    if (!receiptId) {
+      setState({ url: null, mimeType: null, error: null });
+      return;
+    }
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        const res = await fetch(
+          `${import.meta.env.BASE_URL}api/v1/practice/receipts/${receiptId}/file?inline=1`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' },
+        );
+        if (!res.ok) throw new Error(res.status === 404 ? 'File not found' : `HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setState({ url: objectUrl, mimeType: blob.type || null, error: null });
+      } catch (e) {
+        if (!cancelled) {
+          setState({ url: null, mimeType: null, error: e instanceof Error ? e.message : 'Could not load file' });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [receiptId]);
+
+  return state;
+}
+
+function AttachmentViewer({
+  receiptId,
+  filename,
+  caption,
+  onClose,
+}: {
+  receiptId: string;
+  filename: string;
+  caption: string;
+  onClose: () => void;
+}) {
+  const { url, mimeType, error } = useReceiptObjectUrl(receiptId);
+  const isImage = (mimeType ?? '').startsWith('image/');
+
+  // Escape closes, matching the other overlays on this page.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Attachment: ${filename}`}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 p-4 border-b border-gray-200">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-gray-900 truncate">{filename}</h2>
+            <p className="text-xs text-gray-500 truncate">{caption}</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {url && (
+              <a
+                href={url}
+                download={filename}
+                className="inline-flex items-center gap-1 text-sm text-indigo-700 hover:text-indigo-900"
+              >
+                <Download className="h-4 w-4" /> Download
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 bg-gray-50 flex items-center justify-center">
+          {error ? (
+            <p className="text-sm text-red-700 px-4 text-center">{error}</p>
+          ) : !url ? (
+            <LoadingSpinner />
+          ) : isImage ? (
+            <img src={url} alt={filename} className="max-h-full max-w-full object-contain" />
+          ) : (
+            // PDFs and anything else the browser can render inline.
+            <iframe src={url} title={filename} className="w-full h-full border-0" />
+          )}
+        </div>
       </div>
     </div>
   );

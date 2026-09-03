@@ -13,7 +13,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
 import { TemplatesModal, UserPermissionsModal } from './TeamPermissionModals';
-import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal, Eye, Pencil, KeyRound } from 'lucide-react';
+import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal, Eye, Pencil, KeyRound, Lock, Unlock } from 'lucide-react';
 
 interface TeamUser {
   id: string;
@@ -24,6 +24,10 @@ interface TeamUser {
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  // Login lockout after too many failed sign-ins. Lockouts never expire
+  // on their own — an owner has to clear them here.
+  isLocked?: boolean;
+  loginFailedAttempts?: number;
 }
 
 // Bookkeepers and every external (client) user can have their access
@@ -124,6 +128,18 @@ export function TeamPage() {
       apiClient<{ message: string }>(`/company/users/${userId}/send-password-reset`, { method: 'POST' }),
     onSuccess: (res) => toast.success(res.message),
     onError: (e) => toast.error('Could not send password reset', { detail: (e as Error).message }),
+  });
+
+  // Clear a login lockout. The sign-in page tells the user to "contact
+  // your administrator", so the administrator needs this button.
+  const unlockUser = useMutation({
+    mutationFn: (userId: string) =>
+      apiClient<{ message: string }>(`/company/users/${userId}/unlock`, { method: 'POST' }),
+    onSuccess: (res) => {
+      toast.success(res.message);
+      queryClient.invalidateQueries({ queryKey: ['company', 'users'] });
+    },
+    onError: (e) => toast.error('Could not unlock user', { detail: (e as Error).message }),
   });
 
   const updateUser = useMutation({
@@ -399,6 +415,14 @@ export function TeamPage() {
                 </td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-block h-2.5 w-2.5 rounded-full ${u.isActive ? 'bg-green-500' : 'bg-red-400'}`} />
+                  {u.isLocked && (
+                    <span
+                      className="ml-2 inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700 align-middle"
+                      title={`Locked after ${u.loginFailedAttempts ?? 0} failed sign-in attempts. Lockouts do not expire on their own.`}
+                    >
+                      <Lock className="h-3 w-3" /> Locked
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : 'Never'}
@@ -421,6 +445,16 @@ export function TeamPage() {
                         title="Edit name or email"
                       >
                         <Pencil className="h-3.5 w-3.5" /> Edit
+                      </button>
+                    )}
+                    {isOwner && u.isLocked && (
+                      <button
+                        onClick={() => unlockUser.mutate(u.id)}
+                        disabled={unlockUser.isPending}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                        title="Clear the lockout so this user can sign in again"
+                      >
+                        <Unlock className="h-3.5 w-3.5" /> Unlock
                       </button>
                     )}
                     {isOwner && u.isActive && (

@@ -11,6 +11,7 @@ import { useRegister } from '../../api/hooks/useAuth';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 import { TurnstileWidget } from '../../components/auth/TurnstileWidget';
 import { API_BASE } from '../../api/client';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE, PASSWORD_HINT } from '@kis-books/shared';
 
 export function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -93,7 +94,7 @@ export function RegisterPage() {
           onChange={(e) => setPassword(e.target.value)}
           required
           autoComplete="new-password"
-          placeholder="At least 8 characters"
+          placeholder={PASSWORD_HINT}
         />
         <TurnstileWidget action="register" onToken={setTurnstileToken} />
         {register.error && (

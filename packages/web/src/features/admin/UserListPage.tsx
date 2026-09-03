@@ -24,7 +24,9 @@ import {
   Eye,
   EyeOff,
   Search,
+  Lock,
 } from 'lucide-react';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@kis-books/shared';
 
 interface AdminUser {
   id: string;
@@ -36,6 +38,9 @@ interface AdminUser {
   isActive: boolean;
   isSuperAdmin: boolean;
   lastLoginAt: string | null;
+  // Login lockout. Never expires on its own — an admin has to clear it.
+  isLocked?: boolean;
+  loginFailedAttempts?: number;
 }
 
 interface TenantOption { id: string; name: string }
@@ -142,6 +147,12 @@ export function UserListPage() {
   const toggleActiveMutation = useMutation({
     mutationFn: (userId: string) =>
       apiClient(`/admin/users/${userId}/toggle-active`, { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: (userId: string) =>
+      apiClient(`/admin/users/${userId}/unlock`, { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
 
@@ -253,7 +264,7 @@ export function UserListPage() {
                 setNewPassword(e.target.value);
                 if (resetPasswordError) setResetPasswordError('');
               }}
-              placeholder="New password (min 8 characters)"
+              placeholder={`New password (min ${PASSWORD_MIN_LENGTH} characters)`}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
@@ -286,8 +297,8 @@ export function UserListPage() {
               </button>
               <button
                 onClick={() => {
-                  if (newPassword.length < 8) {
-                    setResetPasswordError('Password must be at least 8 characters.');
+                  if (newPassword.length < PASSWORD_MIN_LENGTH) {
+                    setResetPasswordError(`${PASSWORD_MIN_MESSAGE}.`);
                     return;
                   }
                   setResetPasswordError('');
@@ -381,6 +392,23 @@ export function UserListPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
+                        {u.isLocked && (
+                          <button
+                            onClick={() =>
+                              setPendingAction({
+                                title: 'Unlock user?',
+                                message: `"${u.email}" was locked after ${u.loginFailedAttempts ?? 0} failed sign-in attempts. Unlocking lets them sign in again.`,
+                                confirmLabel: 'Unlock',
+                                variant: 'primary',
+                                onConfirm: () => unlockMutation.mutate(u.id),
+                              })
+                            }
+                            className="p-1.5 rounded hover:bg-gray-200 text-red-600"
+                            title={`Locked after ${u.loginFailedAttempts ?? 0} failed sign-in attempts — click to unlock`}
+                          >
+                            <Lock className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => setResetPasswordUserId(u.id)}
                           className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
@@ -488,7 +516,7 @@ export function UserListPage() {
               onSubmit={e => {
                 e.preventDefault();
                 if (!createForm.email || !createForm.password || !createForm.tenantId) return;
-                if (createForm.password.length < 8) { setCreateError('Password must be at least 8 characters'); return; }
+                if (createForm.password.length < PASSWORD_MIN_LENGTH) { setCreateError(PASSWORD_MIN_MESSAGE); return; }
                 createUserMutation.mutate(createForm);
               }}
               className="px-6 py-4 space-y-4"
@@ -508,7 +536,7 @@ export function UserListPage() {
                     type={showCreatePassword ? 'text' : 'password'}
                     value={createForm.password}
                     onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
-                    placeholder="Min 8 characters"
+                    placeholder={`Min ${PASSWORD_MIN_LENGTH} characters`}
                     className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
                   <button

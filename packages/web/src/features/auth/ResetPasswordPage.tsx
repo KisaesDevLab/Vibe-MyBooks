@@ -7,6 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE, PASSWORD_HINT } from '@kis-books/shared';
 
 // Subpath-aware API base — see LoginPage.tsx for the full rationale.
 // Multi-app appliance installs run with BASE_URL=`/mybooks/`, and an
@@ -27,7 +28,7 @@ export function ResetPasswordPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (password !== confirm) { setError('Passwords do not match'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (password.length < PASSWORD_MIN_LENGTH) { setError(PASSWORD_MIN_MESSAGE); return; }
 
     setLoading(true);
     setError('');
@@ -75,7 +76,7 @@ export function ResetPasswordPage() {
           onChange={(e) => setPassword(e.target.value)}
           required
           autoComplete="new-password"
-          placeholder="At least 8 characters"
+          placeholder={PASSWORD_HINT}
         />
         <Input
           label="Confirm Password"

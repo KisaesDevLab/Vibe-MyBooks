@@ -2498,7 +2498,7 @@ When the contact uploads against a request it becomes a **submitted** request th
 - **Clients** (View all clients… at the bottom of the company switcher) — an inbox icon with a count next to any client that has unread submissions, and a red calendar icon with a count when that client has document requests past due.
 - **Practice → Reminders** — an "Unread submissions" tile, a "*N* new" badge on the Open requests tab, and an **Unread submissions** filter in the grid. Unread rows are highlighted with a **New** badge and show the uploaded filename.
 
-Click the **Mark reviewed** (open-envelope) action on a row, or **Mark all reviewed** at the top of the unread filter. Closing a request yourself with **Mark received** counts as reviewed, as does routing a statement manually from the receipts inbox. If the client sends **another file** for a request you already reviewed, it becomes unread again so a re-submission is never missed.
+Click the uploaded **filename** on any submitted row to open the document right there — PDFs and images render in place, and there is a Download button. Click the **Mark reviewed** (open-envelope) action on a row, or **Mark all reviewed** at the top of the unread filter. Closing a request yourself with **Mark received** counts as reviewed, as does routing a statement manually from the receipts inbox. If the client sends **another file** for a request you already reviewed, it becomes unread again so a re-submission is never missed.
 
 ## Emailing staff when the client submits
 
