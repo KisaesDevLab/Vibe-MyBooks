@@ -2484,6 +2484,37 @@ The client's portal shows those payments under "Queued for printing" until you p
 3. Edit each contact (**Practice → Client Portal → Contacts**) and switch on **Can pay bills** for the company.`,
   },
   {
+    id: 'fill-check-payees',
+    title: 'Filling check payees and categories from a statement',
+    category: 'Banking',
+    summary: 'Use payees read off check images to name and categorize check rows already sitting in the bank feed.',
+    body: `Bank feeds describe a check with whatever the bank prints, which is often the account nickname or just "CHECK 3607". A parsed statement, by contrast, reads the **pay to the order of** name off the check image. **Fill Payees from Statements** on the Bank Feed page brings the two together.
+
+It matches unposted check rows against statement lines already on file by **check number, confirmed by amount to the cent**, and for each match it:
+
+- writes the payee onto the row and links the vendor contact, creating the vendor if it is new;
+- suggests the **category** when every previous check to that payee was coded to the same expense account.
+
+Nothing is posted. Every row stays pending for your review.
+
+## Why the first click shows a preview
+
+The button previews before it writes, because applying can create new vendor contacts. The confirmation tells you how many payees will be filled, how many will also get a category, how many still need one from you, and how many vendors would be created. Read that vendor count: statements sometimes read the same vendor two ways ("J & A Janitorial" and "J&A Janitorial, LLC"), and each spelling becomes its own contact.
+
+## What it will not do
+
+- **It will not guess a category.** A payee you have coded to two different accounts gets a payee and no category, on purpose.
+- **It needs at least two prior checks** to that payee before treating the coding as a pattern.
+- **It only reads statements you have imported.** Check rows from months you have not uploaded a statement for are left alone.
+- **Deposits are never touched**, even when the description quotes a check number.
+
+If a row still has no category afterwards, categorize it once by hand. The next check to that payee suggests itself.
+
+## Related
+
+The Reconciliation page has a separate **backfill check payees** tool. That one repairs checks that are already **posted**; this one repairs rows still sitting in the bank feed.`,
+  },
+  {
     id: 'document-requests',
     title: 'Document requests: tracking client submissions',
     category: 'Client Portal',

@@ -234,6 +234,47 @@ export function useBulkReprocessRules() {
   });
 }
 
+// STATEMENT_CHECK_PAYEE_FEED — fill payee + category on unposted check rows
+// from statement data already on file. Defaults to a dry run server-side.
+export interface FeedPayeeBackfillMatchDto {
+  feedItemId: string;
+  checkNumber: number;
+  amount: string;
+  payee: string;
+  contactAction: 'linked' | 'created' | 'none';
+  suggestedAccountId: string | null;
+  suggestedAccountName: string | null;
+}
+
+export interface FeedPayeeBackfillReportDto {
+  dryRun: boolean;
+  scannedItems: number;
+  matched: number;
+  payeesApplied: number;
+  contactsLinked: number;
+  contactsCreated: number;
+  categoriesSuggested: number;
+  needsCategory: number;
+  matches: FeedPayeeBackfillMatchDto[];
+}
+
+export function useBackfillFeedCheckPayees() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { dryRun?: boolean; createMissingContacts?: boolean }) =>
+      apiClient<FeedPayeeBackfillReportDto>('/banking/feed/backfill-check-payees', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (r) => {
+      // A dry run writes nothing, so don't churn the caches on a preview.
+      if (r.dryRun) return;
+      qc.invalidateQueries({ queryKey: ['bank-feed'] });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+    },
+  });
+}
+
 export function useBulkExclude() {
   const qc = useQueryClient();
   return useMutation({

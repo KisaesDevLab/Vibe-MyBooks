@@ -4,8 +4,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
-import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem, useBulkAssign, useExcludeFeedItem, useBulkApprove, useBulkExclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck, useSuggestAccountForContact } from '../../api/hooks/useBanking';
-import type { ReprocessRulesResultDto } from '../../api/hooks/useBanking';
+import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem, useBulkAssign, useExcludeFeedItem, useBulkApprove, useBulkExclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck, useSuggestAccountForContact, useBackfillFeedCheckPayees } from '../../api/hooks/useBanking';
+import type { ReprocessRulesResultDto, FeedPayeeBackfillReportDto } from '../../api/hooks/useBanking';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
@@ -21,7 +21,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
-import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2, Wand2 } from 'lucide-react';
+import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2, Wand2, ScanLine } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 const statusColors: Record<string, string> = {
@@ -118,6 +118,8 @@ export function BankFeedPage() {
   const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showReprocessConfirm, setShowReprocessConfirm] = useState(false);
+  // STATEMENT_CHECK_PAYEE_FEED — the dry-run preview awaiting confirmation.
+  const [payeePreview, setPayeePreview] = useState<FeedPayeeBackfillReportDto | null>(null);
 
   const debouncedSearch = useDebouncedValue(search);
   const debStartDate = useDebouncedDate(startDate);
@@ -159,6 +161,7 @@ export function BankFeedPage() {
   const bulkExclude = useBulkExclude();
   const bulkRecleanse = useBulkRecleanse();
   const bulkReprocessRules = useBulkReprocessRules();
+  const backfillPayees = useBackfillFeedCheckPayees();
   const toast = useToast();
   const bulkSetTag = useBulkSetTag();
   const [showBatchSetTag, setShowBatchSetTag] = useState(false);
@@ -380,6 +383,46 @@ export function BankFeedPage() {
     );
   };
 
+  // STATEMENT_CHECK_PAYEE_FEED — preview first (writes nothing), then apply
+  // on confirm. The apply step can create vendor contacts, which is why the
+  // user sees the counts before it runs rather than after.
+  const previewPayeeBackfill = () => {
+    backfillPayees.mutate(
+      { dryRun: true },
+      {
+        onSuccess: (r) => {
+          if (r.matched === 0) {
+            toast.info(
+              r.scannedItems === 0
+                ? 'No unposted check rows are missing a payee.'
+                : `No statement payees matched the ${r.scannedItems} check row${r.scannedItems === 1 ? '' : 's'} missing one. Import the statement covering them first.`,
+            );
+            return;
+          }
+          setPayeePreview(r);
+        },
+        onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not read statement payees.'),
+      },
+    );
+  };
+
+  const applyPayeeBackfill = () => {
+    setPayeePreview(null);
+    backfillPayees.mutate(
+      { dryRun: false },
+      {
+        onSuccess: (r) => {
+          const parts = [`${r.payeesApplied} payee${r.payeesApplied === 1 ? '' : 's'} filled`];
+          if (r.categoriesSuggested > 0) parts.push(`${r.categoriesSuggested} categorized from history`);
+          if (r.needsCategory > 0) parts.push(`${r.needsCategory} need a category`);
+          if (r.contactsCreated > 0) parts.push(`${r.contactsCreated} vendor${r.contactsCreated === 1 ? '' : 's'} created`);
+          toast.success(parts.join(' · '));
+        },
+        onError: (e) => toast.error(e instanceof Error ? e.message : 'Filling payees failed.'),
+      },
+    );
+  };
+
   // Honest N for the "reprocess all pending" confirm: the server-side
   // total is only the count of what will be reprocessed when the pending
   // filter is active with no search/date narrowing (the connection filter
@@ -463,6 +506,26 @@ export function BankFeedPage() {
           );
         }}
       />
+      <ConfirmDialog
+        open={!!payeePreview}
+        title={payeePreview ? `Fill ${payeePreview.matched} payee${payeePreview.matched === 1 ? '' : 's'} from statements?` : ''}
+        message={payeePreview ? [
+          `Matched by check number and amount against statements already on file.`,
+          payeePreview.categoriesSuggested > 0
+            ? `${payeePreview.categoriesSuggested} will also get a suggested category from how you coded that payee before.`
+            : null,
+          payeePreview.needsCategory > 0
+            ? `${payeePreview.needsCategory} will get a payee but still need a category from you.`
+            : null,
+          payeePreview.contactsCreated > 0
+            ? `${payeePreview.contactsCreated} new vendor contact${payeePreview.contactsCreated === 1 ? '' : 's'} will be created.`
+            : null,
+          `Nothing is posted — every row stays pending for your review.`,
+        ].filter(Boolean).join(' ') : ''}
+        confirmLabel="Fill payees"
+        onCancel={() => setPayeePreview(null)}
+        onConfirm={applyPayeeBackfill}
+      />
       <BankConnectionErrorBanner />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -476,6 +539,11 @@ export function BankFeedPage() {
                   the dataset (not just this page), so label it "all pending"
                   rather than the page-local count. */}
               <Brain className="h-4 w-4 mr-1" /> AI Categorize (all pending)
+            </Button>
+          )}
+          {pendingCount > 0 && selected.size === 0 && (
+            <Button size="sm" variant="secondary" onClick={previewPayeeBackfill} loading={backfillPayees.isPending}>
+              <ScanLine className="h-4 w-4 mr-1" /> Fill Payees from Statements
             </Button>
           )}
           {pendingCount > 0 && selected.size === 0 && (
