@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { LoginInput, RegisterInput, User, UserType, EffectivePermissions, ClientBankingStatus } from '@kis-books/shared';
+import type { LoginInput, RegisterInput, User, UserType, EffectivePermissions, ClientBankingStatus, ClientPortalActivity } from '@kis-books/shared';
 import { apiClient, setTokens, clearTokens } from '../client';
 
 // The wire User type from shared has userType optional; the
@@ -125,6 +125,17 @@ export function useClientBankingStatus(enabled = true) {
   return useQuery({
     queryKey: ['client-banking-status'],
     queryFn: () => apiClient<{ data: ClientBankingStatus[] }>('/auth/accessible-tenants/banking'),
+    staleTime: 60 * 1000,
+    enabled: enabled && !!localStorage.getItem('accessToken'),
+  });
+}
+
+// Unread client submissions + overdue document requests per client, for the
+// Clients screen's attention icons. Same shape of fetch as the banking one.
+export function useClientPortalActivity(enabled = true) {
+  return useQuery({
+    queryKey: ['client-portal-activity'],
+    queryFn: () => apiClient<{ data: ClientPortalActivity[] }>('/auth/accessible-tenants/portal-activity'),
     staleTime: 60 * 1000,
     enabled: enabled && !!localStorage.getItem('accessToken'),
   });

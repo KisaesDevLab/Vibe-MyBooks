@@ -148,7 +148,7 @@ interface DashboardSummary {
   actionItems: { pendingFeedCount: number; overdueInvoiceCount: number; staleReconciliations: Array<{ accountName: string; lastReconciled: string | null }>; pendingDepositCount: number; pendingDepositAmount: number; printQueueCount: number; printQueueAmount: number } | null;
   budgetPerformance: BudgetPerf | null;
   bankingHealth: { totalConnections: number; needsAttention: number; needsAttentionItems: Array<{ id: string; institutionName: string; itemStatus: string; errorMessage: string | null }>; pendingFeedItems: number } | null;
-  portalActivity: { questionsAwaitingReply: number; receiptsToReview: number; docRequestsOverdue: number } | null;
+  portalActivity: { questionsAwaitingReply: number; receiptsToReview: number; docRequestsOverdue: number; docRequestsUnread?: number } | null;
   errors: string[];
 }
 
@@ -241,6 +241,16 @@ export function DashboardPage() {
   // current user can open.
   const canOpen = new Set(practiceNav.items.map((i) => i.key));
   const portalRows = [
+    {
+      // Unread submissions first: a client just sent something, and that is
+      // the row a staffer most wants to act on before anything else.
+      key: 'submissions',
+      show: (portalActivity?.docRequestsUnread ?? 0) > 0 && canOpen.has('reminders'),
+      count: portalActivity?.docRequestsUnread ?? 0,
+      icon: Inbox,
+      label: (n: number) => `${n} client ${n === 1 ? 'submission' : 'submissions'} to review`,
+      to: '/practice/reminders?tab=open&filter=unread',
+    },
     {
       key: 'questions',
       show: (portalActivity?.questionsAwaitingReply ?? 0) > 0 && canOpen.has('client-portal'),
@@ -368,9 +378,9 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Client-portal activity — unread questions, unprocessed reminder
-          responses, and overdue document requests, each linking to the
-          page where it gets handled. */}
+      {/* Client-portal activity — unread client submissions, unread
+          questions, unprocessed reminder responses, and overdue document
+          requests, each linking to the page where it gets handled. */}
       {portalRows.length > 0 && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
           <p className="text-sm font-medium text-indigo-900 mb-2">Client portal activity</p>

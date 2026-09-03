@@ -3,12 +3,12 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState, useMemo } from 'react';
-import { useMe, useClientBankingStatus, type AccessibleTenant } from '../../api/hooks/useAuth';
+import { useMe, useClientBankingStatus, useClientPortalActivity, type AccessibleTenant } from '../../api/hooks/useAuth';
 import { apiClient, setTokens } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useQueryClient } from '@tanstack/react-query';
-import { Users, Search, Check, ChevronUp, ChevronDown, AlertCircle, AlertTriangle } from 'lucide-react';
-import type { ClientBankingStatus } from '@kis-books/shared';
+import { Users, Search, Check, ChevronUp, ChevronDown, AlertCircle, AlertTriangle, Inbox, CalendarClock } from 'lucide-react';
+import type { ClientBankingStatus, ClientPortalActivity } from '@kis-books/shared';
 
 type SortKey = 'name' | 'role' | 'lastAccessed' | 'unprocessed' | 'lastSync';
 type SortDir = 'asc' | 'desc';
@@ -49,6 +49,16 @@ export function ClientSwitcherPage() {
   // that reads as good news when we simply don't know.
   const bankingState: 'pending' | 'failed' | 'ready' =
     bankingFailed ? 'failed' : bankingPending ? 'pending' : 'ready';
+
+  // Document-request attention icons (unread client submissions, overdue
+  // requests). Fetched separately from banking so neither delays the other;
+  // absent data simply renders no icon — an icon is a positive signal only.
+  const { data: activityData } = useClientPortalActivity();
+  const activityByTenant = useMemo(() => {
+    const m = new Map<string, ClientPortalActivity>();
+    for (const s of activityData?.data ?? []) m.set(s.tenantId, s);
+    return m;
+  }, [activityData]);
 
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('lastAccessed');
@@ -175,6 +185,7 @@ export function ClientSwitcherPage() {
             {pageRows.map((t) => {
               const isActive = t.tenantId === activeTenantId;
               const banking = bankingByTenant.get(t.tenantId);
+              const activity = activityByTenant.get(t.tenantId);
               return (
                 <tr
                   key={t.tenantId}
@@ -182,7 +193,29 @@ export function ClientSwitcherPage() {
                   className={`hover:bg-gray-50 cursor-pointer ${isActive ? 'bg-primary-50' : ''}`}
                 >
                   <td className="px-4 py-3 font-medium text-gray-900">
-                    {t.tenantName}
+                    <span className="inline-flex items-center gap-2">
+                      {t.tenantName}
+                      {activity && activity.unreadSubmissions > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
+                          title={`${activity.unreadSubmissions} unread client ${activity.unreadSubmissions === 1 ? 'submission' : 'submissions'} — documents the client sent that nobody has reviewed yet`}
+                          aria-label={`${activity.unreadSubmissions} unread client submissions`}
+                        >
+                          <Inbox className="h-3.5 w-3.5" />
+                          {activity.unreadSubmissions}
+                        </span>
+                      )}
+                      {activity && activity.overdueDocRequests > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200"
+                          title={`${activity.overdueDocRequests} document ${activity.overdueDocRequests === 1 ? 'request' : 'requests'} past due`}
+                          aria-label={`${activity.overdueDocRequests} document requests past due`}
+                        >
+                          <CalendarClock className="h-3.5 w-3.5" />
+                          {activity.overdueDocRequests}
+                        </span>
+                      )}
+                    </span>
                     {isActive && <span className="ml-2 inline-flex items-center gap-1 text-xs text-primary-700"><Check className="h-3.5 w-3.5" /> current</span>}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{t.role ?? '—'}</td>

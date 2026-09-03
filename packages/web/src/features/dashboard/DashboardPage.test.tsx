@@ -45,7 +45,7 @@ import { DashboardPage } from './DashboardPage';
 // navigated without mounting the real destination pages.
 function LocationProbe() {
   const loc = useLocation();
-  return <div data-testid="location">{loc.pathname}</div>;
+  return <div data-testid="location">{loc.pathname}{loc.search}</div>;
 }
 
 function wrap(ui: ReactNode) {
@@ -179,13 +179,31 @@ describe('DashboardPage', () => {
     });
     apiClientMock.mockResolvedValueOnce({
       ...fullSummary,
-      portalActivity: { questionsAwaitingReply: 2, receiptsToReview: 3, docRequestsOverdue: 1 },
+      portalActivity: { questionsAwaitingReply: 2, receiptsToReview: 3, docRequestsOverdue: 1, docRequestsUnread: 4 },
     });
     wrap(<DashboardPage />);
     expect(await screen.findByText('Client portal activity')).toBeInTheDocument();
+    expect(screen.getByText('4 client submissions to review')).toBeInTheDocument();
     expect(screen.getByText('2 client questions awaiting your reply')).toBeInTheDocument();
     expect(screen.getByText('1 document request past due')).toBeInTheDocument();
     expect(screen.queryByText(/uploads to review/i)).not.toBeInTheDocument();
+  });
+
+  it('routes the unread-submissions row to the Reminders page with the unread filter', async () => {
+    const user = userEvent.setup();
+    practiceVisibilityMock.mockReturnValue({
+      ready: true,
+      showGroup: true,
+      items: [{ key: 'reminders' }],
+      sections: { 'close-cycle': [], 'client-communication': [] },
+    });
+    apiClientMock.mockResolvedValueOnce({
+      ...fullSummary,
+      portalActivity: { questionsAwaitingReply: 0, receiptsToReview: 0, docRequestsOverdue: 0, docRequestsUnread: 1 },
+    });
+    wrap(<DashboardPage />);
+    await user.click(await screen.findByText('1 client submission to review'));
+    expect(screen.getByTestId('location')).toHaveTextContent('/practice/reminders?tab=open&filter=unread');
   });
 
   it('hides the portal-activity banner when there is no activity', async () => {
@@ -197,7 +215,7 @@ describe('DashboardPage', () => {
     });
     apiClientMock.mockResolvedValueOnce({
       ...fullSummary,
-      portalActivity: { questionsAwaitingReply: 0, receiptsToReview: 0, docRequestsOverdue: 0 },
+      portalActivity: { questionsAwaitingReply: 0, receiptsToReview: 0, docRequestsOverdue: 0, docRequestsUnread: 0 },
     });
     wrap(<DashboardPage />);
     expect(await screen.findByText('Net Income (YTD)')).toBeInTheDocument();

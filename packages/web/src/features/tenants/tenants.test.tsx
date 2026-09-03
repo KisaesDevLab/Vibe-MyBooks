@@ -28,9 +28,18 @@ const bankingResult = {
   isError: false,
 };
 
+// Document-request attention icons: t1 has both signals, t2 only overdue,
+// t3 nothing (and so must render neither icon).
+const ACTIVITY = [
+  { tenantId: 't1', unreadSubmissions: 2, overdueDocRequests: 1 },
+  { tenantId: 't2', unreadSubmissions: 0, overdueDocRequests: 3 },
+  { tenantId: 't3', unreadSubmissions: 0, overdueDocRequests: 0 },
+];
+
 vi.mock('../../api/hooks/useAuth', () => ({
   useMe: () => ({ data: { accessibleTenants: TENANTS, activeTenantId: 't1' }, isPending: false }),
   useClientBankingStatus: () => bankingResult,
+  useClientPortalActivity: () => ({ data: { data: ACTIVITY }, isPending: false, isError: false }),
 }));
 vi.mock('../../providers/CompanyProvider', () => ({
   useCompanyContext: () => ({ clearActiveCompany: vi.fn() }),
@@ -44,6 +53,29 @@ afterEach(() => {
   bankingResult.data = { data: BANKING };
   bankingResult.isPending = false;
   bankingResult.isError = false;
+});
+
+describe('ClientSwitcherPage document-request icons', () => {
+  it('shows an unread-submissions badge and an overdue badge with counts', () => {
+    renderRoute(<ClientSwitcherPage />);
+    const busy = rowFor('Busy Client');
+    expect(within(busy).getByLabelText('2 unread client submissions')).toHaveTextContent('2');
+    expect(within(busy).getByLabelText('1 document requests past due')).toHaveTextContent('1');
+  });
+
+  it('shows only the overdue badge when nothing is unread', () => {
+    renderRoute(<ClientSwitcherPage />);
+    const row = rowFor(TENANTS[1]!.tenantName);
+    expect(within(row).queryByLabelText(/unread client submissions/)).toBeNull();
+    expect(within(row).getByLabelText('3 document requests past due')).toBeTruthy();
+  });
+
+  it('renders no badge at all for a client with nothing waiting', () => {
+    renderRoute(<ClientSwitcherPage />);
+    const row = rowFor(TENANTS[2]!.tenantName);
+    expect(within(row).queryByLabelText(/unread client submissions/)).toBeNull();
+    expect(within(row).queryByLabelText(/past due/)).toBeNull();
+  });
 });
 
 describe('ClientSwitcherPage banking columns', () => {

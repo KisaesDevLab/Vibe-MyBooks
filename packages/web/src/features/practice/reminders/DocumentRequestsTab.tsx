@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Inbox, Send, CheckSquare, XCircle, Eye } from 'lucide-react';
+import { Inbox, Send, CheckSquare, XCircle, Eye, MailOpen, Paperclip } from 'lucide-react';
 import type { DocRequestStatus, DocumentRequestSummary } from '@kis-books/shared';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -22,14 +22,19 @@ interface ReminderSendRow {
   error: string | null;
 }
 
+// 'unread' = submitted by the client and not yet acknowledged by staff.
+type GridFilter = DocRequestStatus | 'all' | 'unread';
+
 interface DocumentRequestsTabProps {
   onChange?: () => void;
+  // Deep-link entry (dashboard banner / staff-notification email).
+  initialFilter?: GridFilter;
 }
 
-export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
+export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequestsTabProps) {
   const [items, setItems] = useState<DocumentRequestSummary[] | null>(null);
   const [total, setTotal] = useState<number>(0);
-  const [statusFilter, setStatusFilter] = useState<DocRequestStatus | 'all'>('pending');
+  const [statusFilter, setStatusFilter] = useState<GridFilter>(initialFilter ?? 'pending');
   const [overdueOnly, setOverdueOnly] = useState<boolean>(false);
   const [pageSize, setPageSize] = useState<string>('50');
   const [offset, setOffset] = useState<number>(0);
@@ -43,7 +48,8 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
     try {
       setError(null);
       const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (statusFilter === 'unread') params.set('unread', 'true');
+      else if (statusFilter !== 'all') params.set('status', statusFilter);
       if (overdueOnly) params.set('overdue', 'true');
       params.set('limit', String(limit));
       params.set('offset', String(offset));
@@ -84,6 +90,34 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
     } finally { setBusyId(null); }
   };
 
+  const markReviewed = async (row: DocumentRequestSummary) => {
+    setBusyId(row.id);
+    try {
+      await api(`/practice/document-requests/${row.id}/mark-reviewed`, { method: 'POST' });
+      await reload();
+      onChange?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Mark reviewed failed.');
+    } finally { setBusyId(null); }
+  };
+
+  const markAllReviewed = async () => {
+    if (!confirm('Mark every unread client submission as reviewed?')) return;
+    setBusyId('all');
+    setInfo(null);
+    try {
+      const r = await api<{ ok: boolean; count: number }>('/practice/document-requests/mark-all-reviewed', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      setInfo(`${r.count} ${r.count === 1 ? 'submission' : 'submissions'} marked reviewed`);
+      await reload();
+      onChange?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Mark all reviewed failed.');
+    } finally { setBusyId(null); }
+  };
+
   const cancel = async (row: DocumentRequestSummary) => {
     if (!confirm('Cancel this document request? The contact will not be reminded again.')) return;
     setBusyId(row.id);
@@ -106,11 +140,22 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {statusFilter === 'unread' && items && items.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void markAllReviewed()}
+              disabled={busyId === 'all'}
+              className="inline-flex items-center gap-1.5 text-sm text-indigo-700 hover:text-indigo-900 disabled:opacity-50"
+            >
+              <MailOpen className="h-4 w-4" /> Mark all reviewed
+            </button>
+          )}
           <select
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value as DocRequestStatus | 'all'); setOffset(0); }}
+            onChange={(e) => { setStatusFilter(e.target.value as GridFilter); setOffset(0); }}
             className="border border-gray-300 rounded-md px-2 py-1.5 text-sm"
           >
+            <option value="unread">Unread submissions</option>
             <option value="pending">Pending</option>
             <option value="submitted">Submitted</option>
             <option value="cancelled">Cancelled</option>
@@ -143,7 +188,9 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
       ) : items.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg">
           <Inbox className="mx-auto h-10 w-10 text-gray-400 mb-3" />
-          <p className="text-sm text-gray-500">No requests match this filter.</p>
+          <p className="text-sm text-gray-500">
+            {statusFilter === 'unread' ? 'No unread client submissions — you are caught up.' : 'No requests match this filter.'}
+          </p>
         </div>
       ) : (
         <div className="border border-gray-200 rounded-lg overflow-x-auto">
@@ -164,7 +211,7 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
               {items.map((r) => {
                 const overdue = r.status === 'pending' && r.dueDate && new Date(r.dueDate) < new Date();
                 return (
-                  <tr key={r.id} className="hover:bg-gray-50">
+                  <tr key={r.id} className={'hover:bg-gray-50 ' + (r.unread ? 'bg-indigo-50/40' : '')}>
                     <td className="px-4 py-3 text-gray-900">
                       <div className="font-medium">{r.contactName ?? r.contactEmail}</div>
                       {r.contactName && <div className="text-xs text-gray-500">{r.contactEmail}</div>}
@@ -186,13 +233,50 @@ export function DocumentRequestsTab({ onChange }: DocumentRequestsTabProps) {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={r.status} />
+                      <div className="flex items-center gap-1.5">
+                        <StatusBadge status={r.status} />
+                        {r.unread && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-600 text-white"
+                            title="The client sent this and nobody has reviewed it yet"
+                          >
+                            New
+                          </span>
+                        )}
+                      </div>
+                      {r.status === 'submitted' && (
+                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-1 max-w-xs">
+                          {r.submittedFilename ? (
+                            <>
+                              <Paperclip className="h-3 w-3 shrink-0" />
+                              <span className="truncate" title={r.submittedFilename}>{r.submittedFilename}</span>
+                            </>
+                          ) : (
+                            <span>Marked received by staff</span>
+                          )}
+                        </div>
+                      )}
+                      {r.status === 'submitted' && r.submittedAt && (
+                        <div className="text-xs text-gray-500">
+                          {formatDate(r.submittedAt)}
+                          {r.reviewedAt ? ` · reviewed ${formatDate(r.reviewedAt)}` : ''}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex gap-1">
                         <IconButton title="View thread" onClick={() => setDrawerFor(r)}>
                           <Eye className="h-4 w-4" />
                         </IconButton>
+                        {r.unread && (
+                          <IconButton
+                            title="Mark reviewed"
+                            disabled={busyId === r.id}
+                            onClick={() => void markReviewed(r)}
+                          >
+                            <MailOpen className="h-4 w-4 text-indigo-700" />
+                          </IconButton>
+                        )}
                         {r.status === 'pending' && (
                           <>
                             <IconButton

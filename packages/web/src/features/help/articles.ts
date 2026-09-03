@@ -2483,4 +2483,27 @@ The client's portal shows those payments under "Queued for printing" until you p
 2. In **Practice → Client Portal → Settings → Client bill pay**, pick — per company — the **checking account** payments draw on and **who gets the email**. Without a bank account set, clients see "contact your accountant" instead of a pay button.
 3. Edit each contact (**Practice → Client Portal → Contacts**) and switch on **Can pay bills** for the company.`,
   },
+  {
+    id: 'document-requests',
+    title: 'Document requests: tracking client submissions',
+    category: 'Client Portal',
+    summary: 'Standing document requests, where unread client submissions show up, how to mark them reviewed, and how to email staff when a client uploads.',
+    body: `A **standing document request** (Practice → Reminders → Recurring requests) asks a portal contact for a document on a schedule — a bank statement on the 3rd of every month, a quarterly payroll report, and so on. Each cycle issues one request, emails (or texts) the contact, and nudges them on the reminder cadence until they upload it or a staff member closes it.
+
+## Where a client submission shows up
+
+When the contact uploads against a request it becomes a **submitted** request that is **unread** until a staff member marks it reviewed. Unread submissions are surfaced in three places:
+
+- **Dashboard** — the "Client portal activity" banner gets a "*N* client submissions to review" row that opens the Reminders page filtered to unread.
+- **Clients** (View all clients… at the bottom of the company switcher) — an inbox icon with a count next to any client that has unread submissions, and a red calendar icon with a count when that client has document requests past due.
+- **Practice → Reminders** — an "Unread submissions" tile, a "*N* new" badge on the Open requests tab, and an **Unread submissions** filter in the grid. Unread rows are highlighted with a **New** badge and show the uploaded filename.
+
+Click the **Mark reviewed** (open-envelope) action on a row, or **Mark all reviewed** at the top of the unread filter. Closing a request yourself with **Mark received** counts as reviewed, as does routing a statement manually from the receipts inbox. If the client sends **another file** for a request you already reviewed, it becomes unread again so a re-submission is never missed.
+
+## Emailing staff when the client submits
+
+In the rule editor, **Email staff when the client submits** lists the active staff users who have access to this client. Everyone checked gets an email the moment the contact uploads against that rule — client name, request, period, and filename, with a link to the unread submissions grid. Editing the list applies to requests already outstanding. Only staff users with access to the client can be chosen; SMTP must be configured under Admin for the email to go out (the submission still shows as unread either way).
+
+Requires the tenant flag **RECURRING_DOC_REQUESTS_V1**.`,
+  },
 ];

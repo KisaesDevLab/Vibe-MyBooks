@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, CalendarClock, PhoneOff, Send } from 'lucide-react';
+import { Plus, Trash2, CalendarClock, PhoneOff, Send, BellRing } from 'lucide-react';
 import {
   DOCUMENT_TYPES,
   RECURRING_FREQUENCIES,
@@ -226,6 +226,15 @@ export function RecurringDocRequestsTab() {
                     {r.cadenceDays.length > 0 && (
                       <div className="text-xs text-gray-500">Nudges: {r.cadenceDays.join(', ')} d</div>
                     )}
+                    {r.notifyUserIds.length > 0 && (
+                      <div
+                        className="text-xs text-indigo-700 inline-flex items-center gap-1"
+                        title={`${r.notifyUserIds.length} staff ${r.notifyUserIds.length === 1 ? 'user is' : 'users are'} emailed when the client submits`}
+                      >
+                        <BellRing className="h-3 w-3" />
+                        Notifies {r.notifyUserIds.length}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-700 tabular-nums">{formatDate(r.nextIssueAt)}</td>
                   <td className="px-4 py-3 text-gray-700 tabular-nums">
@@ -325,6 +334,18 @@ interface BankConnectionOption {
   companyId: string | null;
 }
 
+// Staff users offered in the "notify when the client submits" picker.
+// /company/users is the Team page's list (everyone with access to this
+// tenant); client-type and inactive users are filtered out client-side
+// and rejected server-side too.
+interface StaffUserOption {
+  id: string;
+  email: string;
+  displayName: string | null;
+  userType: 'staff' | 'client';
+  isActive: boolean;
+}
+
 function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalProps) {
   const { data: contactsData } = usePortalContacts({ status: 'active' });
   const cronEnabled = useFeatureFlag('RECURRING_CRON_V1');
@@ -346,6 +367,15 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
       .then((r) => setBankConnections(r.connections))
       .catch(() => setBankConnections([]));
   }, [stmtAutoImportEnabled]);
+  const [staffUsers, setStaffUsers] = useState<StaffUserOption[] | null>(null);
+  const [notifyUserIds, setNotifyUserIds] = useState<string[]>(initial?.notifyUserIds ?? []);
+  useEffect(() => {
+    void api<{ users: StaffUserOption[] }>('/company/users')
+      .then((r) => setStaffUsers(r.users.filter((u) => u.userType === 'staff' && u.isActive)))
+      .catch(() => setStaffUsers([]));
+  }, []);
+  const toggleNotify = (id: string) =>
+    setNotifyUserIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const [contactId, setContactId] = useState(initial?.contactId ?? '');
   const [documentType, setDocumentType] = useState<DocumentType>(initial?.documentType ?? 'bank_statement');
   const [reminderChannel, setReminderChannel] = useState<'email' | 'sms' | 'both'>(initial?.reminderChannel ?? 'email');
@@ -423,6 +453,10 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
         // Opener channel. When SMS isn't enabled for the firm the
         // selector isn't shown; send 'email' so the value is explicit.
         reminderChannel: smsEnabled ? reminderChannel : 'email',
+        // Staff emailed when the contact uploads against this rule. A
+        // selection that no longer matches a listed user (deactivated
+        // since) is dropped so the save doesn't 400.
+        notifyUserIds: staffUsers ? notifyUserIds.filter((id) => staffUsers.some((u) => u.id === id)) : notifyUserIds,
         // Only meaningful for bank/cc statement document types. When the
         // routing dropdown isn't rendered (flag off, or a non-statement
         // type), OMIT the fields entirely — sending a reset here would
@@ -721,6 +755,33 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
               )}
             </div>
           )}
+          <fieldset className="block text-sm">
+            <legend className="block text-gray-800 mb-1">Email staff when the client submits</legend>
+            {staffUsers === null ? (
+              <p className="text-xs text-gray-500">Loading team…</p>
+            ) : staffUsers.length === 0 ? (
+              <p className="text-xs text-gray-500">No active staff users have access to this client.</p>
+            ) : (
+              <div className="max-h-36 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100">
+                {staffUsers.map((u) => (
+                  <label key={u.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notifyUserIds.includes(u.id)}
+                      onChange={() => toggleNotify(u.id)}
+                    />
+                    <span className="truncate">
+                      {u.displayName ? `${u.displayName} — ${u.email}` : u.email}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Each checked person gets an email the moment the contact uploads against this request.
+              The submission also shows as unread on the dashboard and the Clients screen until someone marks it reviewed.
+            </p>
+          </fieldset>
           <fieldset className="block text-sm">
             <legend className="block text-gray-800 mb-1">Reminder cadence after issuance</legend>
             <div className="space-y-1">

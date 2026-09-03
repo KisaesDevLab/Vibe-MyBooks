@@ -3,6 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Bell, Send, Plus, Trash2, FileText, AlertTriangle, CalendarClock, Inbox, MessageSquare } from 'lucide-react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { useFeatureFlag } from '../../../api/hooks/useFeatureFlag';
@@ -84,10 +85,15 @@ interface DispatchResponse {
 interface DocRequestDashboard {
   openRequests: number;
   overdue: number;
+  unreadSubmissions: number;
   avgFulfilDays: number | null;
 }
 
 type ActiveTab = 'schedules' | 'recurring' | 'open';
+
+function isActiveTab(v: string | null): v is ActiveTab {
+  return v === 'schedules' || v === 'recurring' || v === 'open';
+}
 
 export function RemindersPage() {
   const [schedules, setSchedules] = useState<Schedule[] | null>(null);
@@ -99,7 +105,13 @@ export function RemindersPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [dispatching, setDispatching] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [tab, setTab] = useState<ActiveTab>('schedules');
+  // Deep links: the dashboard banner + staff-notification emails land on
+  // ?tab=open&filter=unread. The flag is read before the feature-flag
+  // hook resolves, so the tab is honoured only once the flag confirms.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const requestedFilter = searchParams.get('filter');
+  const [tab, setTab] = useState<ActiveTab>(isActiveTab(requestedTab) ? requestedTab : 'schedules');
   const docRequestsEnabled = useFeatureFlag('RECURRING_DOC_REQUESTS_V1');
   const smsEnabled = useFeatureFlag('DOC_REQUEST_SMS_V1');
 
@@ -254,6 +266,11 @@ export function RemindersPage() {
             <Tile label="Open requests" value={docDash ? String(docDash.openRequests) : '—'} />
             <Tile label="Overdue" value={docDash ? String(docDash.overdue) : '—'} />
             <Tile
+              label="Unread submissions"
+              value={docDash ? String(docDash.unreadSubmissions) : '—'}
+              icon={<Inbox className="h-3.5 w-3.5" />}
+            />
+            <Tile
               label="Avg time-to-fulfil"
               value={docDash && docDash.avgFulfilDays !== null ? `${docDash.avgFulfilDays.toFixed(1)}d` : '—'}
             />
@@ -272,13 +289,23 @@ export function RemindersPage() {
             </TabButton>
             <TabButton active={tab === 'open'} onClick={() => setTab('open')} icon={<Inbox className="h-4 w-4" />}>
               Open requests {docDash && docDash.openRequests > 0 ? `(${docDash.openRequests})` : ''}
+              {docDash && docDash.unreadSubmissions > 0 && (
+                <span
+                  className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-600 text-white"
+                  title={`${docDash.unreadSubmissions} unread client ${docDash.unreadSubmissions === 1 ? 'submission' : 'submissions'}`}
+                >
+                  {docDash.unreadSubmissions} new
+                </span>
+              )}
             </TabButton>
           </nav>
         </div>
       )}
 
       {tab === 'recurring' && docRequestsEnabled && <RecurringDocRequestsTab />}
-      {tab === 'open' && docRequestsEnabled && <DocumentRequestsTab onChange={reload} />}
+      {tab === 'open' && docRequestsEnabled && (
+        <DocumentRequestsTab onChange={reload} initialFilter={requestedFilter === 'unread' ? 'unread' : undefined} />
+      )}
 
       {tab === 'schedules' && (<>
       <h2 className="text-base font-semibold text-gray-900 mb-2">Schedules</h2>
