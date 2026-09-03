@@ -75,6 +75,8 @@ export const aiMocks = () => ({
   useAiOcrReceipt: passthroughMutation,
   useAiParseStatement: passthroughMutation,
   useStartStatementParse: passthroughMutation,
+  // Re-run only the check-image pass for one statement.
+  useRereadStatementChecks: passthroughMutation,
   streamStatementProgress: async () => {},
   pollStatementProgress: async () => {},
   useAiClassify: passthroughMutation,
@@ -141,6 +143,8 @@ export const bankingMocks = () => ({
   useBulkCategorize: passthroughMutation,
   useBulkRecleanse: passthroughMutation,
   useBulkReprocessRules: passthroughMutation,
+  // Fill payee + category on unposted check rows from statement lines.
+  useBackfillFeedCheckPayees: passthroughMutation,
   useBulkExclude: passthroughMutation,
   // ADR 0XX §7 — bulk set-tag on already-categorized bank feed items.
   useBulkSetTag: passthroughMutation,

@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, type ChangeEvent, type DragEvent } from 'r
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import {
+  useRereadStatementChecks,
   useAiStatus,
   useStartStatementParse,
   pollStatementProgress,
@@ -14,7 +15,7 @@ import {
 import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { FileUp, Brain, Check, X, Loader2, Download, AlertTriangle } from 'lucide-react';
+import { FileUp, Brain, Check, X, Loader2, Download, AlertTriangle, ScanLine } from 'lucide-react';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { OcrQualityNotice } from '../../components/ui/OcrQualityNotice';
 import { AccountSelector } from '../../components/forms/AccountSelector';
@@ -178,6 +179,46 @@ export function StatementUploadPage() {
     extracting: 'Extracting transactions…',
     reconciling: 'Reconciling balances…',
     done: 'Finishing up…',
+  };
+
+  const rereadChecks = useRereadStatementChecks();
+  // Inline result line for the re-read (this page reports via text, not toasts).
+  const [rereadNote, setRereadNote] = useState<string>('');
+
+  // STATEMENT_CHECK_PAYEE_REREAD — re-run just the check-image pass for the
+  // statement under review and fold any newly-read payees into the rows the
+  // user is looking at, so the result is visible without a reload.
+  const handleRereadChecks = () => {
+    const jobId = resumedJobId ?? parseJobId;
+    if (!jobId) return;
+    setRereadNote('');
+    rereadChecks.mutate(jobId, {
+      onSuccess: (r) => {
+        if (r.candidates === 0) {
+          setRereadNote('No check images found in this PDF, so there is nothing to re-read. Type the payees in by hand.');
+          return;
+        }
+        if (r.checksRead === 0) {
+          setRereadNote(`Found ${r.candidates} check image${r.candidates === 1 ? '' : 's'} but could not read a payee from any of them. The reader may be busy — try again shortly.`);
+          return;
+        }
+        const byNumber = new Map<string, string>();
+        for (const c of r.checks) {
+          const n = Number(c.checkNumber);
+          if (Number.isFinite(n) && n > 0 && c.payee) byNumber.set(String(n), c.payee);
+        }
+        setTransactions((txns) => txns.map((t) => {
+          if (!t.checkNumber) return t;
+          const found = byNumber.get(String(Number(t.checkNumber)));
+          // Never overwrite a payee the user has already typed or corrected.
+          return found && !t.checkPayee.trim() ? { ...t, checkPayee: found } : t;
+        }));
+        const parts = [`${r.checksRead} payee${r.checksRead === 1 ? '' : 's'} read from ${r.candidates} check image${r.candidates === 1 ? '' : 's'}`];
+        if (r.statementLinesUpdated > 0) parts.push(`${r.statementLinesUpdated} saved statement line${r.statementLinesUpdated === 1 ? '' : 's'} updated`);
+        setRereadNote(parts.join(' · '));
+      },
+      onError: (e) => setRereadNote(e instanceof Error ? e.message : 'Could not re-read the check images.'),
+    });
   };
 
   // Map a terminal parse result into the review table + metadata.
@@ -835,6 +876,31 @@ export function StatementUploadPage() {
               <span className="text-xs text-gray-400">Click to run AI categorization and see the suggested account &amp; cleaned name for each row before importing.</span>
             )}
           </div>
+
+          {/* STATEMENT_CHECK_PAYEE_REREAD — recover payees when the check-image
+              pass came back empty. Only offered when this review is backed by a
+              parse job (fresh upload or resumed), since it re-reads that job's
+              stored file. Shown whenever there are check rows, because the
+              common failure is that EVERY payee is blank. */}
+          {(resumedJobId ?? parseJobId) && transactions.some((t) => t.checkNumber) && (
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button
+                variant="secondary"
+                onClick={handleRereadChecks}
+                loading={rereadChecks.isPending}
+              >
+                <ScanLine className="h-4 w-4 mr-1" /> Re-read check images
+              </Button>
+              {rereadNote && (
+                <span className="text-xs font-medium text-gray-800" role="status">{rereadNote}</span>
+              )}
+              <span className="text-xs text-gray-500">
+                {transactions.filter((t) => t.checkNumber && !t.checkPayee.trim()).length > 0
+                  ? `${transactions.filter((t) => t.checkNumber && !t.checkPayee.trim()).length} check row${transactions.filter((t) => t.checkNumber && !t.checkPayee.trim()).length === 1 ? '' : 's'} have no payee. Re-reads the check images from the stored PDF — safe to run more than once, and it never overwrites a payee you typed.`
+                  : 'Re-reads the check images from the stored PDF. It never overwrites a payee you typed.'}
+              </span>
+            </div>
+          )}
 
           {/* Transaction Table */}
           <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">

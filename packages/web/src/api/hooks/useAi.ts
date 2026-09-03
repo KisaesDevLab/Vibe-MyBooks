@@ -879,6 +879,25 @@ export function useDeleteStatementJob() {
 // Re-run a failed or pending-review parse from its original attachment. The
 // server replaces the old job row, so refetching the list shows the statement
 // back in "Processing…".
+// STATEMENT_CHECK_PAYEE_REREAD — re-run only the check-image pass for one
+// statement. Safe on a saved statement: it creates nothing.
+export interface RereadChecksResult {
+  candidates: number;
+  checksRead: number;
+  checksAdded: number;
+  statementLinesUpdated: number;
+  checks: Array<{ checkNumber: string; payee: string; amount?: string }>;
+}
+
+export function useRereadStatementChecks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) =>
+      apiClient<RereadChecksResult>(`/ai/parse/statement/jobs/${jobId}/reread-checks`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['statement-jobs'] }),
+  });
+}
+
 export function useReprocessStatementJob() {
   const qc = useQueryClient();
   return useMutation({

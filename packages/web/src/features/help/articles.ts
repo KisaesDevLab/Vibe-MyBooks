@@ -2484,6 +2484,27 @@ The client's portal shows those payments under "Queued for printing" until you p
 3. Edit each contact (**Practice → Client Portal → Contacts**) and switch on **Can pay bills** for the company.`,
   },
   {
+    id: 'reread-check-images',
+    title: 'Re-reading check images when payees came back blank',
+    category: 'Banking',
+    summary: 'Recover check payees on a statement that parsed with none, without re-importing anything.',
+    body: `Statement parsing reads the **pay to the order of** name off each check image. That step calls a vision reader, and when the reader is busy or briefly unavailable during a parse, every check comes back blank even though the images themselves were extracted perfectly. The statement then lands with no payees at all.
+
+**Re-read check images** on the Import Bank Statement screen fixes exactly that. It re-runs only the check-image pass against the PDF already on file. It does not re-parse the statement, does not re-import transactions, and creates nothing, so it is safe to run more than once and safe on a statement you have already saved.
+
+Open the statement (from Statement Processing, click **Review & import**), then click **Re-read check images** above the transaction table. Newly read payees fill into the rows straight away. A payee you typed or corrected yourself is never overwritten. If the statement has already been saved, its stored statement lines are updated too, which is what **Fill Payees from Statements** on the Bank Feed reads.
+
+## Reading the result
+
+- **"N payees read from M check images"** — it worked. Import or save as usual.
+- **"Found M check images but could not read a payee from any of them"** — the reader was busy. Wait a moment and click again.
+- **"No check images found in this PDF"** — re-running will never help. Either the statement has no check images, or the bank printed several checks onto one full-page scan, which the extractor does not treat as a check. Type those payees in by hand.
+
+## Related
+
+This is different from **Re-process**, which re-runs the whole extraction and is refused once a statement has been saved, since re-importing risks duplicate transactions. There is also a tenant-wide **Backfill check payees** on the Reconciliation page, with an option to re-scan every stored statement at once.`,
+  },
+  {
     id: 'fill-check-payees',
     title: 'Filling check payees and categories from a statement',
     category: 'Banking',
