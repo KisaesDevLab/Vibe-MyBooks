@@ -192,3 +192,15 @@ export function useCompanyContext() {
   if (!ctx) throw new Error('useCompanyContext must be used within CompanyProvider');
   return ctx;
 }
+
+/**
+ * The same context, but null instead of a throw when there is no provider.
+ *
+ * For cross-cutting hooks that ride along in a shell and must never be the
+ * reason a tree fails to render — company context is a nicety to them, not a
+ * requirement. Anything that genuinely needs a company still uses
+ * useCompanyContext and still throws.
+ */
+export function useOptionalCompanyContext() {
+  return useContext(CompanyContext);
+}

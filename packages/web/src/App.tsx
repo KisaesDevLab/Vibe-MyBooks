@@ -295,7 +295,24 @@ const SplitRowV2GalleryPage = lazyNamed(() => import('./features/__dev__/SplitRo
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
+      // Refetch when the user comes back to the tab.
+      //
+      // This was false, which made staleness one-sided: navigating to a screen
+      // always refetched (staleTime was 0), but a screen left sitting open
+      // never did. Anything written elsewhere — another user, an approval in a
+      // second tab, the bank sync running in the worker — stayed invisible
+      // until the page was reloaded. Nothing caches at the HTTP layer, so a
+      // reload was the only thing clearing it.
+      refetchOnWindowFocus: true,
+      // Paired with the line above, and load-bearing. On its own, focus
+      // refetching would refire EVERY mounted query on every alt-tab, which is
+      // the lag this is meant to avoid. Thirty seconds bounds it to at most
+      // one refetch per query per window while still feeling live.
+      //
+      // It does not delay your own edits: invalidateQueries marks a query
+      // stale regardless of staleTime, so every mutation still refetches at
+      // once. The ~50 per-query staleTime overrides in the app still win.
+      staleTime: 30_000,
       retry: 1,
     },
   },

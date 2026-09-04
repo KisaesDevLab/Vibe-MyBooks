@@ -13,6 +13,7 @@ import { ChatFab } from '../../features/chat/ChatFab';
 import { ChatProvider } from '../../features/chat/ChatController';
 import { useMe } from '../../api/hooks/useAuth';
 import { useBranding } from '../../api/hooks/useBranding';
+import { useLedgerFreshness } from '../../hooks/useLedgerFreshness';
 
 // Desktop sidebar collapse preference — survives sessions. '1' means
 // collapsed to the icons-only rail; anything else (including absent)
@@ -43,6 +44,11 @@ function useIsDesktop(): boolean {
 }
 
 export function AppShell() {
+  // One cheap "did the books change?" check for the whole app. Mounted here
+  // rather than per screen so every view stays current, including the ones
+  // nobody thought to wire up. See the hook for why this is not polling.
+  useLedgerFreshness();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readInitialCollapsed);
   const isDesktop = useIsDesktop();

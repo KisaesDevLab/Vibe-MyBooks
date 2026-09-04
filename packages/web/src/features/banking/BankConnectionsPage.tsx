@@ -386,8 +386,24 @@ export function BankConnectionsPage() {
                           {acct.mapping?.syncStartDate && <span className="text-xs text-gray-400">from {acct.mapping.syncStartDate}</span>}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-green-600">Mapped</span>
-                          <button onClick={() => setRemapAccount(acct)} className="text-gray-400 hover:text-primary-600"><Pencil className="h-3.5 w-3.5" /></button>
+                          {/* Which chart-of-accounts account this feeds. "Mapped"
+                              on its own told nobody anything, and a bank wired
+                              to a system account looked identical to a correct
+                              one. */}
+                          <span
+                            className={`text-xs ${acct.mapping?.mappedAccountSystemTag ? 'text-amber-700' : 'text-gray-600'}`}
+                            title={acct.mapping?.mappedAccountSystemTag
+                              ? 'This is a system account, not a bank account. A bank feed almost certainly should not post here.'
+                              : 'Chart of accounts account this feed posts into'}
+                          >
+                            {acct.mapping?.mappedAccountSystemTag && (
+                              <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+                            )}
+                            {acct.mapping?.mappedAccountName
+                              ? `${acct.mapping.mappedAccountNumber ? `${acct.mapping.mappedAccountNumber} — ` : ''}${acct.mapping.mappedAccountName}`
+                              : 'Mapped'}
+                          </span>
+                          <button onClick={() => setRemapAccount(acct)} className="text-gray-400 hover:text-primary-600" title="Change the mapped account"><Pencil className="h-3.5 w-3.5" /></button>
                         </div>
                       </div>
                     ))}
