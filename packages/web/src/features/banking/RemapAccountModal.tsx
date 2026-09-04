@@ -9,6 +9,7 @@ import { apiClient } from '../../api/client';
 import { useMapPlaidAccount, useUnmapPlaidAccount, usePlaidAccountSuggestions } from '../../api/hooks/usePlaid';
 import { Button } from '../../components/ui/Button';
 import { AlertTriangle } from 'lucide-react';
+import { isFeedableAccount } from './feedableAccounts';
 
 // The list endpoint enriches each account with the current mapping and a
 // computed "is mapped" flag. Narrow at the use site.
@@ -94,7 +95,7 @@ export function RemapAccountModal({ account, onClose, onSaved }: Props) {
               )}
               <optgroup label="All Accounts">
                 {coaAccounts
-                  .filter((a) => ['bank', 'credit_card', 'other_current_asset', 'other_current_liability'].includes(a.detailType ?? ''))
+                  .filter(isFeedableAccount)
                   .map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.accountNumber ? `${a.accountNumber} - ` : ''}{a.name}

@@ -10,6 +10,7 @@ import { useAssignPlaidAccount } from '../../api/hooks/usePlaid';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { CheckCircle } from 'lucide-react';
+import { isFeedableAccount } from './feedableAccounts';
 
 interface Props {
   accounts: PlaidAccount[];
@@ -45,7 +46,7 @@ export function PlaidMappingWizard({ accounts, hiddenAccountCount = 0, onClose, 
     queryFn: () => apiClient<{ data: Account[] }>('/accounts?limit=500'),
   });
   const coaAccounts = (coaData?.data || []).filter((a) =>
-    ['bank', 'credit_card', 'other_current_asset', 'other_current_liability'].includes(a.detailType ?? ''),
+    isFeedableAccount(a),
   );
 
   const unassigned = accounts.filter((a) => !a.mapping);

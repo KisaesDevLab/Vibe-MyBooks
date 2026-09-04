@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
-import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem, useBulkAssign, useExcludeFeedItem, useBulkApprove, useBulkExclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck, useSuggestAccountForContact, useBackfillFeedCheckPayees } from '../../api/hooks/useBanking';
+import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem, useBulkAssign, useExcludeFeedItem, useBulkApprove, useBulkExclude, useBulkUnexclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck, useSuggestAccountForContact, useBackfillFeedCheckPayees } from '../../api/hooks/useBanking';
 import type { ReprocessRulesResultDto, FeedPayeeBackfillReportDto } from '../../api/hooks/useBanking';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useSessionState } from '../../hooks/useSessionState';
@@ -21,7 +21,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
-import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2, Wand2, ScanLine } from 'lucide-react';
+import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2, Wand2, ScanLine, RotateCcw } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 const statusColors: Record<string, string> = {
@@ -159,6 +159,7 @@ export function BankFeedPage() {
   const bulkApprove = useBulkApprove();
   const bulkAssign = useBulkAssign();
   const bulkExclude = useBulkExclude();
+  const bulkUnexclude = useBulkUnexclude();
   const bulkRecleanse = useBulkRecleanse();
   const bulkReprocessRules = useBulkReprocessRules();
   const backfillPayees = useBackfillFeedCheckPayees();
@@ -214,8 +215,19 @@ export function BankFeedPage() {
   const items = useMemo(() => data?.data || [], [data]);
 
   // Selectable rows are the actionable ones: pending (assign/exclude) and
-  // assigned (approve/re-assign/exclude). Posted/excluded rows aren't.
-  const isSelectable = (i: BankFeedItem) => i.status === 'pending' || i.status === 'assigned';
+  // assigned (approve/re-assign/exclude). Posted rows aren't.
+  //
+  // Excluded rows ARE selectable, but only so they can be restored — the
+  // exclude dialog promises that and nothing implemented it, so undoing a
+  // mistaken bulk exclude used to mean direct SQL. Every other bulk action
+  // ignores them, because they have no category and nothing to post.
+  const isSelectable = (i: BankFeedItem) =>
+    i.status === 'pending' || i.status === 'assigned' || i.status === 'excluded';
+
+  const selectedExcluded = useMemo(
+    () => items.filter((i) => selected.has(i.id) && i.status === 'excluded').map((i) => i.id),
+    [items, selected],
+  );
 
   // Selection survives bulk actions so a multi-step workflow (categorize →
   // set tag → approve) doesn't force re-checking the same rows. This prune
@@ -724,6 +736,28 @@ export function BankFeedPage() {
                 <Trash2 className="h-4 w-4 mr-1" /> Exclude
               </Button>
             </>
+          )}
+          {/* Only appears when the selection actually contains excluded rows,
+              so it never competes with the normal actions. */}
+          {selectedExcluded.length > 0 && (
+            <Button size="sm" variant="secondary"
+              onClick={() => {
+                const ids = selectedExcluded;
+                bulkUnexclude.mutate(ids, {
+                  onSuccess: (r) => {
+                    toast.success(`Restored ${r.restored} line${r.restored === 1 ? '' : 's'} to the feed.`);
+                    setSelected((prev) => {
+                      const next = new Set(prev);
+                      for (const id of ids) next.delete(id);
+                      return next;
+                    });
+                  },
+                  onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not restore.'),
+                });
+              }}
+              loading={bulkUnexclude.isPending}>
+              <RotateCcw className="h-4 w-4 mr-1" /> Restore {selectedExcluded.length}
+            </Button>
           )}
           <button onClick={() => setSelected(new Set())} className="text-xs text-gray-500 hover:text-gray-700 ml-auto">Clear selection</button>
         </div>

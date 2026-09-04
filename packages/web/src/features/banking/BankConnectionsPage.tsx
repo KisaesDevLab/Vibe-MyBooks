@@ -192,15 +192,32 @@ export function BankConnectionsPage() {
   const [existingInstitution, setExistingInstitution] = useState<{ publicToken: string; metadata: PlaidLinkOnSuccessMetadata; item: PlaidItem; accounts: PlaidAccount[]; hiddenCount: number } | null>(null);
   const [fullDisconnect, setFullDisconnect] = useState<{ id: string; name: string; accounts: PlaidAccount[]; hiddenCount: number } | null>(null);
   const [unmapCompanyId, setUnmapCompanyId] = useState<string | null>(null);
+  // Set when the server refuses the exchange because this tenant already syncs
+  // one of the accounts. The refusal is the whole point, so this explains it
+  // rather than surfacing a bare error toast.
+  const [duplicateBlocked, setDuplicateBlocked] = useState<string | null>(null);
 
   const handlePlaidSuccess = useCallback(async (publicToken: string, metadata: PlaidLinkOnSuccessMetadata) => {
-    const result = await exchangeToken.mutateAsync({
-      publicToken,
-      institutionId: metadata.institution?.institution_id,
-      institutionName: metadata.institution?.name,
-      accounts: metadata.accounts,
-      linkSessionId: metadata.link_session_id,
-    });
+    let result;
+    try {
+      result = await exchangeToken.mutateAsync({
+        publicToken,
+        institutionId: metadata.institution?.institution_id,
+        institutionName: metadata.institution?.name,
+        accounts: metadata.accounts,
+        linkSessionId: metadata.link_session_id,
+      });
+    } catch (err) {
+      // ACCOUNT_ALREADY_CONNECTED: the tenant already syncs this account, so
+      // the server removed the item at Plaid and refused. Show what it said —
+      // the message names the bank, the account and what to do instead.
+      const message = err instanceof Error ? err.message : '';
+      if (/already connected to this client/i.test(message)) {
+        setDuplicateBlocked(message);
+        return;
+      }
+      throw err;
+    }
 
     // If existing institution was detected, show the choice dialog
     if (result.isExisting && result.item) {
@@ -497,23 +514,29 @@ export function BankConnectionsPage() {
             setMappingData({ accounts: existingInstitution.accounts, hiddenAccountCount: existingInstitution.hiddenCount });
             setExistingInstitution(null);
           }}
-          onConnectSeparately={async () => {
-            // Force create a new independent connection
-            const result = await exchangeToken.mutateAsync({
-              publicToken: existingInstitution.publicToken,
-              institutionId: existingInstitution.metadata.institution?.institution_id,
-              institutionName: existingInstitution.metadata.institution?.name,
-              accounts: existingInstitution.metadata.accounts,
-              linkSessionId: existingInstitution.metadata.link_session_id,
-              forceNew: true,
-            });
-            if (result.item?.id) {
-              const detail = await apiClient<PlaidItemDetail>(`/plaid/items/${result.item.id}`);
-              setMappingData({ accounts: detail.accounts || [], hiddenAccountCount: detail.hiddenAccountCount || 0 });
-            }
+          onConnectSeparately={() => {
+            // A Plaid public token is SINGLE USE and was already spent by the
+            // exchange that produced this dialog, so replaying it here — which
+            // is what this did — always failed. The only way to make a second,
+            // independent connection is a fresh Link session.
             setExistingInstitution(null);
+            toast.info(
+              'To connect a different login at this bank, run Connect Bank again and sign in with that login.',
+              { durationMs: 9000 },
+            );
           }}
           onCancel={() => setExistingInstitution(null)}
+        />
+      )}
+
+      {duplicateBlocked && (
+        <ConfirmDialog
+          open
+          title="That account is already connected"
+          message={duplicateBlocked}
+          confirmLabel="OK"
+          onConfirm={() => setDuplicateBlocked(null)}
+          onCancel={() => setDuplicateBlocked(null)}
         />
       )}
     </div>

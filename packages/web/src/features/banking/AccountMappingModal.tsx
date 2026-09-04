@@ -9,6 +9,7 @@ import { apiClient } from '../../api/client';
 import { useMapPlaidAccount, usePlaidAccountSuggestions } from '../../api/hooks/usePlaid';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { isFeedableAccount } from './feedableAccounts';
 
 interface Props {
   accounts: PlaidAccount[];
@@ -74,7 +75,7 @@ export function AccountMappingModal({ accounts, onClose, onComplete }: Props) {
                 >
                   <option value="">Select an account...</option>
                   {coaAccounts
-                    .filter((a) => ['bank', 'credit_card', 'other_current_asset', 'other_current_liability'].includes(a.detailType ?? ''))
+                    .filter(isFeedableAccount)
                     .map((a) => (
                       <option key={a.id} value={a.id}>{a.accountNumber ? `${a.accountNumber} - ` : ''}{a.name}</option>
                     ))}

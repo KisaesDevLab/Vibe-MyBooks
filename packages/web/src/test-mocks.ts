@@ -146,6 +146,7 @@ export const bankingMocks = () => ({
   // Fill payee + category on unposted check rows from statement lines.
   useBackfillFeedCheckPayees: passthroughMutation,
   useBulkExclude: passthroughMutation,
+  useBulkUnexclude: passthroughMutation,
   // ADR 0XX §7 — bulk set-tag on already-categorized bank feed items.
   useBulkSetTag: passthroughMutation,
   useBulkSetName: passthroughMutation,

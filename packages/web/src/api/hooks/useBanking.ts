@@ -290,6 +290,18 @@ export function useBulkExclude() {
   });
 }
 
+/** Undo an exclusion, which the exclude dialog has always said was possible. */
+export function useBulkUnexclude() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (feedItemIds: string[]) =>
+      apiClient<{ restored: number; failures: Array<{ id: string; error: string }> }>(
+        '/banking/feed/bulk-unexclude', { method: 'POST', body: JSON.stringify({ feedItemIds }) },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-feed'] }),
+  });
+}
+
 export interface BankFileImportResult {
   imported: number;
   items: BankFeedItem[];
