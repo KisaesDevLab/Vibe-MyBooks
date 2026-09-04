@@ -50,6 +50,25 @@ const unpostedRow = {
   attachmentCount: 0,
 };
 
+const suggestionRow = {
+  id: 'sug-1',
+  targetKind: 'bank_feed_item',
+  targetId: 'feed-1',
+  suggestedAccountId: null,
+  suggestedLabel: 'Not sure',
+  clientNote: 'Parts for the Henderson repair',
+  isPersonal: false,
+  status: 'pending',
+  submittedAt: '2026-08-28T10:00:00.000Z',
+  reviewedAt: null,
+  contactName: 'Cli Ent',
+  snapshotAmount: '42.50',
+  snapshotDate: '2026-08-28',
+  snapshotDescription: 'MYSTERY VENDOR',
+  driftedFields: [],
+  isStale: false,
+};
+
 vi.mock('../../../api/hooks/useUncategorized', () => ({
   useSuspenseSummary: () => ({ data: undefined, isLoading: false, isError: false }),
   useInSuspense: () => ({
@@ -60,7 +79,10 @@ vi.mock('../../../api/hooks/useUncategorized', () => ({
     data: { items: [unpostedRow], total: 1 },
     isLoading: false, isError: false, refetch: vi.fn(),
   }),
-  useSuggestions: () => ({ data: { rows: [], total: 0 }, isLoading: false, isError: false, refetch: vi.fn() }),
+  useSuggestions: () => ({
+    data: { rows: [suggestionRow], total: 1 },
+    isLoading: false, isError: false, refetch: vi.fn(),
+  }),
   useClearSuspense: () => ({ ...passthroughMutation(), mutate: clearMutate }),
   usePostToSuspense: () => ({ ...passthroughMutation(), mutate: postToSuspenseMutate }),
   useApproveSuggestions: passthroughMutation,
@@ -88,6 +110,7 @@ vi.mock('../../../api/hooks/useCompany', () => companyMocks());
 
 import { InSuspenseTab } from './InSuspenseTab';
 import { NotPostedTab } from './NotPostedTab';
+import { ClientSuggestedTab } from './ClientSuggestedTab';
 
 beforeEach(() => {
   clearMutate.mockClear();
@@ -156,5 +179,14 @@ describe('Not posted — per-row Category', () => {
     fireEvent.click(screen.getByRole('button', { name: /save this category/i }));
     await waitFor(() => expect(bulkCategorizeMutate).toHaveBeenCalledTimes(1));
     expect(bulkCategorizeMutate.mock.calls[0]![0].feedItemIds).toEqual(['feed-1']);
+  });
+});
+
+describe('Client suggested — the client note', () => {
+  it('gives the note its own column, in full', () => {
+    renderRoute(<ClientSuggestedTab />);
+    expect(screen.getByRole('columnheader', { name: 'Client note' })).toBeTruthy();
+    // Shown whole, not as grey subtext under the category.
+    expect(screen.getByText('Parts for the Henderson repair')).toBeTruthy();
   });
 });

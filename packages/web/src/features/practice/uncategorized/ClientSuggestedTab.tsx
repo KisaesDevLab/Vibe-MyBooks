@@ -7,7 +7,7 @@
 // period or a voided entry is refused rather than forced.
 
 import { useState } from 'react';
-import { AlertTriangle, Check, Loader2, X } from 'lucide-react';
+import { AlertTriangle, Check, Loader2, MessageSquare, X } from 'lucide-react';
 import { formatMoney } from '../../../utils/money';
 import { TableScroll } from '../../../components/ui/TableScroll';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -174,20 +174,21 @@ export function ClientSuggestedTab() {
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2 text-right">Amount</th>
               <th className="px-3 py-2">Client said</th>
+              <th className="px-3 py-2">Client note</th>
               <th className="px-3 py-2">From</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {query.isLoading && (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
             )}
             {query.isError && (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-red-600">
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-red-600">
                 Could not load suggestions. <button className="underline" onClick={() => query.refetch()}>Retry</button>
               </td></tr>
             )}
             {!query.isLoading && !query.isError && rows.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-500">
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">
                 No client answers waiting.
               </td></tr>
             )}
@@ -227,7 +228,20 @@ export function ClientSuggestedTab() {
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.snapshotAmount)}</td>
                 <td className="px-3 py-2">
                   <div className="font-medium text-gray-900">{r.suggestedLabel ?? '—'}</div>
-                  {r.clientNote && <div className="text-xs text-gray-500">{r.clientNote}</div>}
+                </td>
+                {/* The note gets its own column rather than grey subtext under
+                    the category. When the client could not name an account,
+                    the note IS the answer — it is the thing to read, not a
+                    footnote to it. Wrapped, never truncated. */}
+                <td className="px-3 py-2 align-top">
+                  {r.clientNote ? (
+                    <div className="flex max-w-xs items-start gap-1.5">
+                      <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                      <span className="whitespace-pre-wrap break-words text-gray-700">{r.clientNote}</span>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-gray-600">{r.contactName}</td>
               </tr>

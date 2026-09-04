@@ -2621,6 +2621,16 @@ A **What was this?** page in the portal, listing only the activity nobody could 
 
 Each row shows the date, the cleaned-up description, and the amount. The picker offers income and expense categories only, by name, with no balances and no account numbers. There are two extra answers: **Personal, not business** and **I am not sure** (which asks for a note). Answers collect up behind a **Send to my bookkeeper** button, so it is one submission and one email even if they work through forty rows on a phone.
 
+## The note
+
+Every row has a note box, always available and never gated on picking a category. A client who cannot name the account can nearly always say what the payment was for, and that sentence is usually the useful half. A note on its own is a complete answer: it goes up as **I am not sure** with the note attached, which is exactly what that means.
+
+Picking **I am not sure** without writing anything is refused, with the reason shown, rather than silently going nowhere.
+
+Staff read the note in its own **Client note** column on Practice \u2192 Uncategorized \u2192 Client suggested, in full and wrapped, beside what the client picked. When the client could not name an account, the note is the answer, so it is not buried as small print under the category.
+
+A client returning to the page sees its own note read back on any row still waiting, so it knows what it already said.
+
 ## Sending in the receipt
 
 Each row also has **Attach a photo or receipt**. Photos and PDFs, up to 10 MB each and ten files per transaction. This is deliberately separate from the answer: a client often has the picture but not the category, or remembers the receipt after already answering, so the file uploads the moment it is chosen rather than waiting for **Send to my bookkeeper**.

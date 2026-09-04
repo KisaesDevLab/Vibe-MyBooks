@@ -11,7 +11,7 @@
 // Mobile first: this is the page someone works through on a phone.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, HelpCircle, Loader2, Paperclip, Send, Trash2, Upload, User } from 'lucide-react';
+import { AlertTriangle, Check, HelpCircle, Loader2, Paperclip, Send, Trash2, Upload, User } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { usePortal } from './PortalLayout';
 
@@ -50,6 +50,15 @@ const MAX_FILE_MB = 10;
 const PERSONAL = 'personal';
 const NOT_SURE = 'not_sure';
 
+// Why the server turned a row down, in words a client can act on.
+const FAILURE_COPY: Record<string, string> = {
+  not_found: 'one is no longer on your list',
+  invalid_category: 'a category is no longer available',
+  note_required: 'a note is needed',
+  already_answered: 'one was already answered',
+  write_failed: 'one could not be saved',
+};
+
 export function PortalCategorizePage() {
   const { activeCompanyId } = usePortal();
   const [items, setItems] = useState<QueueItem[] | null>(null);
@@ -61,6 +70,9 @@ export function PortalCategorizePage() {
   const [attempt, setAttempt] = useState(0);
   const [sending, setSending] = useState(false);
   const [sentCount, setSentCount] = useState(0);
+  // Inline, non-fatal messages: a row that needs a note, or rows the server
+  // turned down. Distinct from `error`, which replaces the whole list.
+  const [notice, setNotice] = useState<string | null>(null);
 
   const base = import.meta.env.BASE_URL;
 
@@ -95,21 +107,41 @@ export function PortalCategorizePage() {
 
   useEffect(() => { void load(); }, [load, attempt]);
 
-  const answered = Object.keys(picks).length;
+  // A row is ready to send if it has a category OR a note. A note on its own
+  // is a real answer — "I do not know the account, but here is what it was" —
+  // and it goes up as "I am not sure", which is exactly that meaning.
+  const readyIds = Array.from(new Set([
+    ...Object.entries(picks).filter(([, v]) => v).map(([k]) => k),
+    ...Object.entries(notes).filter(([, v]) => v.trim()).map(([k]) => k),
+  ]));
+  const answered = readyIds.length;
 
   const send = async () => {
     if (answered === 0 || !activeCompanyId) return;
+
+    const payload = readyIds.map((targetId) => {
+      const item = (items ?? []).find((i) => i.targetId === targetId)!;
+      return {
+        targetKind: item.targetKind,
+        targetId,
+        categoryId: picks[targetId] || NOT_SURE,
+        note: notes[targetId]?.trim() || undefined,
+      };
+    });
+
+    // The server refuses "not sure" without a note. Say so here instead, so
+    // the client is not told "sent 0 answers" with no reason.
+    const needsNote = payload.filter((p) => p.categoryId === NOT_SURE && !p.note);
+    if (needsNote.length > 0) {
+      setNotice(needsNote.length === 1
+        ? 'One answer says "I am not sure" — add a note saying what you do know.'
+        : `${needsNote.length} answers say "I am not sure" — add a note to each saying what you do know.`);
+      return;
+    }
+
+    setNotice(null);
     setSending(true);
     try {
-      const payload = Object.entries(picks).map(([targetId, categoryId]) => {
-        const item = (items ?? []).find((i) => i.targetId === targetId)!;
-        return {
-          targetKind: item.targetKind,
-          targetId,
-          categoryId,
-          note: notes[targetId]?.trim() || undefined,
-        };
-      });
       const res = await fetch(`${base}api/portal/categorize/suggestions`, {
         method: 'POST',
         credentials: 'include',
@@ -118,8 +150,25 @@ export function PortalCategorizePage() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = await res.json();
-      setSentCount(body.accepted?.length ?? 0);
-      setPicks({}); setNotes({});
+      const accepted: string[] = body.accepted ?? [];
+      const rejected: Array<{ targetId: string; reason: string }> = body.failed ?? [];
+      setSentCount(accepted.length);
+
+      // Per-row outcomes: a rejected row used to vanish silently, leaving the
+      // client to believe an answer had gone in when it had not.
+      if (rejected.length > 0) {
+        const reasons = [...new Set(rejected.map((f) => FAILURE_COPY[f.reason] ?? 'could not be saved'))];
+        setNotice(
+          `${rejected.length} answer${rejected.length === 1 ? '' : 's'} did not go through (${reasons.join('; ')}). ` +
+          'Your other answers were sent.',
+        );
+      }
+
+      // Keep the rejected rows' drafts so nothing typed is thrown away.
+      const keep = new Set(rejected.map((f) => f.targetId));
+      const prune = (m: Record<string, string>) =>
+        Object.fromEntries(Object.entries(m).filter(([k]) => keep.has(k)));
+      setPicks(prune); setNotes(prune);
       setAttempt((a) => a + 1);
     } catch {
       setError('Could not send your answers. Nothing was lost — try again.');
@@ -156,10 +205,17 @@ export function PortalCategorizePage() {
       <header className="mb-4 space-y-1">
         <h1 className="text-xl font-semibold text-gray-900">What was this?</h1>
         <p className="text-sm text-gray-600">
-          Your bookkeeper could not tell what these were for. Pick the closest match and they
-          will take it from there. Nothing you choose here changes your books on its own.
+          Your bookkeeper could not tell what these were for. Pick the closest match, or just
+          leave a note saying what it was. Nothing you enter here changes your books on its own.
         </p>
       </header>
+
+      {notice && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{notice}</span>
+        </div>
+      )}
 
       {sentCount > 0 && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
@@ -197,6 +253,14 @@ export function PortalCategorizePage() {
                 <div className="mt-3 rounded bg-gray-50 px-3 py-2 text-sm text-gray-700">
                   You said <strong>{already.label}</strong>.{' '}
                   {already.status === 'pending' && 'Waiting for your bookkeeper.'}
+                  {/* Read the note back. Without it a client cannot tell what
+                      it already told the bookkeeper, and re-answers to add
+                      one thing it thinks it forgot. */}
+                  {already.note && (
+                    <p className="mt-1 border-l-2 border-gray-300 pl-2 text-xs italic text-gray-600">
+                      “{already.note}”
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="mt-3 space-y-2">
@@ -219,18 +283,24 @@ export function PortalCategorizePage() {
                     </optgroup>
                   </select>
 
-                  {(pick === NOT_SURE || pick === PERSONAL || pick) && (
-                    <input
-                      type="text"
-                      value={notes[item.targetId] ?? ''}
-                      onChange={(e) => setNotes((n) => ({ ...n, [item.targetId]: e.target.value }))}
-                      placeholder={pick === NOT_SURE
-                        ? 'Tell your bookkeeper what you do know (required)'
-                        : 'Add a note (optional)'}
-                      maxLength={2000}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  )}
+                  {/* Always available, never gated on picking a category.
+                      A client who cannot name the account very often CAN say
+                      what the payment was for, and that note is the useful
+                      half. On its own it goes up as "I am not sure". */}
+                  <label className="sr-only" htmlFor={`note-${item.targetId}`}>
+                    Note for your bookkeeper
+                  </label>
+                  <textarea
+                    id={`note-${item.targetId}`}
+                    rows={2}
+                    value={notes[item.targetId] ?? ''}
+                    onChange={(e) => setNotes((n) => ({ ...n, [item.targetId]: e.target.value }))}
+                    placeholder={pick === NOT_SURE
+                      ? 'Tell your bookkeeper what you do know (required)'
+                      : 'Add a note for your bookkeeper (optional)'}
+                    maxLength={2000}
+                    className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
 
                   {pick === PERSONAL && (
                     <p className="flex items-start gap-1.5 text-xs text-gray-500">
