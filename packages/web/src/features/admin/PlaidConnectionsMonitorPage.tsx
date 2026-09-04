@@ -174,6 +174,19 @@ function MapAccountModal({ account, onClose }: { account: PlaidAccountRow; onClo
   );
 }
 
+interface PlaidHealthIssue {
+  kind: string;
+  severity: 'error' | 'warn';
+  institutionName: string | null;
+  tenants: string[];
+  detail: string;
+}
+
+interface PlaidHealthResult {
+  checkedAt: string;
+  issues: PlaidHealthIssue[];
+}
+
 export function PlaidConnectionsMonitorPage() {
   const qc = useQueryClient();
   const toast = useToast();
@@ -188,6 +201,13 @@ export function PlaidConnectionsMonitorPage() {
   const { data: stats, isError: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['admin', 'plaid-stats'],
     queryFn: () => apiClient<PlaidStats>('/admin/plaid/stats'),
+  });
+
+  const {
+    data: health, isLoading: healthLoading, isError: healthError, refetch: refetchHealth,
+  } = useQuery({
+    queryKey: ['admin', 'plaid-health'],
+    queryFn: () => apiClient<PlaidHealthResult>('/admin/plaid/health'),
   });
 
   const { data: connData, isLoading, isError: connError, refetch: refetchConn } = useQuery({
