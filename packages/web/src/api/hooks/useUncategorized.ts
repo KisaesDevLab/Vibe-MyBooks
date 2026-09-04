@@ -22,6 +22,10 @@ export interface SuspenseRow {
   txnNumber: string | null;
   memo: string | null;
   contactName: string | null;
+  /** Check/reference number on the posted transaction. Shown in the Ref column. */
+  checkNumber: number | null;
+  /** Payee read off the statement's check image; the Payee column's fallback. */
+  payeeNameOnCheck: string | null;
   amount: string;
   suspenseLineCount: number;
   isSplit: boolean;

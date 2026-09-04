@@ -670,6 +670,7 @@ interface CheckPayeeBackfillReport {
   scannedTransactions: number;
   payeesApplied: number;
   contactsLinked: number;
+  memosFilled: number;
   fromStatementLines: number;
   fromPayrollRegister: number;
   rescan?: { statementsScanned: number; checksRead: number; payeesApplied: number };
@@ -749,6 +750,7 @@ function StatementMatchPanel({
           `${r.scannedTransactions} check transaction${r.scannedTransactions === 1 ? '' : 's'} scanned`,
           `${r.payeesApplied} payee${r.payeesApplied === 1 ? '' : 's'} applied`,
           `${r.contactsLinked} contact${r.contactsLinked === 1 ? '' : 's'} linked`,
+          `${r.memosFilled} memo${r.memosFilled === 1 ? '' : 's'} filled`,
           `${r.fromStatementLines} from statement lines`,
           `${r.fromPayrollRegister} from payroll register`,
         ];

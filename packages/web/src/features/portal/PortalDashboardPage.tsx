@@ -64,6 +64,12 @@ export function PortalDashboardPage() {
   const [bankAccounts, setBankAccounts] = useState<DashboardBankAccount[] | null>(null);
   // PORTAL_CATEGORIZE_V1 — how many transactions are waiting on this client.
   const [categorizeCount, setCategorizeCount] = useState<number | null>(null);
+  // Whether the tenant flag is actually on, tracked separately from the count.
+  // The tile is the ONLY way into /portal/categorize — PortalLayout has no nav
+  // links — so gating it on count > 0 made the screen unreachable whenever the
+  // queue happened to be empty, which is also the state a firm sees right after
+  // turning the feature on. Mirrors how billPayEnabled shows on permission.
+  const [categorizeAvailable, setCategorizeAvailable] = useState(false);
 
   // PORTAL_BANKING_V1 — separate request because the response carries
   // featureEnabled (tenant flag) which the /me permission can't know.
@@ -90,6 +96,7 @@ export function PortalDashboardPage() {
   useEffect(() => {
     if (!activeCompanyId || !categorizeEnabled) {
       setCategorizeCount(null);
+      setCategorizeAvailable(false);
       return;
     }
     let cancelled = false;
@@ -99,6 +106,7 @@ export function PortalDashboardPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         if (cancelled || !body || body.featureEnabled === false) return;
+        setCategorizeAvailable(true);
         setCategorizeCount(typeof body.total === 'number' ? body.total : null);
       })
       .catch(() => { /* feature off or transport error — hide the tile */ });
@@ -335,16 +343,20 @@ export function PortalDashboardPage() {
             </p>
           </Link>
         )}
-        {categorizeCount !== null && categorizeCount > 0 && (
+        {categorizeAvailable && (
           <Link
             to="/portal/categorize"
             className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
           >
             <p className="text-sm font-medium text-gray-900">
-              {categorizeCount} transaction{categorizeCount === 1 ? '' : 's'} need your input
+              {categorizeCount === null || categorizeCount === 0
+                ? 'Categorize transactions'
+                : `${categorizeCount} transaction${categorizeCount === 1 ? '' : 's'} need your input`}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              Tell your bookkeeper what these were for. Nothing changes your books until they review it.
+              {categorizeCount === 0
+                ? 'Nothing is waiting on you right now.'
+                : 'Tell your bookkeeper what these were for. Nothing changes your books until they review it.'}
             </p>
           </Link>
         )}

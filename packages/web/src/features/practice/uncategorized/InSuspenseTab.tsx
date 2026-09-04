@@ -75,7 +75,7 @@ export function InSuspenseTab() {
         type="search"
         value={search}
         onChange={(e) => { setSearch(e.target.value); setOffset(0); setSelected(new Set()); }}
-        placeholder="Search memo or payee"
+        placeholder="Search memo, payee, or check #"
         className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
       />
 
@@ -102,6 +102,7 @@ export function InSuspenseTab() {
             <tr>
               <th className="w-10 px-3 py-2" />
               <th className="px-3 py-2">Date</th>
+              <th className="px-3 py-2">Ref</th>
               <th className="px-3 py-2">Payee</th>
               <th className="px-3 py-2">Memo</th>
               <th className="px-3 py-2 text-right">In suspense</th>
@@ -111,15 +112,15 @@ export function InSuspenseTab() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {query.isLoading && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
             )}
             {query.isError && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-red-600">
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-red-600">
                 Could not load suspense. <button className="underline" onClick={() => query.refetch()}>Retry</button>
               </td></tr>
             )}
             {!query.isLoading && !query.isError && rows.length === 0 && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">
                 Suspense is empty. Nothing on the ledger is unclassified.
               </td></tr>
             )}
@@ -134,7 +135,13 @@ export function InSuspenseTab() {
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap text-gray-600">{r.txnDate}</td>
-                <td className="px-3 py-2 text-gray-900">{r.contactName ?? '—'}</td>
+                <td className="px-3 py-2 whitespace-nowrap tabular-nums text-gray-600">
+                  {r.checkNumber ?? r.txnNumber ?? '—'}
+                </td>
+                {/* No linked contact is common on feed postings; the payee read
+                    off the check image is the next-best name, so show it rather
+                    than a bare dash. */}
+                <td className="px-3 py-2 text-gray-900">{r.contactName ?? r.payeeNameOnCheck ?? '—'}</td>
                 <td className="px-3 py-2 text-gray-700">
                   {r.memo ?? '—'}
                   {r.isSplit && (

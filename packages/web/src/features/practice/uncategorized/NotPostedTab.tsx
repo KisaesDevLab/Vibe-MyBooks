@@ -87,7 +87,7 @@ export function NotPostedTab() {
         type="search"
         value={search}
         onChange={(e) => { setSearch(e.target.value); setOffset(0); setSelected(new Set()); }}
-        placeholder="Search description or payee"
+        placeholder="Search description, payee, or check #"
         className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
       />
 
@@ -131,6 +131,8 @@ export function NotPostedTab() {
             <tr>
               <th className="w-10 px-3 py-2" />
               <th className="px-3 py-2">Date</th>
+              <th className="px-3 py-2">Ref</th>
+              <th className="px-3 py-2">Payee</th>
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2 text-right">Amount</th>
               <th className="px-3 py-2 text-center">Docs</th>
@@ -138,15 +140,15 @@ export function NotPostedTab() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {query.isLoading && (
-              <tr><td colSpan={5} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
             )}
             {query.isError && (
-              <tr><td colSpan={5} className="px-3 py-8 text-center text-red-600">
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-red-600">
                 Could not load these lines. <button className="underline" onClick={() => query.refetch()}>Retry</button>
               </td></tr>
             )}
             {!query.isLoading && !query.isError && rows.length === 0 && (
-              <tr><td colSpan={5} className="px-3 py-8 text-center text-gray-500">
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">
                 Nothing waiting. Every bank line has been dealt with.
               </td></tr>
             )}
@@ -161,7 +163,16 @@ export function NotPostedTab() {
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap text-gray-600">{r.feedDate}</td>
-                <td className="px-3 py-2 text-gray-900">{r.description ?? '(no description)'}</td>
+                <td className="px-3 py-2 whitespace-nowrap tabular-nums text-gray-600">
+                  {r.checkNumber ?? '—'}
+                </td>
+                {/* Same precedence the Bank Feeds NAME column uses: the
+                    human-assigned contact, then the rule/AI/check-image
+                    suggestion, then the payee read off the check image. */}
+                <td className="px-3 py-2 text-gray-900">
+                  {r.assignedContactName || r.suggestedContactName || r.payeeNameOnCheck || '—'}
+                </td>
+                <td className="px-3 py-2 text-gray-700">{r.description ?? '(no description)'}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.amount)}</td>
                 <td className="px-3 py-2">
                   <div className="flex items-center justify-center gap-1">
