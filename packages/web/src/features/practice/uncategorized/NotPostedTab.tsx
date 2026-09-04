@@ -7,7 +7,7 @@
 // classification work moves to tab 2.
 
 import { useState } from 'react';
-import { Loader2, Paperclip } from 'lucide-react';
+import { CircleDot, Loader2, Paperclip } from 'lucide-react';
 import { AttachFileButton } from '../../attachments/AttachFileButton';
 import { RowAttachmentsModal } from './RowAttachmentsModal';
 import { formatMoney } from '../../../utils/money';
@@ -17,6 +17,7 @@ import { Button } from '../../../components/ui/Button';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
+import { RowCategoryCell } from './RowCategoryCell';
 import { useUnpostedFeed, usePostToSuspense, type UnpostedRow } from '../../../api/hooks/useUncategorized';
 import { useBulkCategorize } from '../../../api/hooks/useBanking';
 
@@ -29,6 +30,10 @@ export function NotPostedTab() {
   const [categoryId, setCategoryId] = useState('');
   const [confirmSuspense, setConfirmSuspense] = useState(false);
   const [viewing, setViewing] = useState<UnpostedRow | null>(null);
+  // Per-row category drafts, keyed by feed item id. A draft is NOT posted
+  // until that row's Save is pressed — see RowCategoryCell.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const toast = useToast();
   const query = useUnpostedFeed({ limit: PAGE_SIZE, offset, search });
@@ -48,6 +53,41 @@ export function NotPostedTab() {
   });
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(pageIds));
   const changePage = (next: number) => { setOffset(next); setSelected(new Set()); };
+
+  // Save ONE row through the same endpoint as the bulk action, with one id,
+  // so a row already handled elsewhere is reported rather than silently
+  // dropped (bulkCategorize ignores anything not still 'pending').
+  const saveRow = (feedItemId: string) => {
+    const accountId = drafts[feedItemId];
+    if (!accountId) return;
+    setSavingId(feedItemId);
+    bulkCategorize.mutate(
+      { feedItemIds: [feedItemId], accountId },
+      {
+        onSuccess: (res) => {
+          const categorized = (res as { categorized?: number } | undefined)?.categorized ?? 0;
+          if (categorized === 0) {
+            // Keeps the draft: nothing posted, so the picker must not clear.
+            toast.error('Not posted — this bank line was already handled. Refresh the list.');
+            return;
+          }
+          toast.success('Category saved. The line has posted.');
+          setDrafts((d) => {
+            const next = { ...d };
+            delete next[feedItemId];
+            return next;
+          });
+          setSelected((prev) => {
+            const next = new Set(prev);
+            next.delete(feedItemId);
+            return next;
+          });
+        },
+        onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not save the category.'),
+        onSettled: () => setSavingId(null),
+      },
+    );
+  };
 
   const applyCategory = () => {
     if (!categoryId || selected.size === 0) return;
@@ -90,6 +130,14 @@ export function NotPostedTab() {
         placeholder="Search description, payee, or check #"
         className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
       />
+
+      {Object.keys(drafts).length > 0 && (
+        <p className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <CircleDot className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+          A category you pick is not saved until you press <strong>Save</strong> on that row.
+          Saving posts it and removes the row from this list.
+        </p>
+      )}
 
       <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 flex-wrap">
         <div className="flex items-center gap-3 text-sm">
@@ -135,20 +183,21 @@ export function NotPostedTab() {
               <th className="px-3 py-2">Payee</th>
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2 text-right">Amount</th>
+              <th className="px-3 py-2">Category</th>
               <th className="px-3 py-2 text-center">Docs</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {query.isLoading && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
             )}
             {query.isError && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-red-600">
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-red-600">
                 Could not load these lines. <button className="underline" onClick={() => query.refetch()}>Retry</button>
               </td></tr>
             )}
             {!query.isLoading && !query.isError && rows.length === 0 && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">
                 Nothing waiting. Every bank line has been dealt with.
               </td></tr>
             )}
@@ -174,6 +223,15 @@ export function NotPostedTab() {
                 </td>
                 <td className="px-3 py-2 text-gray-700">{r.description ?? '(no description)'}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.amount)}</td>
+                <td className="px-3 py-2">
+                  <RowCategoryCell
+                    value={drafts[r.id] ?? ''}
+                    onChange={(next) => setDrafts((d) => ({ ...d, [r.id]: next }))}
+                    onSave={() => saveRow(r.id)}
+                    saving={savingId === r.id}
+                    disabled={busy && savingId !== r.id}
+                  />
+                </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center justify-center gap-1">
                     {r.attachmentCount > 0 ? (

@@ -2586,6 +2586,16 @@ Nothing lands there on its own. Only two paths post to suspense:
 
 A row moves from the first tab to the second when you post it to suspense; it leaves the second when you give it a real category. Nothing disappears.
 
+Both table tabs also carry a **Ref** column (the check number, falling back to the entry number) and a **Payee** column, plus a per-row **Category** picker \u2014 the same account search used everywhere else in the app.
+
+## One row at a time
+
+Picking a category in a row's **Category** column does not post it. The row shows an amber marker and a **Save** button, and a banner reminds you that nothing is committed yet. Press **Save** on that row to post it, at which point the row leaves the list.
+
+That extra step is deliberate. A row vanishing the instant a dropdown closed reads as an accidental posting, and a mis-click would already be in the books. If the ledger refuses the move \u2014 a closed period, say \u2014 the row keeps your pick so you can see what happened rather than starting over.
+
+The bulk **Set category** action above the table is unchanged: tick several rows, pick one account, apply it to all of them at once.
+
 ## Clearing suspense
 
 Setting a category moves **every** suspense line on that transaction to the account you pick. Split entries are flagged with a **Split** badge for exactly that reason: if one suspense amount needs dividing across several categories, open the transaction and edit it there instead.

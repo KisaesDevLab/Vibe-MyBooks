@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Paperclip, Scissors } from 'lucide-react';
+import { CircleDot, Loader2, Paperclip, Scissors } from 'lucide-react';
 import { AttachFileButton } from '../../attachments/AttachFileButton';
 import { RowAttachmentsModal } from './RowAttachmentsModal';
 import { formatMoney } from '../../../utils/money';
@@ -20,6 +20,7 @@ import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
 import { SelectionActionBar } from './SelectionActionBar';
+import { RowCategoryCell } from './RowCategoryCell';
 import { useInSuspense, useClearSuspense, type SuspenseRow as SuspenseRowView } from '../../../api/hooks/useUncategorized';
 
 const PAGE_SIZE = 50;
@@ -30,6 +31,10 @@ export function InSuspenseTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [categoryId, setCategoryId] = useState('');
   const [viewing, setViewing] = useState<SuspenseRowView | null>(null);
+  // Per-row category drafts, keyed by transaction id. A draft is NOT posted
+  // until that row's Save is pressed — see RowCategoryCell.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const toast = useToast();
   const query = useInSuspense({ limit: PAGE_SIZE, offset, search });
@@ -46,6 +51,41 @@ export function InSuspenseTab() {
     return next;
   });
   const changePage = (next: number) => { setOffset(next); setSelected(new Set()); };
+
+  // Save ONE row. Same endpoint as the bulk action, one id — so lock dates,
+  // voids and adjusting entries are refused here exactly as they are there.
+  const saveRow = (transactionId: string) => {
+    const accountId = drafts[transactionId];
+    if (!accountId) return;
+    setSavingId(transactionId);
+    clear.mutate(
+      { transactionIds: [transactionId], accountId },
+      {
+        onSuccess: (res) => {
+          if (res.updated === 0) {
+            const reason = res.skipped[0]?.reason ?? 'it could not be moved';
+            // The row stays put and keeps its draft: nothing moved, so
+            // clearing the picker would just hide the problem.
+            toast.error(`Not moved — ${reason}.`);
+            return;
+          }
+          toast.success('Category saved. The entry has left suspense.');
+          setDrafts((d) => {
+            const next = { ...d };
+            delete next[transactionId];
+            return next;
+          });
+          setSelected((prev) => {
+            const next = new Set(prev);
+            next.delete(transactionId);
+            return next;
+          });
+        },
+        onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not save the category.'),
+        onSettled: () => setSavingId(null),
+      },
+    );
+  };
 
   const applyCategory = () => {
     if (!categoryId || selected.size === 0) return;
@@ -79,6 +119,14 @@ export function InSuspenseTab() {
         className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
       />
 
+      {Object.keys(drafts).length > 0 && (
+        <p className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <CircleDot className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+          A category you pick is not saved until you press <strong>Save</strong> on that row.
+          Saving posts it and removes the row from this list.
+        </p>
+      )}
+
       <SelectionActionBar
         selectedCount={selected.size}
         totalCount={rows.length}
@@ -106,21 +154,22 @@ export function InSuspenseTab() {
               <th className="px-3 py-2">Payee</th>
               <th className="px-3 py-2">Memo</th>
               <th className="px-3 py-2 text-right">In suspense</th>
+              <th className="px-3 py-2">Category</th>
               <th className="px-3 py-2 text-center">Docs</th>
               <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {query.isLoading && (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
+              <tr><td colSpan={9} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
             )}
             {query.isError && (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-red-600">
+              <tr><td colSpan={9} className="px-3 py-8 text-center text-red-600">
                 Could not load suspense. <button className="underline" onClick={() => query.refetch()}>Retry</button>
               </td></tr>
             )}
             {!query.isLoading && !query.isError && rows.length === 0 && (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">
+              <tr><td colSpan={9} className="px-3 py-8 text-center text-gray-500">
                 Suspense is empty. Nothing on the ledger is unclassified.
               </td></tr>
             )}
@@ -155,6 +204,15 @@ export function InSuspenseTab() {
                   )}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.amount)}</td>
+                <td className="px-3 py-2">
+                  <RowCategoryCell
+                    value={drafts[r.transactionId] ?? ''}
+                    onChange={(next) => setDrafts((d) => ({ ...d, [r.transactionId]: next }))}
+                    onSave={() => saveRow(r.transactionId)}
+                    saving={savingId === r.transactionId}
+                    disabled={clear.isPending && savingId !== r.transactionId}
+                  />
+                </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center justify-center gap-1">
                     {r.attachmentCount > 0 ? (
