@@ -236,6 +236,7 @@ const ArticlePage = lazyNamed(() => import('./features/help/ArticlePage'), 'Arti
 // ─── Practice Management ─────────────────────────────────────
 const PracticeLayout = lazyNamed(() => import('./features/practice/PracticeLayout'), 'PracticeLayout');
 const CloseReviewPage = lazyNamed(() => import('./features/practice/close-review/CloseReviewPage'), 'CloseReviewPage');
+const SuspenseAccountPage = lazyNamed(() => import('./features/settings/SuspenseAccountPage'), 'SuspenseAccountPage');
 const UncategorizedPage = lazyNamed(() => import('./features/practice/uncategorized/UncategorizedPage'), 'UncategorizedPage');
 const PracticeSettingsPage = lazyNamed(() => import('./features/practice/settings/PracticeSettingsPage'), 'PracticeSettingsPage');
 const RulesPage = lazyNamed(() => import('./features/practice/rules/RulesPage'), 'RulesPage');
@@ -551,6 +552,9 @@ export function App() {
             <Route path="/payroll/imports" element={<PayrollHistoryPage />} />
             <Route path="/settings/payroll-accounts" element={<PayrollAccountMappingPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/suspense-account" element={
+              <RequirePermission resource="company_settings"><SuspenseAccountPage /></RequirePermission>
+            } />
             <Route path="/help" element={<KnowledgeBasePage />} />
             <Route path="/help/:id" element={<ArticlePage />} />
             {/* Practice Management — VIBE_MYBOOKS_PRACTICE_BUILD_PLAN.

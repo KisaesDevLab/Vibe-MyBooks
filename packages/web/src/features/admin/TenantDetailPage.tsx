@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { apiClient } from '../../api/client';
+import { apiClient, isApiError } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Pagination } from '../../components/ui/Pagination';
@@ -1306,11 +1306,18 @@ interface SystemRoleAccount {
   isActive: boolean;
   isSystem: boolean;
 }
+interface StrandedAccount {
+  id: string; name: string; balance: string; lines: number; blockedReason: string | null;
+}
 interface SystemRoleRow {
   tag: string;
   label: string;
   description: string;
   accountType: string;
+  /** Types this role accepts. `suspense` accepts several; the rest accept one. */
+  allowedAccountTypes: string[];
+  forbiddenDetailTypes: string[];
+  tenantAssignable: boolean;
   required: boolean;
   assigned: SystemRoleAccount | null;
   duplicates: SystemRoleAccount[];
@@ -1328,6 +1335,10 @@ function SystemAccountsCard({ tenantId }: { tenantId: string }) {
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [selected, setSelected] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Set when the API refuses because the outgoing account still holds money.
+  // The operator then has to choose: bring the balance across, or knowingly
+  // leave it behind. There is no silent third option.
+  const [stranded, setStranded] = useState<{ tag: string; accountId: string; accounts: StrandedAccount[] } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'tenants', tenantId, 'system-accounts'],
@@ -1335,17 +1346,32 @@ function SystemAccountsCard({ tenantId }: { tenantId: string }) {
   });
 
   const assign = useMutation({
-    mutationFn: ({ tag, accountId }: { tag: string; accountId: string | null }) =>
+    mutationFn: ({ tag, accountId, balanceAction }: { tag: string; accountId: string | null; balanceAction?: 'move' | 'leave' }) =>
       apiClient(`/admin/tenants/${tenantId}/system-accounts/${tag}`, {
-        method: 'PUT', body: JSON.stringify({ accountId }),
+        method: 'PUT', body: JSON.stringify({ accountId, ...(balanceAction ? { balanceAction } : {}) }),
       }),
     onSuccess: (_data, vars) => {
-      setEditingTag(null); setSelected(''); setError(null);
-      toast.success(vars.accountId ? 'System account assigned.' : 'System account mapping cleared.');
+      setEditingTag(null); setSelected(''); setError(null); setStranded(null);
+      toast.success(
+        !vars.accountId ? 'System account mapping cleared.'
+          : vars.balanceAction === 'move' ? 'Role and balance moved to the new account.'
+          : vars.balanceAction === 'leave' ? 'Role moved. The balance was left on the old account.'
+          : 'System account assigned.',
+      );
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', tenantId, 'system-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', tenantId, 'retained-earnings'] });
     },
-    onError: (e: Error) => setError(e.message || 'Could not update the system account'),
+    onError: (e: unknown, vars) => {
+      const code = isApiError(e) ? e.code : undefined;
+      if (code === 'SYSTEM_ACCOUNT_BALANCE_STRANDED' && vars.accountId) {
+        const details = isApiError(e) ? (e.details as { stranded?: StrandedAccount[] } | undefined) : undefined;
+        setStranded({ tag: vars.tag, accountId: vars.accountId, accounts: details?.stranded ?? [] });
+        setError(null);
+        return;
+      }
+      setStranded(null);
+      setError(e instanceof Error ? e.message : 'Could not update the system account');
+    },
   });
 
   const roles = data?.roles ?? [];
@@ -1373,11 +1399,57 @@ function SystemAccountsCard({ tenantId }: { tenantId: string }) {
               accounts by role. Re-point a role here if a system account was deleted or mis-tagged.
             </p>
             {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            {stranded && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm text-amber-900 space-y-2">
+                <p className="font-medium">This account still holds money.</p>
+                <ul className="list-disc pl-5 space-y-0.5">
+                  {stranded.accounts.map((a) => (
+                    <li key={a.id}>
+                      <span className="font-medium">{a.name}</span> — balance {a.balance} across {a.lines} line(s)
+                      {a.blockedReason && (
+                        <span className="text-amber-800"> (cannot be moved: {a.blockedReason})</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <p>
+                  Every screen finds this account by its role, so if you leave the balance behind it
+                  stops appearing anywhere while the money is still there.
+                </p>
+                <div className="flex gap-2 pt-1 flex-wrap">
+                  <button
+                    type="button"
+                    disabled={assign.isPending || stranded.accounts.some((a) => a.blockedReason)}
+                    onClick={() => assign.mutate({ tag: stranded.tag, accountId: stranded.accountId, balanceAction: 'move' })}
+                    className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800 disabled:opacity-50"
+                  >
+                    Move the balance too
+                  </button>
+                  <button
+                    type="button"
+                    disabled={assign.isPending}
+                    onClick={() => assign.mutate({ tag: stranded.tag, accountId: stranded.accountId, balanceAction: 'leave' })}
+                    className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                  >
+                    Leave it behind
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStranded(null)}
+                    className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="divide-y divide-gray-100">
               {roles.map((role) => {
-                const candidates = (data?.accounts ?? []).filter(
-                  (a) => a.accountType === role.accountType && a.isActive,
-                );
+                const candidates = (data?.accounts ?? []).filter((a) => (
+                  a.isActive
+                  && role.allowedAccountTypes.includes(a.accountType)
+                  && !(a.detailType && role.forbiddenDetailTypes.includes(a.detailType))
+                ));
                 const isEditing = editingTag === role.tag;
                 return (
                   <div key={role.tag} className="py-3">
@@ -1385,7 +1457,14 @@ function SystemAccountsCard({ tenantId }: { tenantId: string }) {
                       <div className="min-w-[220px]">
                         <p className="text-sm font-medium text-gray-900">
                           {role.label}{' '}
-                          <span className="text-xs text-gray-400 font-normal">{role.tag} · {role.accountType}</span>
+                          <span className="text-xs text-gray-400 font-normal">
+                            {role.tag} · {role.allowedAccountTypes.join(' / ')}
+                          </span>
+                          {role.tenantAssignable && (
+                            <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-normal">
+                              tenant-settable
+                            </span>
+                          )}
                         </p>
                         {role.assigned ? (
                           <p className="text-sm text-gray-700 mt-0.5">

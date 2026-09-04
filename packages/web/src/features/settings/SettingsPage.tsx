@@ -23,7 +23,7 @@ import {
   CreditCard,
   Brain,
   ListTree,
-  MonitorUp,
+  MonitorUp, HelpCircle,
 } from 'lucide-react';
 import { usePermissions } from '../../api/hooks/usePermissions';
 
@@ -75,6 +75,12 @@ const settingsCards = [
     icon: ListTree,
     title: 'Detail Types',
     description: 'Add custom account detail types for the chart of accounts and report grouping',
+  },
+  {
+    to: '/settings/suspense-account',
+    icon: HelpCircle,
+    title: 'Suspense Account',
+    description: 'Choose which account holds amounts nobody has categorized yet',
   },
   {
     to: '/settings/online-payments',
