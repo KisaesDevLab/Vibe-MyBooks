@@ -10,7 +10,9 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Scissors } from 'lucide-react';
+import { Loader2, Paperclip, Scissors } from 'lucide-react';
+import { AttachFileButton } from '../../attachments/AttachFileButton';
+import { RowAttachmentsModal } from './RowAttachmentsModal';
 import { formatMoney } from '../../../utils/money';
 import { TableScroll } from '../../../components/ui/TableScroll';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -18,7 +20,7 @@ import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
 import { SelectionActionBar } from './SelectionActionBar';
-import { useInSuspense, useClearSuspense } from '../../../api/hooks/useUncategorized';
+import { useInSuspense, useClearSuspense, type SuspenseRow as SuspenseRowView } from '../../../api/hooks/useUncategorized';
 
 const PAGE_SIZE = 50;
 
@@ -27,6 +29,7 @@ export function InSuspenseTab() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [categoryId, setCategoryId] = useState('');
+  const [viewing, setViewing] = useState<SuspenseRowView | null>(null);
 
   const toast = useToast();
   const query = useInSuspense({ limit: PAGE_SIZE, offset, search });
@@ -102,20 +105,21 @@ export function InSuspenseTab() {
               <th className="px-3 py-2">Payee</th>
               <th className="px-3 py-2">Memo</th>
               <th className="px-3 py-2 text-right">In suspense</th>
+              <th className="px-3 py-2 text-center">Docs</th>
               <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {query.isLoading && (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
             )}
             {query.isError && (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-red-600">
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-red-600">
                 Could not load suspense. <button className="underline" onClick={() => query.refetch()}>Retry</button>
               </td></tr>
             )}
             {!query.isLoading && !query.isError && rows.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-500">
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">
                 Suspense is empty. Nothing on the ledger is unclassified.
               </td></tr>
             )}
@@ -144,6 +148,28 @@ export function InSuspenseTab() {
                   )}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.amount)}</td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center justify-center gap-1">
+                    {r.attachmentCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setViewing(r)}
+                        title={`${r.attachmentCount} file(s) attached — click to view`}
+                        className="inline-flex items-center gap-1 rounded border border-primary-200 bg-primary-50 px-1.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                      >
+                        <Paperclip className="h-3.5 w-3.5" />
+                        <span className="tabular-nums">{r.attachmentCount}</span>
+                      </button>
+                    ) : (
+                      <AttachFileButton
+                        attachableType={r.attachableType}
+                        attachableId={r.transactionId}
+                        invalidateKeys={[['uncategorized']]}
+                        compact
+                      />
+                    )}
+                  </div>
+                </td>
                 <td className="px-3 py-2 text-right">
                   <Link
                     to={`/transactions/${r.transactionId}`}
@@ -159,6 +185,22 @@ export function InSuspenseTab() {
       </TableScroll>
 
       <Pagination total={total} limit={PAGE_SIZE} offset={offset} onChange={changePage} unit="transactions" />
+
+      <RowAttachmentsModal
+        open={viewing !== null}
+        title={viewing?.memo || viewing?.contactName || 'Transaction'}
+        subtitle={viewing ? `${viewing.txnDate} · ${formatMoney(viewing.amount)} in suspense` : undefined}
+        attachableType={viewing?.attachableType ?? ''}
+        attachableId={viewing?.transactionId ?? ''}
+        secondary={viewing?.bankFeedItemId
+          ? {
+              label: 'Attached to the bank line before it posted',
+              attachableType: 'bank_feed_items',
+              attachableId: viewing.bankFeedItemId,
+            }
+          : null}
+        onClose={() => setViewing(null)}
+      />
     </div>
   );
 }

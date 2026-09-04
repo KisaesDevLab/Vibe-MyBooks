@@ -7,8 +7,9 @@
 // classification work moves to tab 2.
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import type { BankFeedItem } from '@kis-books/shared';
+import { Loader2, Paperclip } from 'lucide-react';
+import { AttachFileButton } from '../../attachments/AttachFileButton';
+import { RowAttachmentsModal } from './RowAttachmentsModal';
 import { formatMoney } from '../../../utils/money';
 import { TableScroll } from '../../../components/ui/TableScroll';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -16,7 +17,7 @@ import { Button } from '../../../components/ui/Button';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
-import { useUnpostedFeed, usePostToSuspense } from '../../../api/hooks/useUncategorized';
+import { useUnpostedFeed, usePostToSuspense, type UnpostedRow } from '../../../api/hooks/useUncategorized';
 import { useBulkCategorize } from '../../../api/hooks/useBanking';
 
 const PAGE_SIZE = 50;
@@ -27,13 +28,14 @@ export function NotPostedTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [categoryId, setCategoryId] = useState('');
   const [confirmSuspense, setConfirmSuspense] = useState(false);
+  const [viewing, setViewing] = useState<UnpostedRow | null>(null);
 
   const toast = useToast();
   const query = useUnpostedFeed({ limit: PAGE_SIZE, offset, search });
   const postToSuspense = usePostToSuspense();
   const bulkCategorize = useBulkCategorize();
 
-  const rows: BankFeedItem[] = query.data?.items ?? [];
+  const rows: UnpostedRow[] = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
   const pageIds = rows.map((r) => r.id);
   const allSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
@@ -131,19 +133,20 @@ export function NotPostedTab() {
               <th className="px-3 py-2">Date</th>
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2 text-right">Amount</th>
+              <th className="px-3 py-2 text-center">Docs</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {query.isLoading && (
-              <tr><td colSpan={4} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
+              <tr><td colSpan={5} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
             )}
             {query.isError && (
-              <tr><td colSpan={4} className="px-3 py-8 text-center text-red-600">
+              <tr><td colSpan={5} className="px-3 py-8 text-center text-red-600">
                 Could not load these lines. <button className="underline" onClick={() => query.refetch()}>Retry</button>
               </td></tr>
             )}
             {!query.isLoading && !query.isError && rows.length === 0 && (
-              <tr><td colSpan={4} className="px-3 py-8 text-center text-gray-500">
+              <tr><td colSpan={5} className="px-3 py-8 text-center text-gray-500">
                 Nothing waiting. Every bank line has been dealt with.
               </td></tr>
             )}
@@ -160,6 +163,28 @@ export function NotPostedTab() {
                 <td className="px-3 py-2 whitespace-nowrap text-gray-600">{r.feedDate}</td>
                 <td className="px-3 py-2 text-gray-900">{r.description ?? '(no description)'}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.amount)}</td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center justify-center gap-1">
+                    {r.attachmentCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setViewing(r)}
+                        title={`${r.attachmentCount} file(s) attached — click to view`}
+                        className="inline-flex items-center gap-1 rounded border border-primary-200 bg-primary-50 px-1.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                      >
+                        <Paperclip className="h-3.5 w-3.5" />
+                        <span className="tabular-nums">{r.attachmentCount}</span>
+                      </button>
+                    ) : (
+                      <AttachFileButton
+                        attachableType="bank_feed_items"
+                        attachableId={r.id}
+                        invalidateKeys={[['uncategorized'], ['bank-feed']]}
+                        compact
+                      />
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -167,6 +192,15 @@ export function NotPostedTab() {
       </TableScroll>
 
       <Pagination total={total} limit={PAGE_SIZE} offset={offset} onChange={changePage} unit="lines" />
+
+      <RowAttachmentsModal
+        open={viewing !== null}
+        title={viewing?.description || 'Bank line'}
+        subtitle={viewing ? `${viewing.feedDate} · ${formatMoney(viewing.amount)}` : undefined}
+        attachableType="bank_feed_items"
+        attachableId={viewing?.id ?? ''}
+        onClose={() => setViewing(null)}
+      />
 
       <ConfirmDialog
         open={confirmSuspense}

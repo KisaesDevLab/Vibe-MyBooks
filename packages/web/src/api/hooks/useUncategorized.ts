@@ -26,6 +26,16 @@ export interface SuspenseRow {
   suspenseLineCount: number;
   isSplit: boolean;
   source: string | null;
+  /** Receipts/documents already attached, counted server-side. */
+  attachmentCount: number;
+  /**
+   * The polymorphic attachment key for this row — a posted transaction's own
+   * txn_type, matching what the transaction detail page reads, so a file
+   * added here is visible there too.
+   */
+  attachableType: string;
+  /** The bank line this posted from, when there is one. See attachmentCount. */
+  bankFeedItemId: string | null;
 }
 
 export interface SuggestionRow {
@@ -83,10 +93,13 @@ export function useSuspenseSummary() {
   });
 }
 
+/** The feed row plus the server-computed attachment count. */
+export type UnpostedRow = BankFeedItem & { attachmentCount: number };
+
 export function useUnpostedFeed(opts: Paged = {}) {
   return useQuery({
     queryKey: ['uncategorized', 'unposted', opts],
-    queryFn: () => apiClient<{ items: BankFeedItem[]; total: number }>(`${BASE}/unposted${qs({ ...opts })}`),
+    queryFn: () => apiClient<{ items: UnpostedRow[]; total: number }>(`${BASE}/unposted${qs({ ...opts })}`),
   });
 }
 
