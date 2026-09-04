@@ -2611,6 +2611,14 @@ A **What was this?** page in the portal, listing only the activity nobody could 
 
 Each row shows the date, the cleaned-up description, and the amount. The picker offers income and expense categories only, by name, with no balances and no account numbers. There are two extra answers: **Personal, not business** and **I am not sure** (which asks for a note). Answers collect up behind a **Send to my bookkeeper** button, so it is one submission and one email even if they work through forty rows on a phone.
 
+## Sending in the receipt
+
+Each row also has **Attach a photo or receipt**. Photos and PDFs, up to 10 MB each and ten files per transaction. This is deliberately separate from the answer: a client often has the picture but not the category, or remembers the receipt after already answering, so the file uploads the moment it is chosen rather than waiting for **Send to my bookkeeper**.
+
+The file lands on the same paperclip staff already use on Practice \u2192 Uncategorized \u2014 there is no separate client inbox to check. A file attached to a bank line before it posts stays visible on the posted row afterwards.
+
+A client sees and can remove only the files it sent. Documents the firm attached to the same transaction are never listed in the portal, not even by filename.
+
 ## What staff see
 
 Answers arrive on **Practice \u2192 Uncategorized \u2192 Client suggested**, and an email goes to staff who have access to that client. Nothing has posted. For each answer you can:
@@ -2624,6 +2632,8 @@ An answer whose amount or date has **changed** since the client gave it is flagg
 
 ## Turning it on
 
-Two switches, both off by default. Enable **PORTAL_CATEGORIZE_V1** for the tenant, then tick **Can suggest categories** for each portal contact on Practice \u2192 Client Portal. Staff also need **UNCATEGORIZED_REVIEW_V1** to see the review queue.`,
+Two switches, both off by default. Enable **PORTAL_CATEGORIZE_V1** for the tenant, then tick **Can suggest categories** for each portal contact on Practice \u2192 Client Portal. Staff also need **UNCATEGORIZED_REVIEW_V1** to see the review queue.
+
+The per-contact tick is the one people miss: the tenant switch alone shows the client nothing. It defaults to off, and re-saving a contact's company list without it turns it back off. Attaching files rides on the same tick \u2014 there is no separate permission for it.`,
   },
 ];
