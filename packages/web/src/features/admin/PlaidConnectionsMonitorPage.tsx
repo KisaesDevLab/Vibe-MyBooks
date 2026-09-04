@@ -338,6 +338,51 @@ export function PlaidConnectionsMonitorPage() {
         </div>
       ) : null}
 
+      {/* What is wrong right now. Above the connection list because that list
+          shows everything, and this shows only what needs somebody. */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-800">Needs attention</h2>
+          {health && (
+            <span className="text-xs text-gray-500">
+              checked {new Date(health.checkedAt).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+        {healthLoading ? (
+          <LoadingSpinner className="py-6" />
+        ) : healthError ? (
+          <div className="p-4 text-sm text-red-600 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            Could not run the health check.
+            <button onClick={() => refetchHealth()} className="ml-2 underline font-medium">Retry</button>
+          </div>
+        ) : !health || health.issues.length === 0 ? (
+          <p className="p-6 text-center text-sm text-gray-500">
+            Nothing to fix. Every connection is syncing, receiving webhooks and mapped.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {health.issues.map((issue, i) => (
+              <li key={i} className="flex items-start gap-3 p-4">
+                <AlertCircle className={`mt-0.5 h-4 w-4 shrink-0 ${
+                  issue.severity === 'error' ? 'text-red-500' : 'text-amber-500'
+                }`} />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900">
+                    {issue.institutionName || 'Connection'}
+                    {issue.tenants.length > 0 && (
+                      <span className="ml-2 font-normal text-gray-500">{issue.tenants.join(', ')}</span>
+                    )}
+                  </p>
+                  <p className="text-sm text-gray-600">{issue.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {/* Connections Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <div className="p-4 border-b border-gray-200">
