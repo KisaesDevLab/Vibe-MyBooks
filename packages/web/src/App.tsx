@@ -261,6 +261,8 @@ const ReportBuilderPage = lazyNamed(() => import('./features/practice/report-bui
 // 3-tier rules plan, Phase 1 — firm admin pages.
 const FirmListPage = lazyNamed(() => import('./features/firm/FirmListPage'), 'FirmListPage');
 const FirmStaffPage = lazyNamed(() => import('./features/firm/FirmStaffPage'), 'FirmStaffPage');
+const FirmJoinPage = lazyNamed(() => import('./features/firm/FirmJoinPage'), 'FirmJoinPage');
+const AcceptFirmInvitePage = lazyNamed(() => import('./features/firm/AcceptFirmInvitePage'), 'AcceptFirmInvitePage');
 const FirmTenantsPage = lazyNamed(() => import('./features/firm/FirmTenantsPage'), 'FirmTenantsPage');
 const FirmRulesPage = lazyNamed(() => import('./features/firm/FirmRulesPage'), 'FirmRulesPage');
 const FirmSettingsPage = lazyNamed(() => import('./features/firm/FirmSettingsPage'), 'FirmSettingsPage');
@@ -613,6 +615,10 @@ export function App() {
                 here just need a logged-in session, which the
                 ProtectedRoute wrapper above already enforces. */}
             <Route path="/firm" element={<FirmListPage />} />
+            {/* "Invite my accountant" acceptance — static segment declared
+                before the :firmId param so it can never be shadowed. */}
+            <Route path="/firm/join" element={<FirmJoinPage />} />
+            <Route path="/accept-firm-invite/:token" element={<AcceptFirmInvitePage />} />
             <Route path="/firm/:firmId" element={<Navigate to="staff" replace />} />
             <Route path="/firm/:firmId/staff" element={<FirmStaffPage />} />
             <Route path="/firm/:firmId/tenants" element={<FirmTenantsPage />} />

@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { consumePostLoginRedirect } from '../../utils/postLoginRedirect';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -56,7 +57,7 @@ export function MagicLinkVerifyPage() {
         // in. Store the tokens and go to the app.
         if (data.loggedIn) {
           setTokens(data.tokens);
-          setTimeout(() => navigate('/'), 50);
+          setTimeout(() => navigate(consumePostLoginRedirect()), 50);
           return;
         }
         // Magic link verified — now need 2FA
@@ -85,7 +86,7 @@ export function MagicLinkVerifyPage() {
 
   const handleTfaSuccess = (data: TfaVerifiedPayload) => {
     setTokens(data.tokens);
-    setTimeout(() => navigate('/'), 50);
+    setTimeout(() => navigate(consumePostLoginRedirect()), 50);
   };
 
   if (status === 'loading') {

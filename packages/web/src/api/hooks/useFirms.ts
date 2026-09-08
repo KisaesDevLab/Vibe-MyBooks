@@ -25,11 +25,12 @@ import { apiClient } from '../client';
 // on every successful mutation, narrow input/output types from
 // shared.
 
-export function useFirms() {
+export function useFirms(opts: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ['firms'],
     queryFn: () => apiClient<{ firms: Firm[] }>('/firms'),
     staleTime: 60 * 1000,
+    enabled: opts.enabled ?? true,
   });
 }
 

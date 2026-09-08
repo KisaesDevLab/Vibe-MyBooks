@@ -7,6 +7,7 @@ import { useMe } from '../../api/hooks/useAuth';
 import { useCompany } from '../../api/hooks/useCompany';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { getAccessToken } from '../../api/client';
+import { rememberPostLoginRedirect } from '../../utils/postLoginRedirect';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -19,6 +20,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { data: companyData, isLoading: companyLoading, fetchStatus: companyFetchStatus } = useCompany();
 
   if (!token) {
+    // Remember where the user was heading (e.g. an emailed accept link)
+    // so the login page can send them back there.
+    rememberPostLoginRedirect(location.pathname + location.search);
     return <Navigate to="/login" replace />;
   }
 

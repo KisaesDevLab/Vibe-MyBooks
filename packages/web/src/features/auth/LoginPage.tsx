@@ -4,6 +4,7 @@
 
 import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { consumePostLoginRedirect } from '../../utils/postLoginRedirect';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
@@ -248,7 +249,7 @@ export function LoginPage() {
       }
 
       setTokens(data.tokens);
-      setTimeout(() => navigate('/'), 50);
+      setTimeout(() => navigate(consumePostLoginRedirect()), 50);
     } catch (err) {
       setError(describeAuthError({ thrown: err, defaultMessage: 'Sign in failed. Please try again.' }));
     } finally {
@@ -303,7 +304,7 @@ export function LoginPage() {
       }
 
       setTokens(data.tokens);
-      setTimeout(() => navigate('/'), 50);
+      setTimeout(() => navigate(consumePostLoginRedirect()), 50);
     } catch (err: unknown) {
       // WebAuthn-specific errors thrown by the browser API
       const name = (err as { name?: string } | null)?.name;
@@ -363,7 +364,7 @@ export function LoginPage() {
 
   const handleTfaSuccess = (data: TfaVerifiedPayload) => {
     setTokens(data.tokens);
-    setTimeout(() => navigate('/'), 50);
+    setTimeout(() => navigate(consumePostLoginRedirect()), 50);
   };
 
   // ─── Render: TFA Step ────────────────────────────────────────

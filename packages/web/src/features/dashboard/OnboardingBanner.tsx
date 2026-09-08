@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, X, CircleCheck, Landmark, Receipt, Users } from 'lucide-react';
+import { Sparkles, X, CircleCheck, Landmark, Receipt, Users, Briefcase } from 'lucide-react';
 
 // First-run onboarding prompt shown on the Dashboard when a tenant looks
 // fresh (no transactions yet). Gives non-technical users three obvious
@@ -49,9 +49,15 @@ interface OnboardingBannerProps {
   hasInvoices: boolean;
   /** True when more than one user has access to the tenant. */
   hasTeam: boolean;
+  /**
+   * "Invite your accountant" card — only for owners who are not
+   * themselves practice staff (a self-signup business). `done` once an
+   * accountant invitation has been accepted.
+   */
+  accountant?: { show: boolean; done: boolean };
 }
 
-export function OnboardingBanner({ hasBanking, hasInvoices, hasTeam }: OnboardingBannerProps) {
+export function OnboardingBanner({ hasBanking, hasInvoices, hasTeam, accountant }: OnboardingBannerProps) {
   const [dismissed, setDismissed] = useState(isOnboardingDismissed());
 
   if (dismissed) return null;
@@ -84,6 +90,17 @@ export function OnboardingBanner({ hasBanking, hasInvoices, hasTeam }: Onboardin
       href: '/settings/team',
       cta: 'Invite',
     },
+    ...(accountant?.show
+      ? [{
+          key: 'accountant',
+          done: accountant.done,
+          icon: Briefcase,
+          title: 'Invite your accountant',
+          body: 'Give your accountant access and link your books to their firm.',
+          href: '/settings/team?invite=accountant',
+          cta: 'Invite accountant',
+        }]
+      : []),
   ];
 
   // If every item is done, drop the banner entirely — the user has graduated.
@@ -116,7 +133,7 @@ export function OnboardingBanner({ hasBanking, hasInvoices, hasTeam }: Onboardin
         </button>
       </div>
 
-      <ul className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+      <ul className={`grid grid-cols-1 gap-3 mt-3 ${items.length === 4 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
         {items.map((item) => {
           const Icon = item.icon;
           return (

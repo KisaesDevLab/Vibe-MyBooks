@@ -3,6 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, startImpersonation } from '../../api/client';
 import { useMe } from '../../api/hooks/useAuth';
@@ -13,7 +14,9 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
 import { TemplatesModal, UserPermissionsModal } from './TeamPermissionModals';
-import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal, Eye, Pencil, KeyRound, Lock, Unlock } from 'lucide-react';
+import { InviteAccountantModal } from './InviteAccountantModal';
+import { useFirmInvites, useResendFirmInvite, useRevokeFirmInvite } from '../../api/hooks/useFirmInvites';
+import { UserPlus, Copy, CheckCircle, ShieldCheck, SlidersHorizontal, Eye, Pencil, KeyRound, Lock, Unlock, Briefcase } from 'lucide-react';
 
 interface TeamUser {
   id: string;
@@ -74,6 +77,23 @@ export function TeamPage() {
   const [editEmail, setEditEmail] = useState('');
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState('accountant');
+
+  // "Invite my accountant" — owner-only. `?invite=accountant` (from the
+  // dashboard onboarding card) opens the modal straight away.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showInviteAccountant, setShowInviteAccountant] = useState(searchParams.get('invite') === 'accountant');
+  const closeInviteAccountant = () => {
+    setShowInviteAccountant(false);
+    if (searchParams.get('invite')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('invite');
+      setSearchParams(next, { replace: true });
+    }
+  };
+  const firmInvites = useFirmInvites({ enabled: isOwner });
+  const resendInvite = useResendFirmInvite();
+  const revokeInvite = useRevokeFirmInvite();
+  const [revokeTarget, setRevokeTarget] = useState<{ id: string; email: string } | null>(null);
 
   // Escape closes the invite dialog — but only before the temp password
   // has been generated. Once we're on the "User Invited" confirmation
@@ -232,6 +252,110 @@ export function TeamPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!revokeTarget}
+        title="Revoke invitation?"
+        message={revokeTarget ? `${revokeTarget.email} will no longer be able to accept this invitation.` : ''}
+        confirmLabel="Revoke"
+        variant="danger"
+        onCancel={() => setRevokeTarget(null)}
+        onConfirm={() => {
+          if (revokeTarget) {
+            revokeInvite.mutate(revokeTarget.id, {
+              onError: (e) => toast.error('Could not revoke', { detail: (e as Error).message }),
+            });
+          }
+          setRevokeTarget(null);
+        }}
+      />
+
+      {showInviteAccountant && <InviteAccountantModal onClose={closeInviteAccountant} />}
+
+      {/* Your accountant — owner-only: link the books to an accounting firm. */}
+      {isOwner && (
+        <section className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-4" data-testid="your-accountant">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <Briefcase className="h-5 w-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Your accountant</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {firmInvites.data?.managingFirm
+                    ? <>Your books are managed by <strong>{firmInvites.data.managingFirm.name}</strong>.</>
+                    : 'Invite your accountant to link these books to their firm and give them access.'}
+                </p>
+              </div>
+            </div>
+            <Button variant="secondary" onClick={() => setShowInviteAccountant(true)}>
+              <UserPlus className="h-4 w-4 mr-1" /> Invite accountant
+            </Button>
+          </div>
+
+          {(firmInvites.data?.invites.length ?? 0) > 0 && (
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Email</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Status</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Sent</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Expires</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {firmInvites.data!.invites.map((inv) => {
+                    const live = inv.status === 'sent' || inv.status === 'viewed';
+                    const badge =
+                      inv.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                      inv.status === 'viewed' ? 'bg-blue-100 text-blue-700' :
+                      inv.status === 'sent' ? 'bg-amber-100 text-amber-700' :
+                      'bg-gray-100 text-gray-600';
+                    return (
+                      <tr key={inv.id} className="border-b border-gray-100">
+                        <td className="px-3 py-2 text-gray-800">{inv.recipientEmail}</td>
+                        <td className="px-3 py-2">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badge}`}>{inv.status}</span>
+                          {inv.status === 'accepted' && inv.acceptedFirmName && (
+                            <span className="ml-2 text-xs text-gray-500">→ {inv.acceptedFirmName}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-gray-600">{new Date(inv.sentAt).toLocaleDateString()}</td>
+                        <td className="px-3 py-2 text-gray-600">{new Date(inv.expiresAt).toLocaleDateString()}</td>
+                        <td className="px-3 py-2 text-right">
+                          {inv.status !== 'accepted' && inv.status !== 'revoked' && (
+                            <button
+                              onClick={() => resendInvite.mutate(inv.id, {
+                                onSuccess: (r) => r.sent
+                                  ? toast.success('Invitation re-sent with a fresh link and code.')
+                                  : toast.error('Saved, but the email could not be sent.', { detail: r.error }),
+                                onError: (e) => toast.error('Could not resend', { detail: (e as Error).message }),
+                              })}
+                              disabled={resendInvite.isPending}
+                              className="text-xs text-primary-600 hover:text-primary-700 disabled:opacity-50 mr-3"
+                            >
+                              {live ? 'Resend' : 'Send again'}
+                            </button>
+                          )}
+                          {live && (
+                            <button
+                              onClick={() => setRevokeTarget({ id: inv.id, email: inv.recipientEmail })}
+                              className="text-xs text-red-600 hover:text-red-700"
+                            >
+                              Revoke
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
 
       {showTemplates && <TemplatesModal onClose={() => setShowTemplates(false)} />}
       {permTarget && (

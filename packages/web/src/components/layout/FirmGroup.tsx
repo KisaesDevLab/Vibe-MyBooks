@@ -3,9 +3,15 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { NavLink } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
+import { Building2, UserPlus } from 'lucide-react';
 import clsx from 'clsx';
 import { useFirms } from '../../api/hooks/useFirms';
+
+const FIRM_LINKS = [
+  { to: '/firm', label: 'Firms', icon: Building2, end: true },
+  // "Invite my accountant" — where a staffer types a client's 8-char code.
+  { to: '/firm/join', label: 'Join a client', icon: UserPlus, end: false },
+] as const;
 
 // 3-tier rules plan, Phase 1 — Firm sidebar entry. DOM-absent
 // when the user has no firm membership (the `useFirms` query
@@ -27,37 +33,41 @@ export function FirmGroup({ onNavigate }: { onNavigate?: () => void }) {
       >
         Firm
       </div>
-      <NavLink
-        to="/firm"
-        onClick={onNavigate}
-        className={({ isActive }) =>
-          clsx(
-            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-            isActive ? 'sidebar-active' : 'sidebar-item',
-          )
-        }
-        style={({ isActive }) => isActive
-          ? { backgroundColor: '#1F2937', color: '#FFFFFF' }
-          : { color: '#D1D5DB' }
-        }
-        onMouseEnter={(e) => {
-          const el = e.currentTarget;
-          if (!el.classList.contains('sidebar-active')) {
-            el.style.backgroundColor = '#1F2937';
-            el.style.color = '#FFFFFF';
+      {FIRM_LINKS.map(({ to, label, icon: Icon, end }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={end}
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            clsx(
+              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              isActive ? 'sidebar-active' : 'sidebar-item',
+            )
           }
-        }}
-        onMouseLeave={(e) => {
-          const el = e.currentTarget;
-          if (!el.classList.contains('sidebar-active')) {
-            el.style.backgroundColor = '';
-            el.style.color = '#D1D5DB';
+          style={({ isActive }) => isActive
+            ? { backgroundColor: '#1F2937', color: '#FFFFFF' }
+            : { color: '#D1D5DB' }
           }
-        }}
-      >
-        <Building2 className="h-5 w-5" />
-        Firms
-      </NavLink>
+          onMouseEnter={(e) => {
+            const el = e.currentTarget;
+            if (!el.classList.contains('sidebar-active')) {
+              el.style.backgroundColor = '#1F2937';
+              el.style.color = '#FFFFFF';
+            }
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget;
+            if (!el.classList.contains('sidebar-active')) {
+              el.style.backgroundColor = '';
+              el.style.color = '#D1D5DB';
+            }
+          }}
+        >
+          <Icon className="h-5 w-5" />
+          {label}
+        </NavLink>
+      ))}
     </div>
   );
 }

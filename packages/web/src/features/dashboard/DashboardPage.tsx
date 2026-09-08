@@ -13,6 +13,8 @@ import { usePermissions } from '../../api/hooks/usePermissions';
 import { DashboardAiFooter } from '../../components/ui/DashboardAiFooter';
 import { OnboardingBanner } from './OnboardingBanner';
 import { useMe } from '../../api/hooks/useAuth';
+import { useFirms } from '../../api/hooks/useFirms';
+import { useFirmInvites } from '../../api/hooks/useFirmInvites';
 import { usePracticeVisibility } from '../../hooks/usePracticeVisibility';
 import { useLocalState } from '../../hooks/useLocalState';
 
@@ -191,6 +193,17 @@ export function DashboardPage() {
     enabled: !!summary && trendMonths !== 6,
   });
 
+  // "Invite your accountant" card: owners who are not practice staff (no
+  // firm membership). Declared before the loading early-return (hook
+  // order must be stable). Both queries are gated so they only fire for owners,
+  // and the invites list only once we know they have no firm.
+  const isOwner = meData?.user?.role === 'owner' && meData?.user?.userType !== 'client';
+  const { data: firmsData } = useFirms({ enabled: isOwner });
+  const showAccountantCard = isOwner && !!firmsData && (firmsData.firms?.length ?? 0) === 0;
+  const { data: invitesData } = useFirmInvites({ enabled: showAccountantCard });
+  const accountantDone = (invitesData?.invites ?? []).some((i) => i.status === 'accepted')
+    || !!invitesData?.managingFirm;
+
   if (summaryQ.isLoading) return <LoadingSpinner className="py-12" />;
 
   const snapshot = summary?.snapshot ?? null;
@@ -315,6 +328,7 @@ export function DashboardPage() {
         hasBanking={hasBanking}
         hasInvoices={hasInvoices}
         hasTeam={hasTeam}
+        accountant={{ show: showAccountantCard, done: accountantDone }}
       />
 
       {/* Per-panel error banner — server reports which panels failed inside

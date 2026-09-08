@@ -1937,6 +1937,70 @@ Click **Edit** on a user's row and pick a new role — this is also how you remo
 
 ### Deactivating
 **Deactivate** on a user's row removes their access to this company without deleting the account; **Reactivate** restores it.
+
+### Working with an accounting firm
+If an outside accountant keeps your books, don't create a user for them by hand — use **Invite accountant** on the same page. That links your books to their firm and gives them access in one step. See *Inviting Your Accountant* and *Firms & Practice Staff*.
+`,
+  },
+  {
+    id: 'invite-accountant',
+    title: 'Inviting Your Accountant',
+    category: 'Settings',
+    summary: 'Link your books to your accountant\'s firm with an emailed link or 8-character code.',
+    body: `
+## Inviting Your Accountant
+
+If an accounting firm keeps your books, you can hand them access without creating a user or sharing a password. The firm's staff member accepts once, and your company is linked to their firm.
+
+### Sending the invitation
+1. Go to **Settings > Team** (owners only) and find the **Your accountant** card
+2. Click **Invite accountant** and enter your accountant's email address
+3. They receive an email with an **Accept invitation** button and an **8-character code**
+
+The invitation is valid for **14 days**. The card lists every invitation you have sent with its status (sent, viewed, accepted, expired, revoked). **Resend** issues a fresh link and code and restarts the clock — the old link stops working. **Revoke** cancels an invitation that has not been accepted yet.
+
+Your accountant must already have a MyBooks account that belongs to an accounting firm. If they don't, ask them to get set up with their firm first, then resend.
+
+### What accepting does
+When your accountant accepts (by clicking the link, or by entering the code under **Firm > Join a client**):
+- Your company is assigned to **their firm**. If it was previously managed by a different firm, that link is replaced.
+- The accepting staff member gets **Accountant** access to your books.
+- The firm's admins automatically get access too, so a colleague can cover for them.
+- You receive an email confirming who accepted and which firm now manages your books.
+
+Existing users on your Team page are not changed. You stay the owner and can still deactivate any user from **Settings > Team**.
+
+### Troubleshooting
+- **"This invitation has expired"** — send it again from the Your accountant card.
+- **"Wrong account"** — the accountant is signed in with an address different from the one you invited. They should sign out and sign in with the invited address, or you can invite the address they use.
+- **"Firm membership required"** — the accountant's account is not a member of a firm yet. A firm admin has to add them under **Firm > Staff** first.
+`,
+  },
+  {
+    id: 'firms-and-practice-staff',
+    title: 'Firms & Practice Staff',
+    category: 'Settings',
+    summary: 'How accounting firms, firm roles, and automatic client access work for practice staff.',
+    body: `
+## Firms & Practice Staff
+
+A **firm** groups practice staff and the client companies they manage. Firm membership is separate from the per-company roles on a Team page: a firm role says what you can do *inside the firm*, a company role says what you can do *inside one client's books*.
+
+### Firm roles
+- **firm_admin** — manages the firm: invites staff, sets their firm role, grants staff access to client companies, assigns and un-assigns clients, edits firm settings and integrations, authors firm-wide rules
+- **firm_staff** — works clients they have been given access to; authors firm-scoped rules; reads the staff roster and the managed-client list
+- **firm_readonly** — observes firm rules only; cannot see the staff roster or the managed-client list
+
+### Automatic access for firm admins
+Every active firm admin automatically has **Accountant** access to every company the firm manages, including companies added later (by assignment, by a client accepting an accountant invitation, or by creating a client company). Other staff are granted access per client from **Firm > Staff > Tenant access**. Unchecking a client there revokes access, and it stays revoked until re-granted.
+
+### Getting new clients
+- **Client invites you** — the client owner uses *Invite accountant* on their Team page. Accept from the emailed link or under **Firm > Join a client** with the 8-character code. If you belong to more than one firm you choose which firm takes the client.
+- **You create the company** — *New Company (no owner)* in the company switcher creates a client company managed by your firm (you pick the firm if you belong to several).
+- **Firm admin assigns an existing company** — **Firm > Managed tenants > Assign tenant**.
+
+### The system-managed firm
+Self-hosted installations start with a single **Default Practice** firm that every self-registered company joins automatically. It is managed by the system administrator: only a super admin can change its staff, settings, or client assignments. A super admin creates additional firms from **Admin > Firms** and can view or change which firm manages any company from the tenant's detail page.
 `,
   },
   {

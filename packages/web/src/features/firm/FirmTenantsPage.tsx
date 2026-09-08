@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Building, Search, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -54,10 +54,15 @@ export function FirmTenantsPage() {
           </p>
         </div>
         {!isReadonlyMember && (
-          <Button variant="primary" onClick={() => setAssignOpen(true)}>
-            <Building className="h-4 w-4 mr-1" />
-            Assign tenant
-          </Button>
+          <div className="flex items-center gap-3">
+            <Link to="/firm/join" className="text-xs font-medium text-indigo-700 hover:text-indigo-800">
+              Have an invite code?
+            </Link>
+            <Button variant="primary" onClick={() => setAssignOpen(true)}>
+              <Building className="h-4 w-4 mr-1" />
+              Assign tenant
+            </Button>
+          </div>
         )}
       </div>
 

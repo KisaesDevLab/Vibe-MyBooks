@@ -55,3 +55,26 @@ describe('OnboardingBanner', () => {
     expect(screen.queryByText(/get started with vibe mybooks/i)).not.toBeInTheDocument();
   });
 });
+
+describe('OnboardingBanner — invite your accountant', () => {
+  beforeEach(() => { localStorage.clear(); });
+
+  it('shows the accountant card only when asked, and marks it done', () => {
+    renderRoute(<OnboardingBanner hasBanking={false} hasInvoices={false} hasTeam={false} />);
+    expect(screen.queryByText(/invite your accountant/i)).not.toBeInTheDocument();
+  });
+
+  it('renders a fourth card linking to the Team page with the invite param', () => {
+    renderRoute(
+      <OnboardingBanner hasBanking={false} hasInvoices={false} hasTeam={false} accountant={{ show: true, done: false }} />,
+    );
+    expect(screen.getByText(/invite your accountant/i)).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /invite accountant/i });
+    expect(link).toHaveAttribute('href', '/settings/team?invite=accountant');
+  });
+
+  it('hides the whole banner once the accountant step is done along with the rest', () => {
+    renderRoute(<OnboardingBanner hasBanking hasInvoices hasTeam accountant={{ show: true, done: true }} />);
+    expect(screen.queryByText(/get started with vibe mybooks/i)).not.toBeInTheDocument();
+  });
+});

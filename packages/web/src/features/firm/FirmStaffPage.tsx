@@ -238,6 +238,12 @@ function StaffTenantAccessDialog({
           <p className="text-xs text-gray-500">
             {firmUser.displayName ? `${firmUser.displayName} · ` : ''}{firmUser.email}. Grant access to the firm&apos;s client tenants and pick a role for each.
           </p>
+          {firmUser.firmRole === 'firm_admin' && (
+            <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+              Firm admins receive accountant access to every managed tenant automatically. Unchecking a
+              tenant here revokes it until you re-grant it.
+            </div>
+          )}
         </div>
 
         {isLoading ? (
