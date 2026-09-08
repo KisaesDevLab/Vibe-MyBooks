@@ -72,6 +72,7 @@ export interface TbAssignment {
 export interface TbAvailableCodes {
   returnForm: string;
   activityType: string;
+  taxCodeMappingMode?: 'account' | 'unit';
   seedCodes: Array<{ code: string; description: string; activityType: string; sortOrder: number; isM1Adjustment: boolean }>;
   firmCodes: Array<{ id: string; code: string; description: string; activityType: string; sortOrder: number; isM1Adjustment: boolean }>;
 }
@@ -81,8 +82,19 @@ export interface TbDiagnostic {
   severity: 'error' | 'warning';
   accountId?: string;
   accountName?: string;
+  unitId?: string;
   message: string;
 }
+
+export const isBalanceSheetType = (accountType: string) =>
+  accountType === 'asset' || accountType === 'liability' || accountType === 'equity';
+
+// Mirror of the server's ResolveContext (services/tb/diagnostics.service).
+export interface TbResolveContext {
+  mode: 'account' | 'unit';
+  defaultUnitId: string | null;
+}
+export const TB_ACCOUNT_MODE: TbResolveContext = { mode: 'account', defaultUnitId: null };
 
 export function useWorkpaper(periodEnd: string, basis: 'accrual' | 'cash', enabled = true, tagId: string | null = null) {
   return useQuery({
@@ -120,13 +132,24 @@ export function useTbDiagnostics(periodEnd: string, basis: 'accrual' | 'cash') {
   });
 }
 
-// ADR-TB-02 resolution used by grid cells: unit-specific assignment
-// first, then account-level.
-export function resolveAssignment(assignments: TbAssignment[], accountId: string, unitId: string | null): TbAssignment | null {
+// ADR-TB-02 resolution used by grid cells — the exact rule the server's
+// resolveCodeFor applies: unit-specific assignment first; the account-
+// level row then serves every slice in 'account' mode, but in 'unit'
+// mode only the default unit / zero bucket / balance-sheet accounts.
+export function resolveAssignment(
+  assignments: TbAssignment[],
+  accountId: string,
+  unitId: string | null,
+  ctx: TbResolveContext = TB_ACCOUNT_MODE,
+  accountType = '',
+): TbAssignment | null {
   const forAccount = assignments.filter((a) => a.accountId === accountId);
   if (unitId) {
     const unitMatch = forAccount.find((a) => a.activityUnitId === unitId);
     if (unitMatch) return unitMatch;
+    if (ctx.mode === 'unit' && !isBalanceSheetType(accountType) && unitId !== TB_ZERO_UNIT && unitId !== ctx.defaultUnitId) {
+      return null;
+    }
   }
   return forAccount.find((a) => a.activityUnitId === null) ?? null;
 }

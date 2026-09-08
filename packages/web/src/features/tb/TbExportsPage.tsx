@@ -29,6 +29,8 @@ interface Validation {
   unassigned: Array<{ accountId: string; name: string }>;
   missingVendorCode: Array<{ code: string; description: string }>;
   splitGaps: number;
+  unitGaps?: number;
+  activityMismatches?: number;
   hardBlocked: boolean;
   overridableBlocked: boolean;
   ready: boolean;
@@ -65,6 +67,7 @@ export function TbExportsPage() {
   const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
   const [software, setSoftware] = useState<string>('ultratax');
   const effYear = taxYear ?? profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
+  const unitMode = profileData?.profile?.taxCodeMappingMode === 'unit';
 
   const { data: validationData, isLoading: validating } = useQuery({
     queryKey: ['tb', 'export-validate', effYear, basis, software],
@@ -191,6 +194,14 @@ export function TbExportsPage() {
             <ValRow label="Software codes" ok={v.missingVendorCode.length === 0} okText="All mapped"
               badText={`Missing ${softwareMeta.label} code: ${v.missingVendorCode.slice(0, 5).map((m) => m.code).join(', ')}${v.missingVendorCode.length > 5 ? '…' : ''}`} />
             <ValRow label="Activity splits" ok={v.splitGaps === 0} okText="Resolved" badText={`${v.splitGaps} unit(s) without a resolvable code`} />
+            {(unitMode || (v.unitGaps ?? 0) > 0) && (
+              <ValRow label="Per-unit tax codes" ok={(v.unitGaps ?? 0) === 0} okText="Every unit with a balance is coded"
+                badText={`${v.unitGaps} account/unit slice(s) without a code — see Tax Mapping`} />
+            )}
+            {(unitMode || (v.activityMismatches ?? 0) > 0) && (
+              <ValRow label="Default-unit codes" ok={(v.activityMismatches ?? 0) === 0} okText="Activity matches the default unit"
+                badText={`${v.activityMismatches} account-level code(s) don't fit the default unit's activity — see Tax Mapping`} />
+            )}
           </dl>
         ) : (
           <p className="text-sm text-amber-700 mb-3">Validation unavailable — set the tax profile and assignments first.</p>

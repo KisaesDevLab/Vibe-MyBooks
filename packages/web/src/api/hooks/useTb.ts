@@ -18,6 +18,9 @@ export interface TbProfile {
   defaultActivityType: 'business' | 'rental' | 'farm' | 'farm_rental';
   // Where vendor exports attach the unit number on unit-split account rows.
   unitNumberPlacement: 'suffix' | 'prefix';
+  // 'unit': tax codes resolve per activity unit (Tax Mapping shows a
+  // sub-row per unit; the account-level code is the default unit's).
+  taxCodeMappingMode: 'account' | 'unit';
 }
 
 export interface TbFiscal {
@@ -81,7 +84,7 @@ export function useTbProfile() {
 export function useUpsertTbProfile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { returnForm: string; pinnedSeedVersionId?: string | null; sCorpElectionDate?: string | null; defaultActivityType?: string; unitNumberPlacement?: 'suffix' | 'prefix' }) =>
+    mutationFn: (input: { returnForm: string; pinnedSeedVersionId?: string | null; sCorpElectionDate?: string | null; defaultActivityType?: string; unitNumberPlacement?: 'suffix' | 'prefix'; taxCodeMappingMode?: 'account' | 'unit' }) =>
       apiClient<{ profile: TbProfile }>('/tb/profile', { method: 'PUT', body: JSON.stringify(input) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tb'] }),
   });
@@ -96,12 +99,23 @@ export function useActivityUnits(includeArchived = false) {
   });
 }
 
+// Units and tag routing reshape the workpaper's segments, the assignment
+// surface and the diagnostics — invalidate all of them, not just the
+// units list, or the Mapping page keeps stale slices on screen.
+const UNIT_DEPENDENT_KEYS: string[][] = [
+  ['tb', 'activity-units'], ['tb', 'tag-mappings'], ['tb', 'workpaper'],
+  ['tb', 'assignments'], ['tb', 'diagnostics'], ['tb', 'available-codes'], ['tb', 'export-validate'],
+];
+function invalidateUnitDependents(queryClient: ReturnType<typeof useQueryClient>) {
+  for (const key of UNIT_DEPENDENT_KEYS) queryClient.invalidateQueries({ queryKey: key });
+}
+
 export function useCreateActivityUnit() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { activityType: string; displayName: string }) =>
       apiClient<{ unit: TbActivityUnit }>('/tb/activity-units', { method: 'POST', body: JSON.stringify(input) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tb', 'activity-units'] }),
+    onSuccess: () => invalidateUnitDependents(queryClient),
   });
 }
 
@@ -113,19 +127,27 @@ export function useRenameActivityUnit() {
         method: 'PUT',
         body: JSON.stringify({ displayName, ...(instanceNumber !== undefined ? { instanceNumber } : {}) }),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tb', 'activity-units'] }),
+    onSuccess: () => invalidateUnitDependents(queryClient),
   });
 }
 
+export interface TbDefaultUnitImpact {
+  accountsLosingCoverage: Array<{ accountId: string; accountNumber: string | null; name: string }>;
+  mismatches: Array<{ accountId: string; accountNumber: string | null; name: string; code: string; codeActivity: string }>;
+}
+
+// In unit mapping mode the first call returns { requiresConfirm: true,
+// impact } and nothing changes; re-post with confirm (and optionally
+// convertOldDefault) to apply.
 export function useSetDefaultActivityUnit() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      apiClient<{ unit: TbActivityUnit }>(`/tb/activity-units/${id}/set-default`, { method: 'POST' }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tb', 'activity-units'] });
-      queryClient.invalidateQueries({ queryKey: ['tb', 'tag-mappings'] });
-    },
+    mutationFn: ({ id, confirm, convertOldDefault }: { id: string; confirm?: boolean; convertOldDefault?: boolean }) =>
+      apiClient<{ unit: TbActivityUnit | null; requiresConfirm: boolean; impact: TbDefaultUnitImpact | null }>(
+        `/tb/activity-units/${id}/set-default`,
+        { method: 'POST', body: JSON.stringify({ confirm: !!confirm, convertOldDefault: !!convertOldDefault }) },
+      ),
+    onSuccess: (res) => { if (!res.requiresConfirm) invalidateUnitDependents(queryClient); },
   });
 }
 
@@ -134,10 +156,7 @@ export function useArchiveActivityUnit() {
   return useMutation({
     mutationFn: (id: string) =>
       apiClient<{ mode: 'archived' | 'deleted' }>(`/tb/activity-units/${id}`, { method: 'DELETE' }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tb', 'activity-units'] });
-      queryClient.invalidateQueries({ queryKey: ['tb', 'tag-mappings'] });
-    },
+    onSuccess: () => invalidateUnitDependents(queryClient),
   });
 }
 
@@ -157,7 +176,53 @@ export function useMapTag() {
       activityUnitId
         ? apiClient(`/tb/tag-mappings/${tagId}`, { method: 'PUT', body: JSON.stringify({ activityUnitId }) })
         : apiClient(`/tb/tag-mappings/${tagId}`, { method: 'DELETE' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tb', 'tag-mappings'] }),
+    onSuccess: () => invalidateUnitDependents(queryClient),
+  });
+}
+
+// ── Copy mappings between units (unit mapping mode) ────────────────
+
+export interface TbCopyAssignmentsInput {
+  sourceUnitId: string | null;
+  targetUnitIds: string[];
+  mode: 'skip_existing' | 'overwrite';
+  accountIds?: string[];
+  dryRun?: boolean;
+}
+
+export interface TbCopyAssignmentsResult {
+  dryRun: boolean;
+  mode: 'skip_existing' | 'overwrite';
+  sourceUnitId: string | null;
+  copied: number;
+  skippedExisting: number;
+  skippedIncompatible: number;
+  perTarget: Array<{
+    unitId: string; displayName: string; instanceNumber: number; activityType: string;
+    copied: number; overwritten: number; skippedExisting: number; skippedIncompatible: number;
+    incompatible: Array<{ accountId: string; code: string; reason: 'existing' | 'incompatible_activity' | 'missing_from_seed' | 'inactive_firm_code' }>;
+  }>;
+}
+
+export function useCopyAssignments() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TbCopyAssignmentsInput) =>
+      apiClient<TbCopyAssignmentsResult>('/tb/assignments/copy', { method: 'POST', body: JSON.stringify({ ...input, dryRun: false }) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tb', 'assignments'] });
+      queryClient.invalidateQueries({ queryKey: ['tb', 'diagnostics'] });
+      queryClient.invalidateQueries({ queryKey: ['tb', 'export-validate'] });
+    },
+  });
+}
+
+// Dry-run preview for the copy dialog; re-fetches as the selection changes.
+export function useCopyAssignmentsPreview(input: TbCopyAssignmentsInput | null) {
+  return useQuery({
+    queryKey: ['tb', 'assignments-copy-preview', input],
+    enabled: !!input && input.targetUnitIds.length > 0,
+    queryFn: () => apiClient<TbCopyAssignmentsResult>('/tb/assignments/copy', { method: 'POST', body: JSON.stringify({ ...input, dryRun: true }) }),
   });
 }
 

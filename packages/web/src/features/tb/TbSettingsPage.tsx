@@ -16,7 +16,7 @@ import {
   useActivityUnits, useArchiveActivityUnit, useCreateActivityUnit, useDeactivateFirmCode,
   useFirmCodes, useMapTag, useRenameActivityUnit, useSaveFirmCode, useSetDefaultActivityUnit,
   useTagMappings, useTbProfile, useUpsertTbProfile,
-  type TbFirmCode, type TbSeedVersion,
+  type TbDefaultUnitImpact, type TbFirmCode, type TbSeedVersion,
 } from '../../api/hooks/useTb';
 import { useToast } from '../../components/ui/Toaster';
 import { Button } from '../../components/ui/Button';
@@ -55,6 +55,9 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
   const [electionDate, setElectionDate] = useState<string | null | undefined>(undefined);
   const [activityType, setActivityType] = useState<string | null>(null);
   const [unitPlacement, setUnitPlacement] = useState<'suffix' | 'prefix' | null>(null);
+  const [mappingMode, setMappingMode] = useState<'account' | 'unit' | null>(null);
+  const { data: unitsData } = useActivityUnits();
+  const liveUnitCount = (unitsData?.units ?? []).filter((u) => !u.archivedAt).length;
 
   if (isLoading || !data) return <Card title="Tax profile"><LoadingSpinner className="py-6" /></Card>;
 
@@ -63,11 +66,13 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
   const effElection = electionDate !== undefined ? electionDate : (data.profile?.sCorpElectionDate ?? null);
   const effActivity = activityType ?? data.profile?.defaultActivityType ?? 'business';
   const effPlacement = unitPlacement ?? data.profile?.unitNumberPlacement ?? 'suffix';
+  const effMode = mappingMode ?? data.profile?.taxCodeMappingMode ?? 'account';
   const dirty = effForm !== (data.profile?.returnForm ?? '') ||
     effPinned !== (data.profile?.pinnedSeedVersionId ?? null) ||
     effElection !== (data.profile?.sCorpElectionDate ?? null) ||
     effActivity !== (data.profile?.defaultActivityType ?? 'business') ||
-    effPlacement !== (data.profile?.unitNumberPlacement ?? 'suffix');
+    effPlacement !== (data.profile?.unitNumberPlacement ?? 'suffix') ||
+    effMode !== (data.profile?.taxCodeMappingMode ?? 'account');
 
   const fyLabel = new Date(2000, data.fiscal.fiscalYearStartMonth - 1, 1).toLocaleString(undefined, { month: 'long' });
 
@@ -125,7 +130,7 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
         {isAdmin && (
           <Button variant="primary" disabled={!dirty || !effForm || upsert.isPending}
             onClick={() => upsert.mutate(
-              { returnForm: effForm, pinnedSeedVersionId: effPinned, sCorpElectionDate: effForm === '1120S' ? effElection : null, defaultActivityType: effActivity, unitNumberPlacement: effPlacement },
+              { returnForm: effForm, pinnedSeedVersionId: effPinned, sCorpElectionDate: effForm === '1120S' ? effElection : null, defaultActivityType: effActivity, unitNumberPlacement: effPlacement, taxCodeMappingMode: effMode },
               {
                 onSuccess: () => toast.success('Tax profile saved'),
                 onError: (e) => toast.error(isApiError(e) ? e.message : 'Save failed'),
@@ -133,6 +138,26 @@ function ProfileCard({ isAdmin }: { isAdmin: boolean }) {
             )}>
             Save
           </Button>
+        )}
+      </div>
+      <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input type="checkbox" checked={effMode === 'unit'} disabled={!isAdmin}
+            onChange={(e) => setMappingMode(e.target.checked ? 'unit' : 'account')}
+            className="mt-0.5 text-primary-600 focus:ring-primary-500" />
+          <span className="text-sm">
+            <span className="font-medium text-gray-800">Map tax codes per activity unit</span>
+            <span className="block text-xs text-gray-600 mt-0.5">
+              Each income and expense account is coded per activity unit on the Tax Mapping page (one sub-row per unit),
+              so the same account can carry a Schedule C code for one activity and a Schedule F code for another. The
+              account-level code applies only to the default unit and untagged lines; every other unit with a balance must
+              have its own code before a vendor export is allowed. Use <em>Copy mappings</em> on Tax Mapping to reuse one
+              unit&apos;s codes on another.
+            </span>
+          </span>
+        </label>
+        {effMode === 'unit' && liveUnitCount === 0 && (
+          <p className="mt-2 text-xs text-amber-700">Add at least one activity unit below before saving — per-unit mapping needs a default unit.</p>
         )}
       </div>
       <p className="text-xs text-gray-500 mt-3">
@@ -157,8 +182,26 @@ function UnitsCard() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editNumber, setEditNumber] = useState(1);
+  // Unit mapping mode: making a unit the default re-targets every
+  // account-level code, so the server answers with an impact preview
+  // first; confirm here (optionally converting the old default's codes).
+  const [defaultImpact, setDefaultImpact] = useState<{ unitId: string; unitName: string; impact: TbDefaultUnitImpact } | null>(null);
+  const [convertOld, setConvertOld] = useState(true);
 
   const err = (e: unknown) => toast.error(isApiError(e) ? e.message : 'Operation failed');
+  const makeDefault = (u: { id: string; displayName: string }, confirm = false) => {
+    setDefault.mutate({ id: u.id, confirm, convertOldDefault: confirm && convertOld }, {
+      onSuccess: (res) => {
+        if (res.requiresConfirm && res.impact) {
+          setDefaultImpact({ unitId: u.id, unitName: u.displayName, impact: res.impact });
+        } else {
+          setDefaultImpact(null);
+          toast.success(`${u.displayName} is now the default unit`);
+        }
+      },
+      onError: err,
+    });
+  };
 
   return (
     <Card title="Activity units" subtitle="Return activities (Sch C/E/F instances). Lines fall to the default unit unless their tag maps elsewhere (D13).">
@@ -208,7 +251,7 @@ function UnitsCard() {
                     <span className="inline-block rounded-full bg-blue-50 text-blue-700 text-xs px-2 py-0.5 font-medium">Default</span>
                   ) : !u.archivedAt ? (
                     <button className="text-xs text-gray-500 hover:text-blue-600 underline"
-                      onClick={() => setDefault.mutate(u.id, { onError: err })}>
+                      onClick={() => makeDefault(u)}>
                       make default
                     </button>
                   ) : null}
@@ -260,6 +303,41 @@ function UnitsCard() {
         </div>
         <Button type="submit" variant="secondary" disabled={create.isPending || !newName.trim()}>Add unit</Button>
       </form>
+      {defaultImpact && (
+        <div role="dialog" aria-modal="true" aria-label="Change default unit" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-5 space-y-3">
+            <h3 className="text-lg font-medium text-gray-900">Make “{defaultImpact.unitName}” the default unit?</h3>
+            <p className="text-sm text-gray-600">
+              Tax codes are mapped per activity unit, and the account-level codes belong to the default unit. Changing
+              the default re-points every account-level code at {defaultImpact.unitName}.
+            </p>
+            <ul className="text-sm text-gray-700 space-y-1">
+              <li>
+                <span className="font-medium">{defaultImpact.impact.accountsLosingCoverage.length}</span> account(s) would lose their code on the
+                current default unit{defaultImpact.impact.accountsLosingCoverage.length > 0 && (
+                  <span className="text-gray-500"> — {defaultImpact.impact.accountsLosingCoverage.slice(0, 5).map((a) => a.name).join(', ')}{defaultImpact.impact.accountsLosingCoverage.length > 5 ? '…' : ''}</span>
+                )}
+              </li>
+              <li>
+                <span className="font-medium">{defaultImpact.impact.mismatches.length}</span> account-level code(s) don&apos;t fit {defaultImpact.unitName}&apos;s activity
+                {defaultImpact.impact.mismatches.length > 0 && (
+                  <span className="text-gray-500"> — {defaultImpact.impact.mismatches.slice(0, 5).map((m) => `${m.name} (${m.code})`).join(', ')}{defaultImpact.impact.mismatches.length > 5 ? '…' : ''}; fix them on Tax Mapping afterwards</span>
+                )}
+              </li>
+            </ul>
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={convertOld} onChange={(e) => setConvertOld(e.target.checked)} className="mt-0.5" />
+              <span>Also copy the current account-level codes onto the old default unit as unit-specific codes, so it keeps its mappings.</span>
+            </label>
+            <div className="flex justify-end gap-3 pt-1">
+              <Button variant="secondary" onClick={() => setDefaultImpact(null)} disabled={setDefault.isPending}>Cancel</Button>
+              <Button onClick={() => makeDefault({ id: defaultImpact.unitId, displayName: defaultImpact.unitName }, true)} loading={setDefault.isPending}>
+                Change default
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

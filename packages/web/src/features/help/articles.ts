@@ -2494,7 +2494,19 @@ Existing files can be migrated when switching. Migration runs in the background 
 
 **Trial Balance → Trial Balance** shows every account in five columns: **Unadjusted → AJE → Adjusted → Tax RJE → Tax**, on accrual or cash basis. Balances always come from the live ledger — there is nothing to import or sync. Toggle DR/CR vs single-column, show prior year, filter by category, or view one activity unit at a time. Click any amount to drill into the underlying transactions. The **popout** button opens a read-only live view in its own window — changed rows flash as book work posts. The **Activity view** menu also offers **By tag / unit #**, which lists each income and expense account once per tag (the account number carries the unit number the way exports do — 6050-2, or 2-6050 when the tax profile prepends it; untagged activity is unit 0). Balance sheet accounts are never segmented and always show as unit 0, because a balance sheet cannot balance per tag. The header **Download** button exports exactly what is on screen — CSV, PDF, or the Excel Working TB — honouring the period, basis, tag filter, activity view, and category/search filters.
 
-Assign each account a **tax code** inline (the picker only offers codes valid for the client's return form and activity). For a mapping-focused pass, **Trial Balance → Tax Mapping** shows every account with a progress bar, Unmapped/Mapped filters, source and confidence badges, and the **Auto-assign Tax Codes** button for reviewing AI suggestions — nothing commits until you accept.
+Tax codes are assigned on **Trial Balance → Tax Mapping**: every account with a progress bar, Unmapped/Mapped filters, source and confidence badges, and the **Auto-assign Tax Codes** button for reviewing AI suggestions — nothing commits until you accept. The picker only offers codes valid for the client's return form and activity.
+
+## Activity units, tags & tax codes
+
+**Activity units** (TB Settings) are the return activities a client runs — Schedule C #1, Schedule F #1, Rental #2 — and line-level **tags** route activity to them; untagged lines fall to the **default unit**. That is what drives the "By tag / unit #" view and the unit numbers on exports.
+
+By default a tax code is assigned once per account and applies to every unit the account touches. When a client runs more than one activity out of the same books — a Schedule C business and a Schedule F farm sharing the same Utilities account — turn on **Map tax codes per activity unit** in TB Settings (tax profile card, firm admin). In that mode:
+
+- Every income and expense account on Tax Mapping shows one sub-row per activity unit, so the same account can carry a Schedule C code for the business unit and a Schedule F code for the farm. Use the **Activity unit** filter to work one unit at a time; units with no balance are hidden unless you tick *Show units with no balance*.
+- The account's own row is the **default unit's** code (it also covers untagged lines and every balance-sheet account, which never split). Every other unit with a balance needs its own code — exports are blocked until it has one, and a code of the wrong activity on the default unit is flagged.
+- **Copy mappings…** reuses one unit's codes on other units of a compatible activity — for example a second Schedule F farm — with a preview of what will copy, what is already coded, and what is skipped because the code does not fit the target activity. The copy icon on a unit row applies that single code to every other unit of the same activity.
+- **Auto-assign** runs per unit, offering only that unit's codes, and accepted suggestions are written for that unit.
+- Changing the **default unit** shows what would lose coverage first, with the option to keep the old default's codes as unit-specific rows.
 
 ## Adjusting entries (AJEs)
 
