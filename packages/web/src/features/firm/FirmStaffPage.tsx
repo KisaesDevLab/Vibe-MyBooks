@@ -9,6 +9,7 @@ import type { FirmRole, FirmUserWithProfile, TenantAccessRole } from '@kis-books
 import { TENANT_ACCESS_ROLES } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { isApiError } from '../../api/client';
 import {
   useFirm,
   useFirmUsers,
@@ -28,7 +29,7 @@ import { FirmTabs } from './FirmTabs';
 export function FirmStaffPage() {
   const { firmId } = useParams<{ firmId: string }>();
   const firm = useFirm(firmId ?? null);
-  const { data, isLoading } = useFirmUsers(firmId ?? null);
+  const { data, isLoading, error } = useFirmUsers(firmId ?? null);
   const invite = useInviteFirmUser(firmId ?? '');
   const update = useUpdateFirmUser(firmId ?? '');
   const remove = useRemoveFirmUser(firmId ?? '');
@@ -37,6 +38,11 @@ export function FirmStaffPage() {
   const [accessTarget, setAccessTarget] = useState<FirmUserWithProfile | null>(null);
 
   if (!firmId) return null;
+
+  // firm_readonly members can observe firm rules but not the roster; the
+  // server 403s the list, so hide the controls and explain instead.
+  const isReadonlyMember = firm.data?.myRole === 'firm_readonly';
+  const forbidden = isApiError(error) && error.status === 403;
 
   return (
     <div className="flex flex-col gap-4">
@@ -52,14 +58,21 @@ export function FirmStaffPage() {
             Firm-internal roles. Independent of per-tenant access.
           </p>
         </div>
-        <Button variant="primary" onClick={() => setInviteOpen(true)}>
-          <UserPlus className="h-4 w-4 mr-1" />
-          Invite staff
-        </Button>
+        {!isReadonlyMember && (
+          <Button variant="primary" onClick={() => setInviteOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-1" />
+            Invite staff
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
         <LoadingSpinner size="md" />
+      ) : forbidden || (isReadonlyMember && !data) ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Read-only firm members can&apos;t view the staff roster. Ask a firm admin for the
+          firm_staff role if you need it.
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table className="min-w-full divide-y divide-gray-200 text-sm">

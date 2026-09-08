@@ -7,6 +7,7 @@ import { useParams } from 'react-router-dom';
 import { Building, Search, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { isApiError } from '../../api/client';
 import {
   useAssignableTenants,
   useAssignTenantToFirm,
@@ -21,7 +22,7 @@ import { FirmTabs } from './FirmTabs';
 export function FirmTenantsPage() {
   const { firmId } = useParams<{ firmId: string }>();
   const firm = useFirm(firmId ?? null);
-  const { data, isLoading } = useFirmTenants(firmId ?? null);
+  const { data, isLoading, error } = useFirmTenants(firmId ?? null);
   const assign = useAssignTenantToFirm(firmId ?? '');
   const unassign = useUnassignTenantFromFirm(firmId ?? '');
 
@@ -32,6 +33,10 @@ export function FirmTenantsPage() {
   const assignments = data?.assignments ?? [];
   const active = assignments.filter((a) => a.isActive);
   const inactive = assignments.filter((a) => !a.isActive);
+  // firm_readonly members can't list managed tenants (server 403s);
+  // hide the assign control and explain instead of showing an empty table.
+  const isReadonlyMember = firm.data?.myRole === 'firm_readonly';
+  const forbidden = isApiError(error) && error.status === 403;
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,14 +53,21 @@ export function FirmTenantsPage() {
             global_firm rules.
           </p>
         </div>
-        <Button variant="primary" onClick={() => setAssignOpen(true)}>
-          <Building className="h-4 w-4 mr-1" />
-          Assign tenant
-        </Button>
+        {!isReadonlyMember && (
+          <Button variant="primary" onClick={() => setAssignOpen(true)}>
+            <Building className="h-4 w-4 mr-1" />
+            Assign tenant
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
         <LoadingSpinner size="md" />
+      ) : forbidden || (isReadonlyMember && !data) ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Read-only firm members can&apos;t view the managed-tenant list. Ask a firm admin
+          for the firm_staff role if you need it.
+        </div>
       ) : (
         <>
           <section className="flex flex-col gap-2">

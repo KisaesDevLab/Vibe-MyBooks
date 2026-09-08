@@ -9,6 +9,7 @@ import type {
   Firm,
   FirmRole,
   FirmUser,
+  FirmWithMyRole,
   FirmUserWithProfile,
   InviteFirmUserInput,
   StaffTenantAccessRow,
@@ -36,7 +37,7 @@ export function useFirm(firmId: string | null) {
   return useQuery({
     queryKey: ['firms', firmId],
     enabled: !!firmId,
-    queryFn: () => apiClient<Firm>(`/firms/${firmId}`),
+    queryFn: () => apiClient<FirmWithMyRole>(`/firms/${firmId}`),
   });
 }
 
