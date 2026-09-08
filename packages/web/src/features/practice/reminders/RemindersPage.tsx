@@ -604,6 +604,7 @@ function TemplateEditorModal({
                 <option value="doc_request">Document request</option>
                 <option value="recurring_non_transaction">Recurring task</option>
                 <option value="magic_link_expiring">Magic-link expiring</option>
+                <option value="categorize_request">Ask client to categorize</option>
               </select>
             </label>
             <label className="block text-sm">

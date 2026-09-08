@@ -2650,6 +2650,18 @@ Answers arrive on **Practice \u2192 Uncategorized \u2192 Client suggested**, and
 
 An answer whose amount or date has **changed** since the client gave it is flagged **Changed** and is excluded from bulk approval; you have to look at it and use **Approve anyway**. This matters because bank feeds rewrite amounts as a transaction settles, so an answer given against $42.50 must not be swept through once the row reads $58.10. An answer for something already handled by someone else is marked **Already handled** rather than blamed on the client.
 
+## Asking the client to come and look
+
+Clients do not check the portal on their own. On **Practice \u2192 Uncategorized \u2192 In suspense** there is an **Ask the client for help** button that emails, and optionally texts, the portal contacts who have **Can suggest categories** ticked for that client, asking them to log in and answer "What was this?". Nobody else is offered \u2014 a contact without the tick would log in and find nothing.
+
+The message says how many transactions are waiting, carries the portal login link, and can take a personal note. Before you send, the screen tells you what the client will actually find:
+
+- **The portal switch is off** for the firm \u2014 nothing is sent until it is on.
+- **Nobody has the tick** \u2014 go to Practice \u2192 Client Portal and tick a contact.
+- **The queue is empty** \u2014 the rows you are looking at sit in an account that is not the tagged suspense account, so the client's page is blank. You can send anyway, but you have to say so.
+
+Texting needs the firm's SMS switch on (Practice \u2192 Client Portal settings) and an SMS provider on the server; otherwise the option is greyed out with the reason. A contact who has texted **STOP** is never messaged on that channel. Every send is logged with the other portal messages, so the reminders dashboard shows opens and clicks, and each contact shows when they were last asked. The wording can be changed under Practice \u2192 Reminders \u2192 Templates, trigger **Ask client to categorize**.
+
 ## Turning it on
 
 Two switches, both off by default. Enable **PORTAL_CATEGORIZE_V1** for the tenant, then tick **Can suggest categories** for each portal contact on Practice \u2192 Client Portal. Staff also need **UNCATEGORIZED_REVIEW_V1** to see the review queue.

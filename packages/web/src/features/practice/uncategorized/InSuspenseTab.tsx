@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CircleDot, Loader2, Paperclip, Scissors } from 'lucide-react';
+import { CircleDot, Loader2, MailQuestion, Paperclip, Scissors } from 'lucide-react';
 import { AttachFileButton } from '../../attachments/AttachFileButton';
 import { RowAttachmentsModal } from './RowAttachmentsModal';
 import { formatMoney } from '../../../utils/money';
@@ -21,6 +21,7 @@ import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
 import { SelectionActionBar } from './SelectionActionBar';
 import { RowCategoryCell } from './RowCategoryCell';
+import { RequestClientHelpModal } from './RequestClientHelpModal';
 import { useInSuspense, useClearSuspense, type SuspenseRow as SuspenseRowView } from '../../../api/hooks/useUncategorized';
 
 const PAGE_SIZE = 50;
@@ -35,6 +36,7 @@ export function InSuspenseTab() {
   // until that row's Save is pressed — see RowCategoryCell.
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
 
   const toast = useToast();
   const query = useInSuspense({ limit: PAGE_SIZE, offset, search });
@@ -111,13 +113,22 @@ export function InSuspenseTab() {
 
   return (
     <div className="space-y-3">
-      <input
-        type="search"
-        value={search}
-        onChange={(e) => { setSearch(e.target.value); setOffset(0); setSelected(new Set()); }}
-        placeholder="Search memo, payee, or check #"
-        className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setOffset(0); setSelected(new Set()); }}
+          placeholder="Search memo, payee, or check #"
+          className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
+        {/* The person who knows what these were is the client. This emails or
+            texts the portal contacts who can answer "What was this?". It is a
+            notice, not a posting, so it is not part of the selection bar. */}
+        <Button variant="secondary" onClick={() => setAsking(true)}>
+          <MailQuestion className="h-4 w-4 mr-1" />
+          Ask the client for help
+        </Button>
+      </div>
 
       {Object.keys(drafts).length > 0 && (
         <p className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -250,6 +261,8 @@ export function InSuspenseTab() {
       </TableScroll>
 
       <Pagination total={total} limit={PAGE_SIZE} offset={offset} onChange={changePage} unit="transactions" />
+
+      <RequestClientHelpModal open={asking} onClose={() => setAsking(false)} />
 
       <RowAttachmentsModal
         open={viewing !== null}

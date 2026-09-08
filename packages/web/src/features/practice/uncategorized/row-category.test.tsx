@@ -88,6 +88,10 @@ vi.mock('../../../api/hooks/useUncategorized', () => ({
   useApproveSuggestions: passthroughMutation,
   useRejectSuggestions: passthroughMutation,
   useMarkSuggestionsReviewed: passthroughMutation,
+  // The In suspense tab mounts the "Ask the client" modal closed; its hooks
+  // are called (hooks always are) but disabled, so an inert stub is enough.
+  useHelpRecipients: () => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() }),
+  useSendHelpRequest: passthroughMutation,
 }));
 vi.mock('../../../api/hooks/useBanking', () => ({
   useBulkCategorize: () => ({ ...passthroughMutation(), mutate: bulkCategorizeMutate }),

@@ -160,6 +160,62 @@ export function useRejectSuggestions() {
     ));
 }
 
+// ── Ask the client for help ─────────────────────────────────────
+// A notice, not a ledger action, so it does NOT use useLedgerMutation: nothing
+// on the page changes when it goes out except the "last asked" stamp.
+
+export interface HelpRecipient {
+  contactId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  emailSuppressed: boolean;
+  smsSuppressed: boolean;
+  lastSeenAt: string | null;
+  lastAskedAt: string | null;
+}
+
+export interface HelpRecipientsView {
+  portalEnabled: boolean;
+  queueCount: number;
+  smsAvailable: boolean;
+  smsUnavailableReason: string | null;
+  companyName: string;
+  contacts: HelpRecipient[];
+}
+
+export type HelpChannel = 'email' | 'sms';
+export type HelpOutcome = 'sent' | 'suppressed' | 'no_phone' | 'sms_disabled' | 'error';
+
+export interface HelpSendResult {
+  queueCount: number;
+  results: Array<{
+    contactId: string;
+    name: string;
+    outcomes: Array<{ channel: HelpChannel; outcome: HelpOutcome; error?: string }>;
+  }>;
+  notEligible: string[];
+}
+
+export function useHelpRecipients(enabled = true) {
+  return useQuery({
+    queryKey: ['uncategorized', 'help-recipients'],
+    queryFn: () => apiClient<HelpRecipientsView>(`${BASE}/help-request/recipients`),
+    enabled,
+  });
+}
+
+export function useSendHelpRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { contactIds: string[]; channels: HelpChannel[]; note?: string; confirmEmpty?: boolean }) =>
+      apiClient<HelpSendResult>(`${BASE}/help-request`, { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['uncategorized', 'help-recipients'] });
+    },
+  });
+}
+
 export function useMarkSuggestionsReviewed() {
   return useLedgerMutation((ids?: string[]) =>
     apiClient<{ marked: number }>(
