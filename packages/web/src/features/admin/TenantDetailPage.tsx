@@ -12,6 +12,8 @@ import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/Toaster';
 import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, AlertTriangle, BookOpen, CalendarRange, UserPlus, Search, X, Wrench, Flag } from 'lucide-react';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
+import type { TenantFirmState } from '@kis-books/shared';
+import { useAdminFirms, useSetTenantFirm } from '../../api/hooks/useFirms';
 import {
   PRACTICE_FEATURE_FLAGS,
   type PracticeFeatureFlagKey,
@@ -43,6 +45,8 @@ interface TenantDetail {
   createdAt: string;
   users: TenantUser[];
   companies: TenantCompany[];
+  // Managing firm (active assignment) + soft-detached history.
+  firm: TenantFirmState;
   stats: {
     accountCount: number;
     nonSystemAccountCount: number;
@@ -226,6 +230,7 @@ export function TenantDetailPage() {
         tenant: { id: string; name: string; slug: string; createdAt?: string; created_at?: string };
         users: TenantUser[];
         companies: Array<{ id: string; businessName?: string; business_name?: string; name?: string; setupComplete?: boolean; setup_complete?: boolean }>;
+        firm?: TenantFirmState;
         stats?: { accounts?: string; non_system_accounts?: string; transactions?: string; contacts?: string };
       }>(`/admin/tenants/${id}`);
       return {
@@ -235,6 +240,7 @@ export function TenantDetailPage() {
         isActive: true,
         createdAt: res.tenant.createdAt || res.tenant.created_at,
         users: res.users,
+        firm: res.firm ?? { current: null, history: [] },
         companies: (res.companies || []).map((c) => ({
           id: c.id,
           name: c.businessName || c.business_name || c.name,
@@ -340,6 +346,9 @@ export function TenantDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Managing firm */}
+      <ManagingFirmCard tenantId={tenant.id} tenantName={tenant.name} firm={tenant.firm} />
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1554,6 +1563,109 @@ function SystemAccountsCard({ tenantId }: { tenantId: string }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// Which firm manages this tenant. Reassign soft-detaches the current firm
+// (history kept below); the target firm's admins gain accountant access
+// automatically. Unassign revokes nothing.
+function ManagingFirmCard({ tenantId, tenantName, firm }: { tenantId: string; tenantName: string; firm: TenantFirmState }) {
+  const toast = useToast();
+  const { data: firmsData } = useAdminFirms({ limit: 500 });
+  const setFirm = useSetTenantFirm(tenantId);
+  const [choice, setChoice] = useState('');
+  const [confirm, setConfirm] = useState<{ firmId: string | null; label: string } | null>(null);
+  const activeFirms = (firmsData?.firms ?? []).filter((f) => f.isActive && f.id !== firm.current?.firmId);
+
+  const apply = (firmId: string | null) => {
+    setFirm.mutate(firmId, {
+      onSuccess: () => { toast.success(firmId ? 'Managing firm updated' : 'Tenant unassigned'); setChoice(''); },
+      onError: (e) => toast.error('Could not update managing firm', { detail: (e as Error).message }),
+    });
+  };
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5" data-testid="managing-firm">
+      <div className="flex items-center gap-2 mb-3">
+        <Briefcase className="h-5 w-5 text-gray-600" />
+        <h2 className="text-lg font-semibold text-gray-900">Managing firm</h2>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div>
+          <span className="text-gray-500">Firm:</span>{' '}
+          {firm.current ? (
+            <span className="font-medium text-gray-900">
+              {firm.current.firmName}
+              {!firm.current.firmIsActive && <span className="ml-2 text-xs text-red-600">(deactivated)</span>}
+            </span>
+          ) : (
+            <span className="italic text-gray-500">not managed by a firm</span>
+          )}
+        </div>
+        {firm.current && (
+          <>
+            <div>
+              <span className="text-gray-500">Assigned:</span>{' '}
+              <span className="font-medium text-gray-900">{new Date(firm.current.assignedAt).toLocaleDateString()}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">By:</span>{' '}
+              <span className="font-medium text-gray-900">{firm.current.assignedByEmail ?? 'system'}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-end gap-2">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{firm.current ? 'Reassign to' : 'Assign to'}</label>
+          <select
+            value={choice}
+            onChange={(e) => setChoice(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-w-[16rem]"
+          >
+            <option value="">Choose a firm…</option>
+            {activeFirms.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+        </div>
+        <Button
+          size="sm"
+          disabled={!choice}
+          loading={setFirm.isPending}
+          onClick={() => setConfirm({ firmId: choice, label: activeFirms.find((f) => f.id === choice)?.name ?? '' })}
+        >
+          {firm.current ? 'Reassign' : 'Assign'}
+        </Button>
+        {firm.current && (
+          <Button size="sm" variant="secondary" onClick={() => setConfirm({ firmId: null, label: '' })} disabled={setFirm.isPending}>
+            Unassign
+          </Button>
+        )}
+      </div>
+
+      {firm.history.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Past assignments</h3>
+          <ul className="text-xs text-gray-600 space-y-0.5">
+            {firm.history.map((h) => (
+              <li key={h.id}>{h.firmName} — assigned {new Date(h.assignedAt).toLocaleDateString()}{h.assignedByEmail ? ` by ${h.assignedByEmail}` : ''} (detached)</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!confirm}
+        title={confirm?.firmId ? `${firm.current ? 'Reassign' : 'Assign'} "${tenantName}" to ${confirm.label}?` : `Unassign "${tenantName}"?`}
+        message={confirm?.firmId
+          ? `${firm.current ? `The current firm (${firm.current.firmName}) is soft-detached and kept in history. ` : ''}${confirm.label}'s firm admins get accountant access to this tenant automatically. Existing user access is not changed.`
+          : 'The firm is soft-detached (kept in history). Nobody loses access; firm and global rules from that firm stop applying.'}
+        confirmLabel={confirm?.firmId ? (firm.current ? 'Reassign' : 'Assign') : 'Unassign'}
+        variant={confirm?.firmId ? 'primary' : 'danger'}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => { if (confirm) apply(confirm.firmId); setConfirm(null); }}
+      />
     </div>
   );
 }

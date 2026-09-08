@@ -13,6 +13,8 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Pagination } from '../../components/ui/Pagination';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { Building2, Eye, Power, LogIn, Search, Plus, X } from 'lucide-react';
+import { APPLIANCE_FIRM_SLUG } from '@kis-books/shared';
+import { useFirms } from '../../api/hooks/useFirms';
 
 interface TenantRow {
   id: string;
@@ -23,6 +25,9 @@ interface TenantRow {
   transactionCount: number;
   isActive: boolean;
   createdAt: string;
+  // Managing firm (active tenant_firm_assignments row), null when unmanaged.
+  firmId: string | null;
+  firmName: string | null;
 }
 
 // Rows per page. 'all' asks the API for everything in one request (the same
@@ -31,7 +36,7 @@ const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
 const DEFAULT_PAGE_SIZE = '50';
 const ALL_LIMIT = 5000;
 
-type SortKey = 'name' | 'slug' | 'userCount' | 'companyCount' | 'transactionCount' | 'createdAt';
+type SortKey = 'name' | 'slug' | 'firmName' | 'userCount' | 'companyCount' | 'transactionCount' | 'createdAt';
 
 export function TenantListPage() {
   const navigate = useNavigate();
@@ -42,8 +47,19 @@ export function TenantListPage() {
   const [offset, setOffset] = useState(0);
   const effectiveLimit = pageSize === 'all' ? ALL_LIMIT : parseInt(pageSize, 10);
   const [showCreate, setShowCreate] = useState(false);
-  const [newCompany, setNewCompany] = useState({ companyName: '', entityType: '' });
+  const [newCompany, setNewCompany] = useState({ companyName: '', entityType: '', firmId: '' });
   const [createError, setCreateError] = useState('');
+  // Super admin sees every firm; the new client is assigned to the chosen
+  // one (defaulting to the appliance firm, the historical behaviour).
+  const { data: firmsData } = useFirms();
+  const firmChoices = (firmsData?.firms ?? []).filter((f) => f.isActive);
+  useEffect(() => {
+    if (!newCompany.firmId && firmChoices.length > 0) {
+      const appliance = firmChoices.find((f) => f.slug === APPLIANCE_FIRM_SLUG) ?? firmChoices[0]!;
+      setNewCompany((f) => ({ ...f, firmId: appliance.id }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmsData]);
   const [switchError, setSwitchError] = useState('');
   const [pendingAction, setPendingAction] = useState<
     | { title: string; message: string; confirmLabel: string; variant?: 'primary' | 'danger'; onConfirm: () => void }
@@ -51,12 +67,13 @@ export function TenantListPage() {
   >(null);
 
   const createMutation = useMutation({
-    mutationFn: (input: { companyName: string; entityType?: string }) =>
+    mutationFn: (input: { companyName: string; entityType?: string; firmId?: string }) =>
       apiClient('/admin/create-client', { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenants'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'firms'] });
       setShowCreate(false);
-      setNewCompany({ companyName: '', entityType: '' });
+      setNewCompany((f) => ({ companyName: '', entityType: '', firmId: f.firmId }));
       setCreateError('');
     },
     onError: (err: Error) => {
@@ -97,8 +114,8 @@ export function TenantListPage() {
     if (!tenants) return tenants;
     const dir = sortDir === 'asc' ? 1 : -1;
     return [...tenants].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
+      const av = a[sortKey] ?? '';
+      const bv = b[sortKey] ?? '';
       if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
       return String(av).localeCompare(String(bv), undefined, { sensitivity: 'base' }) * dir;
     });
@@ -195,7 +212,7 @@ export function TenantListPage() {
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
                   {([
-                    ['name', 'Name', 'left'], ['slug', 'Slug', 'left'],
+                    ['name', 'Name', 'left'], ['slug', 'Slug', 'left'], ['firmName', 'Firm', 'left'],
                     ['userCount', 'Users', 'right'], ['companyCount', 'Companies', 'right'],
                     ['transactionCount', 'Transactions', 'right'], ['createdAt', 'Created', 'left'],
                   ] as Array<[SortKey, string, 'left' | 'right']>).map(([key, label, align]) => (
@@ -220,6 +237,7 @@ export function TenantListPage() {
                   >
                     <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
                     <td className="px-4 py-3 text-gray-600">{t.slug}</td>
+                    <td className="px-4 py-3 text-gray-600">{t.firmName ?? <span className="text-gray-400">—</span>}</td>
                     <td className="px-4 py-3 text-right text-gray-700">{t.userCount}</td>
                     <td className="px-4 py-3 text-right text-gray-700">{t.companyCount}</td>
                     <td className="px-4 py-3 text-right text-gray-700">{t.transactionCount}</td>
@@ -322,6 +340,7 @@ export function TenantListPage() {
                 createMutation.mutate({
                   companyName: newCompany.companyName.trim(),
                   entityType: newCompany.entityType.trim() || undefined,
+                  firmId: newCompany.firmId || undefined,
                 });
               }}
               className="px-6 py-4 space-y-4"
@@ -349,6 +368,19 @@ export function TenantListPage() {
                   <option value="nonprofit">Nonprofit</option>
                 </select>
               </div>
+              {firmChoices.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Managing firm</label>
+                  <select
+                    value={newCompany.firmId}
+                    onChange={e => setNewCompany(f => ({ ...f, firmId: e.target.value }))}
+                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    {firmChoices.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">The firm's admins get accountant access to the new company automatically.</p>
+                </div>
+              )}
               {createError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{createError}</div>
               )}

@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   LayoutDashboard,
+  Briefcase,
   BookOpen,
   Users,
   ArrowLeftRight,
@@ -101,6 +102,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin', label: 'Admin Dashboard', icon: ShieldCheck },
   { to: '/admin/tenants', label: 'Tenants', icon: Building2 },
   { to: '/admin/users', label: 'Users', icon: UsersRound },
+  { to: '/admin/firms', label: 'Firms', icon: Briefcase },
   { to: '/admin/coa-templates', label: 'COA Templates', icon: LayoutTemplate },
   { to: '/admin/report-letters', label: 'CPA Report Letters', icon: FileText },
   { to: '/admin/tfa', label: 'Two-Factor Auth', icon: KeyRound },

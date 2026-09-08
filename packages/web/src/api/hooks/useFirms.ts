@@ -4,6 +4,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  AdminFirmSummary,
+  TenantFirmState,
   AssignTenantToFirmInput,
   CreateFirmInput,
   Firm,
@@ -71,7 +73,41 @@ export function useDeleteFirm() {
   return useMutation({
     mutationFn: (firmId: string) =>
       apiClient<{ deleted: boolean }>(`/firms/${firmId}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['firms'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['firms'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'firms'] });
+    },
+  });
+}
+
+// ─── Admin (super admin) ─────────────────────────────────────────
+
+export function useAdminFirms(params: { search?: string; limit?: number; offset?: number } = {}) {
+  const qs = new URLSearchParams();
+  if (params.search?.trim()) qs.set('search', params.search.trim());
+  if (params.limit !== undefined) qs.set('limit', String(params.limit));
+  if (params.offset !== undefined) qs.set('offset', String(params.offset));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return useQuery({
+    queryKey: ['admin', 'firms', params],
+    queryFn: () => apiClient<{ firms: AdminFirmSummary[]; total: number }>(`/admin/firms${suffix}`),
+  });
+}
+
+// Set (or clear with null) the firm managing a tenant — admin tenant detail.
+export function useSetTenantFirm(tenantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (firmId: string | null) =>
+      apiClient<TenantFirmState>(`/admin/tenants/${tenantId}/firm`, {
+        method: 'POST',
+        body: JSON.stringify({ firmId }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'tenants'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'firms'] });
+      qc.invalidateQueries({ queryKey: ['firms'] });
+    },
   });
 }
 

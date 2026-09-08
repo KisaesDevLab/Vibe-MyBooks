@@ -210,6 +210,7 @@ const AdminDashboard = lazyNamed(() => import('./features/admin/AdminDashboard')
 const TenantListPage = lazyNamed(() => import('./features/admin/TenantListPage'), 'TenantListPage');
 const TenantDetailPage = lazyNamed(() => import('./features/admin/TenantDetailPage'), 'TenantDetailPage');
 const UserListPage = lazyNamed(() => import('./features/admin/UserListPage'), 'UserListPage');
+const FirmsAdminPage = lazyNamed(() => import('./features/admin/FirmsAdminPage'), 'FirmsAdminPage');
 const TfaConfigPage = lazyNamed(() => import('./features/admin/TfaConfigPage'), 'TfaConfigPage');
 // Bulk import lives under /imports (not /admin/import) because it's
 // a staff-write feature, not a super-admin one. Keeping the file
@@ -424,6 +425,7 @@ export function App() {
             <Route path="/admin/feature-flags" element={<AdminRoute><Navigate to="/admin/tenants" replace /></AdminRoute>} />
             <Route path="/admin/tenants/:id" element={<AdminRoute><TenantDetailPage /></AdminRoute>} />
             <Route path="/admin/users" element={<AdminRoute><UserListPage /></AdminRoute>} />
+            <Route path="/admin/firms" element={<AdminRoute><FirmsAdminPage /></AdminRoute>} />
             <Route path="/admin/system" element={<AdminRoute><SystemSettingsPage /></AdminRoute>} />
             <Route path="/admin/coa-templates" element={<AdminRoute><CoaTemplatesPage /></AdminRoute>} />
             <Route path="/admin/report-letters" element={<AdminRoute><CpaLettersPage /></AdminRoute>} />

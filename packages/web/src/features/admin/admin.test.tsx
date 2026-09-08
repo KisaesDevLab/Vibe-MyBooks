@@ -47,6 +47,7 @@ import { AiConfigPage } from './AiConfigPage';
 import { McpConfigPage } from './McpConfigPage';
 import { CoaTemplatesPage } from './CoaTemplatesPage';
 import { TailscaleAdminPage } from './TailscaleAdminPage';
+import { FirmsAdminPage } from './FirmsAdminPage';
 
 describe('admin pages', () => {
   for (const [name, Component, route, path] of [
@@ -62,6 +63,7 @@ describe('admin pages', () => {
     ['McpConfigPage', McpConfigPage, '/admin/mcp', '/admin/mcp'],
     ['CoaTemplatesPage', CoaTemplatesPage, '/admin/coa-templates', '/admin/coa-templates'],
     ['TailscaleAdminPage', TailscaleAdminPage, '/admin/tailscale', '/admin/tailscale'],
+    ['FirmsAdminPage', FirmsAdminPage, '/admin/firms', '/admin/firms'],
   ] as const) {
     it(`${name} renders`, () => {
       renderRoute(<Component />, { route, path });

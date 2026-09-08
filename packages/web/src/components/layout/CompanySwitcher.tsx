@@ -10,6 +10,8 @@ import { apiClient, setTokens } from '../../api/client';
 import { AlertCircle, ChevronDown, Plus, Building2, Check, Users, Trash2 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
+import { useFirms } from '../../api/hooks/useFirms';
+import { APPLIANCE_FIRM_SLUG } from '@kis-books/shared';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { useToast } from '../ui/Toaster';
 
@@ -36,6 +38,21 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const businessTypeOptions = useCoaTemplateOptions();
+  // Client mode: the new company is managed by the creator's firm. One
+  // membership → shown as a static line; several → a required picker
+  // (super admins see every firm and default to the appliance firm).
+  const { data: firmsData } = useFirms({ enabled: mode === 'client' });
+  const firmChoices = (firmsData?.firms ?? []).filter((f) => f.isActive);
+  const [firmId, setFirmId] = useState('');
+  useEffect(() => {
+    if (firmChoices.length === 1) setFirmId(firmChoices[0]!.id);
+    else if (firmChoices.length > 1 && !firmId) {
+      const appliance = firmChoices.find((f) => f.slug === APPLIANCE_FIRM_SLUG);
+      if (appliance) setFirmId(appliance.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmsData]);
+  const needsFirmChoice = mode === 'client' && firmChoices.length > 1 && !firmId;
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
@@ -53,7 +70,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
         // Create new tenant + company
         await apiClient('/auth/create-client', {
           method: 'POST',
-          body: JSON.stringify({ companyName: name, entityType, businessType, systemAccountsOnly }),
+          body: JSON.stringify({ companyName: name, entityType, businessType, systemAccountsOnly, ...(firmId ? { firmId } : {}) }),
         });
         onCreated();
       } else if (mode === 'owned') {
@@ -112,6 +129,19 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
               ))}
             </select>
           </div>
+          {mode === 'client' && firmChoices.length > 1 && (
+            <div>
+              <label className="block text-sm font-medium mb-1">Managing firm</label>
+              <select value={firmId} onChange={(e) => setFirmId(e.target.value)}
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="">Choose a firm…</option>
+                {firmChoices.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+            </div>
+          )}
+          {mode === 'client' && firmChoices.length === 1 && (
+            <p className="text-xs text-gray-600">Managed by <span className="font-medium text-gray-800">{firmChoices[0]!.name}</span></p>
+          )}
           {(mode === 'client' || mode === 'owned') && (
             <>
               <label className="flex items-start gap-2 cursor-pointer">
@@ -134,7 +164,7 @@ function AddCompanyModal({ mode, onClose, onCreated }: AddCompanyModalProps) {
         </div>
         <div className="flex justify-end gap-3 mt-4">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Cancel</button>
-          <button onClick={handleSubmit} disabled={!name.trim() || loading}
+          <button onClick={handleSubmit} disabled={!name.trim() || loading || needsFirmChoice}
             className="px-4 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
             {loading ? 'Creating...' : mode === 'client' ? 'Create' : 'Add'}
           </button>
