@@ -19,7 +19,18 @@ import { OAUTH_STATE_KEY } from './BankConnectPage';
 
 const MAX_STATE_AGE_MS = 4 * 60 * 60 * 1000;
 
-interface OAuthState { inviteToken: string; linkToken: string; kind?: 'connect' | 'repair'; ts: number }
+// Two producers share the ONE registered redirect URI: the tokenized
+// bank-connect invite page (inviteToken + kind) and the client portal's
+// bank-login repair (mode 'portal', plaidItemId + companyId — cookie auth).
+interface OAuthState {
+  inviteToken?: string;
+  linkToken: string;
+  kind?: 'connect' | 'repair';
+  mode?: 'invite' | 'portal';
+  plaidItemId?: string;
+  companyId?: string;
+  ts: number;
+}
 
 export function BankConnectOAuthReturnPage() {
   const navigate = useNavigate();
@@ -30,7 +41,8 @@ export function BankConnectOAuthReturnPage() {
       const raw = localStorage.getItem(OAUTH_STATE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as OAuthState;
-      if (!parsed.inviteToken || !parsed.linkToken) return null;
+      if (!parsed.linkToken) return null;
+      if (parsed.mode === 'portal' ? !(parsed.plaidItemId && parsed.companyId) : !parsed.inviteToken) return null;
       if (Date.now() - (parsed.ts ?? 0) > MAX_STATE_AGE_MS) return null;
       return parsed;
     } catch { return null; }
@@ -42,11 +54,27 @@ export function BankConnectOAuthReturnPage() {
     onSuccess: (publicToken, metadata) => {
       void (async () => {
         try {
+          if (state!.mode === 'portal') {
+            // Portal bank-login repair: update mode fixed the login inside
+            // Link; confirm on the portal (cookie-authenticated) route.
+            const res = await fetch(
+              `${import.meta.env.BASE_URL}api/portal/banking/connections/${encodeURIComponent(state!.plaidItemId!)}/repair-complete?companyId=${encodeURIComponent(state!.companyId!)}`,
+              { method: 'POST', credentials: 'include' },
+            );
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({}));
+              setFailed(body?.error?.message || 'The repair could not be confirmed. Open the portal and try again.');
+              return;
+            }
+            localStorage.removeItem(OAUTH_STATE_KEY);
+            navigate('/portal/banking?repaired=1', { replace: true });
+            return;
+          }
           // Repair invites ran Link in update mode — the item is already
           // fixed at Plaid; confirm server-side instead of exchanging.
           const res = state!.kind === 'repair'
-            ? await fetch(`/api/bank-connect/${encodeURIComponent(state!.inviteToken)}/repair-complete`, { method: 'POST' })
-            : await fetch(`/api/bank-connect/${encodeURIComponent(state!.inviteToken)}/exchange`, {
+            ? await fetch(`/api/bank-connect/${encodeURIComponent(state!.inviteToken!)}/repair-complete`, { method: 'POST' })
+            : await fetch(`/api/bank-connect/${encodeURIComponent(state!.inviteToken!)}/exchange`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -63,15 +91,16 @@ export function BankConnectOAuthReturnPage() {
             return;
           }
           localStorage.removeItem(OAUTH_STATE_KEY);
-          navigate(`/connect/${encodeURIComponent(state!.inviteToken)}?done=1`, { replace: true });
+          navigate(`/connect/${encodeURIComponent(state!.inviteToken!)}?done=1`, { replace: true });
         } catch {
           setFailed('Network problem while saving the connection.');
         }
       })();
     },
     onExit: () => {
-      // Bank declined / user backed out — return to the invite landing page.
-      if (state) navigate(`/connect/${encodeURIComponent(state.inviteToken)}`, { replace: true });
+      // Bank declined / user backed out — return to where the flow started.
+      if (state?.mode === 'portal') navigate('/portal/banking', { replace: true });
+      else if (state) navigate(`/connect/${encodeURIComponent(state.inviteToken!)}`, { replace: true });
       else setFailed('The bank connection was not completed.');
     },
   });

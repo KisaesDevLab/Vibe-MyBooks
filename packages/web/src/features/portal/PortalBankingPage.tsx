@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { Landmark, CreditCard, ChevronRight } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { usePortal } from './PortalLayout';
+import { PortalBankRepairBanner, PortalConnectionsCard } from './PortalBankRepair';
 
 // PORTAL_BANKING_V1 — account cards with book balances. Tapping a card
 // opens the sanitized register (PortalBankingRegisterPage).
@@ -70,6 +71,7 @@ export function PortalBankingPage() {
   if (error) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-10">
+        <PortalBankRepairBanner companyId={activeCompanyId} />
         <div className="bg-amber-50 border border-amber-200 rounded-md px-4 py-3 text-sm text-amber-800">
           <p>{error}</p>
           {retryable && (
@@ -87,6 +89,7 @@ export function PortalBankingPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
+      <PortalBankRepairBanner companyId={activeCompanyId} />
       <h1 className="text-xl font-semibold text-gray-900 mb-1">Balances</h1>
       <p className="text-sm text-gray-600 mb-6">
         Your bank and credit-card accounts. Tap an account to see its activity.
@@ -137,6 +140,7 @@ export function PortalBankingPage() {
         Balances reflect your books as recorded by your bookkeeper and may differ from your
         bank&apos;s available balance.
       </p>
+      <PortalConnectionsCard companyId={activeCompanyId} />
     </div>
   );
 }

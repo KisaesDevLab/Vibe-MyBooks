@@ -2540,7 +2540,11 @@ Tapping an account opens its activity — a simplified, mobile-friendly register
 1. An administrator turns on **PORTAL_BANKING_V1** in the Feature Flags card (Admin → Tenants → the tenant's page).
 2. In **Practice → Client Portal → Contacts**, edit a contact and switch on **Can view bank & card activity** for the company. It's off by default — you decide who sees the books.
 
-"View as Client" preview works with these pages and stays read-only.`,
+"View as Client" preview works with these pages and stays read-only.
+
+## Letting clients fix a broken bank login
+
+When a bank asks for a fresh sign-in, the connection stops feeding transactions until someone re-authenticates it. Instead of sending a repair link, you can let a client do it from the portal: on the contact's row under **Practice → Client Portal → Contacts**, turn on **Can fix bank logins** (off by default). The client then sees a "needs you to sign in again" banner on their portal home and on Balances, and a **Bank connections** card on Balances with a **Fix sign-in** button next to any institution that needs attention. The button opens the bank's own sign-in (Plaid); credentials never pass through MyBooks. Once it succeeds the connection is marked healthy, a sync runs, and the staff member who set the connection up gets an email. Only connections feeding that company's accounts are shown, and preview mode can look but never fix.`,
   },
   {
     id: 'portal-bill-pay',

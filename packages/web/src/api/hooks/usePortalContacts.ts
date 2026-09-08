@@ -31,6 +31,7 @@ export interface PortalContactCompanyLink {
   bankingAccess: boolean;
   billPayAccess: boolean;
   categorizeAccess: boolean;
+  bankRepairAccess?: boolean;
 }
 
 export interface PortalContactDetail {

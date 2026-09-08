@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Camera, FileText, MessageSquare, Upload, Clock, CheckCircle2, Landmark, CreditCard, ChevronRight } from 'lucide-react';
 import { usePortal } from './PortalLayout';
+import { PortalBankRepairBanner } from './PortalBankRepair';
 
 interface PortalDocRequest {
   id: string;
@@ -189,6 +190,12 @@ export function PortalDashboardPage() {
           ? `You're viewing ${activeCompany.companyName}.`
           : 'Select a company to get started.'}
       </p>
+
+      {/* Bank-login repair (per-contact "Can fix bank logins"): shows only
+          when a connection for this company needs a fresh sign-in. */}
+      <div className="mt-4">
+        <PortalBankRepairBanner companyId={activeCompanyId} />
+      </div>
 
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link to="/portal/questions" className="block">
