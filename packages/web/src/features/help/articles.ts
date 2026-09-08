@@ -2527,6 +2527,42 @@ Tax-basis-only entries that never touch the books — they shape the Tax column,
 
   // ─── Client Portal ────────────────────────────────────────────
   {
+    id: 'connecting-vibe-pm',
+    title: 'Showing the Client Portal Inside Vibe Practice Management',
+    category: 'Client Portal',
+    summary: 'Give clients one login: Vibe PM renders MyBooks portal screens over a signed server-to-server link.',
+    body: `
+## Showing the Client Portal Inside Vibe Practice Management
+
+If your firm runs Vibe Practice Management (Vibe PM), clients can see their bookkeeping — questions from you, published financials, receipt upload, document requests, bank balances, bill pay and bank-login repair — inside the PM client portal they already use. PM fetches the data from MyBooks over a signed connection; the client never needs a MyBooks login.
+
+### How trust works
+PM holds a private key and signs every request. You paste PM's **public** key (or its JWKS URL) into MyBooks. Nothing secret is stored in MyBooks, and a token is valid for at most five minutes and can be used once.
+
+### Setting it up
+1. In Vibe PM, open the MyBooks integration screen and copy the **issuer** and the **public key**.
+2. In MyBooks go to **Firm → Settings** and find the **Vibe Practice Management** card (firm admins only; on the shared "Default Practice" firm, the system administrator).
+3. Tick **Enable**, paste the issuer and the public key (or choose **JWKS URL**), then **Save**.
+4. Use **Test a token** with a token PM minted to confirm the connection. The test does not consume the token.
+
+### Linking clients
+Under **Linked clients** on the same page, firm staff link each PM client to a MyBooks client, company, and portal contact:
+- **PM client id** — copied from the client's record in Vibe PM
+- **Client** — the MyBooks client (you need access to it)
+- **Company** and **Portal contact** — the contact whose portal permissions PM inherits
+
+PM can only do what that contact could do in the client portal. Its per-company toggles under **Practice → Client Portal** (financials, files, questions, banking, bill pay, suggest categories, fix bank logins) apply exactly. Pausing the contact, unlinking the company, or moving the client to another firm cuts PM off immediately.
+
+### Watching it
+The card shows **Last seen** (the most recent accepted request) and **Last error** (for example \`sig_invalid\` when PM's key changed, or \`no_link\` when PM asked about a client you have not linked). Every accepted request is written to the audit log under the client as \`portal_peer_access\`, naming the PM user who acted.
+
+### Notes
+- The MyBooks client portal keeps working as before; PM is an additional way in.
+- Fixing a bank login through PM opens Plaid in PM's page. Banks that use OAuth may still need the MyBooks flow; PM shows "Ask your bookkeeper" in that case.
+- Technical contract for the PM build: \`docs/vibe-pm-integration.md\` in the MyBooks repository.
+`,
+  },
+  {
     id: 'portal-banking-views',
     title: 'Client Portal: balances & account activity',
     category: 'Client Portal',

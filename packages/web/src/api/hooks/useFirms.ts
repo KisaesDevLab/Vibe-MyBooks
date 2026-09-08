@@ -19,6 +19,12 @@ import type {
   TenantFirmAssignmentWithTenant,
   UpdateFirmInput,
   UpdateFirmUserInput,
+  VibePmSettingsView,
+  VibePmSettingsInput,
+  PeerTestTokenResult,
+  PmClientLinkView,
+  PmLinkOptions,
+  CreatePmClientLinkInput,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
 
@@ -234,3 +240,72 @@ export function useUnassignTenantFromFirm(firmId: string) {
 
 // Re-exports for convenience.
 export type { Firm, FirmUser, FirmUserWithProfile, FirmRole, TenantFirmAssignmentWithTenant };
+
+// ─── Vibe Practice Management peer (docs/vibe-pm-integration.md) ──
+
+export function useVibePmSettings(firmId: string | null) {
+  return useQuery({
+    queryKey: ['firms', firmId, 'integrations', 'vibe-pm'],
+    enabled: !!firmId,
+    queryFn: () => apiClient<VibePmSettingsView>(`/firms/${firmId}/integrations/vibe-pm`),
+  });
+}
+
+export function useSaveVibePmSettings(firmId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: VibePmSettingsInput) =>
+      apiClient<VibePmSettingsView>(`/firms/${firmId}/integrations/vibe-pm`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['firms', firmId, 'integrations', 'vibe-pm'] }),
+  });
+}
+
+export function useTestPeerToken(firmId: string) {
+  return useMutation({
+    mutationFn: (token: string) =>
+      apiClient<PeerTestTokenResult>(`/firms/${firmId}/integrations/vibe-pm/test-token`, {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      }),
+  });
+}
+
+export function usePmLinks(firmId: string | null) {
+  return useQuery({
+    queryKey: ['firms', firmId, 'pm-links'],
+    enabled: !!firmId,
+    queryFn: () => apiClient<{ links: PmClientLinkView[] }>(`/firms/${firmId}/pm-links`),
+  });
+}
+
+export function usePmLinkOptions(firmId: string, tenantId: string | null) {
+  return useQuery({
+    queryKey: ['firms', firmId, 'pm-links', 'options', tenantId],
+    enabled: !!tenantId,
+    queryFn: () => apiClient<PmLinkOptions>(`/firms/${firmId}/pm-links/options?tenantId=${encodeURIComponent(tenantId!)}`),
+  });
+}
+
+export function useCreatePmLink(firmId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreatePmClientLinkInput) =>
+      apiClient<PmClientLinkView>(`/firms/${firmId}/pm-links`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['firms', firmId, 'pm-links'] }),
+  });
+}
+
+export function useDeletePmLink(firmId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (linkId: string) =>
+      apiClient<void>(`/firms/${firmId}/pm-links/${linkId}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['firms', firmId, 'pm-links'] }),
+  });
+}

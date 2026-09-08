@@ -17,6 +17,9 @@ import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { FirmTabs } from './FirmTabs';
+import { VibePmPeerCard, PmClientLinksCard } from './VibePmCards';
+import { useFirm } from '../../api/hooks/useFirms';
+import { useMe } from '../../api/hooks/useAuth';
 import { CheckCircle, XCircle, Landmark } from 'lucide-react';
 
 interface Tax1099Settings {
@@ -32,6 +35,8 @@ interface Tax1099Settings {
 export function FirmSettingsPage() {
   const { firmId } = useParams<{ firmId: string }>();
   const queryClient = useQueryClient();
+  const firm = useFirm(firmId ?? null);
+  const { data: meData } = useMe();
   const [form, setForm] = useState({
     isEnabled: false, environment: 'sandbox' as 'sandbox' | 'production',
     baseUrlOverride: '', apiKey: '', username: '', password: '',
@@ -144,6 +149,14 @@ export function FirmSettingsPage() {
           </Button>
         </div>
       </div>
+
+      <VibePmPeerCard
+        firmId={firmId!}
+        myRole={firm.data?.myRole}
+        superAdminManaged={firm.data?.superAdminManaged ?? false}
+        isSuperAdmin={!!meData?.user?.isSuperAdmin}
+      />
+      <PmClientLinksCard firmId={firmId!} myRole={firm.data?.myRole} />
     </div>
   );
 }
