@@ -14,6 +14,7 @@ import { ArrowLeft, Building2, Users, Briefcase, BarChart3, Power, Trash2, Alert
 import { useCoaTemplateOptions } from '../../api/hooks/useCoaTemplateOptions';
 import type { TenantFirmState } from '@kis-books/shared';
 import { useAdminFirms, useSetTenantFirm } from '../../api/hooks/useFirms';
+import { useFirmCapabilities } from '../../api/hooks/useFirmCapabilities';
 import {
   PRACTICE_FEATURE_FLAGS,
   type PracticeFeatureFlagKey,
@@ -62,6 +63,10 @@ export function TenantDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
+  // Delegated firm members (Tenant operations access right) reach this page
+  // for their firm's clients; every destructive control stays super-admin
+  // only (the server refuses them regardless).
+  const { isSuperAdmin } = useFirmCapabilities();
 
   // Delete confirmation state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -348,7 +353,7 @@ export function TenantDetailPage() {
       </div>
 
       {/* Managing firm */}
-      <ManagingFirmCard tenantId={tenant.id} tenantName={tenant.name} firm={tenant.firm} />
+      <ManagingFirmCard tenantId={tenant.id} tenantName={tenant.name} firm={tenant.firm} delegated={!isSuperAdmin} />
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -517,6 +522,7 @@ export function TenantDetailPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
+                      {isSuperAdmin && (
                       <button
                         onClick={() => { setCompanyDeleteError(null); setCompanyConfirmText(''); setDeleteCompanyId(c.id); setDeleteCompanyName(c.name); }}
                         disabled={tenant.companies.length <= 1}
@@ -525,6 +531,7 @@ export function TenantDetailPage() {
                       >
                         <Trash2 className="h-3.5 w-3.5" /> Delete
                       </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -591,7 +598,9 @@ export function TenantDetailPage() {
       <SystemAccountsCard tenantId={id!} />
 
       {/* Danger Zone — destructive operations live here, separated from
-          the rest of the page so they can't be clicked by accident. */}
+          the rest of the page so they can't be clicked by accident. Super
+          admin only: never delegated to firm members. */}
+      {isSuperAdmin && (
       <div className="bg-white rounded-lg border-2 border-red-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-red-200 bg-red-50 flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-red-600" />
@@ -713,6 +722,7 @@ export function TenantDetailPage() {
           </button>
         </div>
       </div>
+      )}
 
       {/* Delete-all-transactions confirmation — type-to-confirm. */}
       {showDeleteTxns && (
@@ -1570,7 +1580,7 @@ function SystemAccountsCard({ tenantId }: { tenantId: string }) {
 // Which firm manages this tenant. Reassign soft-detaches the current firm
 // (history kept below); the target firm's admins gain accountant access
 // automatically. Unassign revokes nothing.
-function ManagingFirmCard({ tenantId, tenantName, firm }: { tenantId: string; tenantName: string; firm: TenantFirmState }) {
+function ManagingFirmCard({ tenantId, tenantName, firm, delegated = false }: { tenantId: string; tenantName: string; firm: TenantFirmState; delegated?: boolean }) {
   const toast = useToast();
   const { data: firmsData } = useAdminFirms({ limit: 500 });
   const setFirm = useSetTenantFirm(tenantId);
@@ -1617,6 +1627,11 @@ function ManagingFirmCard({ tenantId, tenantName, firm }: { tenantId: string; te
         )}
       </div>
 
+      {delegated && (
+        <p className="mt-3 text-xs text-gray-500">
+          Reassigning requires you to be a firm admin of both the current and the new firm; the list shows only your firms.
+        </p>
+      )}
       <div className="mt-4 flex flex-wrap items-end gap-2">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">{firm.current ? 'Reassign to' : 'Assign to'}</label>

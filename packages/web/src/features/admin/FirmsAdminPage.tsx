@@ -10,8 +10,8 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Briefcase, Plus, Search, Pencil, Power, Trash2, Users, X, ExternalLink } from 'lucide-react';
-import type { AdminFirmSummary, FirmRole } from '@kis-books/shared';
+import { Briefcase, Plus, Search, Pencil, Power, Trash2, Users, X, ExternalLink, ShieldCheck } from 'lucide-react';
+import type { AdminFirmSummary, FirmRole, FirmUserWithProfile } from '@kis-books/shared';
 import { APPLIANCE_FIRM_SLUG } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -26,6 +26,7 @@ import {
   useFirmUsers, useInviteFirmUser, useUpdateFirmUser, useRemoveFirmUser,
 } from '../../api/hooks/useFirms';
 import { CreateFirmDialog } from '../firm/CreateFirmDialog';
+import { FirmMemberCapabilitiesDrawer } from '../firm/FirmMemberCapabilitiesDrawer';
 
 export function FirmsAdminPage() {
   const toast = useToast();
@@ -239,6 +240,7 @@ function FirmMembersDrawer({ firm, onClose }: { firm: AdminFirmSummary; onClose:
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<FirmRole>('firm_staff');
   const [removeTarget, setRemoveTarget] = useState<{ id: string; email: string } | null>(null);
+  const [capsTarget, setCapsTarget] = useState<FirmUserWithProfile | null>(null);
 
   const add = () => {
     invite.mutate({ email: email.trim(), firmRole: role }, {
@@ -313,7 +315,16 @@ function FirmMembersDrawer({ firm, onClose }: { firm: AdminFirmSummary; onClose:
                         {u.isActive ? 'Active' : 'Inactive'}
                       </button>
                     </td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setCapsTarget(u)}
+                        className="rounded p-1 text-gray-400 hover:bg-indigo-50 hover:text-indigo-700"
+                        aria-label={`Access rights for ${u.email}`}
+                        title={u.capabilitiesCustomized ? 'Access rights (customized)' : 'Access rights'}
+                      >
+                        <ShieldCheck className={`h-3.5 w-3.5 ${u.capabilitiesCustomized ? 'text-indigo-600' : ''}`} />
+                      </button>
                       <button type="button" onClick={() => setRemoveTarget({ id: u.id, email: u.email })} className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600" aria-label={`Remove ${u.email}`}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -328,8 +339,18 @@ function FirmMembersDrawer({ firm, onClose }: { firm: AdminFirmSummary; onClose:
         <div className="px-5 py-3 border-t border-gray-200 text-xs text-gray-500">
           Per-tenant access for staff is edited on the firm&apos;s{' '}
           <Link to={`/firm/${firm.id}/staff`} className="text-primary-700 hover:text-primary-800 font-medium">Staff page</Link>.
+          Member access rights (owner-level rights on managed clients, delegated admin pages) are edited here with the shield button.
         </div>
       </div>
+
+      {capsTarget && (
+        <FirmMemberCapabilitiesDrawer
+          firmId={firm.id}
+          firmUser={capsTarget}
+          superAdminManaged={firm.superAdminManaged}
+          onClose={() => setCapsTarget(null)}
+        />
+      )}
 
       <ConfirmDialog
         open={!!removeTarget}

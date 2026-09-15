@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, startImpersonation } from '../../api/client';
 import { useMe } from '../../api/hooks/useAuth';
+import { useFirmCapabilities } from '../../api/hooks/useFirmCapabilities';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -42,11 +43,13 @@ function canManagePermissions(u: TeamUser): boolean {
 
 export function TeamPage() {
   const { data: meData } = useMe();
-  // Super admins can manage users/permissions on any tenant, whether or not
-  // they hold the tenant's owner role (mirrors the backend owner-gate bypass).
-  const isOwner = meData?.user?.role === 'owner'
-    || !!(meData?.user as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
-  const isSuperAdmin = !!(meData?.user as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  // Owner parity: the tenant owner, a super admin, or a firm member holding
+  // the `team_management` access right on this tenant (mirrors the backend
+  // requireTenantCapability gate). "Your accountant" (firm invites) rides
+  // the `integrations_payments` right instead.
+  const { canOwnerAction, isSuperAdmin } = useFirmCapabilities();
+  const isOwner = canOwnerAction('team_management');
+  const canManageAccountant = canOwnerAction('integrations_payments');
   const currentUserId = meData?.user?.id;
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -90,7 +93,7 @@ export function TeamPage() {
       setSearchParams(next, { replace: true });
     }
   };
-  const firmInvites = useFirmInvites({ enabled: isOwner });
+  const firmInvites = useFirmInvites({ enabled: canManageAccountant });
   const resendInvite = useResendFirmInvite();
   const revokeInvite = useRevokeFirmInvite();
   const [revokeTarget, setRevokeTarget] = useState<{ id: string; email: string } | null>(null);
@@ -272,8 +275,8 @@ export function TeamPage() {
 
       {showInviteAccountant && <InviteAccountantModal onClose={closeInviteAccountant} />}
 
-      {/* Your accountant — owner-only: link the books to an accounting firm. */}
-      {isOwner && (
+      {/* Your accountant — owner parity (integrations_payments): link the books to an accounting firm. */}
+      {canManageAccountant && (
         <section className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-4" data-testid="your-accountant">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">

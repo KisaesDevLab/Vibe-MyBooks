@@ -11,15 +11,16 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { validateRoutingNumber, CHECK_LAYOUTS, type CheckLayout } from '@kis-books/shared';
 import { Printer } from 'lucide-react';
-import { useMe } from '../../api/hooks/useAuth';
+import { useFirmCapabilities } from '../../api/hooks/useFirmCapabilities';
 import { CheckSignaturesSection } from './CheckSignaturesSection';
 
 export function CheckPrintSettingsPage() {
   const { data, isLoading, isError, refetch } = useCheckSettings();
   const updateSettings = useUpdateCheckSettings();
-  const { data: meData } = useMe();
-  const isOwner = meData?.user?.role === 'owner'
-    || !!(meData?.user as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  // Signature library management is owner parity via the `check_signatures`
+  // access right (owner, super admin, or a capable firm member).
+  const { canOwnerAction } = useFirmCapabilities();
+  const isOwner = canOwnerAction('check_signatures');
 
   const [form, setForm] = useState({
     format: 'voucher' as CheckLayout,

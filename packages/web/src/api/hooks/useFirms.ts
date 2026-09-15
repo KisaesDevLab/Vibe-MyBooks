@@ -13,6 +13,8 @@ import type {
   FirmUser,
   FirmWithMyRole,
   FirmUserWithProfile,
+  FirmUserCapabilitiesView,
+  FirmCapabilityMap,
   InviteFirmUserInput,
   StaffTenantAccessRow,
   TenantAccessRole,
@@ -139,6 +141,9 @@ export function useInviteFirmUser(firmId: string) {
 }
 
 export function useUpdateFirmUser(firmId: string) {
+  // NOTE: a firm-role change resets the member's access rights to the new
+  // role's defaults (server side), so /me is refreshed too in case the
+  // edited member is the caller.
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { firmUserId: string; patch: UpdateFirmUserInput }) =>
@@ -146,7 +151,10 @@ export function useUpdateFirmUser(firmId: string) {
         method: 'PATCH',
         body: JSON.stringify(input.patch),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['firms', firmId, 'users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['firms', firmId, 'users'] });
+      qc.invalidateQueries({ queryKey: ['me'] });
+    },
   });
 }
 
@@ -184,6 +192,37 @@ export function useSetStaffTenantAccess(firmId: string) {
       ),
     onSuccess: (_data, vars) =>
       qc.invalidateQueries({ queryKey: ['firms', firmId, 'users', vars.firmUserId, 'tenant-access'] }),
+  });
+}
+
+// ─── Member access rights (capabilities) ─────────────────────
+// Per-member boolean matrix (shared FIRM_CAPABILITIES) edited from Firm →
+// Staff → Access rights (and Admin → Firms → Members for super admins).
+export function useFirmUserCapabilities(firmId: string, firmUserId: string | null) {
+  return useQuery({
+    queryKey: ['firms', firmId, 'users', firmUserId, 'capabilities'],
+    enabled: !!firmUserId,
+    queryFn: () =>
+      apiClient<FirmUserCapabilitiesView>(`/firms/${firmId}/users/${firmUserId}/capabilities`),
+  });
+}
+
+export function useSetFirmUserCapabilities(firmId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    // `capabilities: null` reverts the member to their firm role's defaults.
+    mutationFn: (input: { firmUserId: string; capabilities: FirmCapabilityMap | null; isSelf?: boolean }) =>
+      apiClient<FirmUserCapabilitiesView>(
+        `/firms/${firmId}/users/${input.firmUserId}/capabilities`,
+        { method: 'PUT', body: JSON.stringify({ capabilities: input.capabilities }) },
+      ),
+    onSuccess: (_data, vars) => {
+      // Prefix invalidation covers the roster row AND the nested
+      // ['firms', firmId, 'users', id, 'capabilities'] query.
+      qc.invalidateQueries({ queryKey: ['firms', firmId, 'users'] });
+      // Editing yourself changes your own sidebar / admin gates.
+      if (vars.isSelf) qc.invalidateQueries({ queryKey: ['me'] });
+    },
   });
 }
 

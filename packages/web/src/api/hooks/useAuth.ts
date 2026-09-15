@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { LoginInput, RegisterInput, User, UserType, EffectivePermissions, ClientBankingStatus, ClientPortalActivity } from '@kis-books/shared';
+import type { LoginInput, RegisterInput, User, UserType, EffectivePermissions, MeFirmCapabilities, ClientBankingStatus, ClientPortalActivity } from '@kis-books/shared';
 import { apiClient, setTokens, clearTokens } from '../client';
 
 // The wire User type from shared has userType optional; the
@@ -104,6 +104,11 @@ export interface MeResponse {
   // gates identically to the backend by reading this map (see
   // usePermissions). Optional so a pre-permission server still parses.
   permissions?: EffectivePermissions;
+  // Firm member access rights: owner-parity elevations on the active tenant
+  // and delegated-admin capabilities across firms. Optional so a pre-
+  // capability server still parses; consumers must treat absent as none
+  // (useFirmCapabilities fails CLOSED).
+  firmCapabilities?: MeFirmCapabilities;
 }
 
 export function useMe() {

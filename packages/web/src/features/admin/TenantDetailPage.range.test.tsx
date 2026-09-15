@@ -12,6 +12,11 @@ import { renderRoute } from '../../test-utils';
 
 const apiClientMock = vi.fn();
 
+// The Danger Zone (where the range delete lives) is super-admin only; a
+// delegated firm member never sees it, so the viewer here is a super admin.
+vi.mock('../../api/hooks/useAuth', () => ({
+  useMe: () => ({ data: { user: { id: 'sa', email: 'sa@x', isSuperAdmin: true, role: 'owner' } } }),
+}));
 vi.mock('../../api/client', async () => {
   const actual = await vi.importActual<typeof import('../../api/client')>('../../api/client');
   return { ...actual, apiClient: (...args: unknown[]) => apiClientMock(...args) };

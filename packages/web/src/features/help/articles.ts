@@ -1994,6 +1994,13 @@ A **firm** groups practice staff and the client companies they manage. Firm memb
 ### Automatic access for firm admins
 Every active firm admin automatically has **Accountant** access to every company the firm manages, including companies added later (by assignment, by a client accepting an accountant invitation, or by creating a client company). Other staff are granted access per client from **Firm > Staff > Tenant access**. Unchecking a client there revokes access, and it stays revoked until re-granted.
 
+### Member access rights
+A firm admin can give any firm_admin or firm_staff member extra rights from **Firm > Staff > Access rights** (super admins can do the same from **Admin > Firms > Members**). Rights come in two groups:
+- **Client settings** — on any client company the member already has access to, act as the owner for: *Team management* (invite, edit, unlock, deactivate users and set permissions, including owner role changes), *Integrations & payments* (Stripe keys, AI processing consent, "Invite my accountant"), *Check signatures* (the signature library), and *Screen share admin* (screen-sharing settings and session log).
+- **Administration** — a delegated slice of the Admin area limited to the firm's own clients: *Tenant operations* (Admin > Tenants: feature flags, enable/disable, managing firm, chart-of-accounts template, retained earnings, system accounts, creating client companies) and *User support* (Admin > Users: create, unlock, send password reset, activate/deactivate, role, tenant and company access). Deleting data, impersonating users, typed password resets, system configuration, and super-admin changes always stay with the system administrator.
+
+New firm admins start with every right; firm_staff start with none; firm_readonly members cannot hold rights. Editing a member shows whether they are **Using role defaults** or **Customized**; **Reset to role defaults** returns them to their role's standard set, and changing a member's firm role also resets their rights to the new role's defaults. Rights on the system-managed Default Practice firm can only be changed by a super admin. Delegated admin pages expire on the same schedule as super-admin sessions and ask for a fresh sign-in.
+
 ### Getting new clients
 - **Client invites you** — the client owner uses *Invite accountant* on their Team page. Accept from the emailed link or under **Firm > Join a client** with the 8-character code. If you belong to more than one firm you choose which firm takes the client.
 - **You create the company** — *New Company (no owner)* in the company switcher creates a client company managed by your firm (you pick the firm if you belong to several).

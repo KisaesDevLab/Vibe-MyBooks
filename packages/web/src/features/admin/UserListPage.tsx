@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient, setTokens } from '../../api/client';
+import { useFirmCapabilities } from '../../api/hooks/useFirmCapabilities';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -71,6 +72,9 @@ export function UserListPage() {
   const [createForm, setCreateForm] = useState({ email: '', password: '', displayName: '', tenantId: '', role: 'owner' });
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [createError, setCreateError] = useState('');
+  // Delegated firm members (User support access right) see a scoped list
+  // and none of the super-admin-only affordances below.
+  const { isSuperAdmin } = useFirmCapabilities();
 
   const { data: tenantOptions } = useQuery({
     queryKey: ['admin', 'tenants-for-select'],
@@ -409,13 +413,15 @@ export function UserListPage() {
                             <Lock className="h-4 w-4" />
                           </button>
                         )}
-                        <button
-                          onClick={() => setResetPasswordUserId(u.id)}
-                          className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
-                          title="Reset Password"
-                        >
-                          <KeyRound className="h-4 w-4" />
-                        </button>
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => setResetPasswordUserId(u.id)}
+                            className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
+                            title="Reset Password"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() =>
                             setPendingAction({
@@ -433,6 +439,7 @@ export function UserListPage() {
                         >
                           <Power className="h-4 w-4" />
                         </button>
+                        {isSuperAdmin && (
                         <button
                           onClick={() =>
                             setPendingAction({
@@ -450,6 +457,7 @@ export function UserListPage() {
                         >
                           <ShieldCheck className="h-4 w-4" />
                         </button>
+                        )}
                         <button
                           onClick={() => setTenantAccessUserId(u.id)}
                           className="p-1.5 rounded hover:bg-gray-200 text-indigo-600"
@@ -466,6 +474,7 @@ export function UserListPage() {
                             <Building2 className="h-4 w-4" />
                           </button>
                         )}
+                        {isSuperAdmin && (
                         <button
                           onClick={() =>
                             setPendingAction({
@@ -481,6 +490,7 @@ export function UserListPage() {
                         >
                           <UserCog className="h-4 w-4" />
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>

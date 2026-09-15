@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useDocumentTitleBranding } from './api/hooks/useBranding';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
-import { AdminRoute } from './components/layout/AdminRoute';
+import { AdminRoute, AdminIndexRoute } from './components/layout/AdminRoute';
 import { StaffWriteRoute } from './components/layout/StaffWriteRoute';
 import { RequirePermission } from './components/layout/RequirePermission';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
@@ -419,12 +419,14 @@ export function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-            <Route path="/admin/tenants" element={<AdminRoute><TenantListPage /></AdminRoute>} />
+            {/* Delegated firm members (Firm → Staff → Access rights) may enter the
+                routes annotated with a capability; everything else stays super-admin only. */}
+            <Route path="/admin" element={<AdminIndexRoute><AdminRoute><AdminDashboard /></AdminRoute></AdminIndexRoute>} />
+            <Route path="/admin/tenants" element={<AdminRoute capability="admin_tenant_ops"><TenantListPage /></AdminRoute>} />
             {/* Feature flags moved to each tenant's detail page — keep old bookmarks working. */}
-            <Route path="/admin/feature-flags" element={<AdminRoute><Navigate to="/admin/tenants" replace /></AdminRoute>} />
-            <Route path="/admin/tenants/:id" element={<AdminRoute><TenantDetailPage /></AdminRoute>} />
-            <Route path="/admin/users" element={<AdminRoute><UserListPage /></AdminRoute>} />
+            <Route path="/admin/feature-flags" element={<AdminRoute capability="admin_tenant_ops"><Navigate to="/admin/tenants" replace /></AdminRoute>} />
+            <Route path="/admin/tenants/:id" element={<AdminRoute capability="admin_tenant_ops"><TenantDetailPage /></AdminRoute>} />
+            <Route path="/admin/users" element={<AdminRoute capability="admin_user_support"><UserListPage /></AdminRoute>} />
             <Route path="/admin/firms" element={<AdminRoute><FirmsAdminPage /></AdminRoute>} />
             <Route path="/admin/system" element={<AdminRoute><SystemSettingsPage /></AdminRoute>} />
             <Route path="/admin/coa-templates" element={<AdminRoute><CoaTemplatesPage /></AdminRoute>} />

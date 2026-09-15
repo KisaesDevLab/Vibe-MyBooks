@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { Brain, ShieldCheck, AlertTriangle, CheckCircle, Lock, Undo2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { useFirmCapabilities } from '../../api/hooks/useFirmCapabilities';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import {
   useAiConsentStatus, useCompanyAiDisclosure,
@@ -73,6 +74,10 @@ export function CompanyAiSettingsPage() {
 }
 
 function CompanyConsentPanel({ companyId }: { companyId: string }) {
+  // Accepting / revoking consent is owner parity via the
+  // `integrations_payments` access right (mirrors ai.routes requireConsentAdmin).
+  const { canOwnerAction, ready: capsReady } = useFirmCapabilities();
+  const canEdit = canOwnerAction('integrations_payments');
   const { data: disclosure, isLoading } = useCompanyAiDisclosure(companyId);
   const accept = useAcceptCompanyAiDisclosure();
   const revoke = useRevokeCompanyAiConsent();
@@ -121,15 +126,20 @@ function CompanyConsentPanel({ companyId }: { companyId: string }) {
           </div>
         </div>
 
+        {capsReady && !canEdit && (
+          <p className="mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            Only the company owner (or a firm member with the Integrations &amp; payments access right) can change AI processing consent.
+          </p>
+        )}
         <div className="mt-4 flex gap-2">
           {!disclosure.aiEnabled || disclosure.isStale ? (
-            <Button onClick={() => setShowDisclosure(true)}>
+            <Button onClick={() => setShowDisclosure(true)} disabled={!canEdit}>
               {disclosure.isStale ? 'Review updated disclosure' : 'Enable AI processing'}
             </Button>
           ) : (
             <Button variant="secondary" onClick={() => setShowDisclosure(true)}>View disclosure</Button>
           )}
-          {disclosure.aiEnabled && !revoking && (
+          {disclosure.aiEnabled && !revoking && canEdit && (
             <Button variant="secondary" onClick={() => setRevoking(true)}>
               <Undo2 className="h-4 w-4 mr-1" /> Revoke consent
             </Button>

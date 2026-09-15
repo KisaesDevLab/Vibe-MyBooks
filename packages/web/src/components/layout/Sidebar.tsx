@@ -68,8 +68,9 @@ import { PracticeGroup } from './PracticeGroup';
 import { TrialBalanceGroup } from './TrialBalanceGroup';
 import { FirmGroup } from './FirmGroup';
 import type { LucideIcon } from 'lucide-react';
-import type { ResourceKey } from '@kis-books/shared';
+import type { ResourceKey, FirmCapabilityKey } from '@kis-books/shared';
 import { usePermissions } from '../../api/hooks/usePermissions';
+import { useFirmCapabilities } from '../../api/hooks/useFirmCapabilities';
 import { useFirms } from '../../api/hooks/useFirms';
 import { isPracticeStaff, type StaffRole } from '../../hooks/usePracticeVisibility';
 
@@ -91,6 +92,10 @@ interface NavItem {
   // same feature via the Practice menu, so we don't double-list it.
   // Used by Banking → Rules.
   nonStaffOnly?: boolean;
+  /** Admin section only: a firm member holding this delegated admin
+   *  capability sees the entry. Unannotated admin items are super-admin
+   *  only. Mirrors AdminRoute's `capability` prop. */
+  adminCapability?: FirmCapabilityKey;
 }
 
 interface NavGroup {
@@ -100,8 +105,8 @@ interface NavGroup {
 
 const adminNavItems: NavItem[] = [
   { to: '/admin', label: 'Admin Dashboard', icon: ShieldCheck },
-  { to: '/admin/tenants', label: 'Tenants', icon: Building2 },
-  { to: '/admin/users', label: 'Users', icon: UsersRound },
+  { to: '/admin/tenants', label: 'Tenants', icon: Building2, adminCapability: 'admin_tenant_ops' },
+  { to: '/admin/users', label: 'Users', icon: UsersRound, adminCapability: 'admin_user_support' },
   { to: '/admin/firms', label: 'Firms', icon: Briefcase },
   { to: '/admin/coa-templates', label: 'COA Templates', icon: LayoutTemplate },
   { to: '/admin/report-letters', label: 'CPA Report Letters', icon: FileText },
@@ -252,7 +257,7 @@ function SidebarLink({ item, end, onClick, collapsed }: { item: NavItem; end?: b
   );
 }
 
-function AdminSection({ onNavigate, collapsed }: { onNavigate?: () => void; collapsed?: boolean }) {
+function AdminSection({ onNavigate, collapsed, items }: { onNavigate?: () => void; collapsed?: boolean; items: NavItem[] }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -285,7 +290,7 @@ function AdminSection({ onNavigate, collapsed }: { onNavigate?: () => void; coll
       )}
       {open && (
         <>
-          {adminNavItems.map((item) => (
+          {items.map((item) => (
             <SidebarLink key={item.to} item={item} end={item.to === '/admin'} onClick={onNavigate} collapsed={collapsed} />
           ))}
         </>
@@ -437,6 +442,13 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
   // usePracticeVisibility / PracticeLayout / BankingRulesRoute.
   const isStaff = isPracticeStaff(userRole as StaffRole, isSuperAdmin, (firmsData?.firms ?? []).length > 0);
   const { can } = usePermissions();
+  // Delegated admin (Firm → Staff → Access rights): a firm member with an
+  // admin capability sees the Admin section trimmed to the pages they may
+  // use. Super admins see every entry.
+  const { isDelegatedAdmin, hasAdminCap } = useFirmCapabilities();
+  const visibleAdminItems = isSuperAdmin
+    ? adminNavItems
+    : adminNavItems.filter((item) => item.adminCapability !== undefined && hasAdminCap(item.adminCapability));
   const { collapsed: collapsedGroups, toggle: toggleGroup } = useCollapsedGroups();
   // Branding may be missing during the initial /me fetch — fall back to
   // the default name so the header never flashes empty.
@@ -474,8 +486,8 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
       )}
 
       <nav className={clsx('flex-1 py-4 space-y-0.5 overflow-y-auto', collapsed ? 'px-2' : 'px-3')}>
-        {isSuperAdmin && (
-          <AdminSection onNavigate={onNavigate} collapsed={collapsed} />
+        {(isSuperAdmin || isDelegatedAdmin) && (
+          <AdminSection onNavigate={onNavigate} collapsed={collapsed} items={visibleAdminItems} />
         )}
 
         {navGroups.map((group, gi) => {

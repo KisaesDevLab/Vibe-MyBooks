@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { KeyRound, Trash2, UserPlus } from 'lucide-react';
+import { KeyRound, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import type { FirmRole, FirmUserWithProfile, TenantAccessRole } from '@kis-books/shared';
 import { TENANT_ACCESS_ROLES } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
@@ -20,6 +20,7 @@ import {
   useSetStaffTenantAccess,
 } from '../../api/hooks/useFirms';
 import { FirmTabs } from './FirmTabs';
+import { FirmMemberCapabilitiesDrawer } from './FirmMemberCapabilitiesDrawer';
 
 // 3-tier rules plan, Phase 1 — firm staff management. firm_admin
 // invites by email or userId, edits role, soft-removes membership.
@@ -36,8 +37,12 @@ export function FirmStaffPage() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [accessTarget, setAccessTarget] = useState<FirmUserWithProfile | null>(null);
+  const [capsTarget, setCapsTarget] = useState<FirmUserWithProfile | null>(null);
 
   if (!firmId) return null;
+
+  // Access rights are firm ADMINISTRATION (requireFirmAdmin server-side).
+  const isFirmAdmin = firm.data?.myRole === 'firm_admin';
 
   // firm_readonly members can observe firm rules but not the roster; the
   // server 403s the list, so hide the controls and explain instead.
@@ -142,6 +147,19 @@ export function FirmStaffPage() {
                       >
                         <KeyRound className="h-3.5 w-3.5" /> Tenant access
                       </button>
+                      {isFirmAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => setCapsTarget(u)}
+                          className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                          title="Owner-level rights on managed clients and delegated admin pages"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" /> Access rights
+                          {u.capabilitiesCustomized && (
+                            <span className="ml-1 rounded-full bg-indigo-50 px-1.5 text-[10px] font-medium text-indigo-700">Customized</span>
+                          )}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -179,6 +197,15 @@ export function FirmStaffPage() {
           firmId={firmId}
           firmUser={accessTarget}
           onClose={() => setAccessTarget(null)}
+        />
+      )}
+
+      {capsTarget && (
+        <FirmMemberCapabilitiesDrawer
+          firmId={firmId}
+          firmUser={capsTarget}
+          superAdminManaged={firm.data?.superAdminManaged ?? false}
+          onClose={() => setCapsTarget(null)}
         />
       )}
     </div>

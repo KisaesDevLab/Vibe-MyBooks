@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Eye, EyeOff, CheckCircle, Loader2, Info, CreditCard, Trash2 } from 'lucide-react';
 import { apiClient } from '../../api/client';
+import { useFirmCapabilities } from '../../api/hooks/useFirmCapabilities';
 
 interface StripeConfig {
   configured: boolean;
@@ -16,6 +17,10 @@ interface StripeConfig {
 }
 
 export function StripeSettingsPage() {
+  // Owner parity via the `integrations_payments` access right; everyone
+  // else sees the settings read-only (the server 403s writes anyway).
+  const { canOwnerAction, ready: capsReady } = useFirmCapabilities();
+  const canEdit = canOwnerAction('integrations_payments');
   const [config, setConfig] = useState<StripeConfig | null>(null);
   const [form, setForm] = useState({
     publishableKey: '',
@@ -136,9 +141,11 @@ export function StripeSettingsPage() {
               <p className="text-xs text-green-600">Online payments are enabled. Key: {config.publishableKey?.slice(0, 12)}...</p>
             </div>
           </div>
-          <Button variant="danger" size="sm" onClick={handleRemove} loading={removeStatus === 'removing'}>
-            <Trash2 className="h-4 w-4 mr-1" /> Disconnect
-          </Button>
+          {canEdit && (
+            <Button variant="danger" size="sm" onClick={handleRemove} loading={removeStatus === 'removing'}>
+              <Trash2 className="h-4 w-4 mr-1" /> Disconnect
+            </Button>
+          )}
         </div>
       )}
 
@@ -234,7 +241,12 @@ export function StripeSettingsPage() {
           </div>
         </div>
 
-        <Button type="submit" loading={saveStatus === 'saving'} disabled={!form.publishableKey || (!config?.configured && (!form.secretKey || !form.webhookSecret))}>
+        {capsReady && !canEdit && (
+          <p className="mb-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 max-w-2xl">
+            Only the company owner (or a firm member with the Integrations &amp; payments access right) can change payment settings.
+          </p>
+        )}
+        <Button type="submit" loading={saveStatus === 'saving'} disabled={!canEdit || !form.publishableKey || (!config?.configured && (!form.secretKey || !form.webhookSecret))}>
           {config?.configured ? 'Update Stripe Settings' : 'Connect Stripe'}
         </Button>
       </form>

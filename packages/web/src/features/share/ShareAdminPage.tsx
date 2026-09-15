@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { MonitorUp, Download, ShieldAlert, Ban } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useFirmCapabilities } from '../../api/hooks/useFirmCapabilities';
 import { useToast } from '../../components/ui/Toaster';
 import { apiClient } from '../../api/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -95,7 +96,26 @@ function durationOf(row: AdminShareSessionRow): string {
   return `${mins} min`;
 }
 
+// Owner parity via the `screen_share_admin` access right. Gated here so the
+// inner page's queries never fire for someone the server would 404, and so
+// they get a real explanation instead of the "not enabled" fallback.
 export function ShareAdminPage() {
+  const { canOwnerAction, ready } = useFirmCapabilities();
+  if (ready && !canOwnerAction('screen_share_admin')) {
+    return (
+      <div className="bg-white rounded-lg border p-8 max-w-xl">
+        <h1 className="text-xl font-bold text-gray-900 mb-2">Screen Sharing</h1>
+        <p className="text-sm text-gray-600">
+          Screen-sharing administration is limited to the company owner, or a firm member with the
+          Screen share admin access right.
+        </p>
+      </div>
+    );
+  }
+  return <ShareAdminPageInner />;
+}
+
+function ShareAdminPageInner() {
   const toast = useToast();
   const qc = useQueryClient();
   const { data: settings, isLoading, isError } = useTenantShareSettings();
