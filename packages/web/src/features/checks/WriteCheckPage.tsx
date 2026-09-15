@@ -66,6 +66,12 @@ export function WriteCheckPage() {
   // Attachments upload against this id while the check is still a draft;
   // POST /checks relinks them to the saved transaction.
   const [draftId] = useState(() => crypto.randomUUID());
+  // A check must be written against a vendor record, not a free-typed name:
+  // the contact is what links the check to the payee's ledger, 1099 totals
+  // and address book. Typing a name/address without picking (or adding) a
+  // contact is the mistake this warning catches; submit is blocked on it.
+  const [contactError, setContactError] = useState<string | null>(null);
+  const contactMissing = !contactId && (payeeNameOnCheck.trim() !== '' || payeeAddress.trim() !== '');
 
   // The vendor's address on file. Billing is the payment address; shipping
   // stands in for vendors who only ever filled that one out.
@@ -104,6 +110,7 @@ export function WriteCheckPage() {
     // A different payee means a different address — drop any edit that was
     // aimed at the previous one so the new vendor's address loads.
     setAddressEdited(false);
+    setContactError(null);
     if (contact) {
       setPayeeNameOnCheck(contact.displayName);
       // Auto-fill first expense line account if the contact has a default
@@ -131,6 +138,12 @@ export function WriteCheckPage() {
 
   const handleSubmit = (e: FormEvent, queueForPrint: boolean) => {
     e.preventDefault();
+    if (!contactId) {
+      setContactError('Select a vendor in "Pay to the Order of" before saving this check. Type the name to search, or add a new vendor from the list.');
+      document.getElementById('write-check-contact-warning')?.scrollIntoView?.({ block: 'center' });
+      return;
+    }
+    setContactError(null);
     writeCheck.mutate(
       {
         bankAccountId,
@@ -203,7 +216,18 @@ export function WriteCheckPage() {
             onChange={setContactId}
             onSelect={handleContactSelect}
             contactTypeFilter="vendor"
+            required
           />
+          {(contactError || contactMissing) && (
+            <div
+              id="write-check-contact-warning"
+              role="alert"
+              className={`rounded-md border px-3 py-2 text-sm ${contactError ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}
+            >
+              {contactError
+                ?? 'No vendor is selected. The payee name and address below print on the check, but the check must be linked to a vendor — pick one in "Pay to the Order of" (type to search, or add a new vendor).'}
+            </div>
+          )}
           <Input
             label="Payee Name on Check"
             value={payeeNameOnCheck}

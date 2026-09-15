@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { describe, it, expect, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
 import { renderRoute } from '../../test-utils';
 import {
   checksMocks, accountsMocks, contactsMocks, companyMocks, tagsMocks,
@@ -49,6 +49,18 @@ describe('checks pages', () => {
   it('WriteCheckPage offers a mailing address to review before printing', () => {
     renderRoute(<WriteCheckPage />);
     expect(screen.getByLabelText('Mailing Address')).toBeTruthy();
+  });
+
+  // A check must be linked to a vendor record: typing a payee name without
+  // picking a contact warns inline, and saving is blocked with an error.
+  it('WriteCheckPage warns when a payee is typed without selecting a vendor, and blocks save', () => {
+    renderRoute(<WriteCheckPage />);
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Payee Name on Check'), { target: { value: 'Acme Supply' } });
+    expect(screen.getByRole('alert').textContent).toMatch(/No vendor is selected/);
+    // Ctrl+Enter is the save chord; it bypasses native form validation.
+    fireEvent.keyDown(screen.getByLabelText('Payee Name on Check'), { key: 'Enter', ctrlKey: true });
+    expect(screen.getByRole('alert').textContent).toMatch(/Select a vendor in "Pay to the Order of"/);
   });
 
   it('WriteCheckPage lets you attach a file to the check', () => {
