@@ -70,6 +70,7 @@ const suggestionRow = {
 };
 
 vi.mock('../../../api/hooks/useUncategorized', () => ({
+  useUncategorizedMode: () => ({ data: { mode: 'review', managedByFirm: true, firmName: 'Test Firm', canReview: true }, isLoading: false, isError: false }),
   useSuspenseSummary: () => ({ data: undefined, isLoading: false, isError: false }),
   useInSuspense: () => ({
     data: { rows: [suspenseRow], total: 1, suspenseAccountId: 'acct-suspense' },
@@ -189,7 +190,7 @@ describe('Not posted — per-row Category', () => {
 describe('Client suggested — the client note', () => {
   it('gives the note its own column, in full', () => {
     renderRoute(<ClientSuggestedTab />);
-    expect(screen.getByRole('columnheader', { name: 'Client note' })).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Note' })).toBeTruthy();
     // Shown whole, not as grey subtext under the category.
     expect(screen.getByText('Parts for the Henderson repair')).toBeTruthy();
   });

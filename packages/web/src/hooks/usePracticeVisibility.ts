@@ -35,13 +35,16 @@ export interface PracticeNavItem {
   section: PracticeSection;
   flag: PracticeFeatureFlagKey;
   minRole: 'owner' | 'bookkeeper';
+  /** Firm members + super admins only. Non-firm staff reach the same
+   *  feature elsewhere (Uncategorized → Banking → Uncategorized). */
+  firmOnly?: boolean;
 }
 
 // Static catalog — the order here is the order rendered in the
 // sidebar within each section.
 export const PRACTICE_NAV_CATALOG: readonly PracticeNavItem[] = [
   { key: 'close-review',    label: 'Close Review',    path: '/practice/close-review',    section: 'close-cycle',          flag: 'CLOSE_REVIEW_V1',      minRole: 'bookkeeper' },
-  { key: 'uncategorized',   label: 'Uncategorized',   path: '/practice/uncategorized',   section: 'close-cycle',          flag: 'UNCATEGORIZED_REVIEW_V1', minRole: 'bookkeeper' },
+  { key: 'uncategorized',   label: 'Uncategorized',   path: '/practice/uncategorized',   section: 'close-cycle',          flag: 'UNCATEGORIZED_REVIEW_V1', minRole: 'bookkeeper', firmOnly: true },
   { key: 'rules',           label: 'Rules',           path: '/practice/rules',           section: 'close-cycle',          flag: 'CONDITIONAL_RULES_V1', minRole: 'bookkeeper' },
   { key: 'receipts-inbox',  label: 'Receipts Inbox',  path: '/practice/receipts-inbox',  section: 'close-cycle',          flag: 'RECEIPT_PWA_V1',       minRole: 'bookkeeper' },
   { key: '1099',            label: '1099 Center',     path: '/practice/1099',            section: 'close-cycle',          flag: 'TAX_1099_V1',          minRole: 'bookkeeper' },
@@ -61,6 +64,13 @@ export function isPracticeStaff(role: StaffRole, isSuperAdmin: boolean, isFirmMe
   return isSuperAdmin || role === 'accountant' || role === 'bookkeeper' || isFirmMember;
 }
 
+// The stricter line for `firmOnly` items: actual firm membership (any firm)
+// or super admin. A non-firm accountant/bookkeeper is practice staff but
+// NOT firm-only eligible. Super admins qualify even on a box with no firms.
+export function isFirmOnlyEligible(isSuperAdmin: boolean, isFirmMember: boolean): boolean {
+  return isSuperAdmin || isFirmMember;
+}
+
 // Pure helper — exported so the unit test can drive the matrix
 // without a React render. Mirrors the role-vocabulary decision in
 // phase-1-plan.md: readonly sees no Practice children; bookkeeper
@@ -71,6 +81,7 @@ export function filterPracticeNav(
   userType: 'staff' | 'client' | undefined,
   flags: Partial<Record<PracticeFeatureFlagKey, { enabled: boolean }>>,
   isPracticeStaff: boolean = true,
+  canSeeFirmOnly: boolean = true,
 ): PracticeNavItem[] {
   if (userType === 'client') return [];
   if (role === 'readonly' || !role) return [];
@@ -79,6 +90,7 @@ export function filterPracticeNav(
   // admin, an accountant/bookkeeper role, or actual firm membership.
   if (!isPracticeStaff) return [];
   return items.filter((item) => {
+    if (item.firmOnly && !canSeeFirmOnly) return false;
     if (item.minRole === 'owner' && role !== 'owner') return false;
     // bookkeeper-tier: owner, accountant, bookkeeper are all allowed
     if (item.minRole === 'bookkeeper' && !['owner', 'accountant', 'bookkeeper'].includes(role)) return false;
@@ -120,6 +132,7 @@ export function usePracticeVisibility(): PracticeVisibility {
     userType,
     flagsData!.flags ?? {},
     isPracticeStaff(role, !!user?.isSuperAdmin, (firmsData!.firms ?? []).length > 0),
+    isFirmOnlyEligible(!!user?.isSuperAdmin, (firmsData!.firms ?? []).length > 0),
   );
 
   return {

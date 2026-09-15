@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   LayoutDashboard,
+  Layers,
   Briefcase,
   BookOpen,
   Users,
@@ -92,6 +93,11 @@ interface NavItem {
   // same feature via the Practice menu, so we don't double-list it.
   // Used by Banking → Rules.
   nonStaffOnly?: boolean;
+  /** Hidden from firm members and super admins (they reach the same
+   *  feature under Practice). UNLIKE nonStaffOnly it stays visible to
+   *  non-firm accountants/bookkeepers — "firm member" is the line, not
+   *  "practice staff". */
+  nonFirmOnly?: boolean;
   /** Admin section only: a firm member holding this delegated admin
    *  capability sees the entry. Unannotated admin items are super-admin
    *  only. Mirrors AdminRoute's `capability` prop. */
@@ -189,6 +195,11 @@ const navGroups: NavGroup[] = [
       { to: '/banking/statement-imports', label: 'Statement Processing', icon: History, resource: 'banking' },
       { to: '/banking/reconcile', label: 'Reconcile', icon: CheckCheck, resource: 'banking' },
       { to: '/banking/reconciliation-history', label: 'Reconcile History', icon: ClipboardCheck, resource: 'banking' },
+      // Team members (not firm staff) suggest categories for what sits in
+      // suspense; the firm reviews on Practice → Uncategorized. Hidden from
+      // firm members and super admins, who use the Practice entry. readonly
+      // cannot suggest (the API refuses it), so requiresWrite hides it there.
+      { to: '/banking/uncategorized', label: 'Uncategorized', icon: Layers, resource: 'banking', requiresWrite: true, nonFirmOnly: true },
       // Non-firm users only — staff manage rules from Practice → Rules.
       // The route (BankingRulesRoute) redirects staff there anyway.
       { to: '/banking/rules', label: 'Rules', icon: Wand2, resource: 'banking', nonStaffOnly: true },
@@ -440,7 +451,8 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
   // member) reach Rules via the Practice menu; non-staff owners get
   // the Banking → Rules entry instead. Mirrors the gate in
   // usePracticeVisibility / PracticeLayout / BankingRulesRoute.
-  const isStaff = isPracticeStaff(userRole as StaffRole, isSuperAdmin, (firmsData?.firms ?? []).length > 0);
+  const isFirmMember = (firmsData?.firms ?? []).length > 0;
+  const isStaff = isPracticeStaff(userRole as StaffRole, isSuperAdmin, isFirmMember);
   const { can } = usePermissions();
   // Delegated admin (Firm → Staff → Access rights): a firm member with an
   // admin capability sees the Admin section trimmed to the pages they may
@@ -532,6 +544,9 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
                     // nonStaffOnly items (Banking → Rules) hide from
                     // practice staff, who use the Practice menu instead.
                     .filter((item) => !item.nonStaffOnly || !isStaff)
+                    // nonFirmOnly items (Banking → Uncategorized) hide from
+                    // firm members + super admins, who use Practice instead.
+                    .filter((item) => !item.nonFirmOnly || !(isFirmMember || isSuperAdmin))
                     .map((item) => (
                       <SidebarLink
                         key={item.to}

@@ -173,8 +173,8 @@ export function ClientSuggestedTab() {
               <th className="px-3 py-2">Date</th>
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2 text-right">Amount</th>
-              <th className="px-3 py-2">Client said</th>
-              <th className="px-3 py-2">Client note</th>
+              <th className="px-3 py-2">Suggested</th>
+              <th className="px-3 py-2">Note</th>
               <th className="px-3 py-2">From</th>
             </tr>
           </thead>
@@ -189,7 +189,7 @@ export function ClientSuggestedTab() {
             )}
             {!query.isLoading && !query.isError && rows.length === 0 && (
               <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">
-                No client answers waiting.
+                No suggestions waiting.
               </td></tr>
             )}
             {rows.map((r) => (
@@ -243,7 +243,16 @@ export function ClientSuggestedTab() {
                     <span className="text-gray-400">—</span>
                   )}
                 </td>
-                <td className="px-3 py-2 text-gray-600">{r.contactName}</td>
+                <td className="px-3 py-2 text-gray-600">
+                  {r.contactName}
+                  {/* Who answered: a portal contact (default) or a tenant user
+                      suggesting from Banking → Uncategorized. */}
+                  <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                    r.submittedBy === 'team_member' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {r.submittedBy === 'team_member' ? 'Team member' : 'Client'}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

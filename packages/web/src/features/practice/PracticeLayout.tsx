@@ -9,12 +9,15 @@ import type { PracticeFeatureFlagKey } from '@kis-books/shared';
 import { useMe } from '../../api/hooks/useAuth';
 import { useFeatureFlag } from '../../api/hooks/useFeatureFlag';
 import { useFirms } from '../../api/hooks/useFirms';
-import { PRACTICE_NAV_CATALOG, isPracticeStaff, type StaffRole } from '../../hooks/usePracticeVisibility';
+import { PRACTICE_NAV_CATALOG, isPracticeStaff, isFirmOnlyEligible, type StaffRole } from '../../hooks/usePracticeVisibility';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 interface PracticeLayoutProps {
   flag: PracticeFeatureFlagKey;
   minRole: 'owner' | 'bookkeeper';
+  /** Firm members + super admins only; non-firm staff are sent to the
+   *  Banking twin of the page (today: Uncategorized). */
+  firmOnly?: boolean;
   children: ReactNode;
 }
 
@@ -27,7 +30,7 @@ interface PracticeLayoutProps {
 //      nav catalog entry.
 // The catalog is the single source of truth for the breadcrumb
 // label so a path edit propagates automatically.
-export function PracticeLayout({ flag, minRole, children }: PracticeLayoutProps) {
+export function PracticeLayout({ flag, minRole, firmOnly, children }: PracticeLayoutProps) {
   const { data: meData, isLoading: meLoading } = useMe();
   const { data: firmsData, isLoading: firmsLoading } = useFirms();
   const flagEnabled = useFeatureFlag(flag);
@@ -64,6 +67,13 @@ export function PracticeLayout({ flag, minRole, children }: PracticeLayoutProps)
   const isSuperAdmin = !!(meData?.user as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
   if (!isPracticeStaff(role, isSuperAdmin, (firmsData?.firms ?? []).length > 0)) {
     return <Navigate to="/" replace />;
+  }
+
+  // firmOnly surfaces belong to the firm that manages the books. A non-firm
+  // accountant/bookkeeper is practice staff but not a firm member — they get
+  // the suggest-only Banking twin instead.
+  if (firmOnly && !isFirmOnlyEligible(isSuperAdmin, (firmsData?.firms ?? []).length > 0)) {
+    return <Navigate to="/banking/uncategorized" replace />;
   }
 
   // Role gate — owner-tier items require owner; bookkeeper-tier

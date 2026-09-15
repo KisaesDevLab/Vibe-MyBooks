@@ -12,10 +12,10 @@
 // tab 2 when someone picks a real category. Nothing here posts by itself.
 
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Inbox, Layers, MessageSquare } from 'lucide-react';
 import { formatMoney } from '../../../utils/money';
-import { useSuspenseSummary, useSuggestions } from '../../../api/hooks/useUncategorized';
+import { useSuspenseSummary, useSuggestions, useUncategorizedMode } from '../../../api/hooks/useUncategorized';
 import { NotPostedTab } from './NotPostedTab';
 import { InSuspenseTab } from './InSuspenseTab';
 import { ClientSuggestedTab } from './ClientSuggestedTab';
@@ -35,8 +35,12 @@ export function UncategorizedPage() {
   const raw = params.get('tab');
   const tab: TabKey = TABS.some((t) => t.key === raw) ? (raw as TabKey) : 'not-posted';
 
+  // The server is the tie-breaker on who may REVIEW here: a member of some
+  // other firm than the one managing these books is a firm member to the
+  // sidebar but suggest-only to the API, so send them to the Banking twin.
+  const mode = useUncategorizedMode();
   const summary = useSuspenseSummary();
-  const unread = useSuggestions({ unread: true, limit: 1 });
+  const unread = useSuggestions({ unread: true, limit: 1 }, mode.data?.canReview !== false);
   const unreadCount = unread.data?.total ?? 0;
 
   const setTab = (next: TabKey) => {
@@ -53,6 +57,10 @@ export function UncategorizedPage() {
     'in-suspense': summary.data?.transactionCount ?? null,
     'client-suggested': unreadCount || null,
   }), [summary.data, unreadCount]);
+
+  if (mode.data?.mode === 'suggest') {
+    return <Navigate to="/banking/uncategorized" replace />;
+  }
 
   return (
     <div className="space-y-4">

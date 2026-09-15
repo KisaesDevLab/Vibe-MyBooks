@@ -242,6 +242,7 @@ const UncategorizedPage = lazyNamed(() => import('./features/practice/uncategori
 const PracticeSettingsPage = lazyNamed(() => import('./features/practice/settings/PracticeSettingsPage'), 'PracticeSettingsPage');
 const RulesPage = lazyNamed(() => import('./features/practice/rules/RulesPage'), 'RulesPage');
 const BankingRulesRoute = lazyNamed(() => import('./features/practice/rules/BankingRulesRoute'), 'BankingRulesRoute');
+const BankingUncategorizedRoute = lazyNamed(() => import('./features/banking/uncategorized/BankingUncategorizedRoute'), 'BankingUncategorizedRoute');
 const ReceiptsInboxPage = lazyNamed(() => import('./features/practice/receipts/ReceiptsInboxPage'), 'ReceiptsInboxPage');
 const Tax1099Page = lazyNamed(() => import('./features/practice/tax-1099/Tax1099Page'), 'Tax1099Page');
 const ClientPortalAdminPage = lazyNamed(() => import('./features/practice/client-portal/ClientPortalAdminPage'), 'ClientPortalAdminPage');
@@ -471,6 +472,9 @@ export function App() {
             <Route path="/banking/reconcile" element={<ReconciliationPage />} />
             <Route path="/banking/reconciliation-history" element={<ReconciliationHistoryPage />} />
             <Route path="/banking/rules" element={<BankingRulesRoute />} />
+            {/* Team members (not firm staff) suggest categories here; firm staff are
+                redirected to Practice → Uncategorized. */}
+            <Route path="/banking/uncategorized" element={<BankingUncategorizedRoute />} />
             <Route path="/duplicates" element={<DuplicateReviewPage />} />
             <Route path="/items" element={<ItemsListPage />} />
             <Route path="/receive-payment" element={<RequirePermission resource="receive_payment"><ReceivePaymentPage /></RequirePermission>} />
@@ -590,7 +594,7 @@ export function App() {
               <PracticeLayout flag="CLOSE_REVIEW_V1" minRole="bookkeeper"><CloseReviewPage /></PracticeLayout>
             } />
             <Route path="/practice/uncategorized" element={
-              <PracticeLayout flag="UNCATEGORIZED_REVIEW_V1" minRole="bookkeeper"><UncategorizedPage /></PracticeLayout>
+              <PracticeLayout flag="UNCATEGORIZED_REVIEW_V1" minRole="bookkeeper" firmOnly><UncategorizedPage /></PracticeLayout>
             } />
             <Route path="/practice/settings" element={
               <PracticeLayout flag="AI_BUCKET_WORKFLOW_V1" minRole="bookkeeper"><PracticeSettingsPage /></PracticeLayout>

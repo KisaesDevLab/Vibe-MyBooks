@@ -36,6 +36,7 @@ const baseView = {
 };
 
 vi.mock('../../../api/hooks/useUncategorized', () => ({
+  useUncategorizedMode: () => ({ data: { mode: 'review', managedByFirm: true, firmName: 'Test Firm', canReview: true }, isLoading: false, isError: false }),
   useSuspenseSummary: () => ({ data: undefined, isLoading: false, isError: false }),
   useInSuspense: () => ({
     data: { rows: [], total: 0, suspenseAccountId: 'acct-suspense' },

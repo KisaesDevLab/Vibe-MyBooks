@@ -2707,7 +2707,7 @@ Nothing lands there on its own. Only two paths post to suspense:
 
 ## The Uncategorized screen
 
-**Practice \u2192 Uncategorized** has three tabs and a header showing the suspense balance.
+**Practice \u2192 Uncategorized** is for the firm that manages the books (firm members and super admins). It has three tabs and a header showing the suspense balance. Team members of the company who are not firm staff use **Banking \u2192 Uncategorized** instead, where they *suggest* a category rather than post one \u2014 see *Suggesting categories from Banking \u2192 Uncategorized*.
 
 - **Not posted** \u2014 bank lines still off the ledger. Give one a real category, or park it in suspense.
 - **In suspense** \u2014 amounts on the ledger awaiting a category. Tick rows, pick an account, click **Set category**.
@@ -2738,6 +2738,30 @@ If a client has accumulated several hand-made "Uncategorized" or "Ask my account
 Requires the tenant flag **UNCATEGORIZED_REVIEW_V1**.`,
   },
   {
+    id: 'team-uncategorized-suggestions',
+    title: 'Suggesting categories from Banking \u2192 Uncategorized',
+    category: 'Banking',
+    summary: 'Company team members who are not firm staff pick what each amount in suspense was; the firm (or the owner of self-managed books) approves before anything posts.',
+    body: `Amounts posted to the suspense account are waiting for someone to say what they were. The people who usually know are the company's own team \u2014 the owner, an in-house bookkeeper \u2014 but they are not the ones who should be posting to the books a firm keeps. **Banking \u2192 Uncategorized** gives them a way to answer without posting.
+
+## Who sees it
+
+Any user of the company who is **not a member of an accounting firm**: owners, accountants and bookkeepers on the company's Team page who have the *banking* permission. Firm members and super admins use **Practice \u2192 Uncategorized** instead and are redirected there. Read-only users do not see it. It needs the tenant flag **UNCATEGORIZED_REVIEW_V1**, the same one as the Practice page.
+
+## What you can do
+
+The **Needs a category** tab lists every amount sitting in suspense: date, reference, payee, memo, amount and any attached documents. For each row pick **What was this?** from a short list of income and expense categories (no balance-sheet or system accounts), or choose **Personal / not business** or **Not sure**, and add a note. A note on its own is sent as *Not sure*; *Not sure* with no note is refused before it is sent.
+
+Click **Send N answers**. Nothing posts \u2014 the row stays, marked **Sent \u00b7 awaiting review**, and the reviewer gets one email for the batch. You can **Withdraw** your own answer while it is still waiting; you cannot overwrite a colleague's or a client's pending answer. Receipts attach the same way they do everywhere else.
+
+## Who reviews
+
+- **Books managed by a firm:** the firm's staff review on Practice \u2192 Uncategorized \u2192 Client suggested, where your answer shows with a **Team member** badge and your name next to answers clients sent from the portal. Approving posts the row; the owner of the company does not approve here.
+- **Self-managed books (no firm):** the **owner** gets a **Suggested** tab in Banking \u2192 Uncategorized to approve, override or reject, and approving posts the row. Accountants and bookkeepers on such books still suggest.
+
+If you try to post directly from the Practice page while in suggest mode, the server refuses with *SUGGEST_ONLY_MODE* and names who can approve.`,
+  },
+  {
     id: 'portal-client-categorization',
     title: 'Letting clients suggest categories',
     category: 'Client Portal',
@@ -2756,7 +2780,7 @@ Every row has a note box, always available and never gated on picking a category
 
 Picking **I am not sure** without writing anything is refused, with the reason shown, rather than silently going nowhere.
 
-Staff read the note in its own **Client note** column on Practice \u2192 Uncategorized \u2192 Client suggested, in full and wrapped, beside what the client picked. When the client could not name an account, the note is the answer, so it is not buried as small print under the category.
+Staff read the note in its own **Note** column on Practice \u2192 Uncategorized \u2192 Client suggested, in full and wrapped, beside what the client picked. When the client could not name an account, the note is the answer, so it is not buried as small print under the category. The same tab also lists answers the company's own team members sent from **Banking \u2192 Uncategorized**, marked **Team member**; a **Client** badge marks portal answers.
 
 A client returning to the page sees its own note read back on any row still waiting, so it knows what it already said.
 

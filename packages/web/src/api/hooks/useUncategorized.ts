@@ -40,6 +40,19 @@ export interface SuspenseRow {
   attachableType: string;
   /** The bank line this posted from, when there is one. See attachmentCount. */
   bankFeedItemId: string | null;
+  /** Present when requested with includeSuggestions: the live (pending)
+   *  suggestion on this row, from a portal contact or a team member. */
+  pendingSuggestion?: PendingSuggestionView | null;
+}
+
+export interface PendingSuggestionView {
+  id: string;
+  label: string | null;
+  note: string | null;
+  isPersonal: boolean;
+  submittedBy: 'portal_contact' | 'team_member';
+  submittedByUserId: string | null;
+  submittedByName: string;
 }
 
 export interface SuggestionRow {
@@ -53,7 +66,10 @@ export interface SuggestionRow {
   status: string;
   submittedAt: string;
   reviewedAt: string | null;
+  /** Display name of whoever answered — a portal contact or a team member. */
   contactName: string;
+  submittedBy?: 'portal_contact' | 'team_member';
+  submittedByUserId?: string | null;
   snapshotAmount: string;
   snapshotDate: string;
   snapshotDescription: string | null;
@@ -107,7 +123,7 @@ export function useUnpostedFeed(opts: Paged = {}) {
   });
 }
 
-export function useInSuspense(opts: Paged = {}) {
+export function useInSuspense(opts: Paged & { includeSuggestions?: boolean } = {}) {
   return useQuery({
     queryKey: ['uncategorized', 'in-suspense', opts],
     queryFn: () => apiClient<{ rows: SuspenseRow[]; total: number; suspenseAccountId: string | null }>(
@@ -116,8 +132,9 @@ export function useInSuspense(opts: Paged = {}) {
   });
 }
 
-export function useSuggestions(opts: Paged & { status?: string; unread?: boolean } = {}) {
+export function useSuggestions(opts: Paged & { status?: string; unread?: boolean } = {}, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ['uncategorized', 'suggestions', opts],
     queryFn: () => apiClient<{ rows: SuggestionRow[]; total: number }>(
       `${BASE}/suggestions${qs({ ...opts })}`,
@@ -221,4 +238,61 @@ export function useMarkSuggestionsReviewed() {
     apiClient<{ marked: number }>(
       `${BASE}/suggestions/mark-reviewed`, { method: 'POST', body: JSON.stringify({ ids }) },
     ));
+}
+
+// ── Team members (Banking → Uncategorized) ──────────────────────
+// Which audience the caller is: a reviewer (firm staff of the managing firm,
+// or the owner of self-managed books) or suggest-only. The web uses this to
+// pick the page and to show the owner's Suggested tab.
+export interface UncategorizedMode {
+  mode: 'review' | 'suggest';
+  managedByFirm: boolean;
+  firmName?: string;
+  canReview: boolean;
+}
+
+export function useUncategorizedMode(enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: ['uncategorized', 'mode'],
+    queryFn: () => apiClient<UncategorizedMode>(`${BASE}/mode`),
+    retry: false,
+  });
+}
+
+export interface TeamCategory { id: string; label: string; group: string; hint: string | null }
+
+export function useTeamCategories() {
+  return useQuery({
+    queryKey: ['uncategorized', 'team-categories'],
+    queryFn: () => apiClient<{ categories: TeamCategory[] }>(`${BASE}/team/categories`),
+    staleTime: 60 * 1000,
+  });
+}
+
+export interface TeamSuggestInput {
+  items: Array<{ targetId: string; categoryId: string; note?: string }>;
+}
+export interface TeamSuggestResult {
+  accepted: string[];
+  failed: Array<{ targetId: string; reason: string }>;
+}
+
+// Suggesting never moves money, so only the uncategorized queries refresh.
+export function useSubmitTeamSuggestions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TeamSuggestInput) =>
+      apiClient<TeamSuggestResult>(`${BASE}/team/suggest`, { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['uncategorized'] }),
+  });
+}
+
+export function useWithdrawTeamSuggestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (suggestionId: string) =>
+      apiClient<{ withdrawn: boolean }>(`${BASE}/team/suggest/${suggestionId}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['uncategorized'] }),
+  });
 }
