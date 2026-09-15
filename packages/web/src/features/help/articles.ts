@@ -717,7 +717,7 @@ The Write Check feature records a payment by check, creating the proper accounti
 ### Writing a Check
 1. Go to **Write Check** in the sidebar
 2. Select the **bank account** the check is drawn from
-3. Pick the **payee** in *Pay to the Order of* — this must be a vendor contact. Type to search, or add a new vendor from the list. Typing a name in *Payee Name on Check* or an address without selecting a vendor shows a warning, and the check won't save until one is selected (the contact is what links the check to the vendor's history and 1099 totals).
+3. Pick the **payee** in *Pay to the Order of* — this must be a vendor contact. Type to search, or add a new vendor from the list. Typing a name in *Payee Name on Check* or an address without selecting a vendor shows a warning, and the check won't save until one is selected (the contact is what links the check to the vendor's history and 1099 totals). When adding a vendor from the list, click **More details** in the Quick Add window to enter the mailing address and the default expense category and tag right there — the check picks them up as soon as the vendor is saved.
 4. Enter the **date** and **check number**
 5. Add line items with categories and amounts
 6. Click **Save**
