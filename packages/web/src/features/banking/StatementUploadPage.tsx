@@ -33,6 +33,10 @@ interface ParsedTransaction {
   // from the job result's check-image reads. Carried into the import body.
   checkNumber?: string;
   checkPayee: string;
+  // Operator corrected the amount / direction in the review table (misread
+  // by the extractor). Persisted onto the parse job so the statement lines
+  // are captured with the corrected value too.
+  amountEdited?: boolean;
 }
 
 // A payee read off a check image in the parse result (correlated to its row
@@ -610,6 +614,52 @@ export function StatementUploadPage() {
     setTransactions((txns) => txns.map((t, i) => (i === idx ? { ...t, checkPayee: value } : t)));
   };
 
+  // ── Amount corrections (misread by the extractor) ──────────────────
+  // Typing edits the row locally; committing (blur / Enter / direction
+  // change) persists it onto the parse job so BOTH import paths — feed items
+  // (from these rows) and statement lines (from the job's stored result) —
+  // use the corrected value, and refreshes the reconcile verdict + the
+  // per-row "off by" badges from the server's re-check.
+  const [amountEditError, setAmountEditError] = useState('');
+  const [amountCommitted, setAmountCommitted] = useState<Record<number, string>>({});
+  const editAmountMutation = useMutation({
+    mutationFn: async (input: { jobId: string; index: number; amount: string; type: 'debit' | 'credit' }) =>
+      apiClient<{ reconciliation: NonNullable<StatementMetadata['reconciliation']>; suspectRows: Array<{ index: number; deltaCents: number }> }>(
+        `/ai/parse/statement/jobs/${input.jobId}/transactions`,
+        { method: 'PATCH', body: JSON.stringify({ edits: [{ index: input.index, amount: input.amount, type: input.type }] }) },
+      ),
+  });
+  const setRowAmount = (idx: number, value: string) => {
+    setTransactions((txns) => txns.map((t, i) => (i === idx ? { ...t, amount: value } : t)));
+  };
+  const commitAmount = (idx: number, typeOverride?: 'debit' | 'credit') => {
+    const row = transactions[idx];
+    if (!row) return;
+    const type = typeOverride ?? row.type;
+    const raw = row.amount.replace(/[$,\s]/g, '');
+    if (!/^\d{1,13}(\.\d{1,2})?$/.test(raw) || parseFloat(raw) <= 0) {
+      setAmountEditError(`Row ${idx + 1}: enter a positive amount like 123.45.`);
+      return;
+    }
+    const normalized = parseFloat(raw).toFixed(2);
+    const key = `${normalized}|${type}`;
+    if (amountCommitted[idx] === key) return; // unchanged since last commit
+    setAmountEditError('');
+    setTransactions((txns) => txns.map((t, i) => (i === idx ? { ...t, amount: normalized, type, amountEdited: true } : t)));
+    setAmountCommitted((m) => ({ ...m, [idx]: key }));
+    // Drop this row's preview: the category guess was made on the old amount.
+    setPreviewByIndex((m) => { const { [idx]: _dropped, ...rest } = m; return rest; });
+    const jobId = resumedJobId ?? parseJobId;
+    if (!jobId) return; // nothing persisted yet — the local row is what imports
+    editAmountMutation.mutate({ jobId, index: idx, amount: normalized, type }, {
+      onSuccess: (res) => {
+        setSuspectByIndex(Object.fromEntries(res.suspectRows.map((r) => [r.index, r.deltaCents])));
+        setMetadata((m) => (m ? { ...m, reconciliation: res.reconciliation } : m));
+      },
+      onError: (err) => setAmountEditError(err instanceof Error ? err.message : 'Could not save the corrected amount.'),
+    });
+  };
+
   const selectedCount = transactions.filter((t) => t.selected && !t.duplicate).length;
 
   return (
@@ -902,6 +952,10 @@ export function StatementUploadPage() {
             </div>
           )}
 
+          {amountEditError && (
+            <p className="text-sm text-red-700" role="alert">{amountEditError}</p>
+          )}
+
           {/* Transaction Table */}
           <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
             <table className="w-full text-sm">
@@ -940,10 +994,37 @@ export function StatementUploadPage() {
                         <div className="text-xs text-gray-500 mt-0.5">→ {previewByIndex[idx]!.cleanedName}</div>
                       )}
                     </td>
-                    <td className={`px-4 py-2 text-right font-mono ${txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
-                      {txn.type === 'credit' ? '+' : '-'}${parseFloat(txn.amount).toFixed(2)}
+                    <td className="px-4 py-2 text-right">
+                      {/* Editable: extractors misread digits. Commit on blur / Enter. */}
+                      <span className="inline-flex items-center gap-1 justify-end">
+                        <span className={`font-mono ${txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>{txn.type === 'credit' ? '+' : '-'}$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={txn.amount}
+                          onChange={(e) => setRowAmount(idx, e.target.value)}
+                          onBlur={() => commitAmount(idx)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+                          disabled={!!imported}
+                          aria-label={`Amount for row ${idx + 1}`}
+                          title="Correct a misread amount"
+                          className={`w-24 rounded-md border text-sm px-2 py-1 text-right font-mono ${txn.amountEdited ? 'border-indigo-400 bg-indigo-50' : 'border-gray-300'}`}
+                        />
+                      </span>
+                      {txn.amountEdited && <div className="text-[10px] text-indigo-700 mt-0.5">edited</div>}
                     </td>
-                    <td className="px-4 py-2 text-gray-500 capitalize">{txn.type}</td>
+                    <td className="px-4 py-2">
+                      <select
+                        value={txn.type}
+                        onChange={(e) => commitAmount(idx, e.target.value as 'debit' | 'credit')}
+                        disabled={!!imported}
+                        aria-label={`Direction for row ${idx + 1}`}
+                        className="rounded-md border-gray-300 text-sm px-2 py-1 capitalize"
+                      >
+                        <option value="debit">debit</option>
+                        <option value="credit">credit</option>
+                      </select>
+                    </td>
                     <td className="px-4 py-2">
                       {txn.checkNumber ? (
                         <div className="flex items-center gap-2">

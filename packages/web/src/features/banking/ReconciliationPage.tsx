@@ -705,6 +705,18 @@ function StatementMatchPanel({
         { method: 'PATCH', body: JSON.stringify({ payee }) },
       ),
   });
+  // Misread amount on an unmatched line: correct it in place (signed — money
+  // in positive, money out negative). Server clears any pending suggestion so
+  // the next match run re-scores the line.
+  const [amountEditLineId, setAmountEditLineId] = useState<string | null>(null);
+  const [amountDraft, setAmountDraft] = useState('');
+  const setAmount = useMutation({
+    mutationFn: ({ lineId, amount }: { lineId: string; amount: string }) =>
+      apiClient<{ line: StatementLineSummary }>(
+        `/banking/statement-lines/${lineId}/amount`,
+        { method: 'PATCH', body: JSON.stringify({ amount }) },
+      ),
+  });
   const backfill = useMutation({
     mutationFn: (rescan: boolean) =>
       apiClient<CheckPayeeBackfillReport>('/banking/check-payees/backfill', {
@@ -736,6 +748,30 @@ function StatementMatchPanel({
           : 'Payee saved.');
       },
       onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not set the payee.'),
+    });
+  };
+
+  const handleSaveAmount = (lineId: string) => {
+    const raw = amountDraft.replace(/[$,\s]/g, '');
+    if (!/^-?\d{1,13}(\.\d{1,2})?$/.test(raw) || parseFloat(raw) === 0) {
+      toast.error('Enter a non-zero amount like -123.45 (negative = money out).');
+      return;
+    }
+    setAmount.mutate({ lineId, amount: raw }, {
+      onSuccess: ({ line }) => {
+        qc.setQueryData<StatementMatchesView>(['statement-matches', reconId], (prev) => prev && ({
+          ...prev,
+          suggestions: prev.suggestions.filter((s) => s.statementLine.id !== line.id),
+          unmatchedLines: prev.unmatchedLines.some((l) => l.id === line.id)
+            ? prev.unmatchedLines.map((l) => (l.id === line.id ? line : l))
+            : [...prev.unmatchedLines, line],
+          excludedLines: prev.excludedLines.map((l) => (l.id === line.id ? line : l)),
+        }));
+        setAmountEditLineId(null);
+        setAmountDraft('');
+        toast.success('Amount corrected. Run the match again to re-score this line.');
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not correct the amount.'),
     });
   };
 
@@ -924,6 +960,41 @@ function StatementMatchPanel({
                           <Pencil className="h-4 w-4 mr-1" /> Set payee
                         </Button>
                       )
+                    )}
+                    {/* Misread amount: fix it here (unmatched lines only). */}
+                    {amountEditLineId === l.id ? (
+                      <span className="flex items-center gap-1">
+                        <input
+                          autoFocus
+                          value={amountDraft}
+                          inputMode="decimal"
+                          onChange={(e) => setAmountDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveAmount(l.id);
+                            if (e.key === 'Escape') { setAmountEditLineId(null); setAmountDraft(''); }
+                          }}
+                          placeholder="-123.45"
+                          aria-label={`Amount for statement line ${l.lineDate}`}
+                          title="Negative = money out, positive = money in"
+                          className="rounded-md border-gray-300 text-sm px-2 py-1 w-28 font-mono text-right"
+                        />
+                        <Button size="sm" onClick={() => handleSaveAmount(l.id)}
+                          disabled={!amountDraft.trim()} loading={setAmount.isPending}
+                          title="Save amount">
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="ghost"
+                          onClick={() => { setAmountEditLineId(null); setAmountDraft(''); }}
+                          title="Cancel">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </span>
+                    ) : (
+                      <Button size="sm" variant="ghost"
+                        onClick={() => { setAmountEditLineId(l.id); setAmountDraft(parseFloat(l.amount).toFixed(2)); }}
+                        title="The statement was misread — correct this line's amount">
+                        <Pencil className="h-4 w-4 mr-1" /> Fix amount
+                      </Button>
                     )}
                     <Button size="sm" variant="ghost" onClick={() => setAddToBooksLine(l)}>
                       <Plus className="h-4 w-4 mr-1" /> Add to books

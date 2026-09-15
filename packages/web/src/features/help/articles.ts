@@ -717,9 +717,10 @@ The Write Check feature records a payment by check, creating the proper accounti
 ### Writing a Check
 1. Go to **Write Check** in the sidebar
 2. Select the **bank account** the check is drawn from
-3. Enter the **payee** (contact), **date**, and **check number**
-4. Add line items with categories and amounts
-5. Click **Save**
+3. Pick the **payee** in *Pay to the Order of* — this must be a vendor contact. Type to search, or add a new vendor from the list. Typing a name in *Payee Name on Check* or an address without selecting a vendor shows a warning, and the check won't save until one is selected (the contact is what links the check to the vendor's history and 1099 totals).
+4. Enter the **date** and **check number**
+5. Add line items with categories and amounts
+6. Click **Save**
 
 ### Mailing Address
 Selecting a payee fills in their **mailing address** from the vendor's billing
@@ -2137,6 +2138,11 @@ When a client-connected bank breaks, the system also **auto-sends the fix link**
 ## AI Bank Statement Import
 
 Go to **Banking > Import Statement**, upload a PDF or image, and AI extracts all transactions into a review table. Select which to import, and they appear in your bank feed for categorization.
+
+### Fixing a misread amount
+Extractors occasionally misread a digit. In the review table the **Amount** and the **debit/credit** direction of every row are editable — change the value and press Enter or click away. The correction is saved onto the statement's processing record, so both the bank-feed items and the stored statement lines use it, and the reconcile banner plus the per-row "off by" badges are re-checked immediately. Rows you corrected are marked *edited*.
+
+If you only notice after the statement was saved, open the reconciliation for that statement: an unmatched line has a **Fix amount** action (negative = money out, positive = money in). Run **Match statement** again afterwards to re-score it. A line that is already matched to a transaction must be unmatched first.
 
 ### Statement Processing list
 
