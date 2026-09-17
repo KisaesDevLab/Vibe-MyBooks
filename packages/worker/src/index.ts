@@ -43,6 +43,7 @@ import { env } from '../../api/src/config/env.js';
 import { startDocRenderWorker } from './processors/doc-render.processor.js';
 import { startDocExtractWorker } from './processors/doc-extract.processor.js';
 import { startStatementParseWorker } from './processors/statement-parse.processor.js';
+import { startBillCaptureWorker } from './processors/bill-capture.processor.js';
 import { startReportPackWorker } from './processors/report-pack.processor.js';
 import { checkPdftoppmAvailable } from '../../api/src/services/extraction/pdf-render.service.js';
 import { healthCheck as extractionHealthCheck } from '../../api/src/services/extraction/qwen-client.service.js';
@@ -56,6 +57,7 @@ console.log(`[Worker] Vibe MyBooks worker starting at ${startedAt}`);
 let docRenderWorker: Worker | null = null;
 let docExtractWorker: Worker | null = null;
 let statementParseWorker: Worker | null = null;
+let billCaptureWorker: Worker | null = null;
 let reportPackWorker: Worker | null = null;
 
 try {
@@ -86,6 +88,10 @@ try {
   // in-process only if it can't reach the queue.
   statementParseWorker = startStatementParseWorker();
   console.log('[Worker] Statement-parse worker registered: statement-parse');
+  // Bill Capture BullMQ worker — always on; runs the bill-OCR pipeline for
+  // uploaded vendor bills. Same in-process API fallback as statement-parse.
+  billCaptureWorker = startBillCaptureWorker();
+  console.log('[Worker] Bill-capture worker registered: bill-capture');
   // The statement pipeline rasterizes scanned PDFs here via pdftoppm — probe at
   // boot so a missing poppler is visible immediately, not on the first upload.
   void checkPdftoppmAvailable().then((s) =>
@@ -172,6 +178,7 @@ const shutdown = async (signal: string) => {
     docExtractWorker?.close().catch((err) => console.error('[Worker] doc-extract close error:', err)),
     statementParseWorker?.close().catch((err) => console.error('[Worker] statement-parse close error:', err)),
     reportPackWorker?.close().catch((err) => console.error('[Worker] report-pack close error:', err)),
+    billCaptureWorker?.close().catch((err) => console.error('[Worker] bill-capture close error:', err)),
   ]);
   stopCloudflaredAlerter();
   stopBackupVerifier();

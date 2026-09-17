@@ -32,6 +32,7 @@ export interface PortalContactCompanyLink {
   billPayAccess: boolean;
   categorizeAccess: boolean;
   bankRepairAccess?: boolean;
+  billUploadAccess?: boolean;
 }
 
 export interface PortalContactDetail {

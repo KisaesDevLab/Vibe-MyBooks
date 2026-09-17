@@ -181,6 +181,8 @@ const BillDetailPage = lazyNamed(() => import('./features/ap/BillDetailPage'), '
 const EnterVendorCreditPage = lazyNamed(() => import('./features/ap/EnterVendorCreditPage'), 'EnterVendorCreditPage');
 const VendorCreditListPage = lazyNamed(() => import('./features/ap/VendorCreditListPage'), 'VendorCreditListPage');
 const PayBillsPage = lazyNamed(() => import('./features/ap/PayBillsPage'), 'PayBillsPage');
+const BillCapturePage = lazyNamed(() => import('./features/ap/capture/BillCapturePage'), 'BillCapturePage');
+const BillCaptureReviewPage = lazyNamed(() => import('./features/ap/capture/BillCaptureReviewPage'), 'BillCaptureReviewPage');
 
 // ─── Budgets ─────────────────────────────────────────────────
 const BudgetEditorPage = lazyNamed(() => import('./features/budgets/BudgetEditorPage'), 'BudgetEditorPage');
@@ -258,6 +260,7 @@ const PortalBankingPage = lazyNamed(() => import('./features/portal/PortalBankin
 const PortalBankingRegisterPage = lazyNamed(() => import('./features/portal/PortalBankingRegisterPage'), 'PortalBankingRegisterPage');
 const PortalBillsPage = lazyNamed(() => import('./features/portal/PortalBillsPage'), 'PortalBillsPage');
 const PortalCategorizePage = lazyNamed(() => import('./features/portal/PortalCategorizePage'), 'PortalCategorizePage');
+const PortalBillUploadPage = lazyNamed(() => import('./features/portal/PortalBillUploadPage'), 'PortalBillUploadPage');
 const RemindersPage = lazyNamed(() => import('./features/practice/reminders/RemindersPage'), 'RemindersPage');
 const ReportBuilderPage = lazyNamed(() => import('./features/practice/report-builder/ReportBuilderPage'), 'ReportBuilderPage');
 // 3-tier rules plan, Phase 1 — firm admin pages.
@@ -387,6 +390,7 @@ export function App() {
             <Route path="banking/:accountId" element={<PortalBankingRegisterPage />} />
             <Route path="bills" element={<PortalBillsPage />} />
             <Route path="categorize" element={<PortalCategorizePage />} />
+            <Route path="bill-upload" element={<PortalBillUploadPage />} />
           </Route>
 
           {/* Setup wizard */}
@@ -486,6 +490,9 @@ export function App() {
             <Route path="/settings/invoice-template" element={<InvoiceTemplateEditor />} />
             <Route path="/bills" element={<BillListPage />} />
             <Route path="/bills/new" element={<EnterBillPage />} />
+            {/* Bill Capture (AP_BILL_CAPTURE_V1) — static paths before /bills/:id. */}
+            <Route path="/bills/capture" element={<RequirePermission resource="bills"><BillCapturePage /></RequirePermission>} />
+            <Route path="/bills/capture/:captureId" element={<RequirePermission resource="bills"><BillCaptureReviewPage /></RequirePermission>} />
             <Route path="/bills/:id" element={<BillDetailPage />} />
             <Route path="/bills/:id/edit" element={<EnterBillPage />} />
             <Route path="/vendor-credits" element={<VendorCreditListPage />} />

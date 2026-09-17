@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useBills } from '../../api/hooks/useAp';
+import { useFeatureFlag } from '../../api/hooks/useFeatureFlag';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useTags } from '../../api/hooks/useTags';
@@ -28,6 +29,7 @@ const DEFAULT_PAGE_SIZE = '50';
 
 export function BillListPage() {
   const navigate = useNavigate();
+  const billCaptureEnabled = useFeatureFlag('AP_BILL_CAPTURE_V1') === true;
   // Filters persist for the tab session (sessionStorage); search/date
   // input is debounced so the query doesn't fire per keystroke.
   const [statusFilter, setStatusFilter] = useSessionState<BillStatus | ''>('vibe:bills:status', '');
@@ -66,6 +68,7 @@ export function BillListPage() {
         <h1 className="text-2xl font-bold text-gray-900">Bills</h1>
         <div className="flex gap-2">
           <Button onClick={() => navigate('/bills/new')}>Enter Bill</Button>
+          {billCaptureEnabled && <Button variant="secondary" onClick={() => navigate('/bills/capture')}>Capture bills</Button>}
           <Button variant="secondary" onClick={() => navigate('/pay-bills')}>Pay Bills</Button>
         </div>
       </div>

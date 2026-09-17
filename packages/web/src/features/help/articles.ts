@@ -432,6 +432,50 @@ Each register shows:
 `,
   },
 
+  {
+    id: 'bill-capture',
+    title: 'Bill Capture (upload bills for AI entry)',
+    category: 'Transactions',
+    summary: 'Drop a stack of vendor bills, let the AI read them, then review each one beside its image and post it as a bill.',
+    body: `
+## Bill Capture
+
+Bill Capture is the fast way to enter a pile of vendor bills. Upload the files, the AI reads each one in the background, and you review the details next to the image before posting. Posting creates a normal bill, so it flows into **Pay Bills** and check printing exactly like a bill entered by hand.
+
+### Where to find it
+**Payables > Bill Capture** (also the **Capture bills** button on the Bills page). A firm administrator enables it per company with the \`AP_BILL_CAPTURE_V1\` feature flag.
+
+### Uploading
+- Drag and drop any number of PDF, JPG, PNG, WEBP, HEIC or TIFF files, up to 10 MB each
+- **One file = one bill.** A multi-page PDF is treated as one bill, so split a scan of ten bills before uploading
+- The same file uploaded twice is recognised and not added again
+- Clients can also send bills from the client portal (see below)
+
+### The queue
+Each upload shows its status:
+- **Queued / Reading** — the AI is extracting vendor, invoice number, dates, totals and line items
+- **Ready to review** — extraction finished; open the row
+- **Ready — not scanned** — AI is off or consent is missing for this company; key the bill from the image
+- **Read failed** — the AI could not read the file; you can still key it, or click Re-read
+- **Duplicate?** — a bill for this vendor with the same invoice number, or the same total and date, already exists
+- **Entered** — posted as a bill (click to open the bill)
+
+### Reviewing a bill
+Clicking a row opens the document on the left and the bill form on the right, pre-filled from the extraction.
+- **Vendor** — matched to your contacts when possible. If the vendor is new, click **Create "…" as a new vendor**; the contact (with the address from the bill) is created when you post
+- **Lines** — choose **Detailed** to keep the AI's line items, or **Single line at the total** to categorise the whole bill to one account (the vendor's default expense account and tag are used). Your choice is remembered for that vendor
+- **Possible duplicate** — a banner links to the existing bill; tick **Post anyway** if it really is a different bill
+- **Post bill** returns to the queue; **Post & next** opens the next bill waiting so you can work through a stack without leaving the screen
+- **Discard** removes a capture from the queue (the file is kept)
+
+### Client portal
+Give a portal contact **Can upload bills** under Practice > Client Portal. They get a **Send us bills** tile, can drop files, and see each upload as Received, Being processed or Entered — never amounts or accounting detail. Staff are emailed when a client uploads (the company's bill-pay notify user, or the owners).
+
+### Permissions
+Bill Capture uses the **Bills** permission: view-only members can see the queue, while posting, discarding and re-reading need write access.
+`,
+  },
+
   // ─── Sales & Invoicing ────────────────────────────────────────
   {
     id: 'creating-invoices',

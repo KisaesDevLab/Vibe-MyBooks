@@ -39,6 +39,7 @@ import {
   HelpCircle,
   ChevronDown,
   Receipt,
+  ScanLine,
   Banknote,
   RotateCcw,
   Upload,
@@ -71,6 +72,8 @@ import { FirmGroup } from './FirmGroup';
 import type { LucideIcon } from 'lucide-react';
 import type { ResourceKey, FirmCapabilityKey } from '@kis-books/shared';
 import { usePermissions } from '../../api/hooks/usePermissions';
+import { useFeatureFlags } from '../../api/hooks/useFeatureFlag';
+import type { PracticeFeatureFlagKey } from '@kis-books/shared';
 import { useFirmCapabilities } from '../../api/hooks/useFirmCapabilities';
 import { useFirms } from '../../api/hooks/useFirms';
 import { isPracticeStaff, type StaffRole } from '../../hooks/usePracticeVisibility';
@@ -102,6 +105,9 @@ interface NavItem {
    *  capability sees the entry. Unannotated admin items are super-admin
    *  only. Mirrors AdminRoute's `capability` prop. */
   adminCapability?: FirmCapabilityKey;
+  /** Tenant feature flag that must be ON for the item to render at all
+   *  (DOM-absent when off, like the Practice group). */
+  flag?: PracticeFeatureFlagKey;
 }
 
 interface NavGroup {
@@ -168,6 +174,7 @@ const navGroups: NavGroup[] = [
     label: 'Payables',
     items: [
       { to: '/bills', label: 'Bills', icon: Receipt, resource: 'bills' },
+      { to: '/bills/capture', label: 'Bill Capture', icon: ScanLine, resource: 'bills', requiresWrite: true, flag: 'AP_BILL_CAPTURE_V1' },
       { to: '/pay-bills', label: 'Pay Bills', icon: Banknote, resource: 'pay_bills' },
       { to: '/vendor-credits', label: 'Vendor Credits', icon: RotateCcw, resource: 'vendor_credits' },
     ],
@@ -454,6 +461,7 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
   const isFirmMember = (firmsData?.firms ?? []).length > 0;
   const isStaff = isPracticeStaff(userRole as StaffRole, isSuperAdmin, isFirmMember);
   const { can } = usePermissions();
+  const { data: featureFlags } = useFeatureFlags();
   // Delegated admin (Firm → Staff → Access rights): a firm member with an
   // admin capability sees the Admin section trimmed to the pages they may
   // use. Super admins see every entry.
@@ -547,6 +555,8 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
                     // nonFirmOnly items (Banking → Uncategorized) hide from
                     // firm members + super admins, who use Practice instead.
                     .filter((item) => !item.nonFirmOnly || !(isFirmMember || isSuperAdmin))
+                    // Flag-gated items render only once the flag is known ON.
+                    .filter((item) => !item.flag || featureFlags?.flags[item.flag]?.enabled === true)
                     .map((item) => (
                       <SidebarLink
                         key={item.to}

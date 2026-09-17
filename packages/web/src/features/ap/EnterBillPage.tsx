@@ -14,74 +14,17 @@ import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
-import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
-import { MoneyInput } from '../../components/forms/MoneyInput';
-import { LineTagPicker } from '../../components/forms/SplitRowV2';
-import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { FieldHelpIcon } from '../chat/FieldHelpIcon';
 import { ErrorHelpLink } from '../chat/ErrorHelpLink';
-import { Plus, Trash2, Sparkles, AlertTriangle } from 'lucide-react';
+import { Sparkles, AlertTriangle } from 'lucide-react';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
-
-interface BillLine {
-  accountId: string;
-  description: string;
-  amount: string;
-  // ADR 0XX/0XY — per-line tag + stickiness flag.
-  tagId: string | null;
-  userHasTouchedTag: boolean;
-}
-
-interface OcrExtraction {
-  vendor: string | null;
-  vendorInvoiceNumber: string | null;
-  billDate: string | null;
-  dueDate: string | null;
-  paymentTerms: string | null;
-  total: string | null;
-  subtotal: string | null;
-  tax: string | null;
-  notes: string | null;
-  confidence: number;
-  contactId: string | null;
-  defaultExpenseAccountId: string | null;
-  lineItems: Array<{ description: string | null; amount: string | null; quantity: string | null }>;
-}
-
-const VALID_TERMS = new Set(['due_on_receipt', 'net_10', 'net_15', 'net_30', 'net_45', 'net_60', 'net_90']);
-
-const TERM_DAYS: Record<string, number> = {
-  due_on_receipt: 0,
-  net_10: 10,
-  net_15: 15,
-  net_30: 30,
-  net_45: 45,
-  net_60: 60,
-  net_90: 90,
-};
-
-function emptyLine(): BillLine {
-  return { accountId: '', description: '', amount: '', tagId: null, userHasTouchedTag: false };
-}
-
-function calcDueDate(billDate: string, terms: string, customDays: string): string {
-  if (!billDate) return '';
-  const d = new Date(billDate);
-  let days: number | undefined;
-  if (terms === 'custom') {
-    days = parseInt(customDays || '0', 10);
-  } else if (terms in TERM_DAYS) {
-    days = TERM_DAYS[terms];
-  }
-  if (days === undefined || isNaN(days)) return '';
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0]!;
-}
+import { type BillLine, type OcrExtraction, VALID_TERMS, emptyLine, calcDueDate } from './billFormShared';
+import { BillLinesTable } from './BillLinesTable';
 
 export function EnterBillPage() {
   const navigate = useNavigate();
@@ -369,24 +312,6 @@ export function EnterBillPage() {
     return { label: 'Low — please review', cls: 'bg-red-100 text-red-700' };
   }, [ocrExtraction]);
 
-  const updateLine = (i: number, field: 'accountId' | 'description' | 'amount', value: string) =>
-    setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
-
-  // ADR 0XY §4.3 — copy the first row's tag to every untouched row (desktop
-  // column header + mobile per-card label share this).
-  const canApplyTagToAll = !!lines[0]?.tagId && lines.length > 1;
-  const applyFirstTagToAll = () => {
-    const firstTag = lines[0]?.tagId ?? null;
-    setLines((prev) => prev.map((l, idx) => (idx === 0 || l.userHasTouchedTag ? l : { ...l, tagId: firstTag })));
-  };
-
-  const updateLineTag = (i: number, tagId: string | null, touched: boolean) =>
-    setLines((prev) =>
-      prev.map((l, idx) =>
-        idx === i ? { ...l, tagId, userHasTouchedTag: l.userHasTouchedTag || touched } : l,
-      ),
-    );
-
   const total = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
 
   // When locked, the sum of lines must equal the original bill total.
@@ -394,7 +319,6 @@ export function EnterBillPage() {
   const totalMismatch = isLocked && lockedTotal !== null
     ? Math.abs(total - lockedTotal) > 0.01
     : false;
-  const lockedDifference = isLocked && lockedTotal !== null ? total - lockedTotal : 0;
 
   const buildPayload = () => ({
     contactId,
@@ -678,120 +602,7 @@ export function EnterBillPage() {
           />
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-          <h2 className="text-sm font-medium text-gray-700 mb-3">Expense Lines</h2>
-          {/* Phones: labelled card per line (account/description full width,
-              amount + tag paired, "Line N" + Remove); md+: the table. */}
-          <table className="w-full">
-            <thead className="hidden md:table-header-group">
-              <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-44">Amount</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
-                {ENTRY_FORMS_V2 && (
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-40">
-                    <div className="flex items-center gap-2">
-                      <span>Tag</span>
-                      {canApplyTagToAll && (
-                        <button
-                          type="button"
-                          onClick={applyFirstTagToAll}
-                          className="text-[10px] normal-case font-normal text-primary-600 hover:text-primary-700 underline"
-                          title="Copy this row's tag to every untouched row below"
-                        >
-                          Apply to all
-                        </button>
-                      )}
-                    </div>
-                  </th>
-                )}
-                <th className="w-8 pb-2" />
-              </tr>
-            </thead>
-            <tbody className="block space-y-3 md:table-row-group md:space-y-0">
-              {lines.map((line, i) => (
-                <tr key={i} className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3 md:table-row md:border-0 md:bg-transparent md:p-0 md:align-top">
-                  <td className="col-span-2 md:table-cell md:pr-2 md:py-1">
-                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Account</span>
-                    <AccountSelector
-                      value={line.accountId}
-                      onChange={(v) => updateLine(i, 'accountId', v)}
-                    />
-                  </td>
-                  <td className="col-span-2 md:table-cell md:px-2 md:py-1">
-                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Amount</span>
-                    <MoneyInput value={line.amount} onChange={(v) => updateLine(i, 'amount', v)} />
-                  </td>
-                  <td className="col-span-2 md:table-cell md:px-2 md:py-1">
-                    <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Description</span>
-                    <input
-                      value={line.description}
-                      onChange={(e) => updateLine(i, 'description', e.target.value)}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="Description"
-                    />
-                  </td>
-                  {ENTRY_FORMS_V2 && (
-                    <td className="col-span-2 order-last md:order-none md:table-cell md:px-2 md:py-1">
-                      <span className="flex md:hidden items-center gap-2 text-xs font-medium text-gray-500 uppercase mb-1">
-                        Tag
-                        {i === 0 && canApplyTagToAll && (
-                          <button type="button" onClick={applyFirstTagToAll} className="text-[10px] normal-case font-normal text-primary-600 underline">
-                            Apply to all
-                          </button>
-                        )}
-                      </span>
-                      <LineTagPicker value={line.tagId} onChange={(t, touched) => updateLineTag(i, t, touched)} compact />
-                    </td>
-                  )}
-                  <td className="col-span-2 order-first flex items-center justify-between md:order-none md:table-cell md:pl-1 md:py-1 md:pt-2.5">
-                    <span className="md:hidden text-xs font-semibold text-gray-700">Line {i + 1}</span>
-                    {lines.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))}
-                        className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500"
-                        aria-label={`Remove line ${i + 1}`}
-                      >
-                        <Trash2 className="h-4 w-4" /><span className="md:hidden">Remove</span>
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <button
-            type="button"
-            onClick={() => setLines((p) => [...p, emptyLine()])}
-            className="mt-3 flex items-center gap-1 text-sm text-primary-600"
-          >
-            <Plus className="h-4 w-4" /> Add line
-          </button>
-
-          <div className="flex justify-end mt-4 border-t pt-4">
-            <div className="w-72 space-y-1 text-sm">
-              {isLocked && lockedTotal !== null && (
-                <div className="flex justify-between text-gray-600">
-                  <span>Required (locked)</span>
-                  <span className="font-mono">${lockedTotal.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total</span>
-                <span className={`font-mono ${totalMismatch ? 'text-red-600' : ''}`}>
-                  ${total.toFixed(2)}
-                </span>
-              </div>
-              {totalMismatch && (
-                <div className="flex justify-between text-xs text-red-600">
-                  <span>{lockedDifference > 0 ? 'Over' : 'Short'} by</span>
-                  <span className="font-mono">${Math.abs(lockedDifference).toFixed(2)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <BillLinesTable lines={lines} onChange={setLines} lockedTotal={isLocked ? lockedTotal : null} />
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />

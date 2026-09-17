@@ -54,6 +54,9 @@ export function PortalDashboardPage() {
     !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.billPayAccess;
   const categorizeEnabled =
     !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.categorizeAccess;
+  // AP_BILL_CAPTURE_V1 — the tile is the only way into /portal/bill-upload.
+  const billUploadEnabled =
+    !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.billUploadAccess;
 
   const [counts, setCounts] = useState<DashboardCounts>({
     openQuestions: null,
@@ -375,6 +378,17 @@ export function PortalDashboardPage() {
             <p className="text-sm font-medium text-gray-900">Pay bills</p>
             <p className="text-xs text-gray-500 mt-1">
               Review unpaid bills and queue checks for your firm to print.
+            </p>
+          </Link>
+        )}
+        {billUploadEnabled && (
+          <Link
+            to="/portal/bill-upload"
+            className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+          >
+            <p className="text-sm font-medium text-gray-900">Send us bills</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Upload vendor bills you've received and we'll enter them into your books.
             </p>
           </Link>
         )}

@@ -676,6 +676,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
     billPayAccess: boolean;
     categorizeAccess: boolean;
     bankRepairAccess: boolean;
+    billUploadAccess: boolean;
   }
   const [assignments, setAssignments] = useState<CoAssign[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -698,6 +699,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
         billPayAccess: c.billPayAccess,
         categorizeAccess: c.categorizeAccess,
         bankRepairAccess: c.bankRepairAccess ?? false,
+        billUploadAccess: c.billUploadAccess ?? false,
       })),
     );
     setHydrated(true);
@@ -722,6 +724,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
                 billPayAccess: false,
                 categorizeAccess: false,
                 bankRepairAccess: false,
+                billUploadAccess: false,
               },
             ]
         : prev.filter((a) => a.companyId !== id),
@@ -765,6 +768,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
           billPayAccess: a.billPayAccess,
           categorizeAccess: a.categorizeAccess,
           bankRepairAccess: a.bankRepairAccess,
+          billUploadAccess: a.billUploadAccess,
         })),
       });
       onClose();
@@ -877,6 +881,11 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
                             checked={a.bankRepairAccess}
                             onChange={(v) => setFlag(c.id, 'bankRepairAccess', v)}
                           />
+                          <FlagToggle
+                            label="Can upload bills"
+                            checked={a.billUploadAccess}
+                            onChange={(v) => setFlag(c.id, 'billUploadAccess', v)}
+                          />
                         </div>
                       )}
                     </div>
@@ -886,7 +895,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
             </div>
             <p className="mt-1 text-[11px] text-gray-500">
               Defaults: questions + receipts on; financials, bank activity, bill pay, category
-              suggestions and bank-login fixes off (you decide who sees the books, who can queue
+              suggestions, bank-login fixes and bill uploads off (you decide who sees the books, who can queue
               payments, who gets asked "what was this?", and who can re-sign-in to the bank when a
               connection breaks). A suggested category never posts on its own.
             </p>
