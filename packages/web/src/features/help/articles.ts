@@ -1088,29 +1088,44 @@ The system administrator can configure automatic backup schedules under **Admin 
     id: 'exporting-data',
     title: 'Exporting Data',
     category: 'Settings',
-    summary: 'How to export your transactions, contacts, and accounts to CSV.',
+    summary: 'How to export your transactions, journal lines, contacts, items, tags and chart of accounts to CSV.',
     body: `
 ## Exporting Data
 
-Export your data for use in spreadsheets, tax preparation, or migration to another system.
+Your books are yours. Export them at any time as plain CSV files for spreadsheets, tax
+preparation, or migration to another system.
 
 ### Available Exports
-Go to **Settings > Export Data** to export:
-- **Transactions** — all transactions with full details
-- **Contacts** — customer and vendor list
-- **Chart of Accounts** — full account list with balances
+Go to **Settings > Export Data**, choose **All dates** or a **Date range**, and click
+**Prepare Export**. You then download any of six files:
+
+- **Chart of Accounts** (\`accounts.csv\`) — every account with number, type, detail type, parent account and balance
+- **Contacts** (\`contacts.csv\`) — customers and vendors with billing and shipping addresses, payment terms, tax ID and 1099 flag
+- **Products & Services** (\`items.csv\`) — each item with unit price, income account and taxable flag
+- **Tags** (\`tags.csv\`) — tag groups and tags (the QuickBooks "Class" equivalent)
+- **Transactions** (\`transactions.csv\`) — one row per document (invoice, bill, check, deposit, journal entry) with total, status and contact
+- **Journal Lines** (\`journal_lines.csv\`) — one row per posting with date, type, number, contact, account, debit, credit, memo and tag. This is the file to use to rebuild your general ledger elsewhere.
+
+### Date range
+The date range applies to **Transactions** and **Journal Lines** only. Accounts, contacts,
+items and tags are master data and always export in full. Leave either date blank for an
+open-ended range. Dated downloads are named with the range, for example
+\`journal_lines_2025-01-01_to_2025-12-31.csv\`.
 
 ### Format
-All exports are in **CSV** format, which can be opened in:
-- Microsoft Excel
-- Google Sheets
-- LibreOffice Calc
-- Any text editor
+All exports are CSV with a header row, UTF-8 encoded, and open in Microsoft Excel, Google
+Sheets, LibreOffice Calc or any text editor. Cells that begin with a formula character are
+prefixed with an apostrophe so a malicious contact name cannot run as a formula.
 
-### Tips
-- Use date filters to export specific periods
-- Export before year-end for tax preparation
-- The audit log is also available for export to track all changes
+### Who can export
+Exporting the whole ledger needs the **company settings** permission. Read-only members and
+external client users do not see this page.
+
+### Other ways to get data out
+- Every report has a **CSV** button; the **Transaction List** and **General Ledger** reports are the quickest way to export one account or one period
+- Each account register has a download icon for that account's activity with running balance
+- **Settings > Export Company Data** produces an encrypted \`.vmx\` file that another MyBooks install can restore completely, attachments included
+- **Settings > Audit Log** exports the change history
 `,
   },
 

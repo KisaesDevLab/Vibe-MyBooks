@@ -122,7 +122,7 @@ const settingsCards = [
     to: '/settings/export',
     icon: Download,
     title: 'Export Data',
-    description: 'Export transactions, contacts, and accounts to CSV',
+    description: 'Export accounts, contacts, items, tags and transactions (by date range) to CSV',
   },
   {
     to: '/settings/opening-balances',
