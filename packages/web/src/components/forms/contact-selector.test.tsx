@@ -89,3 +89,21 @@ describe('ContactSelector — Quick Add modal inside a parent form', () => {
     expect(modalForm.parentElement?.closest('form')).toBeNull();
   });
 });
+
+describe('ContactSelector — Quick Add default type', () => {
+  it('defaults to Vendor when the picker is not restricted to a type', async () => {
+    renderRoute(<ContactSelector value="" onChange={() => {}} />);
+    await openQuickAdd();
+    fireEvent.click(screen.getByRole('button', { name: /add contact/i }));
+    await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
+    expect((createMutate.mock.calls[0]![0] as { contactType: string }).contactType).toBe('vendor');
+  });
+
+  it('keeps Customer on customer-only pickers', async () => {
+    renderRoute(<ContactSelector value="" onChange={() => {}} contactTypeFilter="customer" />);
+    await openQuickAdd();
+    fireEvent.click(screen.getByRole('button', { name: /add contact/i }));
+    await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
+    expect((createMutate.mock.calls[0]![0] as { contactType: string }).contactType).toBe('customer');
+  });
+});

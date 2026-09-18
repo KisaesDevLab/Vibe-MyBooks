@@ -127,7 +127,7 @@ export function ContactSelector({ value, onChange, onSelect, label, contactTypeF
       {showAddModal && (
         <QuickAddContactModal
           prefillName={prefillName}
-          defaultType={contactTypeFilter || 'customer'}
+          defaultType={contactTypeFilter || 'vendor'}
           onCreated={handleCreated}
           onClose={() => setShowAddModal(false)}
         />

@@ -127,6 +127,9 @@ Vibe MyBooks uses these standard account types:
 3. Enter the account number, name, and type
 4. Optionally add a description and parent account (for sub-accounts)
 
+### Adding an Account While Entering a Transaction
+Accountants working for your firm can add an account without leaving the screen they're on. Type the new name in any account or category dropdown and click **Add "…"** at the bottom of the list. The **Quick Add Account** window opens with the name filled in. Enter an optional account number, pick the detail type, and click **Add Account**. The new account is selected right away. The account type is limited to the kinds of account that field accepts. For example, an expense line only offers Expense.
+
 ### System Accounts
 Some accounts are created automatically and marked as system accounts. These cannot be deleted or have their type changed because other features depend on them (e.g., Accounts Receivable, Accounts Payable, Retained Earnings).
 
