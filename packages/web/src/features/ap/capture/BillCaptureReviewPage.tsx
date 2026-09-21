@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { BillCaptureDetail, EnterBillCaptureInput } from '@kis-books/shared';
+import type { BillCaptureDetail, EnterBillCaptureInput, JournalLine, Transaction } from '@kis-books/shared';
 import { todayLocalISO } from '../../../utils/date';
 import {
   useBillCapture,
@@ -22,6 +22,7 @@ import {
   useEnterBillCapture,
   useReprocessBillCapture,
 } from '../../../api/hooks/useBillCaptures';
+import { useBill } from '../../../api/hooks/useAp';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
@@ -116,6 +117,14 @@ export function BillCaptureReviewPage() {
   const capture = data?.capture ?? null;
   const nextReadyId = data?.nextReadyId ?? null;
 
+  // An entered capture shows the bill AS POSTED, not the AI's original
+  // reading: the vendor, accounts and tags the user picked live on the bill,
+  // and re-seeding from the extraction made a finished bill look like
+  // everything keyed into it had been lost.
+  const postedBillId = capture?.status === 'entered' ? capture.billId ?? '' : '';
+  const { data: postedBillData, isError: postedBillMissing } = useBill(postedBillId);
+  const postedBill = postedBillData?.bill ?? null;
+
   // Form state, seeded once per capture (see effect below).
   const [seededFor, setSeededFor] = useState<string | null>(null);
   const [contactId, setContactId] = useState('');
@@ -174,15 +183,61 @@ export function BillCaptureReviewPage() {
     setError(null);
   };
 
+  // Same mapping EnterBillPage uses to load a bill for editing: the expense
+  // side is the debit lines.
+  const seedFromBill = (c: BillCaptureDetail, b: Transaction) => {
+    setContactId(b.contactId || '');
+    setNewVendorMode(false);
+    setTxnDate(b.txnDate || todayLocalISO());
+    setDueDate(b.dueDate || '');
+    setDueDateManual(true);
+    setPaymentTerms(b.paymentTerms && VALID_TERMS.has(b.paymentTerms) ? b.paymentTerms : 'net_30');
+    setCustomDays(b.termsDays ? String(b.termsDays) : '');
+    setVendorInvoiceNumber(b.vendorInvoiceNumber || '');
+    setMemo(b.memo || '');
+    setInternalNotes(b.internalNotes || '');
+    const billLines: BillLine[] = (b.lines || [])
+      .filter((l: JournalLine) => parseFloat(l.debit) > 0 && l.accountId)
+      .map((l: JournalLine) => ({
+        accountId: l.accountId,
+        description: l.description || '',
+        amount: parseFloat(l.debit).toFixed(2),
+        tagId: l.tagId ?? null,
+        userHasTouchedTag: l.tagId != null,
+      }));
+    // One posted line against an itemized invoice = it was posted in
+    // "Single line at the total" mode.
+    const postedSingle = billLines.length === 1 && (c.extraction?.lineItems?.length ?? 0) > 1;
+    if (postedSingle) setSingleLine(billLines[0]!);
+    else if (billLines.length > 0) setDetailedLines(billLines);
+    setLinesMode(postedSingle ? 'single' : 'detailed');
+    setOverrideDuplicate(false);
+    setServerDuplicate(null);
+    setError(null);
+  };
+
   useEffect(() => {
-    if (!capture || seededFor === capture.id) return;
+    if (!capture) return;
     // Wait for the read to finish so we seed from the extraction, unless it
     // is taking long — the user can start keying and we won't clobber it.
     if (capture.status === 'received' || capture.status === 'processing') return;
+    if (postedBillId) {
+      const key = `${capture.id}:bill`;
+      if (postedBill) {
+        if (seededFor === key) return;
+        seedFromBill(capture, postedBill);
+        setSeededFor(key);
+        return;
+      }
+      // Still loading the bill: hold off rather than flash the extraction.
+      // Only if the bill can't be read (deleted) fall back to what was scanned.
+      if (!postedBillMissing) return;
+    }
+    if (seededFor === capture.id) return;
     seed(capture);
     setSeededFor(capture.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [capture?.id, capture?.status]);
+  }, [capture?.id, capture?.status, postedBillId, postedBill, postedBillMissing]);
 
   // Terms → due date auto-calc, unless the user (or the AI) set it explicitly.
   // Not before the seed has landed: on the first commit this effect would
@@ -291,7 +346,8 @@ export function BillCaptureReviewPage() {
 
   const reading = capture.status === 'received' || capture.status === 'processing';
   const duplicate = serverDuplicate ?? capture.duplicate;
-  const unknownVendor = !newVendorMode && !contactId && !!capture.extraction?.vendor;
+  const entered = capture.status === 'entered';
+  const unknownVendor = !entered && !newVendorMode && !contactId && !!capture.extraction?.vendor;
 
   return (
     <div>
@@ -318,7 +374,11 @@ export function BillCaptureReviewPage() {
       {capture.status === 'entered' && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm text-green-800">
           This bill was already entered{capture.billTxnNumber ? ` as ${capture.billTxnNumber}` : ''}.
-          {capture.billId && <Link className="ml-2 underline" to={`/bills/${capture.billId}`}>Open the bill</Link>}
+          {postedBill
+            ? ' Shown below as it was posted. To change it, '
+            : postedBillMissing ? ' The posted bill could not be loaded, so this shows what was read from the file.' : ''}
+          {capture.billId && <Link className={postedBill ? 'underline' : 'ml-2 underline'} to={`/bills/${capture.billId}`}>{postedBill ? 'open the bill' : 'Open the bill'}</Link>}
+          {postedBill && '.'}
         </div>
       )}
       {capture.status === 'discarded' && (
@@ -328,7 +388,11 @@ export function BillCaptureReviewPage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
         <DocumentViewer captureId={capture.id} mimeType={capture.mimeType} fileName={capture.fileName} />
 
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit}>
+          {/* A posted bill is a record, not a draft: every control below is
+              inert once entered. Edits go through the bill itself, where the
+              paid/locked rules apply. */}
+          <fieldset disabled={entered} className="space-y-4 min-w-0">
           {reading && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
               <LoadingSpinner /> <span>Still reading this bill. The form fills in when it finishes; you can start keying it now if you prefer.</span>
@@ -390,7 +454,7 @@ export function BillCaptureReviewPage() {
                 {!contactId && capture.suggestedContactName && (
                   <p className="text-xs text-gray-500 mt-1">Suggested: {capture.suggestedContactName}</p>
                 )}
-                {!unknownVendor && capture.extraction?.vendor && (
+                {!entered && !unknownVendor && capture.extraction?.vendor && (
                   <button type="button" className="text-xs text-primary-600 hover:underline mt-1" onClick={() => setNewVendorMode(true)}>
                     Not the right vendor? Create "{capture.extraction.vendor}" instead
                   </button>
@@ -487,6 +551,7 @@ export function BillCaptureReviewPage() {
               <Button type="button" variant="secondary" onClick={() => navigate('/bills/capture')}>Back to queue</Button>
             </div>
           )}
+          </fieldset>
         </form>
       </div>
     </div>

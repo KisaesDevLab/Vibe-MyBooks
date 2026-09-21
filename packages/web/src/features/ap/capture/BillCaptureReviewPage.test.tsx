@@ -17,6 +17,9 @@ const h = vi.hoisted(() => ({
   navigate: vi.fn(),
   detail: null as unknown,
   nextReadyId: 'next-1' as string | null,
+  // What GET /bills/:id answers for an entered capture's bill.
+  bill: null as unknown,
+  billMissing: false,
 }));
 
 vi.mock('../../../api/hooks/useCompany', () => companyMocks());
@@ -34,6 +37,10 @@ vi.mock('../../../api/hooks/useBillCaptures', () => ({
   useEnterBillCapture: () => ({ mutate: h.enter, isPending: false, variables: undefined }),
   useDiscardBillCapture: () => ({ mutate: vi.fn(), isPending: false }),
   useReprocessBillCapture: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock('../../../api/hooks/useAp', () => ({
+  useBill: (id: string) => ({ data: id && h.bill ? { bill: h.bill } : undefined, isError: !!id && h.billMissing }),
 }));
 
 import { BillCaptureReviewPage } from './BillCaptureReviewPage';
@@ -68,6 +75,8 @@ const lastPayload = () => (h.enter.mock.calls.at(-1)![0] as { id: string; input:
 beforeEach(() => {
   h.enter.mockReset();
   h.navigate.mockReset();
+  h.bill = null;
+  h.billMissing = false;
   h.nextReadyId = 'next-1';
 });
 
@@ -171,5 +180,70 @@ describe('BillCaptureReviewPage', () => {
     render();
     expect(screen.getByText(/already entered/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Post bill' })).toBeNull();
+  });
+
+  // Reopening an entered capture used to re-seed from the AI extraction, so
+  // the vendor, accounts and edits the user had posted looked lost. It must
+  // show the bill as posted, and read-only.
+  describe('an entered capture', () => {
+    const postedBill = {
+      id: 'b1', contactId: 'v9', txnDate: '2026-09-02', dueDate: '2026-10-15', paymentTerms: 'net_60', termsDays: null,
+      vendorInvoiceNumber: 'INV-77-CORRECTED', memo: 'Keyed by hand', internalNotes: 'approved by KK',
+      lines: [
+        { accountId: 'acct-dues', description: 'Peer review fee', debit: '730.0000', credit: '0', tagId: 'tag-9' },
+        { accountId: 'acct-dues', description: 'Must-select fee', debit: '320.0000', credit: '0', tagId: null },
+        { accountId: 'acct-ap', description: null, debit: '0', credit: '1050.0000', tagId: null },
+      ],
+    };
+    // Extraction that disagrees with the bill everywhere, and knows no vendor.
+    const enteredDetail = () => detail({
+      status: 'entered', billId: 'b1', billTxnNumber: 'BILL-00013', contactId: null, vendorDefaults: null,
+      extraction: { ...detail().extraction!, contactId: null, vendor: 'Unknown Vendor Inc' },
+    });
+
+    it('shows the bill as posted, not the AI reading', () => {
+      h.detail = enteredDetail();
+      h.bill = postedBill;
+      render();
+
+      expect((screen.getByLabelText('Vendor Invoice #') as HTMLInputElement).value).toBe('INV-77-CORRECTED');
+      expect((screen.getByLabelText('Memo') as HTMLInputElement).value).toBe('Keyed by hand');
+      expect((screen.getByLabelText('Internal Notes') as HTMLInputElement).value).toBe('approved by KK');
+      expect((screen.getByLabelText('Bill Date') as HTMLInputElement).value).toBe('2026-09-02');
+      expect((screen.getByLabelText('Due Date') as HTMLInputElement).value).toBe('2026-10-15');
+      // The posted expense lines (debits only — never the AP credit).
+      expect(screen.getByDisplayValue('Peer review fee')).toBeTruthy();
+      expect(screen.getByDisplayValue('730.00')).toBeTruthy();
+      expect(screen.getByDisplayValue('320.00')).toBeTruthy();
+      expect(screen.queryByDisplayValue('Widgets')).toBeNull();
+      expect(screen.queryByDisplayValue('1050.00')).toBeNull();
+      // A vendor was posted, so no "isn't in your contacts" prompt.
+      expect(screen.queryByText(/isn't in your contacts/)).toBeNull();
+      expect(screen.getByText(/as it was posted/)).toBeTruthy();
+    });
+
+    it('is read-only — changes go through the bill itself', () => {
+      h.detail = enteredDetail();
+      h.bill = postedBill;
+      render();
+      expect((screen.getByLabelText('Memo') as HTMLInputElement).closest('fieldset')!.disabled).toBe(true);
+      expect(screen.getByRole('link', { name: 'open the bill' }).getAttribute('href')).toBe('/bills/b1');
+    });
+
+    it('falls back to what was scanned when the bill can no longer be loaded', () => {
+      h.detail = enteredDetail();
+      h.billMissing = true;
+      render();
+      expect((screen.getByLabelText('Vendor Invoice #') as HTMLInputElement).value).toBe('INV-77');
+      expect(screen.getByText(/could not be loaded/)).toBeTruthy();
+    });
+
+    it('leaves a capture still in the queue seeded from the extraction and editable', () => {
+      h.detail = detail();
+      h.bill = postedBill; // must be ignored: not entered, so no bill is requested
+      render();
+      expect((screen.getByLabelText('Vendor Invoice #') as HTMLInputElement).value).toBe('INV-77');
+      expect((screen.getByLabelText('Memo') as HTMLInputElement).closest('fieldset')!.disabled).toBe(false);
+    });
   });
 });
