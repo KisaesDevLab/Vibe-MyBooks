@@ -98,6 +98,7 @@ Banners appear at the top when a bank connection needs attention, when unprocess
 ### Tips
 - The dashboard reflects data for the **active company** shown in the company switcher at the top of the sidebar
 - All amounts are in your company's configured currency
+- The **Refresh** icon (circular arrows) at the top right of every screen, next to the Dashboard icon, reloads the data on the screen you're looking at. Use it when a change made elsewhere — by another user, in another tab, or by a bank sync — hasn't shown up yet. It keeps your place and anything you've typed, unlike reloading the browser
 `,
   },
   {

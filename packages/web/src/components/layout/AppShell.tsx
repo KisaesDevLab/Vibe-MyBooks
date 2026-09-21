@@ -8,6 +8,7 @@ import { Sidebar } from './Sidebar';
 import { SharePanel } from '../../features/share/SharePanel';
 import { TbFocusBridge } from '../../features/tb/TbFocusBridge';
 import { ImpersonationBanner } from './ImpersonationBanner';
+import { RefreshButton } from './RefreshButton';
 import { LayoutDashboard, Menu } from 'lucide-react';
 import { ChatFab } from '../../features/chat/ChatFab';
 import { ChatProvider } from '../../features/chat/ChatController';
@@ -146,6 +147,10 @@ export function AppShell() {
           {/* Peer screen share — renders nothing unless the feature is
               enabled for this tenant + user (capabilities probe 404s). */}
           <SharePanel />
+          {/* Manual refresh — refetches the data behind the current screen
+              without a browser reload. See RefreshButton for why the
+              ledger freshness watcher alone is not enough. */}
+          <RefreshButton />
           {/* Dashboard shortcut — mirrors the sidebar's Dashboard entry so
               the user can get home from anywhere, even with the rail
               collapsed or the drawer closed. */}
