@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import type { TxnType, TxnStatus, BulkUpdateTransactionsInput } from '@kis-books/shared';
+import { TXN_TYPE_LABELS } from '@kis-books/shared';
 import { useTransactions, useBulkUpdateTransactions } from '../../api/hooks/useTransactions';
 import { useAccounts } from '../../api/hooks/useAccounts';
 import { useCompanySettings } from '../../api/hooks/useCompany';
@@ -63,18 +64,11 @@ function SortableTh({ sortKey, label, align, sortBy, sortDir, onSort }: {
   );
 }
 
-const txnTypeLabels: Record<string, string> = {
-  invoice: 'Invoice',
-  customer_payment: 'Payment',
-  cash_sale: 'Cash Sale',
-  expense: 'Expense',
-  deposit: 'Deposit',
-  transfer: 'Transfer',
-  journal_entry: 'Journal Entry',
-  aje: 'AJE',
-  credit_memo: 'Credit Memo',
-  customer_refund: 'Refund',
-};
+// The shared labels cover every type — bills, bill payments, vendor credits
+// and daily sales used to be missing here, so they could not be picked in the
+// Type filter and showed as raw "bill_payment" in the rows. AJE stays short:
+// this is a narrow column.
+const txnTypeLabels: Record<string, string> = { ...TXN_TYPE_LABELS, aje: 'AJE' };
 
 const statusColors: Record<string, string> = {
   posted: 'bg-green-100 text-green-700',
