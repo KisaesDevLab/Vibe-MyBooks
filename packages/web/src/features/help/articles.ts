@@ -778,6 +778,15 @@ instead" without changing the vendor record — **Use address on file** puts it
 back. This address prints on the mailing panel of z-fold checks and on #10
 envelopes, so it's worth a glance before you save.
 
+### Vendor Account Number on the Memo
+If the vendor record has an **Account number** (Contacts → open the vendor →
+Edit → *Vendor Details*), picking that vendor fills **Printed Memo** with it —
+for example \`Acct 00-4471-A\` — so the vendor can apply your payment. The field
+is plain text: dashes, letters and leading zeros print exactly as you typed
+them. You can still type over the memo; switching to a different vendor swaps
+in that vendor's number (or clears it if they have none) unless you've written
+a memo of your own.
+
 ### Attachments
 Attach the invoice, receipt, or supporting document before saving. The files
 follow the check into the ledger and appear on its transaction detail page.
@@ -823,7 +832,9 @@ press Enter or click away to save. Clearing it prints no memo at all.
 
 Checks created by **Pay Bills** start with the vendor invoice numbers they cover
 (our bill number where the vendor gave none), so the vendor can tell what the
-check is for. You can override that for the whole run in the **Memo on check**
+check is for. When the vendor record has an **Account number**, it comes first —
+\`Acct 00-4471-A - INV-1001, INV-1002\` — and is never trimmed away when the invoice
+list is too long to fit. You can override that for the whole run in the **Memo on check**
 field on Pay Bills, or per check here. Keep it under about 60 characters — the
 memo line is only about three inches wide, and anything longer is cut off.
 

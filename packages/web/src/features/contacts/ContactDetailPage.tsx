@@ -117,6 +117,7 @@ export function ContactDetailPage() {
           {contact.contactType !== 'customer' && (
             <div className="pt-2 border-t border-gray-200">
               <h3 className="text-sm font-medium text-gray-700 mb-1">Vendor Details</h3>
+              {contact.vendorAccountNumber && <p className="text-sm text-gray-600">Account number: {contact.vendorAccountNumber}</p>}
               {contact.taxId && <p className="text-sm text-gray-600">Tax ID: {contact.taxId}</p>}
               <p className="text-sm text-gray-600">1099 Eligible: {contact.is1099Eligible ? 'Yes' : 'No'}</p>
               {contact.is1099Eligible && (

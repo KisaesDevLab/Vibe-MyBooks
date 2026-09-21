@@ -50,6 +50,7 @@ export function ContactFormPage() {
     // this when the contact's type is 'vendor' or 'both' at write time.
     defaultTagId: null as string | null,
     taxId: '',
+    vendorAccountNumber: '',
     is1099Eligible: false,
     notes: '',
   });
@@ -79,6 +80,7 @@ export function ContactFormPage() {
         defaultExpenseAccountId: c.defaultExpenseAccountId || '',
         defaultTagId: (c as { defaultTagId?: string | null }).defaultTagId ?? null,
         taxId: c.taxId || '',
+        vendorAccountNumber: c.vendorAccountNumber || '',
         is1099Eligible: c.is1099Eligible ?? false,
         notes: c.notes || '',
       });
@@ -110,6 +112,7 @@ export function ContactFormPage() {
       defaultExpenseAccountId: form.defaultExpenseAccountId || null,
       defaultTagId: form.defaultTagId,
       taxId: form.taxId || null,
+      vendorAccountNumber: form.vendorAccountNumber.trim() || null,
       notes: form.notes || null,
     };
 
@@ -208,6 +211,23 @@ export function ContactFormPage() {
               <p className="text-xs text-gray-500">
                 Applied to transaction lines with this vendor when no other
                 default (bank rule, item, or explicit entry) sets one.
+              </p>
+            </div>
+            <div>
+              {/* type="text" on purpose: these carry dashes, letters and
+                  leading zeros, which a numeric input would strip. */}
+              <Input
+                label="Account number"
+                type="text"
+                value={form.vendorAccountNumber}
+                onChange={set('vendorAccountNumber')}
+                maxLength={50}
+                placeholder="e.g. 00-4471-A"
+                autoComplete="off"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                The account number this vendor gave you. When filled in, it goes on the memo
+                line of checks you write to them.
               </p>
             </div>
             <Input label="Tax ID / EIN" value={form.taxId} onChange={set('taxId')} placeholder="XX-XXXXXXX" />

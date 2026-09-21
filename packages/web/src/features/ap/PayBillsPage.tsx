@@ -287,7 +287,7 @@ export function PayBillsPage() {
               value={printedMemo}
               onChange={(e) => setPrintedMemo(e.target.value)}
               maxLength={255}
-              placeholder="Blank prints the bill numbers being paid"
+              placeholder="Blank prints the vendor’s account number and the bill numbers being paid"
             />
             <p className="mt-1 text-xs text-gray-500">
               Prints on the check's memo line — one memo for every check in this run.

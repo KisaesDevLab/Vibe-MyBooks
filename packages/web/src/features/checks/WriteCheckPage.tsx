@@ -18,7 +18,7 @@ import { MoneyInput } from '../../components/forms/MoneyInput';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
-import { numberToWords, addressText, CHECK_MEMO_PRINT_LIMIT } from '@kis-books/shared';
+import { numberToWords, addressText, vendorAccountMemo, CHECK_MEMO_PRINT_LIMIT } from '@kis-books/shared';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface ExpenseLine {
@@ -56,6 +56,9 @@ export function WriteCheckPage() {
   const [txnDate, setTxnDate] = useState(today);
   const [amount, setAmount] = useState('');
   const [printedMemo, setPrintedMemo] = useState('');
+  // Prefilled from the vendor's account number until the user types their
+  // own memo — same hands-off rule as the address above.
+  const [printedMemoEdited, setPrintedMemoEdited] = useState(false);
   const [memo, setMemo] = useState('');
   const [printLater, setPrintLater] = useState(false);
   // Manual check-number override for hand-written checks (blank = the
@@ -93,6 +96,14 @@ export function WriteCheckPage() {
     setPayeeAddress(onFileAddress);
   }, [onFileAddress, addressEdited]);
 
+  // The account number the vendor assigned us goes on the memo line so they
+  // can apply the payment. Vendors without one leave the memo blank.
+  const onFileMemo = vendorAccountMemo(contactData?.contact?.vendorAccountNumber);
+  useEffect(() => {
+    if (printedMemoEdited) return;
+    setPrintedMemo(onFileMemo);
+  }, [onFileMemo, printedMemoEdited]);
+
   const amountWords = numberToWords(amount);
   const linesTotal = lines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0);
 
@@ -110,6 +121,13 @@ export function WriteCheckPage() {
     // A different payee means a different address — drop any edit that was
     // aimed at the previous one so the new vendor's address loads.
     setAddressEdited(false);
+    // The memo follows the vendor too — but only where that is safe. A memo
+    // the user typed themselves ("June rent") survives a change of payee;
+    // one that still carries the PREVIOUS vendor's account number does not,
+    // because that number must never ride along onto another payee's check.
+    if (printedMemo.trim() === '' || (onFileMemo !== '' && printedMemo.includes(onFileMemo))) {
+      setPrintedMemoEdited(false);
+    }
     setContactError(null);
     if (contact) {
       setPayeeNameOnCheck(contact.displayName);
@@ -288,7 +306,7 @@ export function WriteCheckPage() {
             <Input
               label="Printed Memo"
               value={printedMemo}
-              onChange={(e) => setPrintedMemo(e.target.value)}
+              onChange={(e) => { setPrintedMemoEdited(true); setPrintedMemo(e.target.value); }}
               maxLength={255}
               placeholder="Memo printed on the check"
             />
