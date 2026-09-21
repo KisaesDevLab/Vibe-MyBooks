@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Transaction, CreateInvoiceInput, TransactionFilters } from '@kis-books/shared';
+import type { Transaction, CreateInvoiceInput, RecordPaymentInput, TransactionFilters } from '@kis-books/shared';
 import { apiClient } from '../client';
 
 export function useInvoices(filters?: TransactionFilters) {
@@ -56,7 +56,7 @@ export function useSendInvoice() {
 export function useRecordPayment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ invoiceId, ...input }: { invoiceId: string; amount: string; txnDate: string; depositToAccountId: string; memo?: string }) =>
+    mutationFn: ({ invoiceId, ...input }: { invoiceId: string } & RecordPaymentInput) =>
       apiClient(`/invoices/${invoiceId}/payment`, { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });

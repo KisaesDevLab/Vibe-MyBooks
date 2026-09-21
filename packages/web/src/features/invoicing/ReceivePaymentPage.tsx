@@ -5,12 +5,14 @@
 
 import { todayLocalISO } from '../../utils/date';
 import { useState, type FormEvent } from 'react';
+import type { PaymentMethod } from '@kis-books/shared';
 import { useNavigate } from 'react-router-dom';
 import { useReceivePayment, useOpenInvoices, type OpenInvoice } from '../../api/hooks/usePayments';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { DatePicker } from '../../components/forms/DatePicker';
+import { PaymentMethodSelect } from '../../components/forms/PaymentMethodSelect';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
@@ -31,6 +33,7 @@ export function ReceivePaymentPage() {
   const [amount, setAmount] = useState('');
   const [depositToAccountId, setDepositToAccountId] = useState('');
   const [refNo, setRefNo] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [memo, setMemo] = useState('');
   const [rows, setRows] = useState<InvoicePaymentRow[]>([]);
 
@@ -95,7 +98,8 @@ export function ReceivePaymentPage() {
         date: txnDate,
         amount: amount || totalApplied.toFixed(2),
         depositTo: depositToAccountId,
-        refNo: refNo || undefined,
+        paymentMethod: paymentMethod || undefined,
+        refNo: refNo.trim() || undefined,
         memo: memo || undefined,
         applications,
       },
@@ -132,7 +136,7 @@ export function ReceivePaymentPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <AccountSelector
               label="Deposit To"
               value={depositToAccountId}
@@ -140,10 +144,13 @@ export function ReceivePaymentPage() {
               accountTypeFilter="asset"
               required
             />
+            <PaymentMethodSelect value={paymentMethod} onChange={setPaymentMethod} />
             <Input
               label="Ref #"
               value={refNo}
               onChange={(e) => setRefNo(e.target.value)}
+              maxLength={100}
+              placeholder="Customer's check # or confirmation"
             />
             <Input
               label="Memo"

@@ -14,6 +14,9 @@ import { SendInvoiceModal } from './SendInvoiceModal';
 import { Send, DollarSign, Download, Copy, Ban, CheckCircle, Pencil } from 'lucide-react';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { ShareLinkButton } from './ShareLinkButton';
+import { RelatedTransactionsCard } from '../transactions/RelatedTransactionsCard';
+import { TransactionReportButton } from '../transactions/TransactionReportButton';
+import { usePermissions } from '../../api/hooks/usePermissions';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 
@@ -31,6 +34,7 @@ export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useInvoice(id!);
+  const canTransactions = usePermissions().can('transactions');
   // Build-plan Phase 8 — fetch the full contact record so the customer
   // panel can render name, email, phone, and billing address. The
   // invoice payload only carries contactId; the contacts endpoint is
@@ -129,6 +133,7 @@ export function InvoiceDetailPage() {
           <Button variant="secondary" size="sm" onClick={handleDownloadPdf} loading={pdfLoading}>
             <Download className="h-4 w-4 mr-1" /> PDF
           </Button>
+          {canTransactions && <TransactionReportButton transactionId={inv.id} />}
           <Button variant="secondary" size="sm" onClick={() => duplicateInvoice.mutate(inv.id, { onSuccess: () => navigate('/invoices') })}>
             <Copy className="h-4 w-4 mr-1" /> Duplicate
           </Button>
@@ -254,6 +259,10 @@ export function InvoiceDetailPage() {
           <AttachmentPanel attachableType="invoice" attachableId={inv.id} />
         </div>
       </div>
+
+      {/* The payments and credits applied to this invoice. Served by the
+          transactions API, so it follows that permission. */}
+      {canTransactions && <RelatedTransactionsCard transactionId={inv.id} />}
 
       {/* Modals */}
       {showPayment && <RecordPaymentModal invoice={inv} onClose={() => { setShowPayment(false); refetch(); }} />}

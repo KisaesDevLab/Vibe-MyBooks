@@ -8,6 +8,9 @@ import { useBill, useVoidBill } from '../../api/hooks/useAp';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
+import { RelatedTransactionsCard } from '../transactions/RelatedTransactionsCard';
+import { TransactionReportButton } from '../transactions/TransactionReportButton';
+import { usePermissions } from '../../api/hooks/usePermissions';
 
 const STATUS_COLORS: Record<string, string> = {
   unpaid: 'bg-yellow-100 text-yellow-800',
@@ -23,6 +26,7 @@ export function BillDetailPage() {
   const voidBill = useVoidBill();
   const [showVoid, setShowVoid] = useState(false);
   const [voidReason, setVoidReason] = useState('');
+  const canTransactions = usePermissions().can('transactions');
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
   const bill = data?.bill;
@@ -53,6 +57,7 @@ export function BillDetailPage() {
           </h1>
         </div>
         <div className="flex gap-2">
+          {canTransactions && <TransactionReportButton transactionId={bill.id} size="md" />}
           {!isVoid && (
             <Button variant="secondary" onClick={() => navigate(`/bills/${id}/edit`)}>
               {status === 'unpaid' ? 'Edit' : 'Edit Lines'}
@@ -138,6 +143,10 @@ export function BillDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* The payments and vendor credits applied to this bill. Served by the
+          transactions API, so it follows that permission. */}
+      {canTransactions && <RelatedTransactionsCard transactionId={bill.id} />}
 
       {/* Attachments — vendor invoices, supporting docs, etc.
           Uses attachableType="bill" so the same panel that the

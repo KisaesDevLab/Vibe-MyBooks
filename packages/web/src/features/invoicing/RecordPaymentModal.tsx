@@ -5,12 +5,13 @@
 
 import { todayLocalISO } from '../../utils/date';
 import { useState, type FormEvent } from 'react';
-import type { Transaction } from '@kis-books/shared';
+import type { PaymentMethod, Transaction } from '@kis-books/shared';
 import { useRecordPayment } from '../../api/hooks/useInvoices';
 import { Button } from '../../components/ui/Button';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { PaymentMethodSelect } from '../../components/forms/PaymentMethodSelect';
 import { Input } from '../../components/ui/Input';
 import { X } from 'lucide-react';
 
@@ -27,6 +28,8 @@ export function RecordPaymentModal({ invoice, onClose }: RecordPaymentModalProps
   const [txnDate, setTxnDate] = useState(today);
   const [depositToAccountId, setDepositToAccountId] = useState('');
   const [memo, setMemo] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
+  const [refNo, setRefNo] = useState('');
 
   const recordPayment = useRecordPayment();
 
@@ -38,6 +41,8 @@ export function RecordPaymentModal({ invoice, onClose }: RecordPaymentModalProps
       txnDate,
       depositToAccountId,
       memo: memo || undefined,
+      paymentMethod: paymentMethod || undefined,
+      refNo: refNo.trim() || undefined,
     }, { onSuccess: onClose });
   };
 
@@ -60,6 +65,10 @@ export function RecordPaymentModal({ invoice, onClose }: RecordPaymentModalProps
           <DatePicker label="Payment Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
           <AccountSelector label="Deposit To" value={depositToAccountId} onChange={setDepositToAccountId}
             accountTypeFilter="asset" required />
+          <div className="grid grid-cols-2 gap-3">
+            <PaymentMethodSelect value={paymentMethod} onChange={setPaymentMethod} />
+            <Input label="Ref #" value={refNo} onChange={(e) => setRefNo(e.target.value)} maxLength={100} />
+          </div>
           <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
 
           {recordPayment.error && <p className="text-sm text-red-600">{recordPayment.error.message}</p>}

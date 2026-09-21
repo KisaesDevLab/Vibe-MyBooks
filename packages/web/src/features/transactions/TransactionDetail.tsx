@@ -9,15 +9,32 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { ArrowLeft, Copy, Ban, Download, Pencil, Repeat } from 'lucide-react';
+import { buildTransactionHeaderFields, contactRoleLabel, transactionTitle, txnTypeLabel, type TransactionHeaderField } from '@kis-books/shared';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { AskClientAboutTransactionButton } from './AskClientAboutTransactionButton';
 import { RecurringScheduleModal } from './RecurringScheduleModal';
+import { RelatedTransactionsCard } from './RelatedTransactionsCard';
+import { TransactionReportButton } from './TransactionReportButton';
 
-const txnTypeLabels: Record<string, string> = {
-  invoice: 'Invoice', customer_payment: 'Payment', cash_sale: 'Cash Sale',
-  expense: 'Expense', deposit: 'Deposit', transfer: 'Transfer',
-  journal_entry: 'Journal Entry', aje: 'Adjusting Journal Entry (AJE)', credit_memo: 'Credit Memo', customer_refund: 'Refund',
+const billStatusColors: Record<string, string> = {
+  unpaid: 'bg-yellow-100 text-yellow-700',
+  partial: 'bg-blue-100 text-blue-700',
+  paid: 'bg-green-100 text-green-700',
+  overdue: 'bg-red-100 text-red-700',
 };
+
+function fieldValue(f: TransactionHeaderField) {
+  switch (f.kind) {
+    case 'money':
+      return <span className="font-mono">${parseFloat(f.value).toFixed(2)}</span>;
+    case 'datetime':
+      return new Date(f.value).toLocaleString();
+    case 'multiline':
+      return <span className="whitespace-pre-line">{f.value}</span>;
+    default:
+      return f.value;
+  }
+}
 
 export function TransactionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -45,6 +62,13 @@ export function TransactionDetail() {
 
   const txn = data.transaction;
   const lines = txn.lines || [];
+  // Which header facts matter depends on the type — a bill names its vendor
+  // and the vendor's invoice number, a check its payee and check number. The
+  // Transaction Report prints the same list.
+  // The contact sits beside the title, so it is left out of the card.
+  const headerFields = buildTransactionHeaderFields(txn).filter((f) => f.key !== 'contact');
+  const showLineName = lines.some((l) => l.contactName);
+  const showLineTag = lines.some((l) => l.tagName);
 
   const handleVoid = () => {
     if (!voidReason.trim()) return;
@@ -107,8 +131,13 @@ export function TransactionDetail() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {txnTypeLabels[txn.txnType] || txn.txnType} {txn.txnNumber && `#${txn.txnNumber}`}
+            {transactionTitle(txn)}
           </h1>
+          {txn.contactName && (
+            <p className="text-sm text-gray-700 mt-0.5">
+              <span className="text-gray-500">{contactRoleLabel(txn.txnType)}:</span> {txn.contactName}
+            </p>
+          )}
           <div className="flex gap-2 mt-1">
             <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
               txn.status === 'posted' ? 'bg-green-100 text-green-700' :
@@ -117,6 +146,11 @@ export function TransactionDetail() {
             {txn.invoiceStatus && (
               <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                 {txn.invoiceStatus}
+              </span>
+            )}
+            {txn.billStatus && (
+              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${billStatusColors[txn.billStatus] || 'bg-gray-100 text-gray-700'}`}>
+                {txn.billStatus}
               </span>
             )}
           </div>
@@ -132,6 +166,7 @@ export function TransactionDetail() {
               <Download className="h-4 w-4 mr-1" /> PDF
             </Button>
           )}
+          <TransactionReportButton transactionId={txn.id} />
           <Button variant="secondary" size="sm" onClick={handleDuplicate} loading={duplicateTxn.isPending}>
             <Copy className="h-4 w-4 mr-1" /> Duplicate
           </Button>
@@ -145,7 +180,7 @@ export function TransactionDetail() {
               transactionId={txn.id}
               contextSummary={
                 [
-                  txnTypeLabels[txn.txnType] ?? txn.txnType,
+                  txnTypeLabel(txn),
                   txn.txnNumber,
                   txn.contactName,
                   txn.total ? `$${txn.total}` : null,
@@ -168,17 +203,9 @@ export function TransactionDetail() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-3">
           <h2 className="text-lg font-semibold text-gray-800">Details</h2>
           <div className="text-sm space-y-2">
-            <p><span className="text-gray-500">Date:</span> {txn.txnDate}</p>
-            {txn.dueDate && <p><span className="text-gray-500">Due:</span> {txn.dueDate}</p>}
-            {txn.memo && <p><span className="text-gray-500">Memo:</span> {txn.memo}</p>}
-            {txn.subtotal && parseFloat(txn.taxAmount || '0') > 0 && (
-              <>
-                <p><span className="text-gray-500">Subtotal:</span> <span className="font-mono">${parseFloat(txn.subtotal).toFixed(2)}</span></p>
-                <p><span className="text-gray-500">Tax:</span> <span className="font-mono">${parseFloat(txn.taxAmount).toFixed(2)}</span></p>
-              </>
-            )}
-            {txn.total && <p><span className="text-gray-500">Total:</span> <span className="font-mono">${parseFloat(txn.total).toFixed(2)}</span></p>}
-            {txn.voidReason && <p><span className="text-gray-500">Void reason:</span> {txn.voidReason}</p>}
+            {headerFields.map((f) => (
+              <p key={f.key}><span className="text-gray-500">{f.label}:</span> {fieldValue(f)}</p>
+            ))}
           </div>
         </div>
 
@@ -189,6 +216,8 @@ export function TransactionDetail() {
               <tr className="border-b">
                 <th className="text-left py-2 text-gray-500">Account</th>
                 <th className="text-left py-2 text-gray-500">Description</th>
+                {showLineName && <th className="text-left py-2 text-gray-500">Name</th>}
+                {showLineTag && <th className="text-left py-2 text-gray-500">Tag</th>}
                 <th className="text-right py-2 text-gray-500">Debit</th>
                 <th className="text-right py-2 text-gray-500">Credit</th>
               </tr>
@@ -201,6 +230,8 @@ export function TransactionDetail() {
                     {line.accountNumber && <span className="text-xs text-gray-400 ml-1">({line.accountNumber})</span>}
                   </td>
                   <td className="py-2 text-gray-600">{line.description || '—'}</td>
+                  {showLineName && <td className="py-2 text-gray-600">{line.contactName || ''}</td>}
+                  {showLineTag && <td className="py-2 text-gray-600">{line.tagName || ''}</td>}
                   <td className="py-2 text-right font-mono">{parseFloat(line.debit) > 0 ? `$${parseFloat(line.debit).toFixed(2)}` : ''}</td>
                   <td className="py-2 text-right font-mono">{parseFloat(line.credit) > 0 ? `$${parseFloat(line.credit).toFixed(2)}` : ''}</td>
                 </tr>
@@ -208,7 +239,7 @@ export function TransactionDetail() {
             </tbody>
             <tfoot>
               <tr className="font-medium">
-                <td colSpan={2} className="py-2">Totals</td>
+                <td colSpan={2 + (showLineName ? 1 : 0) + (showLineTag ? 1 : 0)} className="py-2">Totals</td>
                 <td className="py-2 text-right font-mono">${lines.reduce((s, l) => s + parseFloat(l.debit), 0).toFixed(2)}</td>
                 <td className="py-2 text-right font-mono">${lines.reduce((s, l) => s + parseFloat(l.credit), 0).toFixed(2)}</td>
               </tr>
@@ -217,9 +248,12 @@ export function TransactionDetail() {
         </div>
       </div>
 
-      {/* Attachments */}
+      <RelatedTransactionsCard transactionId={txn.id} />
+
+      {/* Attachments. AJE files are stored under 'journal_entry' (the AJE
+          form and the tb routes both write that), not under 'aje'. */}
       <div className="mt-6">
-        <AttachmentPanel attachableType={txn.txnType} attachableId={txn.id} />
+        <AttachmentPanel attachableType={txn.txnType === 'aje' ? 'journal_entry' : txn.txnType} attachableId={txn.id} />
       </div>
 
       {/* Void dialog */}

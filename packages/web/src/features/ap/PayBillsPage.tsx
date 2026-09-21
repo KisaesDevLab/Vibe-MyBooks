@@ -45,6 +45,7 @@ export function PayBillsPage() {
   // vendor-invoice numbers being paid, which is what a vendor needs to apply
   // the payment; it stays editable in the print queue until the check prints.
   const [printedMemo, setPrintedMemo] = useState('');
+  const [referenceNumber, setReferenceNumber] = useState('');
   const [vendorFilter, setVendorFilter] = useState<string>('');
   const [dueOnOrBefore, setDueOnOrBefore] = useState<string>('');
 
@@ -225,6 +226,8 @@ export function PayBillsPage() {
         method,
         printLater: method === 'check',
         printedMemo: printedMemo.trim() || undefined,
+        // A check's number is its reference; the field only shows otherwise.
+        referenceNumber: paysByCheck ? undefined : referenceNumber.trim() || undefined,
         bills: billsPayload,
         credits: creditsPayload.length > 0 ? creditsPayload : undefined,
       },
@@ -280,6 +283,20 @@ export function PayBillsPage() {
             </select>
           </div>
         </div>
+        {!paysByCheck && (
+          <div className="mt-4 sm:max-w-sm">
+            <Input
+              label="Ref #"
+              value={referenceNumber}
+              onChange={(e) => setReferenceNumber(e.target.value)}
+              maxLength={100}
+              placeholder="ACH trace, confirmation or authorization number"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Optional. Saved on every payment in this run and shown on the payment and its Transaction Report.
+            </p>
+          </div>
+        )}
         {paysByCheck && (
           <div className="mt-4">
             <Input

@@ -2542,6 +2542,34 @@ Images, PDFs, spreadsheets, Word documents — up to 10MB each.
 
 ### On the Detail Page
 The Transaction Detail and Invoice Detail pages also show the attachment panel for managing files on existing records.
+
+### Printing a transaction with its attachments
+Use the **Transaction Report** button on the transaction — see *Transaction Report*.
+`,
+  },
+  {
+    id: 'transaction-report',
+    title: 'Transaction Report — a Transaction With Its Attachments',
+    category: 'Transactions',
+    summary: 'One PDF showing a transaction, everything linked to it, and every attached document.',
+    body: `
+## Transaction Report
+
+The **Transaction Report** button on any transaction (and on the Bill and Invoice pages) opens one PDF in a new tab that documents the whole story — useful for an audit request, a client question, or your own workpapers.
+
+### What is in it
+1. **The transaction** — its details (vendor / customer / payee, document number, vendor invoice #, check # or Ref #, payment method, the bank account it was paid from or deposited to, terms, due date, amounts) and its journal lines.
+2. **Everything linked to it** — from a bill, every payment and vendor credit applied to it; from a bill payment or check, every bill it paid; from an invoice, its payments and credit memos; from a customer payment, the invoices it was applied to. Each gets the same details-and-journal-lines block. Voided linked transactions are listed but not detailed.
+3. **Every attachment** on all of those transactions. PDF pages are included as-is (still sharp and searchable); JPG, PNG, WebP and GIF images each get their own page. Every attachment page is captioned with the file name and the transaction it belongs to.
+
+### Things to know
+- The same details now show on the transaction screen itself, along with a **Related Transactions** card linking to each linked transaction.
+- A file that can't be shown — a password-protected PDF, a spreadsheet, a damaged upload — never stops the report. It is listed in the summary with the reason.
+- Limits: 40 attachments, 50 pages per PDF, 300 pages in total.
+- If your role can't view attachments, you get the summary pages only.
+
+### Payment Method and Ref #
+**Pay Bills** (Ref # for ACH, card, cash and other payments), **Receive Payment** and **Record Payment** save the payment method and a reference number, and both print on the report. Payments entered before this was added show "Check" when they have a check number and are otherwise blank.
 `,
   },
   {

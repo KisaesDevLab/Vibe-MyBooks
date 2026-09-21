@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
-  Transaction, TransactionFilters,
+  Transaction, TransactionFilters, RelatedTransactionsResult,
   BulkUpdateTransactionsInput, BulkUpdateTransactionsResult,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
@@ -46,6 +46,16 @@ export function useTransaction(id: string) {
   return useQuery({
     queryKey: ['transactions', id],
     queryFn: () => apiClient<{ transaction: Transaction }>(`/transactions/${id}`),
+    enabled: !!id,
+  });
+}
+
+// Payments applied to a bill, bills a payment paid, and the invoice-side
+// equivalents. Keyed under ['transactions'] so posting a payment refreshes it.
+export function useRelatedTransactions(id: string) {
+  return useQuery({
+    queryKey: ['transactions', id, 'related'],
+    queryFn: () => apiClient<RelatedTransactionsResult>(`/transactions/${id}/related`),
     enabled: !!id,
   });
 }
