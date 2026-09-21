@@ -14,6 +14,7 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useToast } from '../../components/ui/Toaster';
 import { CHECK_MEMO_PRINT_LIMIT, type BillPaymentMethod } from '@kis-books/shared';
 
 interface BillSelection {
@@ -31,6 +32,7 @@ interface CreditSelection {
 
 export function PayBillsPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const today = todayLocalISO();
   const { data: settingsData } = useCheckSettings();
 
@@ -227,9 +229,19 @@ export function PayBillsPage() {
         credits: creditsPayload.length > 0 ? creditsPayload : undefined,
       },
       {
-        onSuccess: () => {
-          if (method === 'check') navigate('/checks/print');
-          else navigate('/bill-payments');
+        onSuccess: (result) => {
+          if (method === 'check') {
+            navigate('/checks/print');
+            return;
+          }
+          // Everything that isn't a queued check (ACH, handwritten check,
+          // card, cash…) is finished at this point. There is no bill-payment
+          // list screen, so confirm and return to Bills, where the paid bills
+          // now show their new status. Bills rather than the Bill Payment
+          // History report: an AP-only user may not have the reports resource.
+          const n = result.payments.length;
+          toast.success(n === 1 ? 'Payment recorded' : `${n} payments recorded`);
+          navigate('/bills');
         },
       },
     );

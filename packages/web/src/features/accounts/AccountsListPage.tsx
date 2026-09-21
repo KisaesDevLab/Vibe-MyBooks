@@ -166,7 +166,7 @@ export function AccountsListPage() {
                     )}
                     {['revenue', 'cogs', 'expense', 'other_revenue', 'other_expense'].includes(account.accountType) && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); navigate(`/reports/account-report?account_id=${account.id}`); }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/transactions?account=${account.id}`); }}
                         className="text-xs text-primary-600 hover:text-primary-800"
                       >
                         Report
