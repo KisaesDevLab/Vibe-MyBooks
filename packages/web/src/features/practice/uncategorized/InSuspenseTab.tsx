@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CircleDot, Loader2, MailQuestion, Paperclip, Scissors } from 'lucide-react';
+import { CircleDot, Loader2, MailQuestion, Paperclip, Scissors, UserPen } from 'lucide-react';
 import { AttachFileButton } from '../../attachments/AttachFileButton';
 import { RowAttachmentsModal } from './RowAttachmentsModal';
 import { formatMoney } from '../../../utils/money';
@@ -19,13 +19,15 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
+import { ContactSelector } from '../../../components/forms/ContactSelector';
+import { SortableTh } from '../../../components/ui/SortableTh';
 import { SelectionActionBar } from './SelectionActionBar';
 import { RowCategoryCell } from './RowCategoryCell';
 import { RowPayeeCell } from './RowPayeeCell';
 import { RequestClientHelpModal } from './RequestClientHelpModal';
 import {
   useInSuspense, useClearSuspense, useSetSuspensePayee,
-  type SuspenseRow as SuspenseRowView,
+  type SuspenseRow as SuspenseRowView, type SuspenseSortKey, type SortDir,
 } from '../../../api/hooks/useUncategorized';
 
 const PAGE_SIZE = 50;
@@ -42,6 +44,11 @@ export function InSuspenseTab() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [categoryId, setCategoryId] = useState('');
+  const [payeeId, setPayeeId] = useState('');
+  // Server-side sort: the list paginates, so ordering the visible page alone
+  // would lie. '' = the endpoint's default (newest first).
+  const [sortBy, setSortBy] = useState<'' | SuspenseSortKey>('');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [viewing, setViewing] = useState<SuspenseRowView | null>(null);
   // Per-row payee + category drafts, keyed by transaction id. Nothing in a
   // draft is written until that row's Save is pressed — see RowCategoryCell.
@@ -50,7 +57,10 @@ export function InSuspenseTab() {
   const [asking, setAsking] = useState(false);
 
   const toast = useToast();
-  const query = useInSuspense({ limit: PAGE_SIZE, offset, search });
+  const query = useInSuspense({
+    limit: PAGE_SIZE, offset, search,
+    sortBy: sortBy || undefined, sortDir: sortBy ? sortDir : undefined,
+  });
   const clear = useClearSuspense();
   const setPayee = useSetSuspensePayee();
 
@@ -80,6 +90,13 @@ export function InSuspenseTab() {
     return next;
   });
   const changePage = (next: number) => { setOffset(next); setSelected(new Set()); };
+  // First click sorts ascending; a second click on the same column flips it.
+  const toggleSort = (key: SuspenseSortKey) => {
+    setSortDir(sortBy === key && sortDir === 'asc' ? 'desc' : 'asc');
+    setSortBy(key);
+    setOffset(0);
+    setSelected(new Set());
+  };
 
   // Save ONE row: the payee first (header-level, the row stays), then the
   // category through the same endpoint as the bulk action with one id — so
@@ -130,7 +147,7 @@ export function InSuspenseTab() {
 
     if (!wantsPayee) { saveCategory(); return; }
     setPayee.mutate(
-      { transactionId, contactId: draft.contactId || null },
+      { transactionIds: [transactionId], contactId: draft.contactId || null },
       {
         onSuccess: (res) => {
           if (res.updated === 0) {
@@ -172,6 +189,28 @@ export function InSuspenseTab() {
     );
   };
 
+  // Toolbar "Set payee": one contact onto every ticked row. Header-level,
+  // so the rows stay on this list with the new name — unlike Set category.
+  const applyPayee = () => {
+    if (!payeeId || selected.size === 0) return;
+    setPayee.mutate(
+      { transactionIds: [...selected], contactId: payeeId },
+      {
+        onSuccess: (res) => {
+          const parts = [`Payee set on ${res.updated} transaction(s).`];
+          if (res.skipped.length > 0) {
+            const reasons = [...new Set(res.skipped.map((s) => s.reason))].join(', ');
+            parts.push(`${res.skipped.length} skipped (${reasons}).`);
+          }
+          toast.success(parts.join(' '));
+          setSelected(new Set());
+          setPayeeId('');
+        },
+        onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not set the payee.'),
+      },
+    );
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -207,6 +246,13 @@ export function InSuspenseTab() {
         onToggleAll={() => setSelected(allSelected ? new Set() : new Set(pageIds))}
         onClearSelection={() => setSelected(new Set())}
       >
+        <div className="w-64">
+          <ContactSelector value={payeeId} onChange={setPayeeId} compact />
+        </div>
+        <Button variant="secondary" onClick={applyPayee} disabled={busy || !payeeId || selected.size === 0}>
+          {setPayee.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <UserPen className="h-4 w-4 mr-1" />}
+          Set payee
+        </Button>
         <div className="w-72">
           <AccountSelector value={categoryId} onChange={setCategoryId} compact />
         </div>
@@ -221,14 +267,14 @@ export function InSuspenseTab() {
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="w-10 px-3 py-2" />
-              <th className="px-3 py-2">Date</th>
-              <th className="px-3 py-2">Ref</th>
+              <SortableTh sortKey="txnDate" label="Date" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh sortKey="checkNumber" label="Ref" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               {/* The two pickers take the width the fixed columns leave;
                   Memo wraps. Percentages are hints to the auto layout, the
                   min widths keep a picker usable on a narrow screen. */}
-              <th className="w-[22%] min-w-[12rem] px-3 py-2">Payee</th>
-              <th className="px-3 py-2">Memo</th>
-              <th className="px-3 py-2 text-right">In suspense</th>
+              <SortableTh sortKey="payee" label="Payee" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} className="w-[22%] min-w-[12rem]" />
+              <SortableTh sortKey="memo" label="Memo" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh sortKey="amount" label="In suspense" align="right" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               <th className="w-[28%] min-w-[14rem] px-3 py-2">Category</th>
               <th className="px-3 py-2 text-center">Docs</th>
               <th className="px-3 py-2" />

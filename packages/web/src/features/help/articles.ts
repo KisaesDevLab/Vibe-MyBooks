@@ -2812,12 +2812,16 @@ Nothing lands there on its own. Only two paths post to suspense:
 **Practice \u2192 Uncategorized** is for the firm that manages the books (firm members and super admins). It has three tabs and a header showing the suspense balance. Team members of the company who are not firm staff use **Banking \u2192 Uncategorized** instead, where they *suggest* a category rather than post one \u2014 see *Suggesting categories from Banking \u2192 Uncategorized*.
 
 - **Not posted** \u2014 bank lines still off the ledger. Give one a real category, or park it in suspense.
-- **In suspense** \u2014 amounts on the ledger awaiting a category. Tick rows, pick an account, click **Set category**.
+- **In suspense** \u2014 amounts on the ledger awaiting a category. Tick rows, pick an account, click **Set category**, or pick a contact and click **Set payee** to name them all at once.
 - **Client suggested** \u2014 what your clients answered from the portal.
 
 A row moves from the first tab to the second when you post it to suspense; it leaves the second when you give it a real category. Nothing disappears.
 
-Both table tabs also carry a **Ref** column (the check number, falling back to the entry number), a per-row **Payee** picker (the same contact search used on Write Check and Bank Feeds, with quick-add) and a per-row **Category** picker \u2014 the same account search used everywhere else in the app. Both pickers stretch to use whatever width the screen has. When a check image was read but no contact is linked yet, the name read off the check shows under the empty Payee picker as a hint; search for or add that contact to link it.
+Every column but Category and Docs sorts: click a header to sort ascending, click again to flip. Sorting happens on the server, so it orders the whole list, not just the page you can see. Both table tabs also carry a **Ref** column (the check number, falling back to the entry number), a per-row **Payee** picker (the same contact search used on Write Check and Bank Feeds, with quick-add) and a per-row **Category** picker \u2014 the same account search used everywhere else in the app. Both pickers stretch to use whatever width the screen has. When a check image was read but no contact is linked yet, the name read off the check shows under the empty Payee picker as a hint; search for or add that contact to link it.
+
+## Many rows at once
+
+Tick the rows (or **Select all on this page**), then use the toolbar. **Set category** posts the ticked rows to one account. **Set payee** puts one contact on the ticked rows and nothing else changes: on **In suspense** the entries stay in suspense with the new name, and on **Not posted** the lines stay pending, so both lists keep showing them. A line someone else has already handled is skipped and counted in the message.
 
 ## One row at a time
 

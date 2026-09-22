@@ -81,6 +81,11 @@ export interface SuggestionRow {
 
 interface Paged { limit?: number; offset?: number; search?: string }
 
+/** Column sorts each tab's endpoint whitelists. Sorting is server-side: the lists paginate. */
+export type UnpostedSortKey = 'feedDate' | 'checkNumber' | 'payee' | 'description' | 'amount';
+export type SuspenseSortKey = 'txnDate' | 'checkNumber' | 'payee' | 'memo' | 'amount';
+export type SortDir = 'asc' | 'desc';
+
 function qs(params: Record<string, string | number | boolean | undefined>): string {
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -118,14 +123,14 @@ export function useSuspenseSummary() {
 /** The feed row plus the server-computed attachment count. */
 export type UnpostedRow = BankFeedItem & { attachmentCount: number };
 
-export function useUnpostedFeed(opts: Paged = {}) {
+export function useUnpostedFeed(opts: Paged & { sortBy?: UnpostedSortKey; sortDir?: SortDir } = {}) {
   return useQuery({
     queryKey: ['uncategorized', 'unposted', opts],
     queryFn: () => apiClient<{ items: UnpostedRow[]; total: number }>(`${BASE}/unposted${qs({ ...opts })}`),
   });
 }
 
-export function useInSuspense(opts: Paged & { includeSuggestions?: boolean } = {}) {
+export function useInSuspense(opts: Paged & { includeSuggestions?: boolean; sortBy?: SuspenseSortKey; sortDir?: SortDir } = {}) {
   return useQuery({
     queryKey: ['uncategorized', 'in-suspense', opts],
     queryFn: () => apiClient<{ rows: SuspenseRow[]; total: number; suspenseAccountId: string | null }>(
@@ -311,16 +316,17 @@ export interface SetPayeeResult {
 }
 
 /**
- * Posted transaction (In suspense tab): the same bulk-update endpoint the
- * transactions list uses for its Payee edit, with one id. `null` clears it.
+ * Posted transactions (In suspense tab): the same bulk-update endpoint the
+ * transactions list uses for its Payee edit. One id from a row's Save, many
+ * from the toolbar's Set payee. `null` clears it.
  */
 export function useSetSuspensePayee() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { transactionId: string; contactId: string | null }) =>
+    mutationFn: (input: { transactionIds: string[]; contactId: string | null }) =>
       apiClient<SetPayeeResult>('/transactions/bulk-update', {
         method: 'POST',
-        body: JSON.stringify({ txnIds: [input.transactionId], setPayeeContactId: input.contactId }),
+        body: JSON.stringify({ txnIds: input.transactionIds, setPayeeContactId: input.contactId }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['uncategorized'] });
@@ -341,6 +347,25 @@ export function useSetFeedItemPayee() {
       apiClient<{ item: BankFeedItem }>(`/banking/feed/${input.feedItemId}`, {
         method: 'PUT',
         body: JSON.stringify({ contactId: input.contactId }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['uncategorized'] });
+      qc.invalidateQueries({ queryKey: ['bank-feed'] });
+    },
+  });
+}
+
+/**
+ * Many unposted lines at once (the Not posted toolbar's Set payee). Same
+ * field as the single-row write, without staging, so the lines stay here.
+ */
+export function useBulkSetFeedPayee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { feedItemIds: string[]; contactId: string | null }) =>
+      apiClient<SetPayeeResult>('/banking/feed/bulk-set-contact', {
+        method: 'POST',
+        body: JSON.stringify(input),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['uncategorized'] });

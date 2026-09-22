@@ -7,7 +7,7 @@
 // classification work moves to tab 2.
 
 import { useState } from 'react';
-import { CircleDot, Loader2, Paperclip } from 'lucide-react';
+import { CircleDot, Loader2, Paperclip, UserPen } from 'lucide-react';
 import { AttachFileButton } from '../../attachments/AttachFileButton';
 import { RowAttachmentsModal } from './RowAttachmentsModal';
 import { formatMoney } from '../../../utils/money';
@@ -17,10 +17,13 @@ import { Button } from '../../../components/ui/Button';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
+import { ContactSelector } from '../../../components/forms/ContactSelector';
+import { SortableTh } from '../../../components/ui/SortableTh';
 import { RowCategoryCell } from './RowCategoryCell';
 import { RowPayeeCell } from './RowPayeeCell';
 import {
-  useUnpostedFeed, usePostToSuspense, useSetFeedItemPayee, type UnpostedRow,
+  useUnpostedFeed, usePostToSuspense, useSetFeedItemPayee, useBulkSetFeedPayee,
+  type UnpostedRow, type UnpostedSortKey, type SortDir,
 } from '../../../api/hooks/useUncategorized';
 import { useBulkCategorize } from '../../../api/hooks/useBanking';
 
@@ -41,6 +44,11 @@ export function NotPostedTab() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [categoryId, setCategoryId] = useState('');
+  const [payeeId, setPayeeId] = useState('');
+  // Server-side sort: the list paginates, so ordering the visible page alone
+  // would lie. '' = the endpoint's default (newest first).
+  const [sortBy, setSortBy] = useState<'' | UnpostedSortKey>('');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [confirmSuspense, setConfirmSuspense] = useState(false);
   const [viewing, setViewing] = useState<UnpostedRow | null>(null);
   // Per-row payee + category drafts, keyed by feed item id. Nothing in a
@@ -49,16 +57,20 @@ export function NotPostedTab() {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const toast = useToast();
-  const query = useUnpostedFeed({ limit: PAGE_SIZE, offset, search });
+  const query = useUnpostedFeed({
+    limit: PAGE_SIZE, offset, search,
+    sortBy: sortBy || undefined, sortDir: sortBy ? sortDir : undefined,
+  });
   const postToSuspense = usePostToSuspense();
   const bulkCategorize = useBulkCategorize();
   const setPayee = useSetFeedItemPayee();
+  const bulkSetPayee = useBulkSetFeedPayee();
 
   const rows: UnpostedRow[] = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
   const pageIds = rows.map((r) => r.id);
   const allSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
-  const busy = postToSuspense.isPending || bulkCategorize.isPending || setPayee.isPending;
+  const busy = postToSuspense.isPending || bulkCategorize.isPending || setPayee.isPending || bulkSetPayee.isPending;
 
   const payeeDirty = (r: UnpostedRow) => {
     const d = drafts[r.id]?.contactId;
@@ -81,6 +93,13 @@ export function NotPostedTab() {
   });
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(pageIds));
   const changePage = (next: number) => { setOffset(next); setSelected(new Set()); };
+  // First click sorts ascending; a second click on the same column flips it.
+  const toggleSort = (key: UnpostedSortKey) => {
+    setSortDir(sortBy === key && sortDir === 'asc' ? 'desc' : 'asc');
+    setSortBy(key);
+    setOffset(0);
+    setSelected(new Set());
+  };
 
   // Save ONE row: the payee first — written onto the feed line the way the
   // Bank Feeds editor does, so the line stays pending and stays here — then
@@ -162,6 +181,25 @@ export function NotPostedTab() {
     );
   };
 
+  // Toolbar "Set payee": one contact onto every ticked line. Written the way
+  // the row-level save is — no staging — so the lines stay on this list.
+  const applyPayee = () => {
+    if (!payeeId || selected.size === 0) return;
+    bulkSetPayee.mutate(
+      { feedItemIds: [...selected], contactId: payeeId },
+      {
+        onSuccess: (res) => {
+          const parts = [`Payee set on ${res.updated} line(s).`];
+          if (res.skipped.length > 0) parts.push(`${res.skipped.length} already handled.`);
+          toast.success(parts.join(' '));
+          setSelected(new Set());
+          setPayeeId('');
+        },
+        onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not set the payee.'),
+      },
+    );
+  };
+
   const doPostToSuspense = () => {
     setConfirmSuspense(false);
     postToSuspense.mutate([...selected], {
@@ -213,6 +251,13 @@ export function NotPostedTab() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <div className="w-64">
+            <ContactSelector value={payeeId} onChange={setPayeeId} compact />
+          </div>
+          <Button variant="secondary" onClick={applyPayee} disabled={busy || !payeeId || selected.size === 0}>
+            {bulkSetPayee.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <UserPen className="h-4 w-4 mr-1" />}
+            Set payee
+          </Button>
           <div className="w-72">
             <AccountSelector value={categoryId} onChange={setCategoryId} compact />
           </div>
@@ -235,14 +280,14 @@ export function NotPostedTab() {
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="w-10 px-3 py-2" />
-              <th className="px-3 py-2">Date</th>
-              <th className="px-3 py-2">Ref</th>
+              <SortableTh sortKey="feedDate" label="Date" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh sortKey="checkNumber" label="Ref" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               {/* The two pickers take the width the fixed columns leave;
                   Description wraps. Percentages are hints to the auto
                   layout, the min widths keep a picker usable when narrow. */}
-              <th className="w-[22%] min-w-[12rem] px-3 py-2">Payee</th>
-              <th className="px-3 py-2">Description</th>
-              <th className="px-3 py-2 text-right">Amount</th>
+              <SortableTh sortKey="payee" label="Payee" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} className="w-[22%] min-w-[12rem]" />
+              <SortableTh sortKey="description" label="Description" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh sortKey="amount" label="Amount" align="right" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               <th className="w-[28%] min-w-[14rem] px-3 py-2">Category</th>
               <th className="px-3 py-2 text-center">Docs</th>
             </tr>

@@ -22,6 +22,10 @@ const bulkCategorizeMutate = vi.fn();
 const postToSuspenseMutate = vi.fn();
 const setSuspensePayeeMutate = vi.fn();
 const setFeedPayeeMutate = vi.fn();
+const bulkSetFeedPayeeMutate = vi.fn();
+// The last options each list hook was called with — how a sort click is observed.
+let lastSuspenseOpts: Record<string, unknown> = {};
+let lastUnpostedOpts: Record<string, unknown> = {};
 
 const suspenseRow = {
   transactionId: 'txn-1',
@@ -78,14 +82,20 @@ const suggestionRow = {
 vi.mock('../../../api/hooks/useUncategorized', () => ({
   useUncategorizedMode: () => ({ data: { mode: 'review', managedByFirm: true, firmName: 'Test Firm', canReview: true }, isLoading: false, isError: false }),
   useSuspenseSummary: () => ({ data: undefined, isLoading: false, isError: false }),
-  useInSuspense: () => ({
-    data: { rows: [suspenseRow], total: 1, suspenseAccountId: 'acct-suspense' },
-    isLoading: false, isError: false, refetch: vi.fn(),
-  }),
-  useUnpostedFeed: () => ({
-    data: { items: [unpostedRow], total: 1 },
-    isLoading: false, isError: false, refetch: vi.fn(),
-  }),
+  useInSuspense: (opts: Record<string, unknown>) => {
+    lastSuspenseOpts = opts;
+    return {
+      data: { rows: [suspenseRow], total: 1, suspenseAccountId: 'acct-suspense' },
+      isLoading: false, isError: false, refetch: vi.fn(),
+    };
+  },
+  useUnpostedFeed: (opts: Record<string, unknown>) => {
+    lastUnpostedOpts = opts;
+    return {
+      data: { items: [unpostedRow], total: 1 },
+      isLoading: false, isError: false, refetch: vi.fn(),
+    };
+  },
   useSuggestions: () => ({
     data: { rows: [suggestionRow], total: 1 },
     isLoading: false, isError: false, refetch: vi.fn(),
@@ -94,6 +104,7 @@ vi.mock('../../../api/hooks/useUncategorized', () => ({
   usePostToSuspense: () => ({ ...passthroughMutation(), mutate: postToSuspenseMutate }),
   useSetSuspensePayee: () => ({ ...passthroughMutation(), mutate: setSuspensePayeeMutate }),
   useSetFeedItemPayee: () => ({ ...passthroughMutation(), mutate: setFeedPayeeMutate }),
+  useBulkSetFeedPayee: () => ({ ...passthroughMutation(), mutate: bulkSetFeedPayeeMutate }),
   useApproveSuggestions: passthroughMutation,
   useRejectSuggestions: passthroughMutation,
   useMarkSuggestionsReviewed: passthroughMutation,
@@ -144,6 +155,7 @@ beforeEach(() => {
   postToSuspenseMutate.mockClear();
   setSuspensePayeeMutate.mockReset();
   setFeedPayeeMutate.mockReset();
+  bulkSetFeedPayeeMutate.mockReset();
 });
 
 /** Resolve a payee write the way the real mutation would: success, one row. */
@@ -166,11 +178,14 @@ async function pickCategory(index = 0) {
   fireEvent.click(option);
 }
 
-/** The row's payee picker is the only contact search on either tab. */
-async function pickPayee() {
-  const input = screen.getByPlaceholderText(/search contacts/i);
-  fireEvent.focus(input);
-  fireEvent.change(input, { target: { value: 'Acme' } });
+/**
+ * Contact searches on either tab: index 0 is the toolbar's Set payee picker,
+ * index 1 the first row's. Like the account picker, drive it by typing.
+ */
+async function pickPayee(index = 1) {
+  const inputs = screen.getAllByPlaceholderText(/search contacts/i);
+  fireEvent.focus(inputs[index]!);
+  fireEvent.change(inputs[index]!, { target: { value: 'Acme' } });
   const option = await waitFor(() => screen.getByText('Acme Supply Co'));
   fireEvent.click(option);
 }
@@ -218,7 +233,8 @@ describe('In suspense — per-row Payee', () => {
   it('shows the check-image payee as a hint under an empty picker', () => {
     renderRoute(<InSuspenseTab />);
     expect(screen.getByRole('columnheader', { name: 'Payee' })).toBeTruthy();
-    expect(screen.getByPlaceholderText(/search contacts/i)).toBeTruthy();
+    // One in the toolbar (Set payee), one on the row.
+    expect(screen.getAllByPlaceholderText(/search contacts/i).length).toBe(2);
     expect(screen.getByText(/on the check: ELITE/i)).toBeTruthy();
   });
 
@@ -238,7 +254,7 @@ describe('In suspense — per-row Payee', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /save this row/i }));
     await waitFor(() => expect(setSuspensePayeeMutate).toHaveBeenCalledTimes(1));
-    expect(setSuspensePayeeMutate.mock.calls[0]![0]).toEqual({ transactionId: 'txn-1', contactId: 'contact-1' });
+    expect(setSuspensePayeeMutate.mock.calls[0]![0]).toEqual({ transactionIds: ['txn-1'], contactId: 'contact-1' });
     // A payee is header-level: nothing posts, nothing leaves suspense.
     expect(clearMutate).not.toHaveBeenCalled();
   });
@@ -267,6 +283,33 @@ describe('In suspense — per-row Payee', () => {
     expect(clearMutate).not.toHaveBeenCalled();
     // Both drafts survive so the person can see what was refused.
     expect(screen.getByRole('button', { name: /save this row/i })).toBeTruthy();
+  });
+});
+
+describe('In suspense — sorting and bulk Set payee', () => {
+  it('sorts on the server: a header click asks the list for that column, a second click flips it', () => {
+    renderRoute(<InSuspenseTab />);
+    expect(lastSuspenseOpts['sortBy']).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: /^in suspense/i }));
+    expect(lastSuspenseOpts).toMatchObject({ sortBy: 'amount', sortDir: 'asc', offset: 0 });
+    fireEvent.click(screen.getByRole('button', { name: /^in suspense/i }));
+    expect(lastSuspenseOpts).toMatchObject({ sortBy: 'amount', sortDir: 'desc' });
+    fireEvent.click(screen.getByRole('button', { name: /^payee/i }));
+    expect(lastSuspenseOpts).toMatchObject({ sortBy: 'payee', sortDir: 'asc' });
+  });
+
+  it('Set payee puts the toolbar contact on every ticked row, through the same bulk endpoint', async () => {
+    payeeSaveSucceeds(setSuspensePayeeMutate);
+    renderRoute(<InSuspenseTab />);
+    const button = screen.getByRole('button', { name: /set payee/i });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText(/select check 1814/i));
+    await pickPayee(0);
+    fireEvent.click(screen.getByRole('button', { name: /set payee/i }));
+    await waitFor(() => expect(setSuspensePayeeMutate).toHaveBeenCalledTimes(1));
+    expect(setSuspensePayeeMutate.mock.calls[0]![0]).toEqual({ transactionIds: ['txn-1'], contactId: 'contact-1' });
+    // Header-level: nothing posts, nothing leaves suspense.
+    expect(clearMutate).not.toHaveBeenCalled();
   });
 });
 
@@ -310,6 +353,29 @@ describe('Not posted — per-row Payee', () => {
     expect(setFeedPayeeMutate).toHaveBeenCalledTimes(1);
     expect(setFeedPayeeMutate.mock.invocationCallOrder[0]!).toBeLessThan(bulkCategorizeMutate.mock.invocationCallOrder[0]!);
     expect(bulkCategorizeMutate.mock.calls[0]![0]).toEqual({ feedItemIds: ['feed-1'], accountId: 'acct-1', contactId: 'contact-1' });
+  });
+});
+
+describe('Not posted — sorting and bulk Set payee', () => {
+  it('sorts on the server by the whitelisted feed keys', () => {
+    renderRoute(<NotPostedTab />);
+    expect(lastUnpostedOpts['sortBy']).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: /^description/i }));
+    expect(lastUnpostedOpts).toMatchObject({ sortBy: 'description', sortDir: 'asc', offset: 0 });
+    fireEvent.click(screen.getByRole('button', { name: /^ref/i }));
+    expect(lastUnpostedOpts).toMatchObject({ sortBy: 'checkNumber', sortDir: 'asc' });
+  });
+
+  it('Set payee writes the ticked lines without staging or posting them', async () => {
+    payeeSaveSucceeds(bulkSetFeedPayeeMutate);
+    renderRoute(<NotPostedTab />);
+    fireEvent.click(screen.getByLabelText(/select MYSTERY VENDOR/i));
+    await pickPayee(0);
+    fireEvent.click(screen.getByRole('button', { name: /set payee/i }));
+    await waitFor(() => expect(bulkSetFeedPayeeMutate).toHaveBeenCalledTimes(1));
+    expect(bulkSetFeedPayeeMutate.mock.calls[0]![0]).toEqual({ feedItemIds: ['feed-1'], contactId: 'contact-1' });
+    expect(bulkCategorizeMutate).not.toHaveBeenCalled();
+    expect(postToSuspenseMutate).not.toHaveBeenCalled();
   });
 });
 

@@ -45,6 +45,7 @@ vi.mock('../../../api/hooks/useUncategorized', () => ({
   useClearSuspense: passthroughMutation,
   useSetSuspensePayee: passthroughMutation,
   useSetFeedItemPayee: passthroughMutation,
+  useBulkSetFeedPayee: passthroughMutation,
   useHelpRecipients: () => ({ data: recipientsView, isLoading: false, isError: false, refetch: vi.fn() }),
   useSendHelpRequest: () => ({ ...passthroughMutation(), mutate: sendMutate, isPending: false }),
 }));
