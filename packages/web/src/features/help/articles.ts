@@ -2817,11 +2817,11 @@ Nothing lands there on its own. Only two paths post to suspense:
 
 A row moves from the first tab to the second when you post it to suspense; it leaves the second when you give it a real category. Nothing disappears.
 
-Both table tabs also carry a **Ref** column (the check number, falling back to the entry number) and a **Payee** column, plus a per-row **Category** picker \u2014 the same account search used everywhere else in the app.
+Both table tabs also carry a **Ref** column (the check number, falling back to the entry number), a per-row **Payee** picker (the same contact search used on Write Check and Bank Feeds, with quick-add) and a per-row **Category** picker \u2014 the same account search used everywhere else in the app. Both pickers stretch to use whatever width the screen has. When a check image was read but no contact is linked yet, the name read off the check shows under the empty Payee picker as a hint; search for or add that contact to link it.
 
 ## One row at a time
 
-Picking a category in a row's **Category** column does not post it. The row shows an amber marker and a **Save** button, and a banner reminds you that nothing is committed yet. Press **Save** on that row to post it, at which point the row leaves the list.
+Picking a payee or a category in a row does not save it. The row shows an amber marker and a **Save** button, and a banner reminds you that nothing is committed yet. Press **Save** on that row to commit both picks: the payee is saved first, then the category is posted, at which point the row leaves the list. A payee saved on its own moves no money and the row stays where it is. Picking a contact that has a default expense account prefills the row's category, which you can still change before saving.
 
 That extra step is deliberate. A row vanishing the instant a dropdown closed reads as an accidental posting, and a mis-click would already be in the books. If the ledger refuses the move \u2014 a closed period, say \u2014 the row keeps your pick so you can see what happened rather than starting over.
 

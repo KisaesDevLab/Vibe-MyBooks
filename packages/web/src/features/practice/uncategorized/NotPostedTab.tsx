@@ -18,10 +18,23 @@ import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
 import { RowCategoryCell } from './RowCategoryCell';
-import { useUnpostedFeed, usePostToSuspense, type UnpostedRow } from '../../../api/hooks/useUncategorized';
+import { RowPayeeCell } from './RowPayeeCell';
+import {
+  useUnpostedFeed, usePostToSuspense, useSetFeedItemPayee, type UnpostedRow,
+} from '../../../api/hooks/useUncategorized';
 import { useBulkCategorize } from '../../../api/hooks/useBanking';
 
 const PAGE_SIZE = 50;
+
+/**
+ * One row's unsaved picks. `accountId` is set once a category is picked;
+ * `contactId` is set once the payee picker has been touched ('' = cleared),
+ * and counts as dirty only when it differs from what the line already has.
+ */
+interface RowDraft { accountId?: string; contactId?: string }
+
+/** The contact the line shows today: the human-assigned one, else the rule/AI suggestion. */
+const currentContactId = (r: UnpostedRow) => r.assignedContactId || r.suggestedContactId || '';
 
 export function NotPostedTab() {
   const [offset, setOffset] = useState(0);
@@ -30,21 +43,36 @@ export function NotPostedTab() {
   const [categoryId, setCategoryId] = useState('');
   const [confirmSuspense, setConfirmSuspense] = useState(false);
   const [viewing, setViewing] = useState<UnpostedRow | null>(null);
-  // Per-row category drafts, keyed by feed item id. A draft is NOT posted
-  // until that row's Save is pressed — see RowCategoryCell.
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // Per-row payee + category drafts, keyed by feed item id. Nothing in a
+  // draft is written until that row's Save is pressed — see RowCategoryCell.
+  const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const toast = useToast();
   const query = useUnpostedFeed({ limit: PAGE_SIZE, offset, search });
   const postToSuspense = usePostToSuspense();
   const bulkCategorize = useBulkCategorize();
+  const setPayee = useSetFeedItemPayee();
 
   const rows: UnpostedRow[] = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
   const pageIds = rows.map((r) => r.id);
   const allSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
-  const busy = postToSuspense.isPending || bulkCategorize.isPending;
+  const busy = postToSuspense.isPending || bulkCategorize.isPending || setPayee.isPending;
+
+  const payeeDirty = (r: UnpostedRow) => {
+    const d = drafts[r.id]?.contactId;
+    return d !== undefined && d !== currentContactId(r);
+  };
+  const anyDirty = rows.some((r) => payeeDirty(r) || !!drafts[r.id]?.accountId);
+
+  const patchDraft = (id: string, patch: RowDraft) =>
+    setDrafts((d) => ({ ...d, [id]: { ...d[id], ...patch } }));
+  const dropDraft = (id: string) => setDrafts((d) => {
+    const next = { ...d };
+    delete next[id];
+    return next;
+  });
 
   const toggle = (id: string) => setSelected((prev) => {
     const next = new Set(prev);
@@ -54,37 +82,66 @@ export function NotPostedTab() {
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(pageIds));
   const changePage = (next: number) => { setOffset(next); setSelected(new Set()); };
 
-  // Save ONE row through the same endpoint as the bulk action, with one id,
+  // Save ONE row: the payee first — written onto the feed line the way the
+  // Bank Feeds editor does, so the line stays pending and stays here — then
+  // the category through the same endpoint as the bulk action, with one id,
   // so a row already handled elsewhere is reported rather than silently
-  // dropped (bulkCategorize ignores anything not still 'pending').
-  const saveRow = (feedItemId: string) => {
-    const accountId = drafts[feedItemId];
-    if (!accountId) return;
+  // dropped (bulkCategorize ignores anything not still 'pending'). The
+  // posted transaction carries the contact the line has at that moment.
+  const saveRow = (r: UnpostedRow) => {
+    const feedItemId = r.id;
+    const draft = drafts[feedItemId] ?? {};
+    const accountId = draft.accountId;
+    const wantsPayee = payeeDirty(r);
+    if (!accountId && !wantsPayee) return;
     setSavingId(feedItemId);
-    bulkCategorize.mutate(
-      { feedItemIds: [feedItemId], accountId },
-      {
-        onSuccess: (res) => {
-          const categorized = (res as { categorized?: number } | undefined)?.categorized ?? 0;
-          if (categorized === 0) {
-            // Keeps the draft: nothing posted, so the picker must not clear.
-            toast.error('Not posted — this bank line was already handled. Refresh the list.');
-            return;
-          }
-          toast.success('Category saved. The line has posted.');
-          setDrafts((d) => {
-            const next = { ...d };
-            delete next[feedItemId];
-            return next;
-          });
-          setSelected((prev) => {
-            const next = new Set(prev);
-            next.delete(feedItemId);
-            return next;
-          });
+
+    const finish = () => setSavingId(null);
+
+    const saveCategory = () => {
+      if (!accountId) {
+        toast.success('Payee saved.');
+        dropDraft(feedItemId);
+        finish();
+        return;
+      }
+      bulkCategorize.mutate(
+        { feedItemIds: [feedItemId], accountId, ...(draft.contactId ? { contactId: draft.contactId } : {}) },
+        {
+          onSuccess: (res) => {
+            const categorized = (res as { categorized?: number } | undefined)?.categorized ?? 0;
+            if (categorized === 0) {
+              // Keeps the draft: nothing posted, so the picker must not clear.
+              toast.error('Not posted — this bank line was already handled. Refresh the list.');
+              return;
+            }
+            toast.success('Category saved. The line has posted.');
+            dropDraft(feedItemId);
+            setSelected((prev) => {
+              const next = new Set(prev);
+              next.delete(feedItemId);
+              return next;
+            });
+          },
+          onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not save the category.'),
+          onSettled: finish,
         },
-        onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not save the category.'),
-        onSettled: () => setSavingId(null),
+      );
+    };
+
+    if (!wantsPayee) { saveCategory(); return; }
+    setPayee.mutate(
+      { feedItemId, contactId: draft.contactId || null },
+      {
+        onSuccess: () => {
+          // The payee is on the line; only the category (if any) is still a draft.
+          patchDraft(feedItemId, { contactId: undefined });
+          saveCategory();
+        },
+        onError: (e) => {
+          toast.error(e instanceof Error ? e.message : 'Could not save the payee.');
+          finish();
+        },
       },
     );
   };
@@ -131,11 +188,11 @@ export function NotPostedTab() {
         className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
       />
 
-      {Object.keys(drafts).length > 0 && (
+      {anyDirty && (
         <p className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           <CircleDot className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-          A category you pick is not saved until you press <strong>Save</strong> on that row.
-          Saving posts it and removes the row from this list.
+          A payee or category you pick is not saved until you press <strong>Save</strong> on that row.
+          Saving a category posts it and removes the row from this list; a payee on its own keeps the row here.
         </p>
       )}
 
@@ -156,7 +213,7 @@ export function NotPostedTab() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="w-56">
+          <div className="w-72">
             <AccountSelector value={categoryId} onChange={setCategoryId} compact />
           </div>
           <Button onClick={applyCategory} disabled={busy || !categoryId || selected.size === 0}>
@@ -180,10 +237,13 @@ export function NotPostedTab() {
               <th className="w-10 px-3 py-2" />
               <th className="px-3 py-2">Date</th>
               <th className="px-3 py-2">Ref</th>
-              <th className="px-3 py-2">Payee</th>
+              {/* The two pickers take the width the fixed columns leave;
+                  Description wraps. Percentages are hints to the auto
+                  layout, the min widths keep a picker usable when narrow. */}
+              <th className="w-[22%] min-w-[12rem] px-3 py-2">Payee</th>
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2 text-right">Amount</th>
-              <th className="px-3 py-2">Category</th>
+              <th className="w-[28%] min-w-[14rem] px-3 py-2">Category</th>
               <th className="px-3 py-2 text-center">Docs</th>
             </tr>
           </thead>
@@ -216,20 +276,32 @@ export function NotPostedTab() {
                   {r.checkNumber ?? '—'}
                 </td>
                 {/* Same precedence the Bank Feeds NAME column uses: the
-                    human-assigned contact, then the rule/AI/check-image
-                    suggestion, then the payee read off the check image. */}
-                <td className="px-3 py-2 text-gray-900">
-                  {r.assignedContactName || r.suggestedContactName || r.payeeNameOnCheck || '—'}
+                    human-assigned contact, then the rule/AI suggestion, with
+                    the payee read off the check image as a hint under an
+                    empty picker. Picking a contact with a default expense
+                    account prefills an empty Category draft. */}
+                <td className="px-3 py-2">
+                  <RowPayeeCell
+                    value={drafts[r.id]?.contactId ?? currentContactId(r)}
+                    onChange={(next) => patchDraft(r.id, { contactId: next })}
+                    onSelect={(c) => {
+                      if (c?.defaultExpenseAccountId && !drafts[r.id]?.accountId) {
+                        patchDraft(r.id, { accountId: c.defaultExpenseAccountId });
+                      }
+                    }}
+                    checkPayee={r.payeeNameOnCheck}
+                  />
                 </td>
                 <td className="px-3 py-2 text-gray-700">{r.description ?? '(no description)'}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.amount)}</td>
                 <td className="px-3 py-2">
                   <RowCategoryCell
-                    value={drafts[r.id] ?? ''}
-                    onChange={(next) => setDrafts((d) => ({ ...d, [r.id]: next }))}
-                    onSave={() => saveRow(r.id)}
+                    value={drafts[r.id]?.accountId ?? ''}
+                    onChange={(next) => patchDraft(r.id, { accountId: next })}
+                    onSave={() => saveRow(r)}
                     saving={savingId === r.id}
                     disabled={busy && savingId !== r.id}
+                    payeeDirty={payeeDirty(r)}
                   />
                 </td>
                 <td className="px-3 py-2">

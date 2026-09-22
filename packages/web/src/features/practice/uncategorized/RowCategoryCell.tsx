@@ -2,12 +2,16 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-// One row's category picker on the Uncategorized tabs.
+// One row's category picker on the Uncategorized tabs, plus the row's Save.
 //
 // Picking an account does NOT post. The pick is a draft until the row's own
 // Save is pressed, and an unsaved-changes marker says so — otherwise a row
 // vanishing from the list the instant a dropdown closed would read as an
 // accidental posting, and a mis-click would already be in the books.
+//
+// The Save button here is the row's only Save: it also commits a payee
+// drafted in the Payee column (RowPayeeCell), so `payeeDirty` lights it up
+// even when no category is picked. Saving a payee alone keeps the row.
 //
 // Uses the same AccountSelector every transaction form uses, so the search,
 // the account-number display and the by-type filtering behave identically to
@@ -17,7 +21,7 @@ import { CircleDot, Loader2, Save } from 'lucide-react';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
 
 export function RowCategoryCell({
-  value, onChange, onSave, saving, disabled,
+  value, onChange, onSave, saving, disabled, payeeDirty = false,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -25,12 +29,15 @@ export function RowCategoryCell({
   saving: boolean;
   /** True while any other write on the page is in flight. */
   disabled: boolean;
+  /** The row's payee has an unsaved pick; the Save covers it too. */
+  payeeDirty?: boolean;
 }) {
-  const dirty = value !== '';
+  const categoryDirty = value !== '';
+  const dirty = categoryDirty || payeeDirty;
 
   return (
     <div className="flex items-center gap-1.5">
-      <div className="w-52 min-w-[10rem]">
+      <div className="min-w-[10rem] flex-1">
         <AccountSelector value={value} onChange={onChange} compact />
       </div>
 
@@ -45,8 +52,10 @@ export function RowCategoryCell({
             type="button"
             onClick={onSave}
             disabled={saving || disabled}
-            title="Save this category. The row leaves this list."
-            aria-label="Save this category"
+            title={categoryDirty
+              ? 'Save this row. Posting the category removes it from this list.'
+              : 'Save the payee. The row stays on this list.'}
+            aria-label="Save this row"
             className="inline-flex shrink-0 items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
           >
             {saving

@@ -21,10 +21,21 @@ import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
 import { SelectionActionBar } from './SelectionActionBar';
 import { RowCategoryCell } from './RowCategoryCell';
+import { RowPayeeCell } from './RowPayeeCell';
 import { RequestClientHelpModal } from './RequestClientHelpModal';
-import { useInSuspense, useClearSuspense, type SuspenseRow as SuspenseRowView } from '../../../api/hooks/useUncategorized';
+import {
+  useInSuspense, useClearSuspense, useSetSuspensePayee,
+  type SuspenseRow as SuspenseRowView,
+} from '../../../api/hooks/useUncategorized';
 
 const PAGE_SIZE = 50;
+
+/**
+ * One row's unsaved picks. `accountId` is set once a category is picked;
+ * `contactId` is set once the payee picker has been touched ('' = cleared),
+ * and counts as dirty only when it differs from what the row already has.
+ */
+interface RowDraft { accountId?: string; contactId?: string }
 
 export function InSuspenseTab() {
   const [offset, setOffset] = useState(0);
@@ -32,20 +43,36 @@ export function InSuspenseTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [categoryId, setCategoryId] = useState('');
   const [viewing, setViewing] = useState<SuspenseRowView | null>(null);
-  // Per-row category drafts, keyed by transaction id. A draft is NOT posted
-  // until that row's Save is pressed — see RowCategoryCell.
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // Per-row payee + category drafts, keyed by transaction id. Nothing in a
+  // draft is written until that row's Save is pressed — see RowCategoryCell.
+  const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
 
   const toast = useToast();
   const query = useInSuspense({ limit: PAGE_SIZE, offset, search });
   const clear = useClearSuspense();
+  const setPayee = useSetSuspensePayee();
 
   const rows = query.data?.rows ?? [];
   const total = query.data?.total ?? 0;
   const pageIds = rows.map((r) => r.transactionId);
   const allSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const busy = clear.isPending || setPayee.isPending;
+
+  const payeeDirty = (r: SuspenseRowView) => {
+    const d = drafts[r.transactionId]?.contactId;
+    return d !== undefined && d !== (r.contactId ?? '');
+  };
+  const anyDirty = rows.some((r) => payeeDirty(r) || !!drafts[r.transactionId]?.accountId);
+
+  const patchDraft = (id: string, patch: RowDraft) =>
+    setDrafts((d) => ({ ...d, [id]: { ...d[id], ...patch } }));
+  const dropDraft = (id: string) => setDrafts((d) => {
+    const next = { ...d };
+    delete next[id];
+    return next;
+  });
 
   const toggle = (id: string) => setSelected((prev) => {
     const next = new Set(prev);
@@ -54,37 +81,71 @@ export function InSuspenseTab() {
   });
   const changePage = (next: number) => { setOffset(next); setSelected(new Set()); };
 
-  // Save ONE row. Same endpoint as the bulk action, one id — so lock dates,
-  // voids and adjusting entries are refused here exactly as they are there.
-  const saveRow = (transactionId: string) => {
-    const accountId = drafts[transactionId];
-    if (!accountId) return;
+  // Save ONE row: the payee first (header-level, the row stays), then the
+  // category through the same endpoint as the bulk action with one id — so
+  // lock dates, voids and adjusting entries are refused here exactly as they
+  // are there. A category refusal after the payee saved keeps only the
+  // category draft: the payee is already in the books.
+  const saveRow = (r: SuspenseRowView) => {
+    const transactionId = r.transactionId;
+    const draft = drafts[transactionId] ?? {};
+    const accountId = draft.accountId;
+    const wantsPayee = payeeDirty(r);
+    if (!accountId && !wantsPayee) return;
     setSavingId(transactionId);
-    clear.mutate(
-      { transactionIds: [transactionId], accountId },
+
+    const finish = () => setSavingId(null);
+
+    const saveCategory = () => {
+      if (!accountId) {
+        toast.success('Payee saved.');
+        dropDraft(transactionId);
+        finish();
+        return;
+      }
+      clear.mutate(
+        { transactionIds: [transactionId], accountId },
+        {
+          onSuccess: (res) => {
+            if (res.updated === 0) {
+              const reason = res.skipped[0]?.reason ?? 'it could not be moved';
+              // The row stays put and keeps its category draft: nothing
+              // moved, so clearing the picker would just hide the problem.
+              toast.error(`Not moved — ${reason}.`);
+              return;
+            }
+            toast.success('Category saved. The entry has left suspense.');
+            dropDraft(transactionId);
+            setSelected((prev) => {
+              const next = new Set(prev);
+              next.delete(transactionId);
+              return next;
+            });
+          },
+          onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not save the category.'),
+          onSettled: finish,
+        },
+      );
+    };
+
+    if (!wantsPayee) { saveCategory(); return; }
+    setPayee.mutate(
+      { transactionId, contactId: draft.contactId || null },
       {
         onSuccess: (res) => {
           if (res.updated === 0) {
-            const reason = res.skipped[0]?.reason ?? 'it could not be moved';
-            // The row stays put and keeps its draft: nothing moved, so
-            // clearing the picker would just hide the problem.
-            toast.error(`Not moved — ${reason}.`);
+            toast.error(`Payee not saved — ${res.skipped[0]?.reason ?? 'the entry could not be changed'}.`);
+            finish();
             return;
           }
-          toast.success('Category saved. The entry has left suspense.');
-          setDrafts((d) => {
-            const next = { ...d };
-            delete next[transactionId];
-            return next;
-          });
-          setSelected((prev) => {
-            const next = new Set(prev);
-            next.delete(transactionId);
-            return next;
-          });
+          // The payee is in the books; only the category (if any) is still a draft.
+          patchDraft(transactionId, { contactId: undefined });
+          saveCategory();
         },
-        onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not save the category.'),
-        onSettled: () => setSavingId(null),
+        onError: (e) => {
+          toast.error(e instanceof Error ? e.message : 'Could not save the payee.');
+          finish();
+        },
       },
     );
   };
@@ -130,11 +191,11 @@ export function InSuspenseTab() {
         </Button>
       </div>
 
-      {Object.keys(drafts).length > 0 && (
+      {anyDirty && (
         <p className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           <CircleDot className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-          A category you pick is not saved until you press <strong>Save</strong> on that row.
-          Saving posts it and removes the row from this list.
+          A payee or category you pick is not saved until you press <strong>Save</strong> on that row.
+          Saving a category posts it and removes the row from this list; a payee on its own keeps the row here.
         </p>
       )}
 
@@ -142,14 +203,14 @@ export function InSuspenseTab() {
         selectedCount={selected.size}
         totalCount={rows.length}
         allSelected={allSelected}
-        disabled={clear.isPending}
+        disabled={busy}
         onToggleAll={() => setSelected(allSelected ? new Set() : new Set(pageIds))}
         onClearSelection={() => setSelected(new Set())}
       >
-        <div className="w-56">
+        <div className="w-72">
           <AccountSelector value={categoryId} onChange={setCategoryId} compact />
         </div>
-        <Button onClick={applyCategory} disabled={clear.isPending || !categoryId || selected.size === 0}>
+        <Button onClick={applyCategory} disabled={busy || !categoryId || selected.size === 0}>
           {clear.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
           Set category
         </Button>
@@ -162,10 +223,13 @@ export function InSuspenseTab() {
               <th className="w-10 px-3 py-2" />
               <th className="px-3 py-2">Date</th>
               <th className="px-3 py-2">Ref</th>
-              <th className="px-3 py-2">Payee</th>
+              {/* The two pickers take the width the fixed columns leave;
+                  Memo wraps. Percentages are hints to the auto layout, the
+                  min widths keep a picker usable on a narrow screen. */}
+              <th className="w-[22%] min-w-[12rem] px-3 py-2">Payee</th>
               <th className="px-3 py-2">Memo</th>
               <th className="px-3 py-2 text-right">In suspense</th>
-              <th className="px-3 py-2">Category</th>
+              <th className="w-[28%] min-w-[14rem] px-3 py-2">Category</th>
               <th className="px-3 py-2 text-center">Docs</th>
               <th className="px-3 py-2" />
             </tr>
@@ -199,9 +263,21 @@ export function InSuspenseTab() {
                   {r.checkNumber ?? r.txnNumber ?? '—'}
                 </td>
                 {/* No linked contact is common on feed postings; the payee read
-                    off the check image is the next-best name, so show it rather
-                    than a bare dash. */}
-                <td className="px-3 py-2 text-gray-900">{r.contactName ?? r.payeeNameOnCheck ?? '—'}</td>
+                    off the check image is shown under the picker as the
+                    next-best name. Picking a contact with a default expense
+                    account prefills an empty Category draft. */}
+                <td className="px-3 py-2">
+                  <RowPayeeCell
+                    value={drafts[r.transactionId]?.contactId ?? r.contactId ?? ''}
+                    onChange={(next) => patchDraft(r.transactionId, { contactId: next })}
+                    onSelect={(c) => {
+                      if (c?.defaultExpenseAccountId && !drafts[r.transactionId]?.accountId) {
+                        patchDraft(r.transactionId, { accountId: c.defaultExpenseAccountId });
+                      }
+                    }}
+                    checkPayee={r.payeeNameOnCheck}
+                  />
+                </td>
                 <td className="px-3 py-2 text-gray-700">
                   {r.memo ?? '—'}
                   {r.isSplit && (
@@ -217,11 +293,12 @@ export function InSuspenseTab() {
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.amount)}</td>
                 <td className="px-3 py-2">
                   <RowCategoryCell
-                    value={drafts[r.transactionId] ?? ''}
-                    onChange={(next) => setDrafts((d) => ({ ...d, [r.transactionId]: next }))}
-                    onSave={() => saveRow(r.transactionId)}
+                    value={drafts[r.transactionId]?.accountId ?? ''}
+                    onChange={(next) => patchDraft(r.transactionId, { accountId: next })}
+                    onSave={() => saveRow(r)}
                     saving={savingId === r.transactionId}
-                    disabled={clear.isPending && savingId !== r.transactionId}
+                    disabled={busy && savingId !== r.transactionId}
+                    payeeDirty={payeeDirty(r)}
                   />
                 </td>
                 <td className="px-3 py-2">

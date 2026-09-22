@@ -21,6 +21,8 @@ export interface SuspenseRow {
   txnType: string;
   txnNumber: string | null;
   memo: string | null;
+  /** Linked payee (transactions.contact_id). The row's Payee picker edits it. */
+  contactId: string | null;
   contactName: string | null;
   /** Check/reference number on the posted transaction. Shown in the Ref column. */
   checkNumber: number | null;
@@ -294,5 +296,55 @@ export function useWithdrawTeamSuggestion() {
     mutationFn: (suggestionId: string) =>
       apiClient<{ withdrawn: boolean }>(`${BASE}/team/suggest/${suggestionId}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['uncategorized'] }),
+  });
+}
+
+// ── Per-row payee edits ──────────────────────────────────────────────────
+//
+// A payee is header-level: changing it moves no money and never removes a
+// row from either list, so both writes below leave `accounts` alone and only
+// refresh the lists that display the name.
+
+export interface SetPayeeResult {
+  updated: number;
+  skipped: Array<{ id: string; reason: string }>;
+}
+
+/**
+ * Posted transaction (In suspense tab): the same bulk-update endpoint the
+ * transactions list uses for its Payee edit, with one id. `null` clears it.
+ */
+export function useSetSuspensePayee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { transactionId: string; contactId: string | null }) =>
+      apiClient<SetPayeeResult>('/transactions/bulk-update', {
+        method: 'POST',
+        body: JSON.stringify({ txnIds: [input.transactionId], setPayeeContactId: input.contactId }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['uncategorized'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
+/**
+ * Unposted bank line (Not posted tab): sets the feed item's contact — the
+ * same field the Bank Feeds editor writes — without staging or posting it,
+ * so the line stays `pending` and stays on this list. `null` clears it.
+ */
+export function useSetFeedItemPayee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { feedItemId: string; contactId: string | null }) =>
+      apiClient<{ item: BankFeedItem }>(`/banking/feed/${input.feedItemId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ contactId: input.contactId }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['uncategorized'] });
+      qc.invalidateQueries({ queryKey: ['bank-feed'] });
+    },
   });
 }
