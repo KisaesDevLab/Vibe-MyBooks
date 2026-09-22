@@ -2555,11 +2555,15 @@ Use the **Transaction Report** button on the transaction — see *Transaction Re
     body: `
 ## Transaction Report
 
-The **Transaction Report** button on any transaction (and on the Bill and Invoice pages) opens one PDF in a new tab that documents the whole story — useful for an audit request, a client question, or your own workpapers.
+The **Transaction Report** button on any transaction (and on the Bill and Invoice pages) opens one PDF in a new tab that documents the whole story — useful for an audit request, a client question, or your own workpapers. Each attachment is placed right after the transaction it belongs to: images under the entry, PDF pages behind it, before the next linked transaction.
 
 ## For a date range
 
-**Reports \u2192 Transaction Report** builds the same report for every transaction in a date range, optionally narrowed to one type, name, account, tag or basis. Voided transactions are left out unless you tick **Include voided**. The screen counts how many transactions match before you press **Open PDF**. In the PDF each transaction is one block (details, journal lines, a one-line note of what it is linked to), and blocks are packed several to a page \u2014 a block never splits across pages, so a block that would straddle the edge starts the next page. Every attachment follows in transaction order, captioned with the transaction it belongs to, and each block lists its attachments by number. The report holds the first 250 matching transactions and says so if there were more; the attachment limits are the same as the single-transaction report.
+**Reports \u2192 Transaction Report** builds the same report for every transaction in a date range, optionally narrowed to one type, name, account, tag or basis. Voided transactions are left out unless you tick **Include voided**. The screen counts how many transactions match before you press **Open PDF**. In the PDF each transaction is one block (details, journal lines, a one-line note of what it is linked to), and blocks are packed several to a page \u2014 a block never splits across pages, so a block that would straddle the edge starts the next page. Each attachment sits right after the entry it belongs to: an image is printed under the entry, so the check and the posting share a page, and a PDF's pages follow the entry before the next transaction starts. Every block also lists its attachments by number.
+
+## When the range is large
+
+A single PDF holds up to 250 transactions, 40 attachments and 100 MB of files. When a range needs more, nothing is left out: the report is split into **parts** in date order, and the screen lists them \u2014 the dates, transaction count and attachment count of each \u2014 with a **View** button per part. A part is built when you open it, so there is nothing to wait for up front and nothing stored. Each part's cover line says which part it is and the dates it covers.
 
 ### What is in it
 1. **The transaction** — its details (vendor / customer / payee, document number, vendor invoice #, check # or Ref #, payment method, the bank account it was paid from or deposited to, terms, due date, amounts) and its journal lines.

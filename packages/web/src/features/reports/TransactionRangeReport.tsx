@@ -3,14 +3,18 @@
 // Free for small businesses; see LICENSE for terms.
 
 // Reports → Transaction Report: the per-transaction report (header, journal
-// lines, what it is linked to, every attachment) for every transaction in a
-// date range, packed several to a page. The server builds the PDF
-// (GET /transactions/report.pdf); this screen picks the range and lenses and
-// shows how many transactions they match before the PDF is asked for.
+// lines, what it is linked to, each attachment right after its entry) for
+// every transaction in a date range, packed several to a page.
+//
+// The server plans the report first (GET /transactions/report-plan): the
+// matching transactions are split in date order into parts, each within the
+// attachment limits, so nothing is ever left out. One part → one Open PDF
+// button; several → a list, each built on demand when clicked
+// (GET /transactions/report.pdf?…&part=N). Nothing is stored server-side.
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Loader2 } from 'lucide-react';
+import { FileText, Loader2, Paperclip } from 'lucide-react';
 import { TXN_TYPE_LABELS, type TxnType } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
 import { useTags } from '../../api/hooks/useTags';
@@ -25,8 +29,29 @@ import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toaster';
 import { openReportPdf } from '../transactions/openReportPdf';
 
-/** Mirrors MAX_RANGE_TRANSACTIONS on the server; the PDF says so too. */
-const MAX_TRANSACTIONS = 250;
+interface ReportPart {
+  index: number;
+  startDate: string;
+  endDate: string;
+  transactionCount: number;
+  attachmentCount: number;
+  attachmentBytes: number;
+}
+interface ReportPlan {
+  transactionCount: number;
+  attachmentCount: number;
+  parts: ReportPart[];
+  truncated: boolean;
+}
+
+function fmtDate(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  return `${m}/${d}/${y}`;
+}
+function fmtBytes(n: number): string {
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
 const TXN_TYPES = Object.keys(TXN_TYPE_LABELS) as TxnType[];
 /** 'all' shows every basis; the lens otherwise mirrors the transactions list. */
 type BasisLens = 'all' | 'cash' | 'accrual';
@@ -50,7 +75,8 @@ export function TransactionRangeReport() {
   const [tagId, setTagId] = useSessionState('txnreport.tag', '');
   const [basis, setBasis] = useSessionState<BasisLens>('txnreport.basis', 'all');
   const [includeVoid, setIncludeVoid] = useSessionState('txnreport.void', false);
-  const [building, setBuilding] = useState(false);
+  // Which part is being built right now (0 = the single-part button).
+  const [building, setBuilding] = useState<number | null>(null);
 
   const debStart = useDebouncedDate(startDate);
   const debEnd = useDebouncedDate(endDate);
@@ -64,30 +90,28 @@ export function TransactionRangeReport() {
   if (accountId) params.set('accountId', accountId);
   if (tagId) params.set('tagId', tagId);
   if (basis !== 'all') params.set('basis', basis);
+  if (includeVoid) params.set('includeVoid', 'true');
   const lens = params.toString();
-
-  // How many transactions the PDF will hold: the list's own count, so the
-  // number here and the number on the report agree. Voids are counted
-  // separately because the list has no "not void" filter.
-  const count = useQuery({
-    queryKey: ['transactions', 'range-report-count', lens, activeCompanyId],
-    enabled: !!debStart && !!debEnd && debStart <= debEnd,
-    queryFn: async () => {
-      const all = await apiClient<{ total: number }>(`/transactions?${lens}&limit=1`);
-      const voided = await apiClient<{ total: number }>(`/transactions?${lens}&status=void&limit=1`);
-      return { all: all.total, voided: voided.total };
-    },
-  });
-  const matching = count.data ? (includeVoid ? count.data.all : count.data.all - count.data.voided) : null;
   const badRange = !!startDate && !!endDate && startDate > endDate;
 
-  const build = async () => {
-    setBuilding(true);
+  // The plan is what the PDF will be built from, so the counts here and on
+  // the report agree by construction.
+  const plan = useQuery({
+    queryKey: ['transactions', 'range-report-plan', lens, activeCompanyId],
+    enabled: !!debStart && !!debEnd && !badRange,
+    queryFn: () => apiClient<ReportPlan>(`/transactions/report-plan?${lens}`),
+  });
+  const parts = plan.data?.parts ?? [];
+
+  const build = async (part: ReportPart | null) => {
+    setBuilding(part?.index ?? 0);
     try {
       const q = new URLSearchParams(params);
-      if (includeVoid) q.set('includeVoid', 'true');
+      if (part && parts.length > 1) q.set('part', String(part.index));
+      const suffix = part && parts.length > 1 ? `-part-${part.index}-of-${parts.length}` : '';
       const { skippedAttachments } = await openReportPdf(`/transactions/report.pdf?${q.toString()}`, {
-        title: 'Transaction Report', fallbackFileName: `transaction-report-${startDate}-to-${endDate}.pdf`,
+        title: part && parts.length > 1 ? `Transaction Report — Part ${part.index}` : 'Transaction Report',
+        fallbackFileName: `transaction-report-${startDate}-to-${endDate}${suffix}.pdf`,
       });
       if (skippedAttachments > 0) {
         toast.info(`${skippedAttachments} attachment${skippedAttachments === 1 ? '' : 's'} could not be included`, {
@@ -97,7 +121,7 @@ export function TransactionRangeReport() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not build the report');
     } finally {
-      setBuilding(false);
+      setBuilding(null);
     }
   };
 
@@ -163,28 +187,71 @@ export function TransactionRangeReport() {
     >
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
         <p className="text-sm text-gray-700">
-          One PDF with every matching transaction: its details, journal lines and what it is linked to,
-          several to a page, followed by every attachment in transaction order.
+          Every matching transaction with its details, journal lines and what it is linked to, several to a page.
+          Each attachment is placed right after the entry it belongs to: images under the entry, PDF pages behind it.
         </p>
         {badRange ? (
           <p className="text-sm text-red-600">The start date is after the end date.</p>
-        ) : count.isLoading ? (
-          <p className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Counting…</p>
-        ) : matching !== null ? (
-          <p className="text-sm text-gray-700">
-            <strong className="tabular-nums">{matching.toLocaleString()}</strong> transaction{matching === 1 ? '' : 's'} match.
-            {matching > MAX_TRANSACTIONS && (
-              <span className="ml-1 text-amber-700">
-                The report holds the first {MAX_TRANSACTIONS}; narrow the dates or add a filter for the rest.
-              </span>
+        ) : plan.isLoading ? (
+          <p className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Planning…</p>
+        ) : plan.isError ? (
+          <p className="text-sm text-red-600">{plan.error instanceof Error ? plan.error.message : 'Could not plan the report.'}</p>
+        ) : plan.data ? (
+          <>
+            <p className="text-sm text-gray-700">
+              <strong className="tabular-nums">{plan.data.transactionCount.toLocaleString()}</strong> transaction{plan.data.transactionCount === 1 ? '' : 's'}
+              {' '}with{' '}
+              <strong className="tabular-nums">{plan.data.attachmentCount.toLocaleString()}</strong> attachment{plan.data.attachmentCount === 1 ? '' : 's'} match.
+              {plan.data.truncated && (
+                <span className="ml-1 text-amber-700">More than 10,000 matched; narrow the dates or add a filter for the rest.</span>
+              )}
+            </p>
+
+            {parts.length <= 1 ? (
+              <Button onClick={() => build(parts[0] ?? null)} loading={building !== null} disabled={plan.data.transactionCount === 0}>
+                <FileText className="h-4 w-4 mr-1" /> Open PDF
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-700">
+                  The attachments do not fit in one PDF, so the report is split into{' '}
+                  <strong>{parts.length} parts</strong> in date order. Each part is built when you open it.
+                </p>
+                <table className="min-w-full text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
+                    <tr>
+                      <th className="py-1.5 pr-4">Part</th>
+                      <th className="py-1.5 pr-4">Dates</th>
+                      <th className="py-1.5 pr-4 text-right">Transactions</th>
+                      <th className="py-1.5 pr-4 text-right">Attachments</th>
+                      <th className="py-1.5" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {parts.map((p) => (
+                      <tr key={p.index}>
+                        <td className="py-2 pr-4 font-medium text-gray-900">{p.index} of {parts.length}</td>
+                        <td className="py-2 pr-4 whitespace-nowrap text-gray-700">{fmtDate(p.startDate)} – {fmtDate(p.endDate)}</td>
+                        <td className="py-2 pr-4 text-right tabular-nums text-gray-700">{p.transactionCount.toLocaleString()}</td>
+                        <td className="py-2 pr-4 text-right tabular-nums text-gray-700">
+                          <span className="inline-flex items-center gap-1"><Paperclip className="h-3.5 w-3.5 text-gray-400" />{p.attachmentCount}</span>
+                          {p.attachmentBytes > 0 && <span className="ml-1 text-xs text-gray-500">({fmtBytes(p.attachmentBytes)})</span>}
+                        </td>
+                        <td className="py-2 text-right">
+                          <Button size="sm" variant="secondary" onClick={() => build(p)} loading={building === p.index} disabled={building !== null && building !== p.index}>
+                            <FileText className="h-4 w-4 mr-1" /> View
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </p>
+          </>
         ) : null}
-        <Button onClick={build} loading={building} disabled={badRange || matching === 0}>
-          <FileText className="h-4 w-4 mr-1" /> Open PDF
-        </Button>
         <p className="text-xs text-gray-500">
-          Attachments are limited to 40 files and 300 pages per report; the report lists any it had to leave out.
+          A part holds up to 250 transactions, 40 attachments and 100 MB of files; the report is split so nothing is left out.
         </p>
       </div>
     </ReportShell>
