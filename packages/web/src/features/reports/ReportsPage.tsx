@@ -96,6 +96,7 @@ const reportGroups = [
       { label: 'Trial Balance', path: '/reports/trial-balance' },
       { label: 'Account Activity Summary', path: '/reports/account-activity-summary' },
       { label: 'Transaction List', path: '/reports/transaction-list' },
+      { label: 'Transaction Report', path: '/reports/transaction-report' },
       { label: 'Journal Entry Report', path: '/reports/journal-entry-report' },
     ],
   },

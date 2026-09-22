@@ -2557,6 +2557,10 @@ Use the **Transaction Report** button on the transaction — see *Transaction Re
 
 The **Transaction Report** button on any transaction (and on the Bill and Invoice pages) opens one PDF in a new tab that documents the whole story — useful for an audit request, a client question, or your own workpapers.
 
+## For a date range
+
+**Reports \u2192 Transaction Report** builds the same report for every transaction in a date range, optionally narrowed to one type, name, account, tag or basis. Voided transactions are left out unless you tick **Include voided**. The screen counts how many transactions match before you press **Open PDF**. In the PDF each transaction is one block (details, journal lines, a one-line note of what it is linked to), and blocks are packed several to a page \u2014 a block never splits across pages, so a block that would straddle the edge starts the next page. Every attachment follows in transaction order, captioned with the transaction it belongs to, and each block lists its attachments by number. The report holds the first 250 matching transactions and says so if there were more; the attachment limits are the same as the single-transaction report.
+
 ### What is in it
 1. **The transaction** — its details (vendor / customer / payee, document number, vendor invoice #, check # or Ref #, payment method, the bank account it was paid from or deposited to, terms, due date, amounts) and its journal lines.
 2. **Everything linked to it** — from a bill, every payment and vendor credit applied to it; from a bill payment or check, every bill it paid; from an invoice, its payments and credit memos; from a customer payment, the invoices it was applied to. Each gets the same details-and-journal-lines block. Voided linked transactions are listed but not detailed.
