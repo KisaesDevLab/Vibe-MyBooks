@@ -14,7 +14,10 @@ export function useTransactions(filters?: TransactionFilters) {
   const params = new URLSearchParams();
   if (filters?.txnType) params.set('txnType', filters.txnType);
   if (filters?.status) params.set('status', filters.status);
-  if (filters?.contactId) params.set('contactId', filters.contactId);
+  if (filters?.contactId) {
+    const v = Array.isArray(filters.contactId) ? filters.contactId.join(',') : filters.contactId;
+    if (v) params.set('contactId', v);
+  }
   if (filters?.accountId) params.set('accountId', filters.accountId);
   // Backend supports a header-level tag filter (any line carries the tag);
   // it was previously dropped here so the Tag dropdown did nothing.

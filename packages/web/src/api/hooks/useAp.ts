@@ -24,7 +24,12 @@ interface BillListRow extends BillSummary {
 export function useBills(filters?: BillFilters) {
   const params = new URLSearchParams();
   if (filters?.contactId) params.set('contactId', filters.contactId);
-  if (filters?.billStatus) params.set('billStatus', filters.billStatus);
+  if (filters?.billStatus) {
+    const v = Array.isArray(filters.billStatus) ? filters.billStatus.join(',') : filters.billStatus;
+    if (v) params.set('billStatus', v);
+  }
+  if (filters?.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters?.sortDir) params.set('sortDir', filters.sortDir);
   if (filters?.startDate) params.set('startDate', filters.startDate);
   if (filters?.endDate) params.set('endDate', filters.endDate);
   if (filters?.dueOnOrBefore) params.set('dueOnOrBefore', filters.dueOnOrBefore);

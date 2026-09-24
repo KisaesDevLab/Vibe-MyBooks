@@ -9,7 +9,13 @@ import { apiClient } from '../client';
 export function useInvoices(filters?: TransactionFilters) {
   const params = new URLSearchParams();
   if (filters?.status) params.set('status', filters.status);
-  if (filters?.contactId) params.set('contactId', filters.contactId);
+  if (filters?.contactId) {
+    const v = Array.isArray(filters.contactId) ? filters.contactId.join(',') : filters.contactId;
+    if (v) params.set('contactId', v);
+  }
+  if (filters?.invoiceStatus && filters.invoiceStatus.length > 0) params.set('invoiceStatus', filters.invoiceStatus.join(','));
+  if (filters?.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters?.sortDir) params.set('sortDir', filters.sortDir);
   if (filters?.startDate) params.set('startDate', filters.startDate);
   if (filters?.endDate) params.set('endDate', filters.endDate);
   // ADR 0XX §5.2 — pass the header-level tag filter to the list endpoint.

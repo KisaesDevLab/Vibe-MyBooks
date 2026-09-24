@@ -3,6 +3,9 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { InvoiceStatus, TransactionSortKey } from '@kis-books/shared';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
 import { useNavigate } from 'react-router-dom';
 import { useInvoices } from '../../api/hooks/useInvoices';
 import { useSessionState } from '../../hooks/useSessionState';
@@ -17,6 +20,17 @@ import { Can } from '../../components/ui/Can';
 import { Plus, Search, Columns } from 'lucide-react';
 
 const PAGE_SIZE = 50;
+
+// Column keys on this page; 'customer' maps to the endpoint's 'payee' sort.
+type InvoiceSortKey = 'number' | 'date' | 'customer' | 'dueDate' | 'invoiceStatus' | 'amount' | 'balanceDue';
+const INVOICE_SORT_KEYS: readonly InvoiceSortKey[] = ['number', 'date', 'customer', 'dueDate', 'invoiceStatus', 'amount', 'balanceDue'];
+const INVOICE_SORT_MAP: Record<InvoiceSortKey, TransactionSortKey> = {
+  number: 'number', date: 'date', customer: 'payee', dueDate: 'dueDate', invoiceStatus: 'invoiceStatus', amount: 'amount', balanceDue: 'balanceDue',
+};
+const INVOICE_STATUS_OPTIONS: Array<{ value: InvoiceStatus; label: string }> = [
+  { value: 'draft', label: 'Draft' }, { value: 'sent', label: 'Sent' }, { value: 'viewed', label: 'Viewed' },
+  { value: 'partial', label: 'Partially paid' }, { value: 'paid', label: 'Paid' }, { value: 'void', label: 'Void' },
+];
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -72,7 +86,15 @@ export function InvoiceListPage() {
   const [search, setSearchRaw] = useSessionState('vibe:invoices:search', '');
   // ADR / build-plan Phase 8 — Invoices list gets customer + date range
   // + tag filters. All reset offset on change.
-  const [customerFilter, setCustomerFilterRaw] = useSessionState('vibe:invoices:customer', '');
+  // Sort + the Customer / Status header filters in one persisted view. The
+  // Customer select shares the customer entry (one value ↔ the select,
+  // several ↔ "All customers").
+  const view = useColumnView<InvoiceSortKey>('vibe:invoices:view', {
+    sortKeys: INVOICE_SORT_KEYS, defaultDir: (k) => (k === 'date' || k === 'dueDate' ? 'desc' : 'asc'),
+  });
+  const customerSet = view.filterFor('customer');
+  const customerFilter = customerSet.size === 1 ? [...customerSet][0]! : '';
+  const invoiceStatusSet = view.filterFor('invoiceStatus');
   const [startDate, setStartDateRaw] = useSessionState('vibe:invoices:startDate', '');
   const [endDate, setEndDateRaw] = useSessionState('vibe:invoices:endDate', '');
   const [tagFilter, setTagFilterRaw] = useSessionState('vibe:invoices:tag', '');
@@ -86,7 +108,8 @@ export function InvoiceListPage() {
 
   const setStatusFilter = (v: string) => { setStatusFilterRaw(v); setOffset(0); };
   const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
-  const setCustomerFilter = (v: string) => { setCustomerFilterRaw(v); setOffset(0); };
+  const setCustomerFilter = (v: string) => view.setFilter('customer', new Set(v ? [v] : []));
+  useEffect(() => { setOffset(0); }, [view.signature]);
   const setStartDate = (v: string) => { setStartDateRaw(v); setOffset(0); };
   const setEndDate = (v: string) => { setEndDateRaw(v); setOffset(0); };
   const setTagFilter = (v: string) => { setTagFilterRaw(v); setOffset(0); };
@@ -110,7 +133,10 @@ export function InvoiceListPage() {
 
   const { data, isLoading, isError, refetch } = useInvoices({
     status: statusFilter ? statusFilter as 'posted' | 'draft' | 'void' : undefined,
-    contactId: customerFilter || undefined,
+    contactId: customerSet.size > 0 ? [...customerSet] : undefined,
+    invoiceStatus: invoiceStatusSet.size > 0 ? ([...invoiceStatusSet] as InvoiceStatus[]) : undefined,
+    sortBy: view.sortCol ? (INVOICE_SORT_MAP[view.sortCol]) : undefined,
+    sortDir: view.sortCol ? view.sortDir : undefined,
     startDate: debStartDate || undefined,
     endDate: debEndDate || undefined,
     tagId: tagFilter || undefined,
@@ -228,15 +254,15 @@ export function InvoiceListPage() {
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
               <tr>
-                {columnPrefs.number   && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Number</th>}
-                {columnPrefs.date     && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>}
-                {columnPrefs.customer && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>}
-                {columnPrefs.due      && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>}
-                {columnPrefs.status   && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>}
-                {columnPrefs.total    && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>}
-                {columnPrefs.balance  && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Balance Due</th>}
+                {columnPrefs.number   && <SortableTh padding="px-6 py-3" label="Number" {...view.thProps('number')} />}
+                {columnPrefs.date     && <SortableTh padding="px-6 py-3" label="Date" {...view.thProps('date')} />}
+                {columnPrefs.customer && <SortableTh padding="px-6 py-3" label="Customer" {...view.thProps('customer')} filter={view.filterProps('customer', customersList.map((c) => ({ value: c.id, label: c.displayName })), { ariaLabel: 'Filter Customer', searchable: true })} />}
+                {columnPrefs.due      && <SortableTh padding="px-6 py-3" label="Due Date" {...view.thProps('dueDate')} />}
+                {columnPrefs.status   && <SortableTh padding="px-6 py-3" label="Status" {...view.thProps('invoiceStatus')} filter={view.filterProps('invoiceStatus', INVOICE_STATUS_OPTIONS, { ariaLabel: 'Filter Status' })} />}
+                {columnPrefs.total    && <SortableTh padding="px-6 py-3" label="Total" align="right" {...view.thProps('amount')} />}
+                {columnPrefs.balance  && <SortableTh padding="px-6 py-3" label="Balance Due" align="right" {...view.thProps('balanceDue')} />}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">

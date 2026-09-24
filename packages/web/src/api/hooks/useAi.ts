@@ -851,13 +851,24 @@ export interface StatementJobSummary {
   error: string | null;
 }
 
-export function useStatementJobs(opts?: { limit?: number; offset?: number }) {
+export type StatementJobSortKey = 'fileName' | 'createdAt' | 'transactionCount' | 'status';
+export type StatementJobDisposition = 'imported' | 'failed' | 'pending' | 'processing';
+
+export function useStatementJobs(opts?: {
+  limit?: number; offset?: number;
+  sortBy?: StatementJobSortKey; sortDir?: 'asc' | 'desc';
+  /** Dispositions to keep (server-side; the list paginates). */
+  status?: StatementJobDisposition[];
+}) {
   const params = new URLSearchParams();
   if (opts?.limit) params.set('limit', String(opts.limit));
   if (opts?.offset) params.set('offset', String(opts.offset));
+  if (opts?.sortBy) params.set('sortBy', opts.sortBy);
+  if (opts?.sortDir) params.set('sortDir', opts.sortDir);
+  if (opts?.status && opts.status.length > 0) params.set('status', opts.status.join(','));
   const qs = params.toString();
   return useQuery({
-    queryKey: ['statement-jobs', opts?.limit ?? 50, opts?.offset ?? 0],
+    queryKey: ['statement-jobs', opts?.limit ?? 50, opts?.offset ?? 0, opts?.sortBy ?? '', opts?.sortDir ?? '', (opts?.status ?? []).join(',')],
     queryFn: () => apiClient<{ jobs: StatementJobSummary[]; total: number }>(`/ai/parse/statement/jobs${qs ? `?${qs}` : ''}`),
     // Poll while any statement is still extracting in the background so rows
     // flip from Processing → Pending review without a manual refresh.

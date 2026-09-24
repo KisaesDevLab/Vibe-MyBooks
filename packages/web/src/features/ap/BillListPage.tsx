@@ -2,7 +2,10 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { BillSortKey } from '@kis-books/shared';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
 import { useNavigate, Link } from 'react-router-dom';
 import { useBills } from '../../api/hooks/useAp';
 import { useFeatureFlag } from '../../api/hooks/useFeatureFlag';
@@ -26,13 +29,24 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 // Rows-per-page choices — server caps GET /bills at 500.
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
 const DEFAULT_PAGE_SIZE = '50';
+const SORT_KEYS: readonly BillSortKey[] = ['number', 'vendor', 'vendorInvoiceNumber', 'date', 'dueDate', 'status', 'total', 'balance'];
+const STATUS_OPTIONS: Array<{ value: BillStatus; label: string }> = [
+  { value: 'unpaid', label: 'Unpaid' }, { value: 'partial', label: 'Partial' },
+  { value: 'paid', label: 'Paid' }, { value: 'overdue', label: 'Overdue' },
+];
 
 export function BillListPage() {
   const navigate = useNavigate();
   const billCaptureEnabled = useFeatureFlag('AP_BILL_CAPTURE_V1') === true;
   // Filters persist for the tab session (sessionStorage); search/date
   // input is debounced so the query doesn't fire per keystroke.
-  const [statusFilter, setStatusFilter] = useSessionState<BillStatus | ''>('vibe:bills:status', '');
+  // Sort + the Status value filter live in one persisted view; the Status
+  // select and the header popover read and write the same entry (one value
+  // ↔ the select, several ↔ "All statuses").
+  const view = useColumnView<BillSortKey>('vibe:bills:view', { sortKeys: SORT_KEYS });
+  const statusSet = view.filterFor('status');
+  const statusFilter = (statusSet.size === 1 ? [...statusSet][0] : '') as BillStatus | '';
+  const setStatusFilter = (v: BillStatus | '') => view.setFilter('status', new Set(v ? [v] : []));
   const [search, setSearch] = useSessionState('vibe:bills:search', '');
   // ADR / build plan — Bills list gets date-range and tag filters.
   const [startDate, setStartDate] = useSessionState('vibe:bills:startDate', '');
@@ -46,9 +60,12 @@ export function BillListPage() {
   const [offset, setOffset] = useState(0);
   const limit = parseInt(pageSize, 10);
   const handlePageSizeChange = (size: string) => { setPageSize(size); setOffset(0); };
+  useEffect(() => { setOffset(0); }, [view.signature]);
 
   const { data, isLoading, isError, refetch } = useBills({
-    billStatus: statusFilter || undefined,
+    billStatus: statusSet.size > 0 ? ([...statusSet] as BillStatus[]) : undefined,
+    sortBy: view.sortCol || undefined,
+    sortDir: view.sortCol ? view.sortDir : undefined,
     search: debouncedSearch || undefined,
     startDate: debStartDate || undefined,
     endDate: debEndDate || undefined,
@@ -134,16 +151,16 @@ export function BillListPage() {
           </div>
         ) : (
           <table className="min-w-full">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-50 border-b text-xs font-medium uppercase text-gray-500">
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Bill #</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Vendor</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Vendor Inv #</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Date</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Due</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2 px-3">Status</th>
-                <th className="text-right text-xs font-medium text-gray-500 uppercase py-2 px-3">Total</th>
-                <th className="text-right text-xs font-medium text-gray-500 uppercase py-2 px-3">Balance</th>
+                <SortableTh padding="py-2 px-3" label="Bill #" {...view.thProps('number')} />
+                <SortableTh padding="py-2 px-3" label="Vendor" {...view.thProps('vendor')} />
+                <SortableTh padding="py-2 px-3" label="Vendor Inv #" {...view.thProps('vendorInvoiceNumber')} />
+                <SortableTh padding="py-2 px-3" label="Date" {...view.thProps('date')} />
+                <SortableTh padding="py-2 px-3" label="Due" {...view.thProps('dueDate')} />
+                <SortableTh padding="py-2 px-3" label="Status" {...view.thProps('status')} filter={view.filterProps('status', STATUS_OPTIONS, { ariaLabel: 'Filter Status' })} />
+                <SortableTh padding="py-2 px-3" label="Total" align="right" {...view.thProps('total')} />
+                <SortableTh padding="py-2 px-3" label="Balance" align="right" {...view.thProps('balance')} />
               </tr>
             </thead>
             <tbody>

@@ -2,9 +2,11 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useStatementJobs, useDeleteStatementJob, useReprocessStatementJob, type StatementJobSummary } from '../../api/hooks/useAi';
+import { useStatementJobs, useDeleteStatementJob, useReprocessStatementJob, type StatementJobSummary, type StatementJobSortKey, type StatementJobDisposition } from '../../api/hooks/useAi';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
@@ -16,7 +18,9 @@ type StatusKey = 'processing' | 'pending' | 'imported' | 'failed';
 type Disposition = { key: StatusKey; label: string; cls: string; canResume: boolean; canReprocess: boolean };
 
 // Map a job row to a user-facing status. imported_at wins over the raw job
-// status so a re-importable/finished statement reads correctly.
+// status so a re-importable/finished statement reads correctly. MUST stay in
+// step with the SQL CASE in listStatementJobs (ai-statement-parser.service),
+// which the Status filter and sort run on.
 function disposition(job: StatementJobSummary): Disposition {
   if (job.importedAt) return { key: 'imported', label: 'Imported', cls: 'bg-green-100 text-green-700', canResume: true, canReprocess: false };
   if (job.status === 'failed' || job.status === 'cancelled') return { key: 'failed', label: 'Failed', cls: 'bg-red-100 text-red-700', canResume: false, canReprocess: true };
@@ -31,6 +35,8 @@ const STATUS_FILTERS: { value: '' | StatusKey; label: string }[] = [
   { value: 'imported', label: 'Imported' },
   { value: 'failed', label: 'Failed' },
 ];
+const STATUS_OPTIONS = STATUS_FILTERS.filter((f) => f.value).map((f) => ({ value: f.value, label: f.label }));
+const SORT_KEYS: readonly StatementJobSortKey[] = ['fileName', 'createdAt', 'transactionCount', 'status'];
 
 // Rows-per-page choices — the jobs endpoint caps limit at 200.
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '200'];
@@ -46,16 +52,28 @@ export function StatementImportsPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const justUploaded = Number(params.get('uploaded') || '0');
-  // Server-side pagination; the status filter below stays client-side (the
-  // endpoint takes no status param) so it only narrows the fetched page.
+  // Server-side pagination, sort and status filter — the filter used to be
+  // client-side and only narrowed the fetched page. The Status select and
+  // the header popover share one entry (one value ↔ the select).
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [offset, setOffset] = useState(0);
   const limit = parseInt(pageSize, 10);
-  const { data, isLoading, isError, refetch } = useStatementJobs({ limit, offset });
+  const view = useColumnView<StatementJobSortKey>('vibe:statement-imports:view', {
+    sortKeys: SORT_KEYS, defaultDir: (k) => (k === 'createdAt' ? 'desc' : 'asc'),
+  });
+  const statusSet = view.filterFor('status');
+  const statusFilter = (statusSet.size === 1 ? [...statusSet][0] : '') as '' | StatusKey;
+  const setStatusFilter = (v: '' | StatusKey) => view.setFilter('status', new Set(v ? [v] : []));
+  useEffect(() => { setOffset(0); }, [view.signature]);
+  const { data, isLoading, isError, refetch } = useStatementJobs({
+    limit, offset,
+    sortBy: view.sortCol || undefined,
+    sortDir: view.sortCol ? view.sortDir : undefined,
+    status: statusSet.size > 0 ? ([...statusSet] as StatementJobDisposition[]) : undefined,
+  });
   const del = useDeleteStatementJob();
   const reprocess = useReprocessStatementJob();
   const toast = useToast();
-  const [statusFilter, setStatusFilter] = useState<'' | StatusKey>('');
 
   const onReprocess = (job: StatementJobSummary) => {
     reprocess.mutate(job.jobId, {
@@ -66,7 +84,9 @@ export function StatementImportsPage() {
 
   const jobs = data?.jobs ?? [];
   const processingCount = jobs.filter((j) => j.status === 'pending' || j.status === 'processing').length;
-  const visibleJobs = statusFilter ? jobs.filter((j) => disposition(j).key === statusFilter) : jobs;
+  // The filter now runs server-side, so the page IS the visible set.
+  const visibleJobs = jobs;
+  const filtered = statusSet.size > 0;
 
   return (
     <div>
@@ -99,7 +119,7 @@ export function StatementImportsPage() {
         </div>
       )}
 
-      {!isLoading && !isError && jobs.length === 0 && (
+      {!isLoading && !isError && jobs.length === 0 && !filtered && (
         <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
           <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <p className="text-sm text-gray-600">No statements uploaded yet.</p>
@@ -110,7 +130,7 @@ export function StatementImportsPage() {
         </div>
       )}
 
-      {!isLoading && !isError && jobs.length > 0 && (
+      {!isLoading && !isError && (jobs.length > 0 || filtered) && (
         <div className="flex items-center gap-2 mb-3">
           <label htmlFor="statement-status-filter" className="text-sm text-gray-600">Status</label>
           <select
@@ -118,33 +138,32 @@ export function StatementImportsPage() {
             aria-label="Filter by processing status"
             className="text-sm border border-gray-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value as '' | StatusKey); setOffset(0); }}
+            onChange={(e) => setStatusFilter(e.target.value as '' | StatusKey)}
           >
             {STATUS_FILTERS.map((f) => (
               <option key={f.value} value={f.value}>{f.label}</option>
             ))}
           </select>
-          <span className="text-xs text-gray-400">{visibleJobs.length} of {jobs.length}</span>
         </div>
       )}
 
-      {!isLoading && !isError && jobs.length > 0 && visibleJobs.length === 0 && (
+      {!isLoading && !isError && filtered && visibleJobs.length === 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
           <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
           <p className="text-sm text-gray-600">No statements match this status.</p>
-          <button className="text-xs text-blue-600 hover:underline mt-1" onClick={() => setStatusFilter('')}>Clear filter</button>
+          <button className="text-xs text-blue-600 hover:underline mt-1" onClick={() => view.clearAll()}>Clear filter</button>
         </div>
       )}
 
       {!isLoading && !isError && visibleJobs.length > 0 && (
         <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 font-medium text-gray-600">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Statement</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Uploaded</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">Transactions</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
+                <SortableTh padding="px-4 py-3" label="Statement" {...view.thProps('fileName')} />
+                <SortableTh padding="px-4 py-3" label="Uploaded" {...view.thProps('createdAt')} />
+                <SortableTh padding="px-4 py-3" label="Transactions" align="right" {...view.thProps('transactionCount')} />
+                <SortableTh padding="px-4 py-3" label="Status" {...view.thProps('status')} filter={view.filterProps('status', STATUS_OPTIONS, { ariaLabel: 'Filter Status' })} />
                 <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
               </tr>
             </thead>

@@ -12,6 +12,9 @@ import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Pagination } from '../../components/ui/Pagination';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { useColumnView } from '../../hooks/useColumnView';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { distinctOptions } from '../../utils/columnView';
 import {
   UsersRound,
   KeyRound,
@@ -50,6 +53,9 @@ interface TenantOption { id: string; name: string }
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
 const DEFAULT_PAGE_SIZE = '50';
 const ALL_LIMIT = 5000;
+type UserSortKey = 'email' | 'displayName' | 'tenant' | 'role' | 'active' | 'superAdmin' | 'lastLogin';
+const USER_SORT_KEYS: readonly UserSortKey[] = ['email', 'displayName', 'tenant', 'role', 'active', 'superAdmin', 'lastLogin'];
+const ACTIVE_OPTIONS = [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }];
 
 export function UserListPage() {
   const queryClient = useQueryClient();
@@ -96,15 +102,27 @@ export function UserListPage() {
     onError: (err: Error) => setCreateError(err.message || 'Failed to create user'),
   });
 
+  // Sort + Role / Active header filters, server-side (the directory
+  // paginates, so a client-side sort would order one page of many).
+  const view = useColumnView<UserSortKey>('vibe:admin-users:view', {
+    sortKeys: USER_SORT_KEYS, defaultDir: (k) => (k === 'lastLogin' ? 'desc' : 'asc'),
+  });
+  const roleSet = view.filterFor('role');
+  const activeSet = view.filterFor('active');
+  const activeParam = activeSet.has('active') === activeSet.has('inactive') ? undefined : activeSet.has('active');
+
   // A narrower search or a bigger page can leave the current offset past the
   // end of the result set, which would render an empty table.
-  useEffect(() => setOffset(0), [debouncedSearch, pageSize]);
+  useEffect(() => setOffset(0), [debouncedSearch, pageSize, view.signature]);
 
   const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ['admin', 'users', { search: debouncedSearch, limit: effectiveLimit, offset }],
+    queryKey: ['admin', 'users', { search: debouncedSearch, limit: effectiveLimit, offset, view: view.signature }],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(effectiveLimit), offset: String(offset) });
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+      if (view.sortCol) { params.set('sortBy', view.sortCol); params.set('sortDir', view.sortDir); }
+      if (roleSet.size > 0) params.set('roles', [...roleSet].join(','));
+      if (activeParam !== undefined) params.set('isActive', String(activeParam));
       return apiClient<{ users: AdminUser[]; total: number }>(`/admin/users?${params}`);
     },
     placeholderData: keepPreviousData,
@@ -112,6 +130,9 @@ export function UserListPage() {
 
   const users = data?.users;
   const total = data?.total ?? 0;
+  // Role choices come from the rows on screen plus whatever is already
+  // ticked, so a filter never hides its own options.
+  const roleOptions = distinctOptions([...(users ?? []).map((u) => u.role), ...roleSet]);
 
   const resetPasswordMutation = useMutation({
     mutationFn: ({ userId, password }: { userId: string; password: string }) =>
@@ -343,15 +364,15 @@ export function UserListPage() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="font-medium text-gray-600">
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Display Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Tenant</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
-                  <th className="text-center px-4 py-3 font-medium text-gray-600">Active</th>
-                  <th className="text-center px-4 py-3 font-medium text-gray-600">Super Admin</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Last Login</th>
+                  <SortableTh padding="px-4 py-3" label="Email" {...view.thProps('email')} />
+                  <SortableTh padding="px-4 py-3" label="Display Name" {...view.thProps('displayName')} />
+                  <SortableTh padding="px-4 py-3" label="Tenant" {...view.thProps('tenant')} />
+                  <SortableTh padding="px-4 py-3" label="Role" {...view.thProps('role')} filter={view.filterProps('role', roleOptions, { ariaLabel: 'Filter Role' })} />
+                  <SortableTh padding="px-4 py-3" label="Active" align="center" {...view.thProps('active')} filter={view.filterProps('active', ACTIVE_OPTIONS, { ariaLabel: 'Filter Active' })} />
+                  <SortableTh padding="px-4 py-3" label="Super Admin" align="center" {...view.thProps('superAdmin')} />
+                  <SortableTh padding="px-4 py-3" label="Last Login" {...view.thProps('lastLogin')} />
                   <th className="text-center px-4 py-3 font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
