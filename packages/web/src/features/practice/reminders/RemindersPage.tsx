@@ -449,7 +449,8 @@ function TabButton({
   );
 }
 
-function TemplatesSection() {
+// Exported for the template-editor test: the section owns the editor modal.
+export function TemplatesSection() {
   interface ReminderTemplate {
     id: string;
     triggerType: string;
@@ -540,6 +541,19 @@ function TemplatesSection() {
   );
 }
 
+// What each sender actually renders, so the hint under the body is about the
+// trigger on screen rather than always the question-digest one.
+const TEMPLATE_VARIABLES: Record<string, string[]> = {
+  unanswered_question: ['{first_name}', '{open_count}', '{portal_link}', '{firm_name}'],
+  w9_pending: ['{first_name}', '{portal_link}', '{firm_name}'],
+  doc_request: ['{first_name}', '{document}', '{period}', '{due_date}', '{portal_link}', '{firm_name}'],
+  recurring_non_transaction: ['{first_name}', '{portal_link}', '{firm_name}'],
+  magic_link_expiring: ['{first_name}', '{portal_link}', '{firm_name}'],
+  categorize_request: ['{first_name}', '{count}', '{company_name}', '{portal_link}', '{note}', '{firm_name}'],
+  categorize_reminder: ['{first_name}', '{count}', '{company_name}', '{portal_link}', '{note}', '{firm_name}'],
+  default: ['{first_name}', '{portal_link}', '{firm_name}'],
+};
+
 function TemplateEditorModal({
   initial,
   existing,
@@ -551,16 +565,24 @@ function TemplateEditorModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const found = existing.find(
-    (e) => e.triggerType === initial.triggerType && e.channel === initial.channel,
-  );
   const [trigger, setTrigger] = useState(initial.triggerType);
   const [channel, setChannel] = useState<'email' | 'sms'>(initial.channel);
-  const [subject, setSubject] = useState(found?.subject ?? 'You have new questions waiting');
-  const [body, setBody] = useState(
-    found?.body ??
-      'Hi {first_name},\n\nYour bookkeeper is waiting on {open_count} question(s).\n\n{portal_link}\n',
-  );
+  const load = (t: string, ch: string) =>
+    existing.find((e) => e.triggerType === t && e.channel === ch);
+  const found = load(initial.triggerType, initial.channel);
+  const [subject, setSubject] = useState(found?.subject ?? '');
+  const [body, setBody] = useState(found?.body ?? '');
+  // Changing the trigger or channel changes WHICH template is being edited,
+  // so the fields have to follow. They did not: picking "Magic-link
+  // expiring" left the unanswered-question wording on screen, and saving it
+  // would have written that text under the new trigger (reported
+  // 2026-09-24). Edits already made to the current pair are kept until the
+  // pair changes.
+  const retarget = (t: string, ch: 'email' | 'sms') => {
+    const next = load(t, ch);
+    setSubject(next?.subject ?? '');
+    setBody(next?.body ?? '');
+  };
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -596,7 +618,7 @@ function TemplateEditorModal({
               <span className="block text-gray-800 mb-1">Trigger</span>
               <select
                 value={trigger}
-                onChange={(e) => setTrigger(e.target.value)}
+                onChange={(e) => { setTrigger(e.target.value); retarget(e.target.value, channel); }}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
               >
                 <option value="unanswered_question">Unanswered question</option>
@@ -612,7 +634,11 @@ function TemplateEditorModal({
               <span className="block text-gray-800 mb-1">Channel</span>
               <select
                 value={channel}
-                onChange={(e) => setChannel(e.target.value as 'email' | 'sms')}
+                onChange={(e) => {
+                  const ch = e.target.value as 'email' | 'sms';
+                  setChannel(ch);
+                  retarget(trigger, ch);
+                }}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
               >
                 <option value="email">Email</option>
@@ -640,7 +666,10 @@ function TemplateEditorModal({
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Variables: {'{first_name}'}, {'{open_count}'}, {'{portal_link}'}, {'{firm_name}'}
+              Variables: {TEMPLATE_VARIABLES[trigger]?.join(', ') ?? TEMPLATE_VARIABLES['default']!.join(', ')}
+            </p>
+            <p className="text-xs text-gray-500">
+              Leave both blank to use the built-in wording for this trigger.
             </p>
           </label>
           {err && (
