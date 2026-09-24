@@ -711,6 +711,29 @@ There are three ways to start, all from **Banking > Reconcile**:
 `,
   },
   {
+    id: 'why-a-payee-was-guessed',
+    title: 'Why a Payee or Category Was Guessed',
+    category: 'Banking',
+    summary: 'What the software learns from your corrections, what it deliberately refuses to learn, and how to correct it.',
+    body: `
+## Why a Payee or Category Was Guessed
+
+When you categorize a bank line, the software remembers the wording and uses it on lines that read the same way later. That is what makes the second month faster than the first.
+
+### What it will not learn from
+
+Some of what a bank prints identifies nobody. "CHECK 3662" says only that a cheque cleared; the next cheque says "CHECK 3663" and goes to someone completely different. The same is true of **deposit**, **transfer**, **payment**, **ACH**, **POS purchase**, a bare reference number, and a card mask like **xx1419**.
+
+The software ignores these. It will not learn a payee from them and will not suggest one because of them. Before September 2026 it did, which is why an account's cheques could all show the same wrong name — and why the payee read off your statement looked like it was being ignored.
+
+If you want every line of a certain kind to go one place, write a **bank rule** instead. A rule is visible on the Rules page, and you can change or delete it; what the software learns quietly is neither.
+
+### Correcting a bad guess
+
+Change the payee or category on the line and save. Your correction is what it learns from next time. If a whole run of lines is wrong, fix a couple and use **Reprocess rules** on the rest.
+`,
+  },
+  {
     id: 'bank-rules',
     title: 'Automating Categorization with Rules',
     category: 'Banking',

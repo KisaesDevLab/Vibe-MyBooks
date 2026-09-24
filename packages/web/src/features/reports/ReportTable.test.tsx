@@ -51,10 +51,16 @@ describe('ReportTable — sort and filter', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect(vendorsShown().sort()).toEqual(['Acme', 'Mid']);
     expect(screen.getByText('$1,025.50')).toBeTruthy();
-    // Money columns carry a sort-only popover: no value checklist.
-    fireEvent.click(screen.getByRole('button', { name: 'Filter Amount' }));
-    const dialog = screen.getByRole('dialog', { name: 'Filter Amount' });
-    expect(within(dialog).queryAllByRole('checkbox')).toHaveLength(0);
-    expect(within(dialog).getAllByRole('button', { name: /^sort/i })).toHaveLength(2);
+  });
+
+  it('offers the ▾ only where there is something to filter by', () => {
+    renderRoute(<ReportTable columns={columns} data={data} totals={{ amount: 1034.5 }} />);
+    // A money column has no sensible value list — a checklist of every
+    // distinct amount is not a filter — and a menu whose only entries are
+    // two sort rows reads as a filter that will not filter (reported
+    // 2026-09-24). Sorting stays on the header itself.
+    expect(screen.getByRole('button', { name: 'Filter Vendor' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Filter Amount' })).toBeNull();
+    expect(screen.getByRole('button', { name: /^amount/i })).toBeTruthy();
   });
 });

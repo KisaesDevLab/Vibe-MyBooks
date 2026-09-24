@@ -43,7 +43,11 @@ export function SortableTh<K extends string>({
   const active = sortBy === sortKey;
   const text = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
   const ariaSort = active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none';
-  const popover = filter || onSortDir;
+  // Only offer the ▾ when there is something to filter BY. It used to open
+  // for any sortable column, showing a menu whose only entries were two sort
+  // rows the header click already does — which reads as a filter that will
+  // not filter (reported 2026-09-24). Sorting stays on the header itself.
+  const popover = !!filter;
   return (
     <th className={`${padding} ${text} ${className}`} aria-sort={ariaSort} data-col={sortKey}>
       <span className={`inline-flex items-center ${align === 'right' ? 'flex-row-reverse' : ''}`}>

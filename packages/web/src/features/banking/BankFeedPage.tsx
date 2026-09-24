@@ -67,6 +67,16 @@ type SortDir = 'asc' | 'desc';
 // order they read naturally. Column headers stay clickable for the ones that
 // have a column; the dropdown is the only way to sort by bank description or
 // confidence, which have no column of their own.
+// The status values the pills above the table offer, reused by the Status
+// column's filter popover so the two controls cannot drift apart.
+const STATUS_FILTER_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'assigned', label: 'Assigned' },
+  { value: 'categorized', label: 'Categorized' },
+  { value: 'matched', label: 'Matched' },
+  { value: 'excluded', label: 'Excluded' },
+];
+
 const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
   { value: 'feedDate', label: 'Date' },
   { value: 'name', label: 'Name' },
@@ -842,7 +852,18 @@ export function BankFeedPage() {
                 <SortableTh padding="px-3 py-3" label="Category" sortKey="category" sortBy={sortKey} sortDir={sortDir} onSort={handleSort} onSortDir={view.setSort} />
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tag</th>
                 <SortableTh padding="px-3 py-3" label="Amount" sortKey="amount" align="right" sortBy={sortKey} sortDir={sortDir} onSort={handleSort} onSortDir={view.setSort} />
-                <SortableTh padding="px-3 py-3" label="Status" sortKey="status" sortBy={sortKey} sortDir={sortDir} onSort={handleSort} onSortDir={view.setSort} />
+                <SortableTh
+                  padding="px-3 py-3" label="Status" sortKey="status"
+                  sortBy={sortKey} sortDir={sortDir} onSort={handleSort} onSortDir={view.setSort}
+                  filter={{
+                    options: STATUS_FILTER_OPTIONS,
+                    // One filter, two controls: the pills above and this
+                    // popover read and write the same status.
+                    selected: statusFilter ? new Set([statusFilter]) : new Set<string>(),
+                    onApply: (sel) => setStatusFilter(sel.size === 1 ? ([...sel][0] as BankFeedStatus) : ''),
+                    ariaLabel: 'Filter Status',
+                  }}
+                />
                 <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
