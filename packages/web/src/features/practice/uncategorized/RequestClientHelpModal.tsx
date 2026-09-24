@@ -2,9 +2,13 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-// "Ask the client for help" — email and/or text the portal contacts who may
-// suggest categories for this company, asking them to log in and answer
-// "What was this?" for the rows sitting in suspense.
+// "Ask the client for help" / "Send reminder" — email and/or text the portal
+// contacts who may suggest categories for this company, asking them to log in
+// and answer "What was this?" for the rows sitting in suspense.
+//
+// Reminder mode is the same screen with different wording and a different
+// default selection: only the people who were already asked and have not
+// answered since. Nobody wants to nudge the client who already replied.
 //
 // The screen exists mostly to stop three silent failures: sending to a
 // contact who has no tick and would find nothing; sending while the portal
@@ -25,6 +29,15 @@ import {
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** 'reminder' = nudge the people already asked, with reminder wording. */
+  mode?: 'ask' | 'reminder';
+}
+
+/** Asked at some point, and nothing back since. The reminder's real audience. */
+function awaitingReply(c: { lastAskedAt: string | null; lastAnsweredAt: string | null }): boolean {
+  if (!c.lastAskedAt) return false;
+  if (!c.lastAnsweredAt) return true;
+  return new Date(c.lastAnsweredAt) < new Date(c.lastAskedAt);
 }
 
 const OUTCOME_COPY: Record<HelpOutcome, string> = {
@@ -44,7 +57,8 @@ function relative(iso: string | null): string {
   return new Date(iso).toLocaleDateString();
 }
 
-export function RequestClientHelpModal({ open, onClose }: Props) {
+export function RequestClientHelpModal({ open, onClose, mode = 'ask' }: Props) {
+  const isReminder = mode === 'reminder';
   const toast = useToast();
   const closeRef = useRef<HTMLButtonElement>(null);
   const recipients = useHelpRecipients(open);
@@ -60,12 +74,16 @@ export function RequestClientHelpModal({ open, onClose }: Props) {
   const contacts = useMemo(() => view?.contacts ?? [], [view]);
 
   // Everyone eligible is ticked by default; the list is short by nature.
+  // A reminder starts on the people still owing an answer — and falls back to
+  // everyone when that set is empty, so the button is never a dead end.
   useEffect(() => {
     if (!open) return;
-    setChosen(new Set(contacts.map((c) => c.contactId)));
+    const waiting = contacts.filter(awaitingReply);
+    const start = isReminder && waiting.length > 0 ? waiting : contacts;
+    setChosen(new Set(start.map((c) => c.contactId)));
     setResult(null);
     setConfirmEmpty(false);
-  }, [open, contacts]);
+  }, [open, contacts, isReminder]);
 
   useEffect(() => {
     if (!open) return;
@@ -89,6 +107,8 @@ export function RequestClientHelpModal({ open, onClose }: Props) {
   });
 
   const queueEmpty = (view?.queueCount ?? 0) === 0;
+  const waitingCount = contacts.filter(awaitingReply).length;
+  const neverAsked = contacts.length > 0 && contacts.every((c) => !c.lastAskedAt);
   const blocked = !view || !view.portalEnabled || contacts.length === 0;
   const canSend = !blocked && chosen.size > 0 && channels.size > 0 && (!queueEmpty || confirmEmpty) && !send.isPending;
 
@@ -100,6 +120,7 @@ export function RequestClientHelpModal({ open, onClose }: Props) {
         channels: [...channels],
         note: note.trim() || undefined,
         confirmEmpty: queueEmpty ? true : undefined,
+        reminder: isReminder ? true : undefined,
       },
       {
         onSuccess: (res) => {
@@ -123,15 +144,19 @@ export function RequestClientHelpModal({ open, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8"
       role="dialog"
       aria-modal="true"
-      aria-label="Ask the client for help categorizing"
+      aria-label={isReminder ? 'Send the client a reminder to categorize' : 'Ask the client for help categorizing'}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="w-full max-w-xl rounded-lg bg-white shadow-xl">
         <div className="flex items-start justify-between border-b border-gray-200 px-5 py-3">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Ask the client for help</h2>
+            <h2 className="text-base font-semibold text-gray-900">
+              {isReminder ? 'Send a reminder' : 'Ask the client for help'}
+            </h2>
             <p className="text-xs text-gray-500">
-              Email or text the people who can answer &ldquo;What was this?&rdquo; in the portal
+              {isReminder
+                ? 'Nudge the people who have not answered "What was this?" yet'
+                : 'Email or text the people who can answer "What was this?" in the portal'}
               {view?.companyName ? ` for ${view.companyName}` : ''}.
             </p>
           </div>
@@ -173,9 +198,19 @@ export function RequestClientHelpModal({ open, onClose }: Props) {
               </label>
             </Warn>
           )}
+          {view && view.portalEnabled && isReminder && contacts.length > 0 && neverAsked && (
+            <Warn>
+              Nobody has been asked yet, so a reminder would be the first thing they hear about this.
+              Everyone is ticked below — send it, or close this and use <strong>Ask the client for
+              help</strong> instead.
+            </Warn>
+          )}
           {view && view.portalEnabled && contacts.length > 0 && !queueEmpty && (
             <p className="text-gray-600">
               They will see <strong>{view.queueCount}</strong> transaction(s) waiting for an answer.
+              {isReminder && waitingCount > 0 && (
+                <> <strong>{waitingCount}</strong> of {contacts.length} contact(s) have not answered since you asked.</>
+              )}
             </p>
           )}
 
@@ -200,7 +235,13 @@ export function RequestClientHelpModal({ open, onClose }: Props) {
                     </span>
                     <span className="block text-xs text-gray-400">
                       Last asked {relative(c.lastAskedAt)} · last in portal {relative(c.lastSeenAt)}
+                      {c.lastAnsweredAt && ` · answered ${relative(c.lastAnsweredAt)}`}
                     </span>
+                    {awaitingReply(c) && (
+                      <span className="mt-0.5 inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                        No answer since you asked
+                      </span>
+                    )}
                   </span>
                 </label>
               ))}
@@ -240,7 +281,9 @@ export function RequestClientHelpModal({ open, onClose }: Props) {
               value={note}
               onChange={(e) => setNote(e.target.value.slice(0, 1000))}
               rows={3}
-              placeholder="Mostly the checks from August — anything you remember helps."
+              placeholder={isReminder
+                ? 'No rush — but these are holding up your reports.'
+                : 'Mostly the checks from August — anything you remember helps.'}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </label>
@@ -270,7 +313,7 @@ export function RequestClientHelpModal({ open, onClose }: Props) {
           {!result && (
             <Button onClick={submit} disabled={!canSend}>
               {send.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
-              Send request
+              {isReminder ? 'Send reminder' : 'Send request'}
             </Button>
           )}
         </div>

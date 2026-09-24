@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Camera, FileText, MessageSquare, Upload, Clock, CheckCircle2, Landmark, CreditCard, ChevronRight } from 'lucide-react';
+import { Camera, FileText, MessageSquare, Upload, Clock, CheckCircle2, Landmark, CreditCard, ChevronRight, ArrowRight, ListChecks } from 'lucide-react';
 import { usePortal } from './PortalLayout';
 import { PortalBankRepairBanner } from './PortalBankRepair';
 
@@ -200,6 +200,35 @@ export function PortalDashboardPage() {
         <PortalBankRepairBanner companyId={activeCompanyId} />
       </div>
 
+      {/* PORTAL_CATEGORIZE_V1 — the one thing on this page the client is
+          actually holding up sits above the counters, not under them. A tile
+          at the bottom read as optional; firms asked for it to lead. Hidden
+          when nothing is waiting, where the quiet tile further down is still
+          the way in. */}
+      {categorizeAvailable && (categorizeCount ?? 0) > 0 && (
+        <Link
+          to="/portal/categorize"
+          className="mt-6 flex items-center gap-4 rounded-xl border-2 border-indigo-500 bg-indigo-50 px-5 py-4 transition-colors hover:bg-indigo-100"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-600">
+            <ListChecks className="h-6 w-6 text-white" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-lg font-semibold text-indigo-950">
+              {categorizeCount} transaction{categorizeCount === 1 ? ' needs' : 's need'} your input
+            </span>
+            <span className="mt-0.5 block text-sm text-indigo-900">
+              Tell your bookkeeper what these were for. Nothing changes your books until they
+              review it.
+            </span>
+          </span>
+          <span className="hidden shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white sm:inline-flex">
+            Start <ArrowRight className="h-4 w-4" />
+          </span>
+          <ArrowRight className="h-5 w-5 shrink-0 text-indigo-600 sm:hidden" />
+        </Link>
+      )}
+
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link to="/portal/questions" className="block">
           <Tile
@@ -353,20 +382,16 @@ export function PortalDashboardPage() {
             </p>
           </Link>
         )}
-        {categorizeAvailable && (
+        {/* The banner above carries this when rows are waiting; this quiet
+            card is what keeps /portal/categorize reachable when they are not. */}
+        {categorizeAvailable && (categorizeCount ?? 0) === 0 && (
           <Link
             to="/portal/categorize"
             className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
           >
-            <p className="text-sm font-medium text-gray-900">
-              {categorizeCount === null || categorizeCount === 0
-                ? 'Categorize transactions'
-                : `${categorizeCount} transaction${categorizeCount === 1 ? '' : 's'} need your input`}
-            </p>
+            <p className="text-sm font-medium text-gray-900">Categorize transactions</p>
             <p className="text-xs text-gray-500 mt-1">
-              {categorizeCount === 0
-                ? 'Nothing is waiting on you right now.'
-                : 'Tell your bookkeeper what these were for. Nothing changes your books until they review it.'}
+              Nothing is waiting on you right now.
             </p>
           </Link>
         )}

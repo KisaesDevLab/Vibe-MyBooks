@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CircleDot, Loader2, MailQuestion, Paperclip, Scissors, UserPen } from 'lucide-react';
+import { BellRing, CircleDot, Loader2, MailQuestion, Paperclip, Scissors, UserPen } from 'lucide-react';
 import { AttachFileButton } from '../../attachments/AttachFileButton';
 import { RowAttachmentsModal } from './RowAttachmentsModal';
 import { formatMoney } from '../../../utils/money';
@@ -54,7 +54,9 @@ export function InSuspenseTab() {
   // draft is written until that row's Save is pressed — see RowCategoryCell.
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [asking, setAsking] = useState(false);
+  // One modal, two entry points: the first ask and the reminder that follows
+  // it. null = closed.
+  const [asking, setAsking] = useState<'ask' | 'reminder' | null>(null);
 
   const toast = useToast();
   const query = useInSuspense({
@@ -221,13 +223,21 @@ export function InSuspenseTab() {
           placeholder="Search memo, payee, or check #"
           className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
         />
-        {/* The person who knows what these were is the client. This emails or
-            texts the portal contacts who can answer "What was this?". It is a
-            notice, not a posting, so it is not part of the selection bar. */}
-        <Button variant="secondary" onClick={() => setAsking(true)}>
-          <MailQuestion className="h-4 w-4 mr-1" />
-          Ask the client for help
-        </Button>
+        {/* The person who knows what these were is the client. These email or
+            text the portal contacts who can answer "What was this?". Notices,
+            not postings, so they are not part of the selection bar. The
+            reminder is separate because its wording and its default audience
+            (asked, no answer since) differ from the first ask. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => setAsking('reminder')}>
+            <BellRing className="h-4 w-4 mr-1" />
+            Send reminder
+          </Button>
+          <Button variant="secondary" onClick={() => setAsking('ask')}>
+            <MailQuestion className="h-4 w-4 mr-1" />
+            Ask the client for help
+          </Button>
+        </div>
       </div>
 
       {anyDirty && (
@@ -385,7 +395,11 @@ export function InSuspenseTab() {
 
       <Pagination total={total} limit={PAGE_SIZE} offset={offset} onChange={changePage} unit="transactions" />
 
-      <RequestClientHelpModal open={asking} onClose={() => setAsking(false)} />
+      <RequestClientHelpModal
+        open={asking !== null}
+        mode={asking ?? 'ask'}
+        onClose={() => setAsking(null)}
+      />
 
       <RowAttachmentsModal
         open={viewing !== null}

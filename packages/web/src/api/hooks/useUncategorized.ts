@@ -204,6 +204,8 @@ export interface HelpRecipient {
   smsSuppressed: boolean;
   lastSeenAt: string | null;
   lastAskedAt: string | null;
+  /** Last answer this contact submitted for the company; null = never. */
+  lastAnsweredAt: string | null;
 }
 
 export interface HelpRecipientsView {
@@ -239,7 +241,11 @@ export function useHelpRecipients(enabled = true) {
 export function useSendHelpRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { contactIds: string[]; channels: HelpChannel[]; note?: string; confirmEmpty?: boolean }) =>
+    mutationFn: (input: {
+      contactIds: string[]; channels: HelpChannel[]; note?: string; confirmEmpty?: boolean;
+      /** Reminder wording instead of the first-ask wording. */
+      reminder?: boolean;
+    }) =>
       apiClient<HelpSendResult>(`${BASE}/help-request`, { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['uncategorized', 'help-recipients'] });

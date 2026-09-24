@@ -10,7 +10,7 @@
 // nothing" states are said out loud before the button is enabled.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { renderRoute } from '../../../test-utils';
 import { accountsMocks, companyMocks, contactsMocks, passthroughMutation } from '../../../test-mocks';
 
@@ -26,11 +26,11 @@ const baseView = {
   contacts: [
     {
       contactId: 'c1', name: 'Dana Darrow', email: 'dana@example.com', phone: '+15555550100',
-      emailSuppressed: false, smsSuppressed: false, lastSeenAt: null, lastAskedAt: null,
+      emailSuppressed: false, smsSuppressed: false, lastSeenAt: null, lastAskedAt: null, lastAnsweredAt: null,
     },
     {
       contactId: 'c2', name: 'Pat Books', email: 'pat@example.com', phone: null,
-      emailSuppressed: false, smsSuppressed: false, lastSeenAt: null, lastAskedAt: null,
+      emailSuppressed: false, smsSuppressed: false, lastSeenAt: null, lastAskedAt: null, lastAnsweredAt: null,
     },
   ],
 };
@@ -130,5 +130,53 @@ describe('In suspense — Ask the client for help', () => {
     await openModal();
     expect(screen.getByText(/PORTAL_CATEGORIZE_V1/)).toBeTruthy();
     expect((screen.getByRole('button', { name: /send request/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+// "Send reminder" is the same modal with a different audience: the people
+// already asked who have not answered since. Getting that wrong means
+// nagging the client who did their homework.
+describe('In suspense — Send reminder', () => {
+  const asked = '2026-09-01T00:00:00.000Z';
+  const answered = '2026-09-02T00:00:00.000Z';
+
+  // Both the toolbar and the modal footer say "Send reminder", so the
+  // submit button is looked up inside the dialog.
+  async function openReminder(): Promise<HTMLElement> {
+    renderRoute(<InSuspenseTab />);
+    fireEvent.click(screen.getByRole('button', { name: /send reminder/i }));
+    return waitFor(() => screen.getByRole('dialog', { name: /send the client a reminder/i }));
+  }
+
+  it('ticks only the contacts who have not answered since they were asked', async () => {
+    recipientsView = {
+      ...baseView,
+      contacts: [
+        { ...baseView.contacts[0]!, lastAskedAt: asked, lastAnsweredAt: null },      // still owes
+        { ...baseView.contacts[1]!, lastAskedAt: asked, lastAnsweredAt: answered },  // replied
+      ],
+    };
+    const dialog = await openReminder();
+    expect((screen.getByLabelText('Send to Dana Darrow') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('Send to Pat Books') as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByText(/No answer since you asked/)).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /^send reminder$/i }));
+    expect(sendMutate.mock.calls[0]![0]).toMatchObject({ contactIds: ['c1'], reminder: true });
+  });
+
+  it('falls back to everyone, with a warning, when nobody has been asked yet', async () => {
+    await openReminder();
+    expect(screen.getByText(/Nobody has been asked yet/i)).toBeTruthy();
+    expect((screen.getByLabelText('Send to Dana Darrow') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('Send to Pat Books') as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('keeps the first-ask wording on the other button', async () => {
+    renderRoute(<InSuspenseTab />);
+    fireEvent.click(screen.getByRole('button', { name: /ask the client for help/i }));
+    await waitFor(() => screen.getByRole('dialog', { name: /ask the client/i }));
+    fireEvent.click(screen.getByRole('button', { name: /send request/i }));
+    expect(sendMutate.mock.calls[0]![0].reminder).toBeUndefined();
   });
 });

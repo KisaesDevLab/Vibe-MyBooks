@@ -2957,6 +2957,15 @@ The message says how many transactions are waiting, carries the portal login lin
 
 Texting needs the firm's SMS switch on (Practice \u2192 Client Portal settings) and an SMS provider on the server; otherwise the option is greyed out with the reason. A contact who has texted **STOP** is never messaged on that channel. Every send is logged with the other portal messages, so the reminders dashboard shows opens and clicks, and each contact shows when they were last asked. The wording can be changed under Practice \u2192 Reminders \u2192 Templates, trigger **Ask client to categorize**.
 
+### Sending a reminder
+
+Next to it is **Send reminder**, for the second and third time of asking. It is the same screen and the same rules, with two differences:
+
+- **The wording is reminder wording** \u2014 "Reminder: N transactions still need your answer" \u2014 and has its own template under Practice \u2192 Reminders \u2192 Templates, trigger **Remind client to categorize**, so it does not read like the first message.
+- **Only the people who still owe you an answer are ticked.** A contact who was asked and has sent nothing back since is badged **No answer since you asked**; someone who already answered is left unticked so they are not nagged. If nobody has been asked yet, the screen says so and ticks everyone.
+
+Reminders are something you send, not a schedule that runs. What the client sees on their side is unchanged: the same **What was this?** page, now announced by a banner across the top of their portal home rather than a tile at the bottom.
+
 ## Turning it on
 
 Two switches, both off by default. Enable **PORTAL_CATEGORIZE_V1** for the tenant, then tick **Can suggest categories** for each portal contact on Practice \u2192 Client Portal. Staff also need **UNCATEGORIZED_REVIEW_V1** to see the review queue.
