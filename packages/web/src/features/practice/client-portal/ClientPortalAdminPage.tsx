@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Paperclip,
   Plus,
   Trash2,
@@ -47,6 +47,7 @@ import {
   useResolveQuestion,
   usePendingBatches,
   useMarkBatchNotified,
+  type QuestionSortKey,
 } from '../../../api/hooks/usePortalQuestions';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -1227,6 +1228,8 @@ function Field({
 
 // ── Questions tab (bookkeeper inbox) ────────────────────────────
 
+const QUESTION_SORT_KEYS: readonly QuestionSortKey[] = ['body', 'companyName', 'contactEmail', 'status', 'createdAt'];
+
 function QuestionsTab() {
   const [statusFilter, setStatusFilter] = useState<'unresolved' | 'open' | 'responded' | 'resolved' | 'all'>('unresolved');
   const [showAsk, setShowAsk] = useState(false);
@@ -1234,8 +1237,17 @@ function QuestionsTab() {
   const [pageSize, setPageSize] = useState('50');
   const [offset, setOffset] = useState(0);
   const limit = Number(pageSize);
+  // Sort is server-side (the inbox paginates).
+  const view = useColumnView<QuestionSortKey>('vibe:portal-questions:view', {
+    sortKeys: QUESTION_SORT_KEYS, defaultSort: { col: 'createdAt', dir: 'desc' },
+    defaultDir: (col) => (col === 'createdAt' ? 'desc' : 'asc'),
+  });
+  useEffect(() => setOffset(0), [view.signature]);
 
-  const { data, isLoading, isError } = useQuestionsList({ status: statusFilter, limit, offset });
+  const { data, isLoading, isError } = useQuestionsList({
+    status: statusFilter, limit, offset,
+    ...(view.sortCol ? { sortBy: view.sortCol, sortDir: view.sortDir } : {}),
+  });
   const { data: pending } = usePendingBatches();
   const markNotified = useMarkBatchNotified();
   const questions = data?.questions ?? [];
@@ -1318,11 +1330,11 @@ function QuestionsTab() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Question</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Company</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Contact</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Status</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Asked</th>
+                <SortableTh padding="px-4 py-2" className="font-medium text-gray-700" label="Question" {...view.thProps('body')} />
+                <SortableTh padding="px-4 py-2" className="font-medium text-gray-700" label="Company" {...view.thProps('companyName')} />
+                <SortableTh padding="px-4 py-2" className="font-medium text-gray-700" label="Contact" {...view.thProps('contactEmail')} />
+                <SortableTh padding="px-4 py-2" className="font-medium text-gray-700" label="Status" {...view.thProps('status')} />
+                <SortableTh padding="px-4 py-2" className="font-medium text-gray-700" label="Asked" {...view.thProps('createdAt')} />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">

@@ -65,16 +65,22 @@ export interface CreateQuestionInput {
   assignedContactId?: string | null;
 }
 
+export type QuestionSortKey = 'body' | 'companyName' | 'contactEmail' | 'status' | 'createdAt';
+
 export function useQuestionsList(opts?: {
   status?: string;
   companyId?: string;
   contactId?: string;
   transactionId?: string;
+  sortBy?: QuestionSortKey;
+  sortDir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
 }) {
   const qs = new URLSearchParams();
   if (opts?.status) qs.set('status', opts.status);
+  if (opts?.sortBy) qs.set('sortBy', opts.sortBy);
+  if (opts?.sortDir) qs.set('sortDir', opts.sortDir);
   if (opts?.companyId) qs.set('companyId', opts.companyId);
   if (opts?.contactId) qs.set('contactId', opts.contactId);
   if (opts?.transactionId) qs.set('transactionId', opts.transactionId);

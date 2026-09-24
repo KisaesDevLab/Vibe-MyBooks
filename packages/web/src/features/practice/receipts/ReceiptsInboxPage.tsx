@@ -7,6 +7,8 @@ import { Inbox, Upload, Trash2, Search, Banknote } from 'lucide-react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { Pagination } from '../../../components/ui/Pagination';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
+import { SortableTh } from '../../../components/ui/SortableTh';
+import { useColumnView } from '../../../hooks/useColumnView';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 18.8 — bookkeeper Receipts Inbox.
 // Replaces the prior placeholder. Talks to /api/v1/practice/receipts.
@@ -40,9 +42,27 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+type InboxSortKey = 'filename' | 'companyName' | 'extractedVendor' | 'extractedTotal' | 'status' | 'captureSource' | 'capturedAt';
+const SORT_KEYS: readonly InboxSortKey[] = ['filename', 'companyName', 'extractedVendor', 'extractedTotal', 'status', 'captureSource', 'capturedAt'];
+// Keep in lockstep with the status <select> below — the Status popover
+// offers the same choices and mirrors the select.
+const STATUS_OPTIONS = [
+  { value: 'unmatched', label: 'Unmatched' }, { value: 'auto_matched', label: 'Auto-matched' },
+  { value: 'manually_matched', label: 'Manual match' }, { value: 'dismissed', label: 'Dismissed' },
+  { value: 'pending_ocr', label: 'Pending OCR' }, { value: 'awaits_routing', label: 'Awaiting routing' },
+  { value: 'statement_imported', label: 'Statement imported' }, { value: 'statement_review', label: 'In statement review' },
+];
+const TH = 'font-medium text-gray-700';
+
 export function ReceiptsInboxPage() {
   const { companies, activeCompanyId } = useCompanyContext();
   const [statusFilter, setStatusFilter] = useState<string>('unmatched');
+  // Sort is server-side (the inbox paginates); the search box still narrows
+  // the loaded page client-side.
+  const view = useColumnView<InboxSortKey>('vibe:receipts-inbox:view', {
+    sortKeys: SORT_KEYS, defaultSort: { col: 'capturedAt', dir: 'desc' },
+    defaultDir: (col) => (col === 'capturedAt' || col === 'extractedTotal' ? 'desc' : 'asc'),
+  });
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<InboxRow[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -58,6 +78,7 @@ export function ReceiptsInboxPage() {
     try {
       const qs = new URLSearchParams();
       if (statusFilter !== 'all') qs.set('status', statusFilter);
+      if (view.sortCol) { qs.set('sortBy', view.sortCol); qs.set('sortDir', view.sortDir); }
       qs.set('limit', String(limit));
       qs.set('offset', String(offset));
       const data = await api<{ receipts: InboxRow[]; total: number }>(`/practice/receipts?${qs}`);
@@ -68,12 +89,19 @@ export function ReceiptsInboxPage() {
     }
   };
 
+  useEffect(() => setOffset(0), [view.signature]);
   useEffect(() => {
     setRows(null);
     setError(null);
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, limit, offset]);
+  }, [statusFilter, limit, offset, view.sortCol, view.sortDir]);
+
+  const statusPopover = {
+    ...view.filterProps('status', STATUS_OPTIONS),
+    selected: statusFilter === 'all' ? new Set<string>() : new Set([statusFilter]),
+    onApply: (sel: Set<string>) => { setStatusFilter(sel.size === 1 ? [...sel][0]! : 'all'); setOffset(0); },
+  };
 
   const onUpload = async (file: File) => {
     if (!activeCompanyId) {
@@ -201,12 +229,12 @@ export function ReceiptsInboxPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">File</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Company</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Vendor</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-700">Amount</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Status</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Source</th>
+                <SortableTh padding="px-4 py-2" className={TH} label="File" {...view.thProps('filename')} />
+                <SortableTh padding="px-4 py-2" className={TH} label="Company" {...view.thProps('companyName')} />
+                <SortableTh padding="px-4 py-2" className={TH} label="Vendor" {...view.thProps('extractedVendor')} />
+                <SortableTh padding="px-4 py-2" className={TH} align="right" label="Amount" {...view.thProps('extractedTotal')} />
+                <SortableTh padding="px-4 py-2" className={TH} label="Status" {...view.thProps('status')} filter={statusPopover} />
+                <SortableTh padding="px-4 py-2" className={TH} label="Source" {...view.thProps('captureSource')} />
                 <th className="text-right px-4 py-2 font-medium text-gray-700">Actions</th>
               </tr>
             </thead>

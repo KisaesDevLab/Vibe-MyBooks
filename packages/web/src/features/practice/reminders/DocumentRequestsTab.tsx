@@ -7,9 +7,15 @@ import { Inbox, Send, CheckSquare, XCircle, Eye, MailOpen, Paperclip, Download, 
 import type { DocRequestStatus, DocumentRequestSummary } from '@kis-books/shared';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { Pagination } from '../../../components/ui/Pagination';
+import { SortableTh } from '../../../components/ui/SortableTh';
+import { useColumnView } from '../../../hooks/useColumnView';
 import { api } from './RemindersPage';
 
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
+
+type SortKey = 'contact' | 'document' | 'period' | 'requestedAt' | 'dueDate' | 'status';
+const SORT_KEYS: readonly SortKey[] = ['contact', 'document', 'period', 'requestedAt', 'dueDate', 'status'];
+const TH = 'font-medium text-gray-700';
 
 interface ReminderSendRow {
   id: string;
@@ -39,6 +45,13 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
   const [pageSize, setPageSize] = useState<string>('50');
   const [offset, setOffset] = useState<number>(0);
   const limit = Number(pageSize);
+  // Sort is server-side (the grid paginates). No sort = the inbox order
+  // (unread submissions first, then newest request).
+  const view = useColumnView<SortKey>('vibe:document-requests:view', {
+    sortKeys: SORT_KEYS, defaultSort: null,
+    defaultDir: (col) => (col === 'requestedAt' || col === 'dueDate' ? 'desc' : 'asc'),
+  });
+  useEffect(() => setOffset(0), [view.signature]);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -53,6 +66,7 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
       if (statusFilter === 'unread') params.set('unread', 'true');
       else if (statusFilter !== 'all') params.set('status', statusFilter);
       if (overdueOnly) params.set('overdue', 'true');
+      if (view.sortCol) { params.set('sortBy', view.sortCol); params.set('sortDir', view.sortDir); }
       params.set('limit', String(limit));
       params.set('offset', String(offset));
       const r = await api<{ items: DocumentRequestSummary[]; total: number }>(
@@ -63,7 +77,7 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load.');
     }
-  }, [statusFilter, overdueOnly, limit, offset]);
+  }, [statusFilter, overdueOnly, limit, offset, view.sortCol, view.sortDir]);
 
   useEffect(() => { void reload(); }, [reload]);
 
@@ -199,13 +213,13 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Contact</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Document</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Period</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Requested</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Due</th>
+                <SortableTh padding="px-4 py-2" className={TH} label="Contact" {...view.thProps('contact')} />
+                <SortableTh padding="px-4 py-2" className={TH} label="Document" {...view.thProps('document')} />
+                <SortableTh padding="px-4 py-2" className={TH} label="Period" {...view.thProps('period')} />
+                <SortableTh padding="px-4 py-2" className={TH} label="Requested" {...view.thProps('requestedAt')} />
+                <SortableTh padding="px-4 py-2" className={TH} label="Due" {...view.thProps('dueDate')} />
                 <th className="text-left px-4 py-2 font-medium text-gray-700">Last reminded</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Status</th>
+                <SortableTh padding="px-4 py-2" className={TH} label="Status" {...view.thProps('status')} />
                 <th className="text-right px-4 py-2 font-medium text-gray-700">Actions</th>
               </tr>
             </thead>

@@ -6,7 +6,7 @@
 // year, with reverse / duplicate / void actions (5.5) and drill-down
 // to the transaction detail.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, isApiError } from '../../api/client';
@@ -16,6 +16,8 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/Toaster';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
 
 interface AjeLine {
   id: string;
@@ -37,6 +39,8 @@ interface Aje {
 }
 
 const PAGE_SIZE = 50;
+type SortKey = 'ajeNumber' | 'txnDate' | 'memo' | 'basis' | 'total' | 'status';
+const SORT_KEYS: readonly SortKey[] = ['ajeNumber', 'txnDate', 'memo', 'basis', 'total', 'status'];
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
 export function AjeListPage() {
@@ -49,11 +53,18 @@ export function AjeListPage() {
   const [includeVoid, setIncludeVoid] = useState(false);
   const [page, setPage] = useState(0);
   const [voidTarget, setVoidTarget] = useState<Aje | null>(null);
+  // Sort is server-side (the list paginates).
+  const view = useColumnView<SortKey>('vibe:tb-ajes:view', {
+    sortKeys: SORT_KEYS, defaultSort: { col: 'txnDate', dir: 'desc' },
+    defaultDir: (col) => (col === 'txnDate' || col === 'ajeNumber' || col === 'total' ? 'desc' : 'asc'),
+  });
+  useEffect(() => setPage(0), [view.signature]);
+  const sortQs = view.sortCol ? `&sortBy=${view.sortCol}&sortDir=${view.sortDir}` : '';
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['tb', 'ajes', fiscalYear, includeVoid, page],
+    queryKey: ['tb', 'ajes', fiscalYear, includeVoid, page, view.sortCol, view.sortDir],
     queryFn: () => apiClient<{ ajes: Aje[]; total: number }>(
-      `/tb/ajes?fiscalYear=${fiscalYear}&includeVoid=${includeVoid}&limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}`,
+      `/tb/ajes?fiscalYear=${fiscalYear}&includeVoid=${includeVoid}&limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}${sortQs}`,
     ),
   });
 
@@ -107,12 +118,12 @@ export function AjeListPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase text-gray-500 border-b border-gray-200">
-                  <th className="px-4 py-2">#</th>
-                  <th className="px-4 py-2">Date</th>
-                  <th className="px-4 py-2">Memo</th>
-                  <th className="px-4 py-2">Basis</th>
-                  <th className="px-4 py-2 text-right">Amount</th>
-                  <th className="px-4 py-2">Status</th>
+                  <SortableTh padding="px-4 py-2" label="#" {...view.thProps('ajeNumber')} />
+                  <SortableTh padding="px-4 py-2" label="Date" {...view.thProps('txnDate')} />
+                  <SortableTh padding="px-4 py-2" label="Memo" {...view.thProps('memo')} />
+                  <SortableTh padding="px-4 py-2" label="Basis" {...view.thProps('basis')} />
+                  <SortableTh padding="px-4 py-2" align="right" label="Amount" {...view.thProps('total')} />
+                  <SortableTh padding="px-4 py-2" label="Status" {...view.thProps('status')} />
                   <th className="px-4 py-2 text-right">Actions</th>
                 </tr>
               </thead>

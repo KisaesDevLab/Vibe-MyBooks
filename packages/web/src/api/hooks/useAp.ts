@@ -106,9 +106,13 @@ export function usePayableBills(opts?: { contactId?: string; dueOnOrBefore?: str
 
 // ─── Vendor Credits ─────────────────────────────────────────────
 
-export function useVendorCredits(filters?: { contactId?: string; limit?: number; offset?: number }) {
+export type VendorCreditSortKey = 'txnNumber' | 'contactName' | 'txnDate' | 'total' | 'balanceDue' | 'memo';
+
+export function useVendorCredits(filters?: { contactId?: string; sortBy?: VendorCreditSortKey; sortDir?: 'asc' | 'desc'; limit?: number; offset?: number }) {
   const params = new URLSearchParams();
   if (filters?.contactId) params.set('contactId', filters.contactId);
+  if (filters?.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters?.sortDir) params.set('sortDir', filters.sortDir);
   if (filters?.limit) params.set('limit', String(filters.limit));
   if (filters?.offset) params.set('offset', String(filters.offset));
   const qs = params.toString();

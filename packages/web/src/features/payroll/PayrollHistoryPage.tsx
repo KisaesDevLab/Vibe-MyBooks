@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -12,7 +12,9 @@ import {
   useDeletePayrollSession,
   useReversePayroll,
 } from '../../api/hooks/usePayrollImport';
-import type { PayrollSessionStatus } from '@kis-books/shared';
+import type { PayrollSessionStatus, PayrollSessionSortKey } from '@kis-books/shared';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
 
 const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }> = {
   uploaded: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Uploaded' },
@@ -23,17 +25,38 @@ const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }>
   cancelled: { bg: 'bg-gray-100', text: 'text-gray-500 line-through', label: 'Reversed' },
 };
 
+const SORT_KEYS: readonly PayrollSessionSortKey[] = ['payPeriod', 'originalFilename', 'importMode', 'status', 'rowCount', 'errorCount', 'jeCount', 'createdAt'];
+// Keep in lockstep with the status <select> below — the Status popover
+// offers the same choices and mirrors the select.
+const STATUS_OPTIONS: Array<{ value: PayrollSessionStatus; label: string }> = [
+  { value: 'uploaded', label: 'Uploaded' }, { value: 'mapped', label: 'Mapped' }, { value: 'validated', label: 'Validated' },
+  { value: 'posted', label: 'Posted' }, { value: 'failed', label: 'Failed' }, { value: 'cancelled', label: 'Reversed' },
+];
+const TH = 'text-xs font-medium text-gray-500';
+
 export function PayrollHistoryPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<PayrollSessionStatus | ''>('');
   const [page, setPage] = useState(0);
   const limit = 25;
+  // Sort is server-side (the history paginates). No sort = newest import first.
+  const view = useColumnView<PayrollSessionSortKey>('vibe:payroll-history:view', {
+    sortKeys: SORT_KEYS, defaultSort: null,
+    defaultDir: (col) => (col === 'originalFilename' || col === 'importMode' || col === 'status' ? 'asc' : 'desc'),
+  });
+  useEffect(() => setPage(0), [view.signature]);
 
   const { data, isLoading } = usePayrollSessions({
     status: statusFilter || undefined,
+    ...(view.sortCol ? { sortBy: view.sortCol, sortDir: view.sortDir } : {}),
     limit,
     offset: page * limit,
   });
+  const statusPopover = {
+    ...view.filterProps('status', STATUS_OPTIONS),
+    selected: statusFilter ? new Set<string>([statusFilter]) : new Set<string>(),
+    onApply: (sel: Set<string>) => { setStatusFilter(sel.size === 1 ? ([...sel][0] as PayrollSessionStatus) : ''); setPage(0); },
+  };
   const deleteMutation = useDeletePayrollSession();
   const reverseMutation = useReversePayroll();
 
@@ -145,13 +168,13 @@ export function PayrollHistoryPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Pay Period</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">File</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Mode</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Rows</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Errors</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">JEs</th>
+                  <SortableTh padding="px-4 py-3" className={TH} label="Pay Period" {...view.thProps('payPeriod')} />
+                  <SortableTh padding="px-4 py-3" className={TH} label="File" {...view.thProps('originalFilename')} />
+                  <SortableTh padding="px-4 py-3" className={TH} label="Mode" {...view.thProps('importMode')} />
+                  <SortableTh padding="px-4 py-3" className={TH} label="Status" {...view.thProps('status')} filter={statusPopover} />
+                  <SortableTh padding="px-4 py-3" className={TH} align="right" label="Rows" {...view.thProps('rowCount')} />
+                  <SortableTh padding="px-4 py-3" className={TH} align="right" label="Errors" {...view.thProps('errorCount')} />
+                  <SortableTh padding="px-4 py-3" className={TH} align="right" label="JEs" {...view.thProps('jeCount')} />
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Actions</th>
                 </tr>
               </thead>

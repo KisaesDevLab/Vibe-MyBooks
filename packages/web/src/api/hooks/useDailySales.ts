@@ -113,7 +113,13 @@ export function useReplaceTemplateLines() {
 }
 
 // ── Entries ──
-export function useDailySalesEntries(filters?: { status?: string; templateId?: string; from?: string; to?: string; limit?: number; offset?: number }) {
+export type DailySalesEntrySortKey = 'businessDate' | 'templateName' | 'totalSales' | 'totalTax' | 'overShortAmount' | 'status';
+
+export function useDailySalesEntries(filters?: {
+  status?: string; templateId?: string; from?: string; to?: string;
+  sortBy?: DailySalesEntrySortKey; sortDir?: 'asc' | 'desc';
+  limit?: number; offset?: number;
+}) {
   const qs = new URLSearchParams(
     Object.entries(filters ?? {}).filter(([, v]) => v).map(([k, v]) => [k, String(v)]),
   ).toString();

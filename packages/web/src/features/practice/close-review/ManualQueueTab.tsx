@@ -6,7 +6,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ListChecks, ExternalLink } from 'lucide-react';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
-import { useManualQueue, type ManualQueueRow } from '../../../api/hooks/useManualQueue';
+import { useManualQueue, type ManualQueueRow, type ManualQueueSortKey } from '../../../api/hooks/useManualQueue';
+import { SortableTh } from '../../../components/ui/SortableTh';
+import { useColumnView } from '../../../hooks/useColumnView';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { Pagination } from '../../../components/ui/Pagination';
 import type { ClosePeriod } from './ClosePeriodSelector';
@@ -32,21 +34,29 @@ const REASON_LABEL: Record<ManualQueueRow['reason'], { label: string; tone: stri
 // or it errored) and items the worker classified as needs_review
 // but couldn't suggest anything for. Each row deep-links into the
 // Bank Feed where the bookkeeper can categorize directly.
+const SORT_KEYS: readonly ManualQueueSortKey[] = ['feedDate', 'description', 'amount', 'reason'];
+
 export function ManualQueueTab({ period }: Props) {
   const { activeCompanyId } = useCompanyContext();
   const [pageSize, setPageSize] = useState('50');
   const [offset, setOffset] = useState(0);
   const limit = Number(pageSize);
 
-  // New period or company means a new result set — start at page 1.
+  // Sort is server-side (the queue paginates).
+  const view = useColumnView<ManualQueueSortKey>('vibe:manual-queue:view', {
+    sortKeys: SORT_KEYS, defaultSort: { col: 'feedDate', dir: 'desc' },
+    defaultDir: (col) => (col === 'feedDate' || col === 'amount' ? 'desc' : 'asc'),
+  });
+  // New period, company or sort means a new result set — start at page 1.
   useEffect(() => {
     setOffset(0);
-  }, [activeCompanyId, period.periodStart, period.periodEnd]);
+  }, [activeCompanyId, period.periodStart, period.periodEnd, view.signature]);
 
   const queryResult = useManualQueue({
     companyId: activeCompanyId ?? null,
     periodStart: period.periodStart,
     periodEnd: period.periodEnd,
+    ...(view.sortCol ? { sortBy: view.sortCol, sortDir: view.sortDir } : {}),
     limit,
     offset,
   });
@@ -86,10 +96,10 @@ export function ManualQueueTab({ period }: Props) {
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr className="text-left text-xs uppercase tracking-wider text-gray-500">
-              <th className="px-3 py-2">Date</th>
-              <th className="px-3 py-2">Description</th>
-              <th className="px-3 py-2 text-right">Amount</th>
-              <th className="px-3 py-2">Reason</th>
+              <SortableTh label="Date" {...view.thProps('feedDate')} />
+              <SortableTh label="Description" {...view.thProps('description')} />
+              <SortableTh align="right" label="Amount" {...view.thProps('amount')} />
+              <SortableTh label="Reason" {...view.thProps('reason')} />
               <th className="px-3 py-2 w-40">Action</th>
             </tr>
           </thead>

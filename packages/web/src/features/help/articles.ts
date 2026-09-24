@@ -268,6 +268,30 @@ Record an immediate sale with payment received (no invoice). Useful for retail o
 `,
   },
   {
+    id: 'table-sort-filter',
+    title: 'Sorting & Filtering Any Table',
+    category: 'Getting Started',
+    summary: 'Every list in the app sorts by column, most offer a header filter, and the view is remembered while you work.',
+    body: `
+## Sorting & Filtering Any Table
+
+Every table view — Transactions, Bank Feed, Contacts, Items, Chart of Accounts, Bills, Invoices, Vendor Credits, Print Checks, statement imports, recurring schedules, receipts, document requests, portal questions, the practice queues, AJEs, daily sales, payroll history, every report, and the admin lists — works the same way.
+
+### Sort
+- Click a **column header** to sort by it; click again to reverse. The arrow shows the current direction.
+- Lists that page through the server (anything with a **Show** dropdown) sort the **whole** list, not just the page you are on — page 2 continues the order.
+- Dates, counts and amounts open **newest / largest first**; names open A–Z.
+
+### Filter from the header
+- The small **▾** next to a header opens a filter: choose **Sort A–Z / Z–A** (or Oldest / Newest, Low / High), then tick the values to keep and press **Apply**. A count on the ▾ shows how many values are selected; **Clear** removes the filter.
+- Where a toolbar already has a matching dropdown (Status, Type, Customer…), the header filter and the dropdown are the **same** filter: picking one value in the popover selects it in the dropdown, and picking several reads as "All" there.
+- Reports recompute their totals over the rows left visible.
+
+### Remembered view
+Your sort and filters are kept for the browser tab, so refreshing or coming back to the screen restores them. Changing the sort or a filter always returns you to page 1.
+`,
+  },
+  {
     id: 'transactions-list',
     title: 'Finding & Bulk-Editing Transactions',
     category: 'Transactions',

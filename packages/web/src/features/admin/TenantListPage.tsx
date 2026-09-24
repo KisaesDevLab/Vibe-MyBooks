@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, setTokens } from '../../api/client';
@@ -15,6 +15,8 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { Building2, Eye, Power, LogIn, Search, Plus, X } from 'lucide-react';
 import { APPLIANCE_FIRM_SLUG } from '@kis-books/shared';
 import { useFirms } from '../../api/hooks/useFirms';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
 
 interface TenantRow {
   id: string;
@@ -37,6 +39,8 @@ const DEFAULT_PAGE_SIZE = '50';
 const ALL_LIMIT = 5000;
 
 type SortKey = 'name' | 'slug' | 'firmName' | 'userCount' | 'companyCount' | 'transactionCount' | 'createdAt';
+const SORT_KEYS: readonly SortKey[] = ['name', 'slug', 'firmName', 'userCount', 'companyCount', 'transactionCount', 'createdAt'];
+const TEXT_KEYS = new Set<SortKey>(['name', 'slug', 'firmName']);
 
 export function TenantListPage() {
   const navigate = useNavigate();
@@ -81,15 +85,23 @@ export function TenantListPage() {
     },
   });
 
-  // A narrower search or a bigger page can leave the current offset past the
-  // end of the result set, which would render an empty table.
-  useEffect(() => setOffset(0), [debouncedSearch, pageSize]);
+  // Column sort is server-side: the list paginates, so sorting the loaded
+  // page alone would lie about order across pages.
+  const view = useColumnView<SortKey>('vibe:admin-tenants:view', {
+    sortKeys: SORT_KEYS,
+    defaultSort: { col: 'name', dir: 'asc' },
+    defaultDir: (col) => (TEXT_KEYS.has(col) ? 'asc' : 'desc'),
+  });
+  // A narrower search, a bigger page or a new sort can leave the current
+  // offset past the end of the result set, which would render an empty table.
+  useEffect(() => setOffset(0), [debouncedSearch, pageSize, view.signature]);
 
   const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ['admin', 'tenants', { search: debouncedSearch, limit: effectiveLimit, offset }],
+    queryKey: ['admin', 'tenants', { search: debouncedSearch, limit: effectiveLimit, offset, sortBy: view.sortCol, sortDir: view.sortDir }],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(effectiveLimit), offset: String(offset) });
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+      if (view.sortCol) { params.set('sortBy', view.sortCol); params.set('sortDir', view.sortDir); }
       return apiClient<{ tenants: TenantRow[]; total: number }>(`/admin/tenants?${params}`);
     },
     placeholderData: keepPreviousData,
@@ -98,28 +110,6 @@ export function TenantListPage() {
   const tenants = data?.tenants;
   const total = data?.total ?? 0;
 
-  // Column sorting is client-side over the fetched page (page size
-  // 'all' sorts the entire set).
-  const [sortKey, setSortKey] = useState<SortKey>('name');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const onSort = (key: SortKey) => {
-    if (key === sortKey) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir(key === 'name' || key === 'slug' ? 'asc' : 'desc');
-    }
-  };
-  const sortedTenants = useMemo(() => {
-    if (!tenants) return tenants;
-    const dir = sortDir === 'asc' ? 1 : -1;
-    return [...tenants].sort((a, b) => {
-      const av = a[sortKey] ?? '';
-      const bv = b[sortKey] ?? '';
-      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
-      return String(av).localeCompare(String(bv), undefined, { sensitivity: 'base' }) * dir;
-    });
-  }, [tenants, sortKey, sortDir]);
 
   const disableMutation = useMutation({
     mutationFn: (id: string) =>
@@ -216,20 +206,13 @@ export function TenantListPage() {
                     ['userCount', 'Users', 'right'], ['companyCount', 'Companies', 'right'],
                     ['transactionCount', 'Transactions', 'right'], ['createdAt', 'Created', 'left'],
                   ] as Array<[SortKey, string, 'left' | 'right']>).map(([key, label, align]) => (
-                    <th key={key} className={`text-${align} px-4 py-3 font-medium text-gray-600`}>
-                      <button onClick={() => onSort(key)}
-                        className="inline-flex items-center gap-1 hover:text-gray-900"
-                        title={`Sort by ${label}`}>
-                        {label}
-                        <span className="text-xs">{sortKey === key ? (sortDir === 'asc' ? '▲' : '▼') : ''}</span>
-                      </button>
-                    </th>
+                    <SortableTh key={key} padding="px-4 py-3" className="font-medium text-gray-600" align={align} label={label} {...view.thProps(key)} />
                   ))}
                   <th className="text-center px-4 py-3 font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {(sortedTenants ?? []).map((t) => (
+                {(tenants ?? []).map((t) => (
                   <tr
                     key={t.id}
                     className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"

@@ -2,9 +2,11 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDailySalesEntries, useDailySalesTemplates } from '../../api/hooks/useDailySales';
+import { useDailySalesEntries, useDailySalesTemplates, type DailySalesEntrySortKey } from '../../api/hooks/useDailySales';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
@@ -13,6 +15,8 @@ import { Plus, Settings, AlertTriangle, RefreshCw, FileText } from 'lucide-react
 // Rows-per-page choices — GET /daily-sales/entries caps limit at 500.
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
 const DEFAULT_PAGE_SIZE = '50';
+const SORT_KEYS: readonly DailySalesEntrySortKey[] = ['businessDate', 'templateName', 'totalSales', 'totalTax', 'overShortAmount', 'status'];
+const TH = 'font-medium text-gray-600';
 
 function statusBadge(status: string): { label: string; cls: string } {
   if (status === 'posted') return { label: 'Posted', cls: 'bg-green-100 text-green-700' };
@@ -26,7 +30,16 @@ export function DailySalesEntriesPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [offset, setOffset] = useState(0);
   const limit = parseInt(pageSize, 10);
-  const { data, isLoading, isError, refetch } = useDailySalesEntries({ limit, offset });
+  // Sort is server-side (the list paginates).
+  const view = useColumnView<DailySalesEntrySortKey>('vibe:daily-sales:view', {
+    sortKeys: SORT_KEYS, defaultSort: { col: 'businessDate', dir: 'desc' },
+    defaultDir: (col) => (col === 'templateName' || col === 'status' ? 'asc' : 'desc'),
+  });
+  useEffect(() => setOffset(0), [view.signature]);
+  const { data, isLoading, isError, refetch } = useDailySalesEntries({
+    limit, offset,
+    ...(view.sortCol ? { sortBy: view.sortCol, sortDir: view.sortDir } : {}),
+  });
   const { data: tplData } = useDailySalesTemplates();
   const entries = data?.entries ?? [];
   const hasTemplates = (tplData?.templates?.length ?? 0) > 0;
@@ -78,12 +91,12 @@ export function DailySalesEntriesPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Template</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">Sales</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">Tax</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">Over/Short</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
+                <SortableTh padding="px-4 py-3" className={TH} label="Date" {...view.thProps('businessDate')} />
+                <SortableTh padding="px-4 py-3" className={TH} label="Template" {...view.thProps('templateName')} />
+                <SortableTh padding="px-4 py-3" className={TH} align="right" label="Sales" {...view.thProps('totalSales')} />
+                <SortableTh padding="px-4 py-3" className={TH} align="right" label="Tax" {...view.thProps('totalTax')} />
+                <SortableTh padding="px-4 py-3" className={TH} align="right" label="Over/Short" {...view.thProps('overShortAmount')} />
+                <SortableTh padding="px-4 py-3" className={TH} label="Status" {...view.thProps('status')} />
                 <th className="px-4 py-3 text-right font-medium text-gray-600"></th>
               </tr>
             </thead>

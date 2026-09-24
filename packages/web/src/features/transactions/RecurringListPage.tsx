@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
@@ -10,6 +10,8 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
 import { Play, Pause, Archive, ArchiveRestore, Pencil } from 'lucide-react';
 import { RecurringScheduleModal, type EditableSchedule } from './RecurringScheduleModal';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
 
 interface RecurringSchedule {
   id: string; templateTransactionId: string; name: string | null; frequency: string;
@@ -25,7 +27,11 @@ const STATUS_BADGE: Record<Status, string> = {
   paused: 'bg-amber-100 text-amber-700',
   archived: 'bg-gray-100 text-gray-500',
 };
-type SortKey = 'frequency' | 'nextOccurrence' | 'lastPostedAt' | 'status';
+type SortKey = 'name' | 'frequency' | 'mode' | 'nextOccurrence' | 'lastPostedAt' | 'status';
+const SORT_KEYS: readonly SortKey[] = ['name', 'frequency', 'mode', 'nextOccurrence', 'lastPostedAt', 'status'];
+const STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' }, { value: 'paused', label: 'Paused' }, { value: 'archived', label: 'Archived' },
+];
 
 // Rows-per-page choices — GET /recurring caps limit at 500.
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
@@ -50,9 +56,16 @@ export function RecurringListPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [offset, setOffset] = useState(0);
   const limit = parseInt(pageSize, 10);
+  // Sort is server-side (the list paginates); status + search stay
+  // client-side over the loaded page as before.
+  const cols = useColumnView<SortKey>('vibe:recurring:view', {
+    sortKeys: SORT_KEYS, defaultSort: { col: 'nextOccurrence', dir: 'asc' },
+  });
+  useEffect(() => setOffset(0), [cols.signature]);
+  const sortQs = cols.sortCol ? `&sortBy=${cols.sortCol}&sortDir=${cols.sortDir}` : '';
   const { data, isLoading } = useQuery({
-    queryKey: ['recurring', limit, offset],
-    queryFn: () => apiClient<{ schedules: RecurringSchedule[]; total: number }>(`/recurring?limit=${limit}&offset=${offset}`),
+    queryKey: ['recurring', limit, offset, cols.sortCol, cols.sortDir],
+    queryFn: () => apiClient<{ schedules: RecurringSchedule[]; total: number }>(`/recurring?limit=${limit}&offset=${offset}${sortQs}`),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['recurring'] });
@@ -67,8 +80,6 @@ export function RecurringListPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | Status>('active');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<EditableSchedule | null>(null);
-  const [sortKey, setSortKey] = useState<SortKey>('nextOccurrence');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const all = useMemo(() => data?.schedules ?? [], [data]);
   const counts = useMemo(() => ({
@@ -85,19 +96,21 @@ export function RecurringListPage() {
       const q = search.toLowerCase();
       rows = rows.filter((s) => `${s.name ?? ''} ${s.frequency} ${s.mode}`.toLowerCase().includes(q));
     }
-    const dir = sortDir === 'asc' ? 1 : -1;
-    return [...rows].sort((a, b) => {
-      let c = 0;
-      if (sortKey === 'frequency') c = a.frequency.localeCompare(b.frequency);
-      else if (sortKey === 'nextOccurrence') c = String(a.nextOccurrence).localeCompare(String(b.nextOccurrence));
-      else if (sortKey === 'lastPostedAt') c = String(a.lastPostedAt ?? '').localeCompare(String(b.lastPostedAt ?? ''));
-      else c = statusOf(a).localeCompare(statusOf(b));
-      return c * dir;
-    });
-  }, [all, statusFilter, search, sortKey, sortDir]);
+    return rows;
+  }, [all, statusFilter, search]);
 
-  const toggleSort = (k: SortKey) => { if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); else { setSortKey(k); setSortDir('asc'); } };
-  const arrow = (k: SortKey) => (sortKey === k ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
+  // The Status popover mirrors the filter buttons: one value = that status,
+  // none or several = All.
+  const statusFilterProps = cols.filterProps('status', STATUS_OPTIONS);
+  const statusPopover = {
+    ...statusFilterProps,
+    selected: statusFilter === 'all' ? new Set<string>() : new Set([statusFilter]),
+    onApply: (sel: Set<string>) => {
+      const pick = sel.size === 1 ? [...sel][0] as Status : 'all';
+      setStatusFilter(pick); setOffset(0);
+    },
+  };
+  const th = 'text-xs font-medium text-gray-500';
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
 
@@ -125,12 +138,12 @@ export function RecurringListPage() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('frequency')}>Frequency{arrow('frequency')}</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mode</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('nextOccurrence')}>Next Occurrence{arrow('nextOccurrence')}</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('lastPostedAt')}>Last Posted{arrow('lastPostedAt')}</th>
-                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('status')}>Status{arrow('status')}</th>
+                <SortableTh padding="px-4 py-2" className={th} label="Name" {...cols.thProps('name')} />
+                <SortableTh padding="px-4 py-2" className={th} label="Frequency" {...cols.thProps('frequency')} />
+                <SortableTh padding="px-4 py-2" className={th} label="Mode" {...cols.thProps('mode')} />
+                <SortableTh padding="px-4 py-2" className={th} label="Next Occurrence" {...cols.thProps('nextOccurrence')} />
+                <SortableTh padding="px-4 py-2" className={th} label="Last Posted" {...cols.thProps('lastPostedAt')} />
+                <SortableTh padding="px-4 py-2" className={th} align="center" label="Status" {...cols.thProps('status')} filter={statusPopover} />
                 <th className="px-4 py-2" />
               </tr>
             </thead>

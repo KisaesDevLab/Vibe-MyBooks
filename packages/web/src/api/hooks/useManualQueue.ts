@@ -15,22 +15,28 @@ export interface ManualQueueRow {
   reason: 'orphan' | 'no_suggestion';
 }
 
+export type ManualQueueSortKey = 'feedDate' | 'description' | 'amount' | 'reason';
+
 interface Input {
   companyId: string | null;
   periodStart: string;
   periodEnd: string;
+  sortBy?: ManualQueueSortKey;
+  sortDir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
 }
 
 const KEY = (input: Input) =>
-  ['practice', 'classification', 'manual-queue', input.companyId, input.periodStart, input.periodEnd, input.limit, input.offset] as const;
+  ['practice', 'classification', 'manual-queue', input.companyId, input.periodStart, input.periodEnd, input.sortBy, input.sortDir, input.limit, input.offset] as const;
 
 export function useManualQueue(input: Input) {
   const qs = new URLSearchParams();
   if (input.companyId) qs.set('companyId', input.companyId);
   qs.set('periodStart', input.periodStart);
   qs.set('periodEnd', input.periodEnd);
+  if (input.sortBy) qs.set('sortBy', input.sortBy);
+  if (input.sortDir) qs.set('sortDir', input.sortDir);
   if (input.limit !== undefined) qs.set('limit', String(input.limit));
   if (input.offset !== undefined) qs.set('offset', String(input.offset));
   return useQuery({
