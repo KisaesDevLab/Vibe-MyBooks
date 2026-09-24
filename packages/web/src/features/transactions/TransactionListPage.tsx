@@ -16,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
+import { SortableTh } from '../../components/ui/SortableTh';
 import { ArrowLeft, Plus, Search, X } from 'lucide-react';
 import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 
@@ -40,29 +41,8 @@ const CLEAR_TAG = '__clear__';
 
 type TxnSortKey = 'date' | 'type' | 'number' | 'payee' | 'memo' | 'category' | 'amount' | 'status';
 
-function SortableTh({ sortKey, label, align, sortBy, sortDir, onSort }: {
-  sortKey: TxnSortKey;
-  label: string;
-  align?: 'left' | 'right' | 'center';
-  sortBy: '' | TxnSortKey;
-  sortDir: 'asc' | 'desc';
-  onSort: (k: TxnSortKey) => void;
-}) {
-  const active = sortBy === sortKey;
-  const justify = align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start';
-  return (
-    <th className={`px-4 py-3 text-${align || 'left'} text-xs font-medium text-gray-500 uppercase`}>
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className={`inline-flex items-center gap-1 uppercase hover:text-gray-700 ${justify} ${active ? 'text-gray-800' : ''}`}
-      >
-        {label}
-        <span className="text-[10px] leading-none">{active ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}</span>
-      </button>
-    </th>
-  );
-}
+// Header cells use the shared SortableTh (components/ui); the sort itself
+// stays URL-synced on this page — see toggleSort.
 
 // The shared labels cover every type — bills, bill payments, vendor credits
 // and daily sales used to be missing here, so they could not be picked in the
@@ -640,18 +620,18 @@ export function TransactionListPage() {
         {/* Desktop: full table (horizontal-scrolls on medium+ if narrow). */}
         <div className="hidden md:block bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3 w-8">
                   <input type="checkbox" checked={allOnPageSelected} onChange={toggleAllOnPage}
                     aria-label="Select all on page" className="rounded border-gray-300" />
                 </th>
-                <SortableTh sortKey="date" label="Date" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                <SortableTh sortKey="type" label="Type" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                <SortableTh sortKey="number" label="No." sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                <SortableTh sortKey="payee" label="Payee / Customer" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                <SortableTh sortKey="memo" label="Memo" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                <SortableTh sortKey="category" label="Category" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh padding="px-4 py-3" sortKey="date" label="Date" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh padding="px-4 py-3" sortKey="type" label="Type" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh padding="px-4 py-3" sortKey="number" label="No." sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh padding="px-4 py-3" sortKey="payee" label="Payee / Customer" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh padding="px-4 py-3" sortKey="memo" label="Memo" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh padding="px-4 py-3" sortKey="category" label="Category" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tag</th>
                 {accountFilter ? (
                   <>
@@ -659,9 +639,9 @@ export function TransactionListPage() {
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Credit</th>
                   </>
                 ) : (
-                  <SortableTh sortKey="amount" label="Amount" align="right" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh padding="px-4 py-3" sortKey="amount" label="Amount" align="right" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                 )}
-                <SortableTh sortKey="status" label="Status" align="center" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh padding="px-4 py-3" sortKey="status" label="Status" align="center" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">

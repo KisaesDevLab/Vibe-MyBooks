@@ -8,6 +8,8 @@ import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem,
 import type { ReprocessRulesResultDto, FeedPayeeBackfillReportDto } from '../../api/hooks/useBanking';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useColumnView } from '../../hooks/useColumnView';
+import { SortableTh } from '../../components/ui/SortableTh';
 import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/hooks/useAi';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
@@ -21,7 +23,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
-import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, ArrowUpDown, RefreshCw, Link2, Wand2, ScanLine, RotateCcw } from 'lucide-react';
+import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, RefreshCw, Link2, Wand2, ScanLine, RotateCcw } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 const statusColors: Record<string, string> = {
@@ -77,26 +79,7 @@ const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
 // Newest first and most confident first are what people expect; everything
 // else reads A→Z / low→high.
 const DESC_FIRST: ReadonlySet<SortKey> = new Set(['feedDate', 'confidence']);
-
-function SortHeader({ label, sortKey, currentSort, currentDir, onSort, align }: {
-  label: string; sortKey: SortKey; currentSort: SortKey; currentDir: SortDir;
-  onSort: (key: SortKey) => void; align?: string;
-}) {
-  const active = currentSort === sortKey;
-  return (
-    <th className={`px-3 py-3 text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700 ${align || 'text-left'}`}
-      onClick={() => onSort(sortKey)}>
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {active ? (
-          currentDir === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ArrowUpDown className="h-3 w-3 text-gray-300" />
-        )}
-      </span>
-    </th>
-  );
-}
+const SORT_KEYS: readonly SortKey[] = ['feedDate', 'name', 'description', 'originalDescription', 'category', 'status', 'amount', 'confidence'];
 
 // Default for the "Hide processed" toggle (see actionableOnly below).
 const DEFAULT_ACTIONABLE_ONLY = true;
@@ -130,9 +113,15 @@ export function BankFeedPage() {
   const [actionableOnly, setActionableOnly] = useSessionState('vibe:bank-feed:actionableOnly', DEFAULT_ACTIONABLE_ONLY);
   const [ruleOnly, setRuleOnly] = useSessionState('vibe:bank-feed:ruleOnly', false);
   // Sort persists for the tab session like the filters do — a chosen order
-  // used to reset to newest-first on every visit.
-  const [sortKey, setSortKey] = useSessionState<SortKey>('vibe:bank-feed:sortKey', 'feedDate');
-  const [sortDir, setSortDir] = useSessionState<SortDir>('vibe:bank-feed:sortDir', 'desc');
+  // used to reset to newest-first on every visit. One view object feeds the
+  // headers and the "Sort by" dropdown alike.
+  const view = useColumnView<SortKey>('vibe:bank-feed:view', {
+    sortKeys: SORT_KEYS,
+    defaultSort: { col: 'feedDate', dir: 'desc' },
+    defaultDir: (k) => (DESC_FIRST.has(k) ? 'desc' : 'asc'),
+  });
+  const sortKey: SortKey = view.sortCol || 'feedDate';
+  const sortDir: SortDir = view.sortDir;
   // Row whose CATEGORY cell is showing the inline picker (click-to-edit on a
   // collapsed row). Picking stages the account at once — the same reversible
   // assign() that "Accept suggestion" uses, never a post — so there is no
@@ -226,12 +215,7 @@ export function BankFeedPage() {
   const firstLoad = isLoading && !data;
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortKey(key);
-      setSortDir(DESC_FIRST.has(key) ? 'desc' : 'asc');
-    }
+    view.toggleSort(key);
   };
 
   // Rows arrive server-sorted (sortBy/sortDir are query params) so the
@@ -648,8 +632,7 @@ export function BankFeedPage() {
                 value={sortKey}
                 onChange={(e) => {
                   const key = e.target.value as SortKey;
-                  setSortKey(key);
-                  setSortDir(DESC_FIRST.has(key) ? 'desc' : 'asc');
+                  view.setSort(key, DESC_FIRST.has(key) ? 'desc' : 'asc');
                 }}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
               >
@@ -657,7 +640,7 @@ export function BankFeedPage() {
               </select>
               <button
                 type="button"
-                onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+                onClick={() => view.setSort(sortKey, sortDir === 'asc' ? 'desc' : 'asc')}
                 title={sortDir === 'asc' ? 'Ascending — click for descending' : 'Descending — click for ascending'}
                 aria-label={sortDir === 'asc' ? 'Sort ascending; switch to descending' : 'Sort descending; switch to ascending'}
                 className="rounded-lg border border-gray-300 px-2 py-2 text-sm text-gray-600 hover:bg-gray-50"
@@ -839,7 +822,7 @@ export function BankFeedPage() {
               table on phones for now; a md:hidden card-list fallback (like the
               Transactions list) is a future enhancement given this table's width. */}
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
               <tr>
                 <th className="w-10 px-3 py-3">
                   {selectableCount > 0 && (() => {
@@ -854,12 +837,12 @@ export function BankFeedPage() {
                     );
                   })()}
                 </th>
-                <SortHeader label="Date" sortKey="feedDate" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                <SortHeader label="Name" sortKey="name" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                <SortHeader label="Category" sortKey="category" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                <SortableTh padding="px-3 py-3" label="Date" sortKey="feedDate" sortBy={sortKey} sortDir={sortDir} onSort={handleSort} onSortDir={view.setSort} />
+                <SortableTh padding="px-3 py-3" label="Name" sortKey="name" sortBy={sortKey} sortDir={sortDir} onSort={handleSort} onSortDir={view.setSort} />
+                <SortableTh padding="px-3 py-3" label="Category" sortKey="category" sortBy={sortKey} sortDir={sortDir} onSort={handleSort} onSortDir={view.setSort} />
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tag</th>
-                <SortHeader label="Amount" sortKey="amount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} align="text-right" />
-                <SortHeader label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                <SortableTh padding="px-3 py-3" label="Amount" sortKey="amount" align="right" sortBy={sortKey} sortDir={sortDir} onSort={handleSort} onSortDir={view.setSort} />
+                <SortableTh padding="px-3 py-3" label="Status" sortKey="status" sortBy={sortKey} sortDir={sortDir} onSort={handleSort} onSortDir={view.setSort} />
                 <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>

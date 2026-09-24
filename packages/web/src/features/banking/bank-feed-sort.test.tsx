@@ -65,6 +65,15 @@ describe('BankFeedPage — Sort by', () => {
     expect(lastOpts).toMatchObject({ sortBy: 'name', sortDir: 'asc' });
   });
 
+  it('a column header click sorts by that column and shares state with the dropdown', () => {
+    renderRoute(<BankFeedPage />);
+    fireEvent.click(screen.getByRole('button', { name: /^amount/i }));
+    expect(lastOpts).toMatchObject({ sortBy: 'amount', sortDir: 'asc', offset: 0 });
+    expect((screen.getByLabelText('Sort by') as HTMLSelectElement).value).toBe('amount');
+    fireEvent.click(screen.getByRole('button', { name: /^amount/i }));
+    expect(lastOpts).toMatchObject({ sortBy: 'amount', sortDir: 'desc' });
+  });
+
   it('remembers the order for the session', () => {
     const first = renderRoute(<BankFeedPage />);
     fireEvent.change(screen.getByLabelText('Sort by'), { target: { value: 'confidence' } });

@@ -14,9 +14,16 @@ import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { AccountSelector } from '../../components/forms/AccountSelector';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
+import { distinctOptions, selectRows } from '../../utils/columnView';
 import { CheckCircle, Printer, AlertTriangle, RotateCcw, Mail, PenLine, ShieldCheck } from 'lucide-react';
 
 type FlowStep = 'select' | 'rendering' | 'confirm';
+
+// The queue loads whole (no paging), so it sorts and filters client-side.
+type QueueSortKey = 'date' | 'payee' | 'amount' | 'memo';
+const QUEUE_SORT_KEYS: readonly QueueSortKey[] = ['date', 'payee', 'amount', 'memo'];
 
 /**
  * The memo line as it will print, editable in place. `printedMemo` wins over
@@ -177,7 +184,31 @@ export function PrintChecksPage() {
     onSuccess: () => refetch(),
   });
 
-  const items = data?.data || [];
+  const allItems = data?.data || [];
+  const view = useColumnView<QueueSortKey>('vibe:print-checks:view', {
+    sortKeys: QUEUE_SORT_KEYS,
+    defaultDir: (k) => (k === 'date' ? 'desc' : 'asc'),
+  });
+  const payeeOf = (i: (typeof allItems)[number]) => i.payeeNameOnCheck || i.contactName || '';
+  const items = selectRows(allItems, view, {
+    filterValue: { payee: payeeOf },
+    sortValue: {
+      date: (i) => i.txnDate,
+      payee: payeeOf,
+      amount: (i) => parseFloat(i.amount) || 0,
+      memo: (i) => i.printedMemo ?? i.memo ?? '',
+    },
+  });
+  const payeeOptions = distinctOptions(allItems.map(payeeOf));
+  // A row hidden by a filter must never stay selected — it would print.
+  useEffect(() => {
+    setSelected((prev) => {
+      const visible = new Set(items.map((i) => i.id));
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.signature, allItems]);
   // Next check number is tracked per bank account; fall back to the legacy
   // company-wide value, then 1. A manual entry in the input overrides it.
   const perAccountNext = bankAccountId
@@ -442,23 +473,28 @@ export function PrintChecksPage() {
             {selected.size > 0 && <div className="text-sm font-medium text-primary-700">{selected.size} selected</div>}
           </div>
 
-          {items.length === 0 ? (
+          {allItems.length === 0 ? (
             <div className="p-8 text-center text-gray-500 text-sm">
               No checks in the print queue.{!bankAccountId && ' Select a bank account to view queued checks.'}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 text-sm">
+              No queued checks match the payee filter.{' '}
+              <button type="button" className="text-primary-700 underline" onClick={() => view.clearAll()}>Clear filter</button>
             </div>
           ) : (
             <>
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
                   <tr>
                     <th className="px-6 py-3 text-center w-10">
                       <input type="checkbox" checked={items.length > 0 && selected.size === items.length}
                         onChange={toggleAll} className="rounded" />
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payee</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Memo</th>
+                    <SortableTh padding="px-6 py-3" label="Date" {...view.thProps('date')} />
+                    <SortableTh padding="px-6 py-3" label="Payee" {...view.thProps('payee')} filter={view.filterProps('payee', payeeOptions, { ariaLabel: 'Filter Payee' })} />
+                    <SortableTh padding="px-6 py-3" label="Amount" align="right" {...view.thProps('amount')} />
+                    <SortableTh padding="px-6 py-3" label="Memo" {...view.thProps('memo')} />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">

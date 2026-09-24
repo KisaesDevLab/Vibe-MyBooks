@@ -23,7 +23,7 @@ export interface SortableThFilter {
 }
 
 export function SortableTh<K extends string>({
-  sortKey, label, align, sortBy, sortDir, onSort, onSortDir, filter, className = '',
+  sortKey, label, align, sortBy, sortDir, onSort, onSortDir, filter, className = '', padding = 'px-3 py-2',
 }: {
   sortKey: K;
   label: string;
@@ -37,13 +37,15 @@ export function SortableTh<K extends string>({
   filter?: SortableThFilter;
   /** Extra classes on the <th> (widths, min widths). */
   className?: string;
+  /** Cell padding, to match the table's other header cells. Default px-3 py-2. */
+  padding?: string;
 }) {
   const active = sortBy === sortKey;
   const text = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
   const ariaSort = active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none';
   const popover = filter || onSortDir;
   return (
-    <th className={`px-3 py-2 ${text} ${className}`} aria-sort={ariaSort} data-col={sortKey}>
+    <th className={`${padding} ${text} ${className}`} aria-sort={ariaSort} data-col={sortKey}>
       <span className={`inline-flex items-center ${align === 'right' ? 'flex-row-reverse' : ''}`}>
         <button
           type="button"
