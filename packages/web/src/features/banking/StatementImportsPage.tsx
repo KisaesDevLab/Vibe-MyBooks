@@ -9,7 +9,8 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { Pagination } from '../../components/ui/Pagination';
-import { FileText, Upload, Trash2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { FileText, Upload, Trash2, AlertTriangle, RefreshCw, Eye } from 'lucide-react';
+import { openAttachmentInTab } from '../attachments/openAttachmentInTab';
 
 type StatusKey = 'processing' | 'pending' | 'imported' | 'failed';
 type Disposition = { key: StatusKey; label: string; cls: string; canResume: boolean; canReprocess: boolean };
@@ -150,6 +151,9 @@ export function StatementImportsPage() {
             <tbody className="divide-y divide-gray-100">
               {visibleJobs.map((job) => {
                 const d = disposition(job);
+                // Narrowed once here: the guard inside JSX does not reach
+                // into the click handler's closure.
+                const attachmentId = job.attachmentId;
                 return (
                   <tr key={job.jobId} className="hover:bg-gray-50">
                     <td className="px-4 py-2 text-gray-900">
@@ -164,6 +168,19 @@ export function StatementImportsPage() {
                     <td className="px-4 py-2"><span className={`text-xs px-2 py-0.5 rounded-full ${d.cls}`}>{d.label}</span></td>
                     <td className="px-4 py-2 text-right">
                       <div className="flex justify-end gap-2">
+                        {/* The uploaded statement is an ordinary attachment;
+                            the job carries its id. Opens in a new tab so the
+                            source can be checked against the extraction. */}
+                        {attachmentId && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Open the uploaded statement PDF in a new tab"
+                            onClick={() => { void openAttachmentInTab(attachmentId); }}
+                          >
+                            <Eye className="h-4 w-4 mr-1" /> View PDF
+                          </Button>
+                        )}
                         {d.canResume && (
                           <Button size="sm" variant="secondary" onClick={() => navigate(`/banking/statement-upload?resume=${job.jobId}`)}>
                             {job.importedAt ? 'View' : 'Review & import'}

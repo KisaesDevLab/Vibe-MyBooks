@@ -8,7 +8,7 @@
 // shows on the muted line below whatever name is chosen.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
 import { renderRoute } from '../../test-utils';
 import {
   bankingMocks, accountsMocks, contactsMocks, companyMocks, tagsMocks,
@@ -139,6 +139,17 @@ describe('BankFeedPage — NAME column payee precedence', () => {
     // Acme Supplies) — the description-only COFFEE SHOP row gets none.
     const checks = screen.getAllByLabelText('Matched contact');
     expect(checks.length).toBe(3);
+  });
+
+  it('keeps the raw bank description in view when the row is expanded for editing', () => {
+    renderRoute(<BankFeedPage />);
+    // Double-clicking a pending row opens the inline editor.
+    fireEvent.doubleClick(screen.getByText('COFFEE SHOP').closest('tr')!);
+    // The Name input holds the cleaned descriptor; the raw text is shown
+    // read-only beneath it so the two can be compared without collapsing.
+    expect((screen.getByPlaceholderText('Name') as HTMLInputElement).value).toBe('COFFEE SHOP');
+    expect(screen.getByText('Bank description:')).toBeTruthy();
+    expect(screen.getByText('COFFEE SHOP 001')).toBeTruthy();
   });
 
   it('labels a rule-mapped suggestion "Rule" instead of a confidence word', () => {

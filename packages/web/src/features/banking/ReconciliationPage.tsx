@@ -17,7 +17,8 @@ import {
   type StatementLineSummary, type StatementGroupCandidate, type ConfirmStatementLinePayload,
   type StatementMatchesView,
 } from '../../api/hooks/useBanking';
-import { apiClient, API_BASE } from '../../api/client';
+import { apiClient } from '../../api/client';
+import { openAttachmentInTab } from '../attachments/openAttachmentInTab';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useVoidTransaction } from '../../api/hooks/useTransactions';
 import { AccountSelector } from '../../components/forms/AccountSelector';
@@ -32,19 +33,6 @@ import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/Toaster';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw, ChevronUp, ChevronDown, FileUp, Ban } from 'lucide-react';
-
-// Open the statement PDF in a new tab via the single-use download token
-// (same pattern as ReportShell's openPdfInTab — window.open can't carry an
-// Authorization header).
-async function openAttachmentInTab(attachmentId: string) {
-  const { token } = await apiClient<{ token: string; expiresIn: number }>(
-    '/downloads/token', { method: 'POST', body: JSON.stringify({}) },
-  );
-  window.open(
-    `${API_BASE}/attachments/${attachmentId}/download?inline=1&_dl=${encodeURIComponent(token)}`,
-    '_blank', 'noopener',
-  );
-}
 
 const money = (v: string | number | null | undefined) =>
   v == null || v === '' ? '—' : `$${parseFloat(String(v)).toFixed(2)}`;

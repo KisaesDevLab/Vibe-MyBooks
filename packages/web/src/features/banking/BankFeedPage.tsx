@@ -58,8 +58,25 @@ interface EditState {
   contactId: string;
 }
 
-type SortKey = 'feedDate' | 'description' | 'category' | 'status' | 'amount';
+type SortKey = 'feedDate' | 'name' | 'description' | 'originalDescription' | 'category' | 'status' | 'amount' | 'confidence';
 type SortDir = 'asc' | 'desc';
+
+// The "Sort by" dropdown: every server-side key the feed supports, in the
+// order they read naturally. Column headers stay clickable for the ones that
+// have a column; the dropdown is the only way to sort by bank description or
+// confidence, which have no column of their own.
+const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
+  { value: 'feedDate', label: 'Date' },
+  { value: 'name', label: 'Name' },
+  { value: 'originalDescription', label: 'Bank description' },
+  { value: 'category', label: 'Category' },
+  { value: 'amount', label: 'Amount' },
+  { value: 'status', label: 'Status' },
+  { value: 'confidence', label: 'Confidence' },
+];
+// Newest first and most confident first are what people expect; everything
+// else reads A→Z / low→high.
+const DESC_FIRST: ReadonlySet<SortKey> = new Set(['feedDate', 'confidence']);
 
 function SortHeader({ label, sortKey, currentSort, currentDir, onSort, align }: {
   label: string; sortKey: SortKey; currentSort: SortKey; currentDir: SortDir;
@@ -112,8 +129,10 @@ export function BankFeedPage() {
   // categorized, or excluded rows. Session-persisted like the other filters.
   const [actionableOnly, setActionableOnly] = useSessionState('vibe:bank-feed:actionableOnly', DEFAULT_ACTIONABLE_ONLY);
   const [ruleOnly, setRuleOnly] = useSessionState('vibe:bank-feed:ruleOnly', false);
-  const [sortKey, setSortKey] = useState<SortKey>('feedDate');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  // Sort persists for the tab session like the filters do — a chosen order
+  // used to reset to newest-first on every visit.
+  const [sortKey, setSortKey] = useSessionState<SortKey>('vibe:bank-feed:sortKey', 'feedDate');
+  const [sortDir, setSortDir] = useSessionState<SortDir>('vibe:bank-feed:sortDir', 'desc');
   const [matchModalFor, setMatchModalFor] = useState<string | null>(null);
   const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -206,7 +225,7 @@ export function BankFeedPage() {
       setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDir(key === 'feedDate' ? 'desc' : 'asc');
+      setSortDir(DESC_FIRST.has(key) ? 'desc' : 'asc');
     }
   };
 
@@ -602,6 +621,32 @@ export function BankFeedPage() {
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
+          <div>
+            <label htmlFor="bank-feed-sort" className="block text-xs font-medium text-gray-500 mb-1">Sort by</label>
+            <div className="flex items-center gap-1">
+              <select
+                id="bank-feed-sort"
+                value={sortKey}
+                onChange={(e) => {
+                  const key = e.target.value as SortKey;
+                  setSortKey(key);
+                  setSortDir(DESC_FIRST.has(key) ? 'desc' : 'asc');
+                }}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+                title={sortDir === 'asc' ? 'Ascending — click for descending' : 'Descending — click for ascending'}
+                aria-label={sortDir === 'asc' ? 'Sort ascending; switch to descending' : 'Sort descending; switch to ascending'}
+                className="rounded-lg border border-gray-300 px-2 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                {sortDir === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             {(['', 'pending', 'assigned', 'categorized', 'matched', 'excluded'] as const).map((s) => (
               <button key={s} onClick={() => setStatusFilter(s)}
@@ -791,7 +836,7 @@ export function BankFeedPage() {
                   })()}
                 </th>
                 <SortHeader label="Date" sortKey="feedDate" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                <SortHeader label="Name" sortKey="description" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                <SortHeader label="Name" sortKey="name" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Category" sortKey="category" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tag</th>
                 <SortHeader label="Amount" sortKey="amount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} align="text-right" />
@@ -830,6 +875,14 @@ export function BankFeedPage() {
                           <input value={editState.description}
                             onChange={(e) => setEditState((s) => ({ ...s, description: e.target.value }))}
                             className="block w-full rounded border border-gray-300 px-2 py-1 text-sm" placeholder="Name" />
+                          {/* What the bank actually sent, read-only, so the
+                              cleaned name above can be checked against it
+                              without collapsing the row. */}
+                          {item.originalDescription && item.originalDescription !== editState.description && (
+                            <p className="text-xs text-gray-500 break-words" title={item.originalDescription}>
+                              <span className="text-gray-400">Bank description:</span> {item.originalDescription}
+                            </p>
+                          )}
                           <ContactSelector value={editState.contactId}
                             onChange={(v) => setEditState((s) => ({ ...s, contactId: v }))}
                             onSelect={autofillAccountForContact} />

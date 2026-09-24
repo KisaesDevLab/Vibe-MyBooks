@@ -15,7 +15,8 @@ import {
 import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { FileUp, Brain, Check, X, Loader2, Download, AlertTriangle, ScanLine } from 'lucide-react';
+import { FileUp, Brain, Check, X, Loader2, Download, AlertTriangle, ScanLine, Eye } from 'lucide-react';
+import { openAttachmentInTab } from '../attachments/openAttachmentInTab';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { OcrQualityNotice } from '../../components/ui/OcrQualityNotice';
 import { AccountSelector } from '../../components/forms/AccountSelector';
@@ -789,6 +790,20 @@ export function StatementUploadPage() {
               belong to. Required before import; the server find-or-creates the
               manual bank connection for it. */}
           <div className="bg-white rounded-lg border p-4">
+            {/* The reviewer is checking extracted lines against the source;
+                the original statement is one click away in its own tab. */}
+            {attachmentId && (
+              <div className="flex justify-end mb-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  title="Open the uploaded statement PDF in a new tab"
+                  onClick={() => { void openAttachmentInTab(attachmentId); }}
+                >
+                  <Eye className="h-4 w-4 mr-1" /> View original PDF
+                </Button>
+              </div>
+            )}
             <div className="max-w-md">
               <AccountSelector
                 label="Import into bank account"
