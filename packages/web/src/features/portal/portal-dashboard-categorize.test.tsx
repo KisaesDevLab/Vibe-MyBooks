@@ -36,12 +36,17 @@ vi.mock('./PortalBankRepair', () => ({ PortalBankRepairBanner: () => null }));
 
 import { PortalDashboardPage } from './PortalDashboardPage';
 
-let queueTotal = 42;
+let queueTotal: number | null = 42;
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn((url: string) => {
     if (String(url).includes('/portal/categorize/queue')) {
-      return Promise.resolve({ ok: true, json: async () => ({ featureEnabled: true, total: queueTotal }) });
+      return Promise.resolve({
+        ok: true,
+        json: async () => (queueTotal === null
+          ? { featureEnabled: true }              // total missing — count unknown
+          : { featureEnabled: true, total: queueTotal }),
+      });
     }
     return Promise.resolve({ ok: true, json: async () => ({ open: [], receipts: [], reports: [], items: [] }) });
   }));
@@ -66,6 +71,13 @@ describe('PortalDashboardPage — transactions needing the client', () => {
     queueTotal = 1;
     renderRoute(<PortalDashboardPage />);
     expect(await screen.findByText('1 transaction needs your input')).toBeTruthy();
+  });
+
+  it('does not claim an empty queue when the count did not come back', async () => {
+    queueTotal = null;
+    renderRoute(<PortalDashboardPage />);
+    await waitFor(() => expect(screen.getByText('Categorize transactions')).toBeTruthy());
+    expect(screen.queryByText('Nothing is waiting on you right now.')).toBeNull();
   });
 
   it('drops the banner but keeps the way in when nothing is waiting', async () => {

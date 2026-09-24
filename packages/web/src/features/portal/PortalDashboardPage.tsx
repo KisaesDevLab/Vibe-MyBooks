@@ -383,7 +383,9 @@ export function PortalDashboardPage() {
           </Link>
         )}
         {/* The banner above carries this when rows are waiting; this quiet
-            card is what keeps /portal/categorize reachable when they are not. */}
+            card is what keeps /portal/categorize reachable when they are not.
+            A null count means the total did not come back — say nothing about
+            the queue rather than claim it is empty. */}
         {categorizeAvailable && (categorizeCount ?? 0) === 0 && (
           <Link
             to="/portal/categorize"
@@ -391,7 +393,9 @@ export function PortalDashboardPage() {
           >
             <p className="text-sm font-medium text-gray-900">Categorize transactions</p>
             <p className="text-xs text-gray-500 mt-1">
-              Nothing is waiting on you right now.
+              {categorizeCount === 0
+                ? 'Nothing is waiting on you right now.'
+                : 'Tell your bookkeeper what these were for.'}
             </p>
           </Link>
         )}
