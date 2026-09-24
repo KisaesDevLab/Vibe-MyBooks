@@ -2886,7 +2886,7 @@ If you try to post directly from the Practice page while in suggest mode, the se
 
 A **What was this?** page in the portal, listing only the activity nobody could classify: bank lines the categorizer could not place, and amounts already sitting in suspense. Rows the software categorized confidently are **not** shown \u2014 inviting a client to second-guess a correct answer just manufactures review work.
 
-Each row shows the date, the cleaned-up description, and the amount. The picker offers income and expense categories only, by name, with no balances and no account numbers. There are two extra answers: **Personal, not business** and **I am not sure** (which asks for a note). Answers collect up behind a **Send to my bookkeeper** button, so it is one submission and one email even if they work through forty rows on a phone.
+Each row shows the date, the cleaned-up description, the amount, and \u2014 when the row came from a bank feed \u2014 the bank's own wording under the name as **On your statement:**, so the client can match it to their statement. The picker offers income and expense categories only, by name, with no balances and no account numbers. There are two extra answers: **Personal, not business** and **I am not sure** (which asks for a note). Answers collect up behind a **Send to my bookkeeper** button, so it is one submission and one email even if they work through forty rows on a phone.
 
 ## The note
 

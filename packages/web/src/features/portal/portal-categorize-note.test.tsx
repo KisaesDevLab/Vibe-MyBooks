@@ -40,6 +40,7 @@ const unanswered = {
   targetId: 'feed-1',
   date: '2026-08-28',
   description: 'MYSTERY VENDOR',
+  bankDescription: 'POS DEBIT 1234 MYSTERY VENDOR CARD 9876',
   amount: '42.50',
   direction: 'money_out',
   existingSuggestion: null,
@@ -92,6 +93,14 @@ function submitBody() {
 }
 
 describe('portal categorize — the client note', () => {
+  it('shows the bank\'s own wording under the cleaned name', async () => {
+    wireLoad([unanswered]);
+    renderRoute(<PortalCategorizePage />);
+    await waitFor(() => screen.getByText('MYSTERY VENDOR'));
+    expect(screen.getByText('On your statement:')).toBeTruthy();
+    expect(screen.getByText(/POS DEBIT 1234 MYSTERY VENDOR CARD 9876/)).toBeTruthy();
+  });
+
   it('offers the note box without needing a category first', async () => {
     wireLoad([unanswered]);
     renderRoute(<PortalCategorizePage />);

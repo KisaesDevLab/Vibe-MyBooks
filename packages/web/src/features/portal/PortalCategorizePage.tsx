@@ -20,6 +20,8 @@ interface QueueItem {
   targetId: string;
   date: string;
   description: string;
+  /** The bank's own wording for the line, when the row came from a bank feed. */
+  bankDescription?: string | null;
   amount: string;
   direction: 'money_out' | 'money_in';
   existingSuggestion: {
@@ -237,8 +239,15 @@ export function PortalCategorizePage() {
           return (
             <li key={item.targetId} className="rounded-lg border border-gray-200 bg-white p-4">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <div className="text-sm font-medium text-gray-900">{item.description}</div>
+                  {/* The line as it reads on the client's own statement —
+                      the cleaned name above is often not what they remember. */}
+                  {item.bankDescription && item.bankDescription !== item.description && (
+                    <div className="text-xs text-gray-600 break-words">
+                      <span className="text-gray-400">On your statement:</span> {item.bankDescription}
+                    </div>
+                  )}
                   <div className="text-xs text-gray-500">{item.date}</div>
                 </div>
                 <div className={`text-lg font-semibold tabular-nums ${
