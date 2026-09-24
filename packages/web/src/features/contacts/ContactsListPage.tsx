@@ -5,14 +5,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ContactType } from '@kis-books/shared';
-import { useContacts, useDeactivateContact, useExportContacts, useBulkUpdateContactType } from '../../api/hooks/useContacts';
+import { useContacts, useDeactivateContact, useExportContacts, useBulkUpdateContactType, useUpdateContact } from '../../api/hooks/useContacts';
+import { AccountSelector } from '../../components/forms/AccountSelector';
+import { useToast } from '../../components/ui/Toaster';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { ContactImportModal } from './ContactImportModal';
 import { MergeContactsModal } from './MergeContactsModal';
-import { Plus, Upload, Download, Merge, Search } from 'lucide-react';
+import { Plus, Upload, Download, Merge, Search, X } from 'lucide-react';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 const PAGE_SIZE = 100;
@@ -33,6 +35,11 @@ export function ContactsListPage() {
   const [showMerge, setShowMerge] = useState(false);
   // Bulk-select for changing customer/vendor/both type on many contacts at once.
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Contact whose Default category cell is showing the inline picker.
+  // Picking saves straight away (one field, reversible by picking again);
+  // the row's click-to-open must not fire underneath it.
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const toast = useToast();
 
   // Reset offset on any filter change so the user isn't stranded on a page
   // that no longer exists in the filtered set. Also clear the selection so a
@@ -57,6 +64,20 @@ export function ContactsListPage() {
   const deactivateContact = useDeactivateContact();
   const exportContacts = useExportContacts();
   const bulkType = useBulkUpdateContactType();
+  const updateContact = useUpdateContact();
+
+  // Only vendors (and vendor+customer contacts) carry a default expense
+  // category — it seeds bills, checks and bank-feed picks for that payee.
+  const hasDefaultCategory = (contactType: ContactType) => contactType === 'vendor' || contactType === 'both';
+  const saveDefaultCategory = (contactId: string, accountId: string) => {
+    updateContact.mutate(
+      { id: contactId, defaultExpenseAccountId: accountId || null },
+      {
+        onSuccess: () => { setEditingCategoryId(null); toast.success(accountId ? 'Default category saved.' : 'Default category cleared.'); },
+        onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not save the default category.'),
+      },
+    );
+  };
 
   if (isLoading) return <LoadingSpinner className="py-12" />;
   if (isError) return <ErrorMessage onRetry={() => refetch()} />;
@@ -176,6 +197,7 @@ export function ContactsListPage() {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[14rem]">Default category</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -200,6 +222,45 @@ export function ContactsListPage() {
                   </td>
                   <td className="px-6 py-3 text-sm font-medium text-gray-900">{contact.displayName}</td>
                   <td className="px-6 py-3 text-sm text-gray-500 capitalize">{contact.contactType}</td>
+                  <td className="px-6 py-3 text-sm" onClick={(e) => e.stopPropagation()}>
+                    {!hasDefaultCategory(contact.contactType) ? (
+                      <span className="text-gray-400" title="Only vendors carry a default expense category">—</span>
+                    ) : editingCategoryId === contact.id ? (
+                      <div
+                        className="flex items-center gap-1"
+                        onKeyDown={(e) => { if (e.key === 'Escape') setEditingCategoryId(null); }}
+                      >
+                        <div className="min-w-[12rem] flex-1">
+                          <AccountSelector
+                            value={contact.defaultExpenseAccountId ?? ''}
+                            onChange={(v) => saveDefaultCategory(contact.id, v)}
+                            accountTypeFilter="expense"
+                            compact
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setEditingCategoryId(null)}
+                          aria-label="Cancel default category edit"
+                          className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditingCategoryId(contact.id)}
+                        title="Click to change the default expense category"
+                        aria-label={`Default category for ${contact.displayName}: ${contact.defaultExpenseAccountName ?? 'none'}`}
+                        className="text-left rounded px-1 -mx-1 hover:bg-gray-100 hover:text-primary-700"
+                      >
+                        {contact.defaultExpenseAccountName
+                          ? <span className="text-gray-900">{contact.defaultExpenseAccountNumber ? `${contact.defaultExpenseAccountNumber} · ` : ''}{contact.defaultExpenseAccountName}</span>
+                          : <span className="text-gray-400">Set category…</span>}
+                      </button>
+                    )}
+                  </td>
                   <td className="px-6 py-3 text-sm text-gray-500">{contact.email || '—'}</td>
                   <td className="px-6 py-3 text-sm text-gray-500">{contact.phone || '—'}</td>
                   <td className="px-6 py-3 text-center">
