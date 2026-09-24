@@ -83,8 +83,16 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(SHELL_CACHE).then((c) => c.put(event.request, copy));
+          // Never write a URL carrying a query string into the cache: the
+          // sign-in and invitation links land on /portal/auth/verify?token=…
+          // inside this scope, and caching that keys a live bearer token
+          // into Cache Storage on disk, where any script on the origin can
+          // enumerate it. Only successful same-origin shells are kept.
+          const cacheable = !url.search && res.ok && res.type === 'basic';
+          if (cacheable) {
+            const copy = res.clone();
+            caches.open(SHELL_CACHE).then((c) => c.put(event.request, copy));
+          }
           return res;
         })
         .catch(() =>

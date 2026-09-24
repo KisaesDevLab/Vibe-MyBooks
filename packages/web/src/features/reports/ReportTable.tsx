@@ -44,6 +44,14 @@ interface ReportTableProps {
 // Past this many distinct values a checklist stops being useful.
 const MAX_FILTER_OPTIONS = 200;
 
+// Columns whose values must never reach a value-filter, because the chosen
+// values are remembered in sessionStorage and these carry identifiers: the
+// 1099 reports render an unmasked tax_id, which for a sole proprietor is an
+// SSN, and addresses identify a person just as well. Sorting stays; only the
+// checklist is withheld, so nothing writes a taxpayer identifier into the
+// browser's storage where nothing in the app would ever clear it.
+const NEVER_FILTERABLE = /(^|_)(tax_?id|ssn|ein|tin|address|account_?number|routing)(_|$)/i;
+
 function fmt(val: unknown): string {
   if (val === null || val === undefined) return '—';
   const n = typeof val === 'string' ? parseFloat(val) : (val as number);
@@ -76,6 +84,7 @@ export function ReportTable({ columns, data, totals, drillContext, returnLabel }
 
   const filterOptionsFor = (col: Column) => {
     if (col.format === 'money') return null;
+    if (NEVER_FILTERABLE.test(col.key)) return null;
     const opts = distinctOptions(data.map((r) => String(r[col.key] ?? '')));
     return opts.length > 0 && opts.length <= MAX_FILTER_OPTIONS ? opts : null;
   };

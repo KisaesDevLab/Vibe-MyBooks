@@ -1418,8 +1418,8 @@ function QuestionsTab() {
                 Ready to send: {batches.length} contact{batches.length === 1 ? '' : 's'}
               </h3>
               <p className="text-xs text-amber-800 mt-1">
-                Questions you've drafted but not yet released. Click Send to mark them as
-                notified — Phase 13 wires actual email delivery.
+                Questions you've drafted but not yet released. Send emails them to the
+                contacts who can answer and makes the questions visible in the portal.
               </p>
               <ul className="mt-2 text-xs text-amber-900 list-disc list-inside space-y-0.5">
                 {batches.map((b) => (
