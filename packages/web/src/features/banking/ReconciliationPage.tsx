@@ -20,6 +20,9 @@ import {
 import { apiClient } from '../../api/client';
 import { openAttachmentInTab } from '../attachments/openAttachmentInTab';
 import { useSessionState } from '../../hooks/useSessionState';
+import { useColumnView } from '../../hooks/useColumnView';
+import { selectRows } from '../../utils/columnView';
+import { SortableTh } from '../../components/ui/SortableTh';
 import { useVoidTransaction } from '../../api/hooks/useTransactions';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
@@ -1084,8 +1087,11 @@ export function ReconciliationPage() {
   // Row controls (hooks must be unconditional — declared before early returns).
   const [typeFilter, setTypeFilter] = useState<'all' | 'deposits' | 'payments'>('all');
   const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState<'date' | 'type' | 'description' | 'amount'>('date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // Column sort on the worksheet (loaded whole, so sorted client-side);
+  // persisted with the page's other criteria.
+  const lineView = useColumnView<'date' | 'type' | 'description' | 'amount'>('vibe:reconcile:lines:view', {
+    sortKeys: ['date', 'type', 'description', 'amount'], defaultSort: { col: 'date', dir: 'asc' },
+  });
   const [autoClearResult, setAutoClearResult] = useState<{ cleared: number; alreadyCleared: number; unmatched: number } | null>(null);
   // Statement Match Engine (wave 1): last run's banner + the uncleared-only
   // worksheet filter driven by the outstanding-items chip.
@@ -1239,17 +1245,16 @@ export function ReconciliationPage() {
         return haystack.toLowerCase().includes(q);
       });
     }
-    const dir = sortDir === 'asc' ? 1 : -1;
-    return [...rows].sort((a, b) => {
-      let c = 0;
-      if (sortKey === 'date') c = String(a.txn_date).localeCompare(String(b.txn_date));
-      else if (sortKey === 'type') c = String(a.txn_type).localeCompare(String(b.txn_type));
-      else if (sortKey === 'description') c = String(a.description || a.memo || '').localeCompare(String(b.description || b.memo || ''));
-      else c = amountOf(a) - amountOf(b);
-      return c * dir;
+    return selectRows(rows, lineView, {
+      sortValue: {
+        date: (l) => String(l.txn_date),
+        type: (l) => String(l.txn_type ?? ''),
+        description: (l) => String(l.description || l.memo || ''),
+        amount: (l) => amountOf(l),
+      },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, typeFilter, search, sortKey, sortDir, unclearedOnly]);
+  }, [lines, typeFilter, search, lineView.signature, unclearedOnly]);
 
   if (!reconId) {
     return (
@@ -1328,11 +1333,6 @@ export function ReconciliationPage() {
   const depCount = t.depCleared.count + t.depUncleared.count;
   const payCount = t.payCleared.count + t.payUncleared.count;
 
-  const toggleSort = (key: typeof sortKey) => {
-    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortKey(key); setSortDir('asc'); }
-  };
-  const sortArrow = (key: typeof sortKey) => (sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
 
   const TotalCard = ({ label, cleared, uncleared }: { label: string; cleared: { sum: number; count: number }; uncleared: { sum: number; count: number } }) => (
     <div className="bg-white rounded-lg border p-3">
@@ -1513,11 +1513,11 @@ export function ReconciliationPage() {
                   title={allVisibleCleared ? 'Un-clear all visible rows' : 'Clear all visible rows'}
                 />
               </th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('date')}>Date{sortArrow('date')}</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('type')}>Type{sortArrow('type')}</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('description')}>Description{sortArrow('description')}</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('amount')}>Payment{sortArrow('amount')}</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" onClick={() => toggleSort('amount')}>Deposit{sortArrow('amount')}</th>
+                <SortableTh padding="px-4 py-2" label="Date" {...lineView.thProps('date')} />
+                <SortableTh padding="px-4 py-2" label="Type" {...lineView.thProps('type')} />
+                <SortableTh padding="px-4 py-2" label="Description" {...lineView.thProps('description')} />
+                <SortableTh padding="px-4 py-2" label="Payment" align="right" {...lineView.thProps('amount')} />
+                <SortableTh padding="px-4 py-2" label="Deposit" align="right" {...lineView.thProps('amount')} />
               {!isComplete && <th className="w-12 px-2 py-2" aria-label="Row actions" />}
             </tr>
           </thead>

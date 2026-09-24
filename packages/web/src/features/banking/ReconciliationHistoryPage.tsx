@@ -10,12 +10,31 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { useToast } from '../../components/ui/Toaster';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
+import { selectRows } from '../../utils/columnView';
+
+type HistorySortKey = 'statementDate' | 'endingBalance' | 'status' | 'completed';
 
 export function ReconciliationHistoryPage() {
   const [accountId, setAccountId] = useState('');
   const { data, isLoading, isError, refetch } = useReconciliations(accountId);
   const undoRecon = useUndoReconciliation();
   const toast = useToast();
+  // Column sort for display only; the undo gate below reads the server
+  // order (newest first), never the sorted rows.
+  const view = useColumnView<HistorySortKey>('vibe:reconcile-history:view', {
+    sortKeys: ['statementDate', 'endingBalance', 'status', 'completed'],
+    defaultDir: (k) => (k === 'statementDate' || k === 'completed' ? 'desc' : 'asc'),
+  });
+  const rows = selectRows(data?.reconciliations ?? [], view, {
+    sortValue: {
+      statementDate: (r) => r.statementDate,
+      endingBalance: (r) => parseFloat(r.statementEndingBalance) || 0,
+      status: (r) => r.status,
+      completed: (r) => r.completedAt ?? null,
+    },
+  });
   // History is ordered by statement date DESC, so the first completed row is the
   // most recent — the ONLY one eligible to undo (server enforces this too).
   const latestCompleteId = data?.reconciliations.find((r) => r.status === 'complete')?.id;
@@ -42,17 +61,17 @@ export function ReconciliationHistoryPage() {
       ) : (
         <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Statement Date</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Ending Balance</th>
-                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Completed</th>
+                <SortableTh padding="px-4 py-2" label="Statement Date" {...view.thProps('statementDate')} />
+                <SortableTh padding="px-4 py-2" label="Ending Balance" align="right" {...view.thProps('endingBalance')} />
+                <SortableTh padding="px-4 py-2" label="Status" align="center" {...view.thProps('status')} />
+                <SortableTh padding="px-4 py-2" label="Completed" {...view.thProps('completed')} />
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.reconciliations.map((r) => (
+              {rows.map((r) => (
                 <tr key={r.id}>
                   <td className="px-4 py-2">{r.statementDate}</td>
                   <td className="px-4 py-2 text-right font-mono">${parseFloat(r.statementEndingBalance).toFixed(2)}</td>

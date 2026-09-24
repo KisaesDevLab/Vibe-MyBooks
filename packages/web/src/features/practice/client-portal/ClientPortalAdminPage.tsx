@@ -20,6 +20,9 @@ import { Paperclip,
 } from 'lucide-react';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import { useToast } from '../../../components/ui/Toaster';
+import { SortableTh } from '../../../components/ui/SortableTh';
+import { useColumnView } from '../../../hooks/useColumnView';
+import { selectRows } from '../../../utils/columnView';
 import {
   usePortalContacts,
   useCreatePortalContact,
@@ -408,22 +411,36 @@ function ContactsTable({
 }) {
   const update = useUpdatePortalContact();
   const remove = useDeletePortalContact();
+  // Loaded whole, sorted client-side.
+  const view = useColumnView<'name' | 'phone' | 'companies' | 'status' | 'lastSeen'>('vibe:portal-contacts:view', {
+    sortKeys: ['name', 'phone', 'companies', 'status', 'lastSeen'],
+    defaultDir: (k) => (k === 'lastSeen' ? 'desc' : 'asc'),
+  });
+  const sortedContacts = selectRows(contacts, view, {
+    sortValue: {
+      name: (c) => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email,
+      phone: (c) => c.phone ?? null,
+      companies: (c) => c.companyCount,
+      status: (c) => c.status,
+      lastSeen: (c) => c.lastSeenAt ?? null,
+    },
+  });
 
   return (
     <div className="border border-gray-200 rounded-lg overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b border-gray-200">
+        <thead className="bg-gray-50 border-b border-gray-200 font-medium text-gray-700">
           <tr>
-            <th className="text-left px-4 py-2 font-medium text-gray-700">Name / Email</th>
-            <th className="text-left px-4 py-2 font-medium text-gray-700">Phone</th>
-            <th className="text-left px-4 py-2 font-medium text-gray-700">Companies</th>
-            <th className="text-left px-4 py-2 font-medium text-gray-700">Status</th>
-            <th className="text-left px-4 py-2 font-medium text-gray-700">Last Seen</th>
+            <SortableTh padding="px-4 py-2" label="Name / Email" {...view.thProps('name')} />
+            <SortableTh padding="px-4 py-2" label="Phone" {...view.thProps('phone')} />
+            <SortableTh padding="px-4 py-2" label="Companies" {...view.thProps('companies')} />
+            <SortableTh padding="px-4 py-2" label="Status" {...view.thProps('status')} />
+            <SortableTh padding="px-4 py-2" label="Last Seen" {...view.thProps('lastSeen')} />
             <th className="text-right px-4 py-2 font-medium text-gray-700">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {contacts.map((c) => {
+          {sortedContacts.map((c) => {
             const fullName = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email;
             return (
               <tr key={c.id} className="hover:bg-gray-50">

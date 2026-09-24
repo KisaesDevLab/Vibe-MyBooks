@@ -13,6 +13,8 @@ import {
   useUpdateConditionalRule,
 } from '../../../api/hooks/useConditionalRules';
 import { TierBadge } from './TierBadge';
+import { SortableTh } from '../../../components/ui/SortableTh';
+import { selectRows } from '../../../utils/columnView';
 
 interface Props {
   rules: RuleWithStats[];
@@ -21,7 +23,11 @@ interface Props {
   onSelectAll: () => void;
   onEdit: (rule: RuleWithStats) => void;
   sortBy: 'priority' | 'name' | 'lastFired';
-  onSortByChange: (s: 'priority' | 'name' | 'lastFired') => void;
+  sortDir: 'asc' | 'desc';
+  /** Header click (flip when already sorted here). */
+  onSort: (s: 'priority' | 'name' | 'lastFired') => void;
+  /** Explicit direction from the header popover. */
+  onSortDir: (s: 'priority' | 'name' | 'lastFired', dir: 'asc' | 'desc') => void;
   // 3-tier rules plan, Phase 5 — tier transition handlers. Null
   // when the firm context isn't loaded yet (or the tenant is a
   // solo book); the row hides the buttons in that case.
@@ -51,7 +57,9 @@ export function RulesTable({
   onSelectAll,
   onEdit,
   sortBy,
-  onSortByChange,
+  sortDir,
+  onSort,
+  onSortDir,
   firmRole,
   onPromote,
   onDemote,
@@ -86,15 +94,16 @@ export function RulesTable({
   const remove = useDeleteConditionalRule();
   const reorder = useReorderConditionalRules();
 
-  const sorted = [...rules].sort((a, b) => {
-    if (sortBy === 'name') return a.name.localeCompare(b.name);
-    if (sortBy === 'lastFired') {
-      const la = a.stats?.lastFiredAt ? new Date(a.stats.lastFiredAt).getTime() : 0;
-      const lb = b.stats?.lastFiredAt ? new Date(b.stats.lastFiredAt).getTime() : 0;
-      return lb - la;
-    }
-    return a.priority - b.priority;
+  const sorted = selectRows(rules, { sortCol: sortBy, sortDir, filters: {} }, {
+    sortValue: {
+      priority: (r) => r.priority,
+      name: (r) => r.name,
+      lastFired: (r) => (r.stats?.lastFiredAt ? new Date(r.stats.lastFiredAt).getTime() : null),
+    },
   });
+  // Drag-to-reorder only makes sense in priority order, ascending — the
+  // drop position IS the new priority.
+  const priorityOrder = sortBy === 'priority' && sortDir === 'asc';
 
   const handleDrop = (overId: string) => {
     if (!draggingId || draggingId === overId) {
@@ -131,17 +140,11 @@ export function RulesTable({
                 aria-label="Select all"
               />
             </th>
-            <th className="px-3 py-2 cursor-pointer" onClick={() => onSortByChange('priority')}>
-              Priority{sortBy === 'priority' && ' ↑'}
-            </th>
-            <th className="px-3 py-2 cursor-pointer" onClick={() => onSortByChange('name')}>
-              Name{sortBy === 'name' && ' ↑'}
-            </th>
+            <SortableTh padding="px-3 py-2" label="Priority" sortKey="priority" sortBy={sortBy} sortDir={sortDir} onSort={onSort} onSortDir={onSortDir} />
+            <SortableTh padding="px-3 py-2" label="Name" sortKey="name" sortBy={sortBy} sortDir={sortDir} onSort={onSort} onSortDir={onSortDir} />
             <th className="px-3 py-2">Tier</th>
             <th className="px-3 py-2">Active</th>
-            <th className="px-3 py-2 cursor-pointer" onClick={() => onSortByChange('lastFired')}>
-              Last fired{sortBy === 'lastFired' && ' ↓'}
-            </th>
+            <SortableTh padding="px-3 py-2" label="Last fired" sortKey="lastFired" sortBy={sortBy} sortDir={sortDir} onSort={onSort} onSortDir={onSortDir} />
             <th className="px-3 py-2 text-right">Fires (30d)</th>
             <th className="px-3 py-2 text-right">Override rate</th>
             <th className="px-3 py-2 w-20" />
@@ -161,7 +164,7 @@ export function RulesTable({
             return (
               <tr
                 key={r.id}
-                draggable={sortBy === 'priority' && canReorder}
+                draggable={priorityOrder && canReorder}
                 onDragStart={() => setDraggingId(r.id)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => handleDrop(r.id)}
@@ -172,7 +175,7 @@ export function RulesTable({
                 )}
               >
                 <td className="px-2 py-2 text-gray-400">
-                  {sortBy === 'priority' && canReorder && <GripVertical className="h-4 w-4 cursor-grab" />}
+                  {priorityOrder && canReorder && <GripVertical className="h-4 w-4 cursor-grab" />}
                 </td>
                 <td className="px-2 py-2">
                   <input

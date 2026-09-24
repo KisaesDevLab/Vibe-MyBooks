@@ -9,6 +9,9 @@ import { apiClient, getAccessToken, API_BASE } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
+import { selectRows } from '../../utils/columnView';
 import { Paperclip, Download, Trash2, Eye, X, ChevronRight, User, FileText, FolderOpen, ReceiptText, CalendarRange } from 'lucide-react';
 
 interface LibraryAttachment {
@@ -132,6 +135,10 @@ const FETCH_PAGE = 500;
 
 export function AttachmentLibraryPage() {
   const [tab, setTab] = useState<Tab>('contact');
+  const fileView = useColumnView<'file' | 'size' | 'group' | 'date' | 'memo'>('vibe:attachment-library:view', {
+    sortKeys: ['file', 'size', 'group', 'date', 'memo'],
+    defaultDir: (k) => (k === 'date' || k === 'size' ? 'desc' : 'asc'),
+  });
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -292,7 +299,17 @@ export function AttachmentLibraryPage() {
   const groups = tab === 'contact' ? byContact.map(([key, { name, items }]) => ({ key, label: name, items, count: items.length }))
     : byType.map(([key, items]) => ({ key, label: txnTypeLabels[key] || key, items, count: items.length }));
 
-  const currentItems = groups.find((g) => g.key === expandedGroup)?.items ?? [];
+  // Whole folder is in memory, so the column sort is client-side and the
+  // page is cut from the sorted list.
+  const currentItems = selectRows(groups.find((g) => g.key === expandedGroup)?.items ?? [], fileView, {
+    sortValue: {
+      file: (a) => a.fileName,
+      size: (a) => a.fileSize ?? null,
+      group: (a) => (tab === 'contact' ? (a.txnType ? (txnTypeLabels[a.txnType] || a.txnType) : null) : (a.contactName ?? null)),
+      date: (a) => a.txnDate ?? a.createdAt,
+      memo: (a) => a.txnMemo ?? null,
+    },
+  });
   const limit = pageSize === 'all' ? Math.max(currentItems.length, 1) : parseInt(pageSize, 10);
   const safeOffset = offset < currentItems.length ? offset : 0;
   const visibleItems = currentItems.slice(safeOffset, safeOffset + limit);
@@ -439,7 +456,7 @@ export function AttachmentLibraryPage() {
                 )}
                 {/* File table */}
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
                     <tr>
                       <th className="px-4 py-2 w-8">
                         <input
@@ -451,16 +468,11 @@ export function AttachmentLibraryPage() {
                           aria-label="Select all files"
                         />
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">File</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
-                      {tab === 'contact' && (
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                      )}
-                      {tab === 'type' && (
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                      )}
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Memo</th>
+                      <SortableTh padding="px-4 py-2" label="File" {...fileView.thProps('file')} />
+            <SortableTh padding="px-4 py-2" label="Size" {...fileView.thProps('size')} />
+            <SortableTh padding="px-4 py-2" label={tab === 'contact' ? 'Type' : 'Contact'} {...fileView.thProps('group')} />
+            <SortableTh padding="px-4 py-2" label="Date" {...fileView.thProps('date')} />
+            <SortableTh padding="px-4 py-2" label="Memo" {...fileView.thProps('memo')} />
                       <th className="px-4 py-2 w-28" />
                     </tr>
                   </thead>

@@ -7,6 +7,9 @@ import { Download, FileSearch, Mail, Pencil, FileText, ShieldCheck, Upload } fro
 import { Tax1099EfilePanel } from './Tax1099EfilePanel';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { useSessionState } from '../../../hooks/useSessionState';
+import { SortableTh } from '../../../components/ui/SortableTh';
+import { useColumnView } from '../../../hooks/useColumnView';
+import { selectRows } from '../../../utils/columnView';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 14 + 15 — bookkeeper UI.
 // Replaces the prior Tax1099Placeholder. Drives the full lifecycle:
@@ -150,6 +153,11 @@ export function Tax1099Page() {
   const [exporting, setExporting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
+  // Column sort for the vendor table (loaded whole for the year).
+  const vendorView = useColumnView<'vendor' | 'eligible' | 'ytd' | 'w9' | 'tin' | 'status'>('vibe:1099-vendors:view', {
+    sortKeys: ['vendor', 'eligible', 'ytd', 'w9', 'tin', 'status'],
+    defaultDir: (k) => (k === 'ytd' ? 'desc' : 'asc'),
+  });
 
   const [requestVendor, setRequestVendor] = useState<VendorRow | null>(null);
   const [editVendor, setEditVendor] = useState<VendorRow | null>(null);
@@ -334,6 +342,17 @@ export function Tax1099Page() {
       return v.status === statusFilter;
     });
   }, [vendors, search, statusFilter]);
+  const sortedVendors = useMemo(() => filteredVendors && selectRows(filteredVendors, vendorView, {
+    sortValue: {
+      vendor: (v) => v.displayName,
+      eligible: (v) => (v.is1099Eligible ? 1 : 0),
+      ytd: (v) => v.ytdTotal,
+      w9: (v) => (v.w9OnFile ? 1 : 0),
+      tin: (v) => v.tinMatchStatus ?? null,
+      status: (v) => v.status,
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [filteredVendors, vendorView.signature]);
 
   return (
     <div className="px-6 py-6 max-w-6xl mx-auto">
@@ -443,19 +462,19 @@ export function Tax1099Page() {
       ) : (
         <div className="border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Vendor</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">1099-eligible</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-700">YTD total</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">W-9</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">TIN match</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700">Status</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-700">Actions</th>
-              </tr>
-            </thead>
+            <thead className="bg-gray-50 border-b border-gray-200 font-medium text-gray-700">
+            <tr>
+              <SortableTh padding="px-4 py-2" label="Vendor" {...vendorView.thProps('vendor')} />
+              <SortableTh padding="px-4 py-2" label="1099-eligible" {...vendorView.thProps('eligible')} />
+              <SortableTh padding="px-4 py-2" label="YTD total" align="right" {...vendorView.thProps('ytd')} />
+              <SortableTh padding="px-4 py-2" label="W-9" {...vendorView.thProps('w9')} />
+              <SortableTh padding="px-4 py-2" label="TIN match" {...vendorView.thProps('tin')} />
+              <SortableTh padding="px-4 py-2" label="Status" {...vendorView.thProps('status')} />
+              <th className="text-right px-4 py-2 font-medium text-gray-700">Actions</th>
+            </tr>
+          </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredVendors.map((v) => (
+              {(sortedVendors ?? []).map((v) => (
                 <tr key={v.contactId} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-gray-900">{v.displayName}</td>
                   <td className="px-4 py-3 text-gray-700">{v.is1099Eligible ? 'Yes' : '—'}</td>
@@ -714,25 +733,39 @@ function FilingsHistory({
   filings: Filing[] | null;
   onCorrect: (f: Filing) => void;
 }) {
+  const view = useColumnView<'taxYear' | 'form' | 'type' | 'vendors' | 'total' | 'exported'>('vibe:1099-filings:view', {
+    sortKeys: ['taxYear', 'form', 'type', 'vendors', 'total', 'exported'],
+    defaultDir: (k) => (k === 'exported' || k === 'taxYear' || k === 'total' ? 'desc' : 'asc'),
+  });
   if (!filings || filings.length === 0) return null;
+  const rows = selectRows(filings, view, {
+    sortValue: {
+      taxYear: (f) => f.taxYear,
+      form: (f) => f.formType,
+      type: (f) => (f.correctionOf ? 'correction' : 'original'),
+      vendors: (f) => f.vendorCount,
+      total: (f) => parseFloat(f.totalAmount) || 0,
+      exported: (f) => f.exportedAt,
+    },
+  });
   return (
     <div className="mt-8">
       <h2 className="text-lg font-semibold text-gray-900 mb-2">Filing history</h2>
       <div className="border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gray-50 border-b border-gray-200 font-medium text-gray-700">
             <tr>
-              <th className="text-left px-4 py-2 font-medium text-gray-700">Tax year</th>
-              <th className="text-left px-4 py-2 font-medium text-gray-700">Form</th>
-              <th className="text-left px-4 py-2 font-medium text-gray-700">Type</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-700">Vendors</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-700">Total</th>
-              <th className="text-left px-4 py-2 font-medium text-gray-700">Exported</th>
+              <SortableTh padding="px-4 py-2" label="Tax year" {...view.thProps('taxYear')} />
+              <SortableTh padding="px-4 py-2" label="Form" {...view.thProps('form')} />
+              <SortableTh padding="px-4 py-2" label="Type" {...view.thProps('type')} />
+              <SortableTh padding="px-4 py-2" label="Vendors" align="right" {...view.thProps('vendors')} />
+              <SortableTh padding="px-4 py-2" label="Total" align="right" {...view.thProps('total')} />
+              <SortableTh padding="px-4 py-2" label="Exported" {...view.thProps('exported')} />
               <th className="text-right px-4 py-2 font-medium text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filings.map((f) => (
+            {rows.map((f) => (
               <tr key={f.id}>
                 <td className="px-4 py-2 text-gray-900">{f.taxYear}</td>
                 <td className="px-4 py-2 text-gray-700">{f.formType}</td>

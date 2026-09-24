@@ -11,6 +11,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Play, Pencil, Copy, Trash2 } from 'lucide-react';
+import { SortableTh } from '../../../components/ui/SortableTh';
+import { useColumnView } from '../../../hooks/useColumnView';
+import { selectRows } from '../../../utils/columnView';
 import type { PeriodPreset } from '@kis-books/shared';
 import {
   useReportPacks,
@@ -52,7 +55,18 @@ export function ReportPacksListPage() {
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
 
-  const packs = data?.packs ?? [];
+  const view = useColumnView<'name' | 'reports' | 'period' | 'updated'>('vibe:report-packs:view', {
+    sortKeys: ['name', 'reports', 'period', 'updated'],
+    defaultDir: (k) => (k === 'updated' ? 'desc' : 'asc'),
+  });
+  const packs = selectRows(data?.packs ?? [], view, {
+    sortValue: {
+      name: (p) => p.name,
+      reports: (p) => p.itemCount,
+      period: (p) => PRESET_LABELS[p.periodPreset] ?? p.periodPreset,
+      updated: (p) => p.updatedAt,
+    },
+  });
 
   const handleRun = async (id: string) => {
     setRunningId(id);
@@ -125,12 +139,12 @@ export function ReportPacksListPage() {
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-gray-600">
-                <th className="py-3 px-4 font-medium">Name</th>
-                <th className="py-3 px-4 font-medium"># Reports</th>
-                <th className="py-3 px-4 font-medium">Period</th>
-                <th className="py-3 px-4 font-medium">Updated</th>
+            <thead className="font-medium text-gray-600">
+              <tr className="border-b border-gray-200 text-left">
+                <SortableTh padding="py-3 px-4" label="Name" {...view.thProps('name')} />
+                <SortableTh padding="py-3 px-4" label="# Reports" {...view.thProps('reports')} />
+                <SortableTh padding="py-3 px-4" label="Period" {...view.thProps('period')} />
+                <SortableTh padding="py-3 px-4" label="Updated" {...view.thProps('updated')} />
                 <th className="py-3 px-4 font-medium text-right">Actions</th>
               </tr>
             </thead>

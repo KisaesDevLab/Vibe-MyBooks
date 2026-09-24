@@ -9,6 +9,7 @@ import { Button } from '../../../components/ui/Button';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { useConditionalRules, type RuleWithStats } from '../../../api/hooks/useConditionalRules';
 import { RulesTable } from './RulesTable';
+import { useColumnView } from '../../../hooks/useColumnView';
 import { RulesFilterBar, type ActiveFilter, type CompanyScopeFilter, type TierFilter } from './RulesFilterBar';
 import { BulkActionMenu } from './BulkActionMenu';
 import { RuleBuilderModal } from './RuleBuilderModal';
@@ -34,7 +35,13 @@ export function RulesPage({ variant = 'practice' }: { variant?: 'practice' | 'ba
   const bankingMode = variant === 'banking';
   const { data, isLoading } = useConditionalRules();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<'priority' | 'name' | 'lastFired'>('priority');
+  // Column sort, persisted for the session. Priority ascending is the
+  // order rules fire in (and the only order drag-reorder is allowed in).
+  const ruleView = useColumnView<'priority' | 'name' | 'lastFired'>('vibe:rules:view', {
+    sortKeys: ['priority', 'name', 'lastFired'],
+    defaultSort: { col: 'priority', dir: 'asc' },
+    defaultDir: (k) => (k === 'lastFired' ? 'desc' : 'asc'),
+  });
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
   const [companyScopeFilter, setCompanyScopeFilter] = useState<CompanyScopeFilter>('all');
   const [actionTypeFilter, setActionTypeFilter] = useState<ActionType | 'all'>('all');
@@ -148,8 +155,10 @@ export function RulesPage({ variant = 'practice' }: { variant?: 'practice' | 'ba
           setEditingRule(r);
           setBuilderOpen(true);
         }}
-        sortBy={sortBy}
-        onSortByChange={setSortBy}
+        sortBy={ruleView.sortCol || 'priority'}
+        sortDir={ruleView.sortDir}
+        onSort={ruleView.toggleSort}
+        onSortDir={ruleView.setSort}
         firmRole={firmRole}
         onPromote={firmRole ? (r) => setPromotingRule(r) : undefined}
         onDemote={firmRole ? (r) => setDemotingRule(r) : undefined}
