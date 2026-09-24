@@ -19,6 +19,10 @@ const base = {
 const rows = [
   { ...base, id: 's-team', contactName: 'Pat Bookkeeper', submittedBy: 'team_member', submittedByUserId: 'u2' },
   { ...base, id: 's-client', targetId: 'txn-2', contactName: 'Cli Ent' },
+  // A picked contact: the live name shows, no badge.
+  { ...base, id: 's-payee', targetId: 'txn-3', contactName: 'Pay Ee', suggestedContactId: 'ct-1', suggestedContactLabel: 'Home Depot', suggestedContactName: 'Home Depot' },
+  // Free text: the label shows with a "Not in contacts" badge.
+  { ...base, id: 's-typed', targetId: 'txn-4', contactName: 'Ty Ped', suggestedContactId: null, suggestedContactLabel: 'Joe the plumber', suggestedContactName: null },
 ];
 
 vi.mock('../../../api/hooks/useUncategorized', () => ({
@@ -32,6 +36,18 @@ vi.mock('../../../api/hooks/useContacts', () => contactsMocks());
 vi.mock('../../../api/hooks/useCompany', () => companyMocks());
 
 const { ClientSuggestedTab } = await import('./ClientSuggestedTab');
+
+describe('ClientSuggestedTab — the payee', () => {
+  it('shows the picked contact by name and flags a typed name as not in contacts', () => {
+    renderRoute(<ClientSuggestedTab />);
+    expect(screen.getByRole('columnheader', { name: 'Payee' })).toBeTruthy();
+    expect(screen.getByText('Home Depot')).toBeTruthy();
+    expect(screen.getByText('Joe the plumber')).toBeTruthy();
+    expect(screen.getAllByText('Not in contacts')).toHaveLength(1);
+    // The override payee picker sits beside the override account picker.
+    expect(screen.getByPlaceholderText(/search contacts/i)).toBeTruthy();
+  });
+});
 
 describe('ClientSuggestedTab — who answered', () => {
   it('badges team-member suggestions and defaults the rest to Client', () => {

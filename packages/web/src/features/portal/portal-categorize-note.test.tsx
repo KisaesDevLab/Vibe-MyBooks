@@ -130,7 +130,7 @@ describe('portal categorize — the client note', () => {
     renderRoute(<PortalCategorizePage />);
     await waitFor(() => screen.getByText('MYSTERY VENDOR'));
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'not_sure' } });
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'not_sure' } });
     fireEvent.click(await waitFor(() => screen.getByRole('button', { name: /send to my bookkeeper/i })));
 
     await waitFor(() => expect(screen.getByText(/add a note saying what you do know/i)).toBeTruthy());

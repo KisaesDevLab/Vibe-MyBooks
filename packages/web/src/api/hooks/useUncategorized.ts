@@ -51,6 +51,8 @@ export interface PendingSuggestionView {
   id: string;
   label: string | null;
   note: string | null;
+  /** The payee as the client gave it (name or free text), when any. */
+  payeeLabel?: string | null;
   isPersonal: boolean;
   submittedBy: 'portal_contact' | 'team_member';
   submittedByUserId: string | null;
@@ -65,6 +67,11 @@ export interface SuggestionRow {
   suggestedLabel: string | null;
   clientNote: string | null;
   isPersonal: boolean;
+  /** Payee answer (optional: an older server sends none). */
+  suggestedContactId?: string | null;
+  suggestedContactLabel?: string | null;
+  suggestedContactName?: string | null;
+  resolvedContactId?: string | null;
   status: string;
   submittedAt: string;
   reviewedAt: string | null;
@@ -171,7 +178,7 @@ export function useClearSuspense() {
 }
 
 export function useApproveSuggestions() {
-  return useLedgerMutation((input: { ids: string[]; overrideAccountId?: string; confirmDrift?: boolean }) =>
+  return useLedgerMutation((input: { ids: string[]; overrideAccountId?: string; overrideContactId?: string; confirmDrift?: boolean }) =>
     apiClient<{ approved: string[]; failed: Array<{ id: string; reason: string }> }>(
       `${BASE}/suggestions/approve`, { method: 'POST', body: JSON.stringify(input) },
     ));

@@ -14,6 +14,7 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
+import { ContactSelector } from '../../../components/forms/ContactSelector';
 import { SelectionActionBar } from './SelectionActionBar';
 import {
   useSuggestions, useApproveSuggestions, useRejectSuggestions, useMarkSuggestionsReviewed,
@@ -24,7 +25,7 @@ const PAGE_SIZE = 50;
 const REASON_COPY: Record<string, string> = {
   drifted: 'the amount or date changed since the client answered',
   stale: 'already handled elsewhere',
-  no_category: 'the client was not sure — override with a category',
+  no_category: 'no category was given — override with one',
   personal_needs_account: 'marked personal — override with the owner-draw account',
   not_pending_or_not_found: 'already reviewed',
 };
@@ -34,6 +35,9 @@ export function ClientSuggestedTab() {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [overrideId, setOverrideId] = useState('');
+  // Override payee. Its picker's quick-add is how a client's free-text
+  // name ("Joe the plumber") becomes a contact before approval.
+  const [overrideContactId, setOverrideContactId] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
 
@@ -61,7 +65,7 @@ export function ClientSuggestedTab() {
   const runApprove = (confirmDrift = false) => {
     if (selected.size === 0) return;
     approve.mutate(
-      { ids: [...selected], overrideAccountId: overrideId || undefined, confirmDrift },
+      { ids: [...selected], overrideAccountId: overrideId || undefined, overrideContactId: overrideContactId || undefined, confirmDrift },
       {
         onSuccess: (res) => {
           if (res.approved.length > 0) toast.success(`Approved and posted ${res.approved.length}.`);
@@ -76,6 +80,7 @@ export function ClientSuggestedTab() {
           }
           setSelected(new Set());
           setOverrideId('');
+          setOverrideContactId('');
         },
         onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not approve.'),
       },
@@ -129,10 +134,13 @@ export function ClientSuggestedTab() {
         <div className="w-56">
           <AccountSelector value={overrideId} onChange={setOverrideId} compact />
         </div>
+        <div className="w-56" title="Override payee — applied to every approved row">
+          <ContactSelector value={overrideContactId} onChange={setOverrideContactId} compact />
+        </div>
         <Button onClick={() => runApprove(false)} disabled={busy || selected.size === 0}>
           {approve.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
           <Check className="h-4 w-4 mr-1" />
-          {overrideId ? 'Approve with override' : 'Approve'}
+          {overrideId || overrideContactId ? 'Approve with override' : 'Approve'}
         </Button>
         {anyDrifted && (
           <Button variant="danger" onClick={() => runApprove(true)} disabled={busy}>
@@ -174,21 +182,22 @@ export function ClientSuggestedTab() {
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2 text-right">Amount</th>
               <th className="px-3 py-2">Suggested</th>
+              <th className="px-3 py-2">Payee</th>
               <th className="px-3 py-2">Note</th>
               <th className="px-3 py-2">From</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {query.isLoading && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
             )}
             {query.isError && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-red-600">
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-red-600">
                 Could not load suggestions. <button className="underline" onClick={() => query.refetch()}>Retry</button>
               </td></tr>
             )}
             {!query.isLoading && !query.isError && rows.length === 0 && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-500">
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">
                 No suggestions waiting.
               </td></tr>
             )}
@@ -228,6 +237,32 @@ export function ClientSuggestedTab() {
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.snapshotAmount)}</td>
                 <td className="px-3 py-2">
                   <div className="font-medium text-gray-900">{r.suggestedLabel ?? '—'}</div>
+                </td>
+                {/* Who the client said it was paid to / from. Free text
+                    (no contact id) is flagged so staff resolve it through
+                    the override payee picker; a contact that was since
+                    merged or deleted keeps its label with a note. */}
+                <td className="px-3 py-2">
+                  {r.suggestedContactName ?? r.suggestedContactLabel ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-gray-900">{r.suggestedContactName ?? r.suggestedContactLabel}</span>
+                      {!r.suggestedContactId && r.suggestedContactLabel && (
+                        <span
+                          className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
+                          title="The client typed this name. Pick or add a contact in the override payee picker to apply it."
+                        >
+                          Not in contacts
+                        </span>
+                      )}
+                      {r.suggestedContactId && !r.suggestedContactName && (
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600" title="That contact was removed after the client answered.">
+                          Contact removed
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
                 </td>
                 {/* The note gets its own column rather than grey subtext under
                     the category. When the client could not name an account,

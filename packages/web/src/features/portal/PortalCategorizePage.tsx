@@ -26,7 +26,7 @@ interface QueueItem {
   direction: 'money_out' | 'money_in';
   existingSuggestion: {
     id: string; status: string; label: string | null;
-    note: string | null; rejectionReason: string | null;
+    note: string | null; payeeLabel?: string | null; rejectionReason: string | null;
   } | null;
   /** Files this client has already sent for the row. */
   myAttachmentCount: number;
@@ -38,6 +38,10 @@ interface AttachedFile {
 }
 
 interface Category { id: string; label: string; group: string; hint: string | null }
+interface Payee { id: string; label: string; kind: string }
+
+// The payee select's "not in the list" choice, which reveals a text box.
+const OTHER_PAYEE = '__other';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -57,6 +61,7 @@ const FAILURE_COPY: Record<string, string> = {
   not_found: 'one is no longer on your list',
   invalid_category: 'a category is no longer available',
   note_required: 'a note is needed',
+  invalid_payee: 'a payee is no longer available',
   already_answered: 'one was already answered',
   write_failed: 'one could not be saved',
 };
@@ -65,8 +70,12 @@ export function PortalCategorizePage() {
   const { activeCompanyId } = usePortal();
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [payees, setPayees] = useState<Payee[]>([]);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Per row: a contact id from the list, or OTHER_PAYEE with a typed name.
+  const [payeePicks, setPayeePicks] = useState<Record<string, string>>({});
+  const [payeeLabels, setPayeeLabels] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [retryable, setRetryable] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -82,25 +91,28 @@ export function PortalCategorizePage() {
     if (!activeCompanyId) return;
     setItems(null); setError(null); setRetryable(false);
     try {
-      const [qRes, cRes] = await Promise.all([
+      const [qRes, cRes, pRes] = await Promise.all([
         fetch(`${base}api/portal/categorize/queue?companyId=${activeCompanyId}`, { credentials: 'include' }),
         fetch(`${base}api/portal/categorize/categories?companyId=${activeCompanyId}`, { credentials: 'include' }),
+        fetch(`${base}api/portal/categorize/payees?companyId=${activeCompanyId}`, { credentials: 'include' }),
       ]);
       // 403 and flag-off are access states, not transient failures, so they
       // get no Retry button — the same posture as the banking page.
-      if (qRes.status === 403 || cRes.status === 403) {
+      if (qRes.status === 403 || cRes.status === 403 || pRes.status === 403) {
         setError('Categorizing is not enabled for your account.');
         return;
       }
-      if (!qRes.ok || !cRes.ok) throw new Error(`HTTP ${qRes.status}/${cRes.status}`);
+      if (!qRes.ok || !cRes.ok || !pRes.ok) throw new Error(`HTTP ${qRes.status}/${cRes.status}/${pRes.status}`);
       const q = await qRes.json();
       const c = await cRes.json();
+      const p = await pRes.json();
       if (q.featureEnabled === false || c.featureEnabled === false) {
         setError('Categorizing is not enabled for your account.');
         return;
       }
       setItems(q.items ?? []);
       setCategories(c.categories ?? []);
+      setPayees(p.payees ?? []);
     } catch {
       setError('Could not load your transactions.');
       setRetryable(true);
@@ -109,12 +121,24 @@ export function PortalCategorizePage() {
 
   useEffect(() => { void load(); }, [load, attempt]);
 
-  // A row is ready to send if it has a category OR a note. A note on its own
-  // is a real answer — "I do not know the account, but here is what it was" —
-  // and it goes up as "I am not sure", which is exactly that meaning.
+  // The payee answer for a row: a contact id, a typed name, or nothing.
+  const payeeFor = (targetId: string): { contactId?: string; contactLabel?: string } => {
+    const pick = payeePicks[targetId];
+    if (pick === OTHER_PAYEE) {
+      const label = payeeLabels[targetId]?.trim();
+      return label ? { contactLabel: label } : {};
+    }
+    return pick ? { contactId: pick } : {};
+  };
+
+  // A row is ready to send if it has a category, a note, OR a payee. A note
+  // on its own is a real answer — "I do not know the account, but here is
+  // what it was" — and so is a payee: "paid to Home Depot" is the missing
+  // fact. Either goes up as "I am not sure", which is exactly that meaning.
   const readyIds = Array.from(new Set([
     ...Object.entries(picks).filter(([, v]) => v).map(([k]) => k),
     ...Object.entries(notes).filter(([, v]) => v.trim()).map(([k]) => k),
+    ...Object.keys(payeePicks).filter((k) => Object.keys(payeeFor(k)).length > 0),
   ]));
   const answered = readyIds.length;
 
@@ -128,16 +152,17 @@ export function PortalCategorizePage() {
         targetId,
         categoryId: picks[targetId] || NOT_SURE,
         note: notes[targetId]?.trim() || undefined,
+        ...payeeFor(targetId),
       };
     });
 
-    // The server refuses "not sure" without a note. Say so here instead, so
-    // the client is not told "sent 0 answers" with no reason.
-    const needsNote = payload.filter((p) => p.categoryId === NOT_SURE && !p.note);
+    // The server refuses "not sure" with neither a note nor a payee. Say so
+    // here instead, so the client is not told "sent 0 answers" with no reason.
+    const needsNote = payload.filter((p) => p.categoryId === NOT_SURE && !p.note && !p.contactId && !p.contactLabel);
     if (needsNote.length > 0) {
       setNotice(needsNote.length === 1
-        ? 'One answer says "I am not sure" — add a note saying what you do know.'
-        : `${needsNote.length} answers say "I am not sure" — add a note to each saying what you do know.`);
+        ? 'One answer says "I am not sure" — add a note saying what you do know, or say who it was paid to.'
+        : `${needsNote.length} answers say "I am not sure" — add a note to each saying what you do know, or say who it was paid to.`);
       return;
     }
 
@@ -170,7 +195,7 @@ export function PortalCategorizePage() {
       const keep = new Set(rejected.map((f) => f.targetId));
       const prune = (m: Record<string, string>) =>
         Object.fromEntries(Object.entries(m).filter(([k]) => keep.has(k)));
-      setPicks(prune); setNotes(prune);
+      setPicks(prune); setNotes(prune); setPayeePicks(prune); setPayeeLabels(prune);
       setAttempt((a) => a + 1);
     } catch {
       setError('Could not send your answers. Nothing was lost — try again.');
@@ -201,6 +226,13 @@ export function PortalCategorizePage() {
     (acc[c.group] ??= []).push(c);
     return acc;
   }, {});
+  // Every active contact on every row (user decision): a refund can come
+  // from a vendor and a payment can go to a customer.
+  const payeeGroups: Array<[string, Payee[]]> = [
+    ['Vendors', payees.filter((p) => p.kind === 'vendor' || p.kind === 'both')],
+    ['Customers', payees.filter((p) => p.kind === 'customer' || p.kind === 'both')],
+    ['Other', payees.filter((p) => p.kind === 'other')],
+  ].filter((g): g is [string, Payee[]] => (g[1] as Payee[]).length > 0) as Array<[string, Payee[]]>;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-28">
@@ -260,7 +292,8 @@ export function PortalCategorizePage() {
 
               {already ? (
                 <div className="mt-3 rounded bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                  You said <strong>{already.label}</strong>.{' '}
+                  You said <strong>{already.label}</strong>
+                  {already.payeeLabel && <> · paid to/from <strong>{already.payeeLabel}</strong></>}.{' '}
                   {already.status === 'pending' && 'Waiting for your bookkeeper.'}
                   {/* Read the note back. Without it a client cannot tell what
                       it already told the bookkeeper, and re-answers to add
@@ -292,6 +325,40 @@ export function PortalCategorizePage() {
                     </optgroup>
                   </select>
 
+                  {/* Who it was paid to or came from. Optional; a name on
+                      its own is a complete answer. "Someone not in this
+                      list…" reveals a text box for a name staff will match. */}
+                  <label className="sr-only" htmlFor={`payee-${item.targetId}`}>Who was it paid to or from?</label>
+                  <select
+                    id={`payee-${item.targetId}`}
+                    value={payeePicks[item.targetId] ?? ''}
+                    onChange={(e) => setPayeePicks((p) => ({ ...p, [item.targetId]: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="">Who was it paid to or from? (optional)</option>
+                    {payeeGroups.map(([group, list]) => (
+                      <optgroup key={group} label={group}>
+                        {list.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                      </optgroup>
+                    ))}
+                    <option value={OTHER_PAYEE}>Someone not in this list…</option>
+                  </select>
+                  {payeePicks[item.targetId] === OTHER_PAYEE && (
+                    <>
+                      <label className="sr-only" htmlFor={`payee-name-${item.targetId}`}>Their name</label>
+                      <input
+                        id={`payee-name-${item.targetId}`}
+                        type="text"
+                        maxLength={120}
+                        value={payeeLabels[item.targetId] ?? ''}
+                        onChange={(e) => setPayeeLabels((l) => ({ ...l, [item.targetId]: e.target.value }))}
+                        placeholder="Type their name"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      />
+                      <p className="text-xs text-gray-500">A name on its own is fine — your bookkeeper will match it.</p>
+                    </>
+                  )}
+
                   {/* Always available, never gated on picking a category.
                       A client who cannot name the account very often CAN say
                       what the payment was for, and that note is the useful
@@ -304,8 +371,8 @@ export function PortalCategorizePage() {
                     rows={2}
                     value={notes[item.targetId] ?? ''}
                     onChange={(e) => setNotes((n) => ({ ...n, [item.targetId]: e.target.value }))}
-                    placeholder={pick === NOT_SURE
-                      ? 'Tell your bookkeeper what you do know (required)'
+                    placeholder={pick === NOT_SURE && Object.keys(payeeFor(item.targetId)).length === 0
+                      ? 'Tell your bookkeeper what you do know (required unless you named who it was)'
                       : 'Add a note for your bookkeeper (optional)'}
                     maxLength={2000}
                     className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm"

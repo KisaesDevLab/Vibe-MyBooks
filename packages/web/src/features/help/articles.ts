@@ -2892,7 +2892,11 @@ Each row shows the date, the cleaned-up description, the amount, and \u2014 when
 
 Every row has a note box, always available and never gated on picking a category. A client who cannot name the account can nearly always say what the payment was for, and that sentence is usually the useful half. A note on its own is a complete answer: it goes up as **I am not sure** with the note attached, which is exactly what that means.
 
-Picking **I am not sure** without writing anything is refused, with the reason shown, rather than silently going nowhere.
+Picking **I am not sure** without writing anything is refused, with the reason shown, rather than silently going nowhere \u2014 unless the client has named who it was paid to, which counts as saying what they know.
+
+## The payee
+
+Every row also asks **Who was it paid to or from?** \u2014 a list of every active contact (vendors and customers alike, on every row), plus **Someone not in this list\u2026**, which opens a box for a name. A payee on its own is a complete answer: it goes up as **I am not sure** with the payee attached. On **Practice \u2192 Uncategorized \u2192 Client suggested** the answer shows in a **Payee** column; a typed name carries a **Not in contacts** badge. To apply a typed name, pick or add that contact in the override payee picker beside the override category picker, then approve. Approving sets the payee on the posted transaction \u2014 for an amount already in suspense, in the same step that moves it out. A payee-only answer still needs a category from you before it can be approved.
 
 Staff read the note in its own **Note** column on Practice \u2192 Uncategorized \u2192 Client suggested, in full and wrapped, beside what the client picked. When the client could not name an account, the note is the answer, so it is not buried as small print under the category. The same tab also lists answers the company's own team members sent from **Banking \u2192 Uncategorized**, marked **Team member**; a **Client** badge marks portal answers.
 
