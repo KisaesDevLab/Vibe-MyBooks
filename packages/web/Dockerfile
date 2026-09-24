@@ -39,7 +39,7 @@ RUN node -e "const fs=require('fs'),c=require('crypto');const h=fs.readFileSync(
 RUN npm run build --workspace=@kis-books/web
 
 # ── Stage 2: serve ────────────────────────────────────────────────
-FROM nginx:1.27-alpine
+FROM nginx:1.31-alpine
 
 # OCI image labels — see packages/api/Dockerfile for rationale.
 LABEL org.opencontainers.image.source="https://github.com/KisaesDevLab/Vibe-MyBooks" \
