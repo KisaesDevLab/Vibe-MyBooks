@@ -3000,7 +3000,22 @@ Next to it is **Send reminder**, for the second and third time of asking. It is 
 - **The wording is reminder wording** \u2014 "Reminder: N transactions still need your answer" \u2014 and has its own template under Practice \u2192 Reminders \u2192 Templates, trigger **Remind client to categorize**, so it does not read like the first message.
 - **Only the people who still owe you an answer are ticked.** A contact who was asked and has sent nothing back since is badged **No answer since you asked**; someone who already answered is left unticked so they are not nagged. If nobody has been asked yet, the screen says so and ticks everyone.
 
-Reminders are something you send, not a schedule that runs. What the client sees on their side is unchanged: the same **What was this?** page, now announced by a banner across the top of their portal home rather than a tile at the bottom.
+What the client sees on their side is unchanged: the same **What was this?** page, now announced by a banner across the top of their portal home rather than a tile at the bottom.
+
+### Chasing them automatically
+
+To stop having to remember, set up a schedule under **Practice \u2192 Reminders \u2192 Schedules** with the trigger **Uncategorized transactions**.
+
+The cadence is a list of days counted from the first message. **3, 7, 14** means: chase them now, again three days later, again at seven days, again at fourteen \u2014 then stop. Chasing starts again only if something is still waiting after they next answer.
+
+It goes quiet on its own when:
+
+- **the client answers** \u2014 the clock restarts from their answer, so someone who has just done a batch gets a few days' peace before the next nudge about what is left;
+- **the queue empties** \u2014 nothing waiting, nothing sent;
+- **they have had enough mail this week** \u2014 the schedule's weekly limit counts every portal message that contact received, not just these, so a client already being chased for documents is not buried;
+- **it is the middle of the night** \u2014 quiet hours are respected, and nothing goes out twice in one day whatever the cadence says.
+
+Contacts who have opted out by replying STOP are never texted, exactly as with a manual send. The wording comes from the same **Remind client to categorize** template, so what you write there is what the automation sends.
 
 ## Turning it on
 

@@ -749,8 +749,17 @@ function AddScheduleModal({ onClose, onCreated }: { onClose: () => void; onCreat
               <option value="doc_request">Document request</option>
               <option value="recurring_non_transaction">Recurring task</option>
               <option value="magic_link_expiring">Magic-link expiring</option>
+              <option value="categorize_reminder">Uncategorized transactions</option>
             </select>
           </label>
+          {trigger === 'categorize_reminder' && (
+            <p className="rounded-md bg-indigo-50 border border-indigo-200 px-3 py-2 text-xs text-indigo-900">
+              Chases the people who can answer &ldquo;What was this?&rdquo; for a client while
+              transactions are still waiting. The cadence counts from the first message; it stops
+              as soon as the client answers or the queue empties, and starts again a cadence-step
+              after their last answer if anything is still open.
+            </p>
+          )}
           <label className="block text-sm">
             <span className="block text-gray-800 mb-1">Cadence (days, comma-separated)</span>
             <input

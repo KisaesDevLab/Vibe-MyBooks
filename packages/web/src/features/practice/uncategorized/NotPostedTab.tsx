@@ -337,7 +337,16 @@ export function NotPostedTab() {
                     checkPayee={r.payeeNameOnCheck}
                   />
                 </td>
-                <td className="px-3 py-2 text-gray-700">{r.description ?? '(no description)'}</td>
+                <td className="px-3 py-2 text-gray-700">
+                  {/* Same as the In-suspense tab: the cleaned name shows, the
+                      raw bank text is one hover away. */}
+                  <span
+                    title={r.originalDescription ? `On the statement: ${r.originalDescription}` : undefined}
+                    className={r.originalDescription ? 'decoration-dotted underline-offset-4 hover:underline' : undefined}
+                  >
+                    {r.description ?? '(no description)'}
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.amount)}</td>
                 <td className="px-3 py-2">
                   <RowCategoryCell

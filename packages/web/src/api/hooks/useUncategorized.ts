@@ -28,6 +28,8 @@ export interface SuspenseRow {
   checkNumber: number | null;
   /** Payee read off the statement's check image; the Payee column's fallback. */
   payeeNameOnCheck: string | null;
+  /** The bank's raw descriptor for the feed line this posted from, if any. */
+  bankDescription: string | null;
   amount: string;
   suspenseLineCount: number;
   isSplit: boolean;

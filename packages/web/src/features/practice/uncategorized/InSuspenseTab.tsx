@@ -335,7 +335,15 @@ export function InSuspenseTab() {
                   />
                 </td>
                 <td className="px-3 py-2 text-gray-700">
-                  {r.memo ?? '—'}
+                  {/* The memo reads cleanly; the bank's own wording is what
+                      identifies a payment. Hover rather than a second line,
+                      which would double the height of every row. */}
+                  <span
+                    title={r.bankDescription ? `On the statement: ${r.bankDescription}` : undefined}
+                    className={r.bankDescription ? 'decoration-dotted underline-offset-4 hover:underline' : undefined}
+                  >
+                    {r.memo ?? '—'}
+                  </span>
                   {r.isSplit && (
                     <span
                       className="ml-2 inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800"
