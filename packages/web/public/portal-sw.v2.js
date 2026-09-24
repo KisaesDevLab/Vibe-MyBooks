@@ -15,9 +15,18 @@
 // immutable, so those stay cache-first and still make the portal work
 // offline once visited.
 
-// Bumping this name is what evicts a stale shell: activate deletes every
-// cache that is not the current one. Bump it whenever the strategy below
-// changes, so clients holding the old one are rebuilt from the network.
+// The FILENAME is versioned (portal-sw.v2.js), not just this constant.
+// Cloudflare had cached the original /portal-sw.js under the blanket .js
+// "immutable, max-age=1y" rule, so every browser update check was answered
+// from the edge with the OLD worker — including the checks a hard refresh
+// triggers. The worker could never replace itself, and clients were stuck
+// hard-refreshing forever. A name the edge has never seen is a guaranteed
+// miss; nginx serves portal-sw*.js no-cache so it stays that way. Rename
+// the file again if this worker's strategy ever has to change under a CDN
+// that has already cached it.
+//
+// Bumping the cache name is what evicts a stale shell: activate deletes
+// every cache that is not the current one.
 const SHELL_CACHE = 'kisbooks-portal-shell-v2';
 
 // Paths are relative to where the worker is served, not the origin root:
@@ -38,12 +47,19 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== SHELL_CACHE).map((k) => caches.delete(k))),
-    ),
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k !== SHELL_CACHE).map((k) => caches.delete(k)));
+    await self.clients.claim();
+    // Any tab still showing the build this worker just replaced is reloaded
+    // into the new one. Without it the person sits on the old page until
+    // they happen to navigate — which is how "I still have to hard refresh"
+    // survived the first fix.
+    const windows = await self.clients.matchAll({ type: 'window' });
+    for (const client of windows) {
+      try { await client.navigate(client.url); } catch { /* not navigable */ }
+    }
+  })());
 });
 
 self.addEventListener('fetch', (event) => {

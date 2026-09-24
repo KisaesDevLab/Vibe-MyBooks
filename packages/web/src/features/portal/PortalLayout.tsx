@@ -85,14 +85,27 @@ export function PortalLayout() {
     // registration on those installs.
     if ('serviceWorker' in navigator) {
       const base = import.meta.env.BASE_URL;
-      navigator.serviceWorker
-        // updateViaCache 'none': check the worker script against the server
-        // rather than the HTTP cache, so a new build's worker is picked up on
-        // the next visit instead of whenever the cached copy expires.
-        .register(`${base}portal-sw.js`, { scope: `${base}portal/`, updateViaCache: 'none' })
-        .catch(() => {
+      void (async () => {
+        try {
+          // Retire the original worker first. A CDN had its URL pinned for a
+          // year, so it could never update itself in place — the versioned
+          // filename below is a URL the edge has never cached, and this
+          // clears the one that was stuck.
+          for (const reg of await navigator.serviceWorker.getRegistrations()) {
+            const url = reg.active?.scriptURL ?? reg.installing?.scriptURL ?? reg.waiting?.scriptURL ?? '';
+            if (url.endsWith('/portal-sw.js')) await reg.unregister();
+          }
+          // updateViaCache 'none': check the worker script against the server
+          // rather than the HTTP cache, so a new build's worker is picked up
+          // on the next visit instead of whenever the cached copy expires.
+          await navigator.serviceWorker.register(
+            `${base}portal-sw.v2.js`,
+            { scope: `${base}portal/`, updateViaCache: 'none' },
+          );
+        } catch {
           // expected on HTTP origins — not a hard failure
-        });
+        }
+      })();
     }
     let cancelled = false;
     // Fire /me and /linked-contacts in parallel — they're independent

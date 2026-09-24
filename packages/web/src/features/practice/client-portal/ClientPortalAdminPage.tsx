@@ -39,6 +39,7 @@ import {
   type CreatePortalContactInput,
 } from '../../../api/hooks/usePortalContacts';
 import { useAccounts } from '../../../api/hooks/useAccounts';
+import { useFirms, useUpdateFirm } from '../../../api/hooks/useFirms';
 import { useQuery } from '@tanstack/react-query';
 import {
   useQuestionsList,
@@ -1023,6 +1024,84 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
 
 // ── Settings tab ─────────────────────────────────────────────────
 
+// The name every portal email is signed with. It lives on the FIRM, which
+// is otherwise only reachable through Admin → Firms — so a firm still called
+// "Default Practice" introduced itself to clients that way, with no obvious
+// place to change it (reported 2026-09-24). Editable here because this is
+// the screen about how the firm appears to its clients.
+function FirmNameSetting() {
+  const { data } = useFirms();
+  const update = useUpdateFirm();
+  const toast = useToast();
+  const firms = data?.firms ?? [];
+  const firm = firms.length === 1 ? firms[0] : null;
+  const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  if (firms.length === 0) return null;
+  if (!firm) {
+    return (
+      <Section title="Your firm's name" description="Shown to clients on every portal email.">
+        <p className="text-sm text-gray-600">
+          You belong to more than one firm, so names are edited per firm under
+          <strong> Admin → Firms</strong>.
+        </p>
+      </Section>
+    );
+  }
+
+  const save = () => {
+    const name = draft.trim();
+    if (!name || name === firm.name) { setEditing(false); return; }
+    update.mutate({ firmId: firm.id, patch: { name } }, {
+      onSuccess: () => { setEditing(false); toast.success('Firm name updated.'); },
+      onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not rename the firm.'),
+    });
+  };
+
+  return (
+    <Section
+      title="Your firm's name"
+      description="Clients see this on every portal email — the invitation, sign-in links and reminders."
+    >
+      {editing ? (
+        <div className="flex items-center gap-2">
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
+            maxLength={255}
+            className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={save}
+            disabled={update.isPending}
+            className="px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-50"
+          >
+            Save
+          </button>
+          <button type="button" onClick={() => setEditing(false)} className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md">
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-900">{firm.name}</span>
+          <button
+            type="button"
+            onClick={() => { setDraft(firm.name); setEditing(true); }}
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            Change
+          </button>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 function SettingsTab() {
   const { data, isLoading } = usePortalPracticeSettings();
   const update = useUpdatePortalPracticeSettings();
@@ -1040,6 +1119,8 @@ function SettingsTab() {
 
   return (
     <div className="space-y-6 max-w-2xl">
+      <FirmNameSetting />
+
       <Section title="Reminders" description="Automatic email/SMS prompts for unanswered portal items.">
         <ToggleRow
           label="Enable reminders"

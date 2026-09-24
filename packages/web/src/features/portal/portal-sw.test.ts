@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const SW_SOURCE = readFileSync(
-  resolve(dirname(fileURLToPath(import.meta.url)), '../../../public/portal-sw.js'),
+  resolve(dirname(fileURLToPath(import.meta.url)), '../../../public/portal-sw.v2.js'),
   'utf8',
 );
 
@@ -31,6 +31,7 @@ interface Harness {
   put: ReturnType<typeof vi.fn>;
   matches: Map<string, string>;
   fetchMock: ReturnType<typeof vi.fn>;
+  navigated: string[];
 }
 
 /** Run the worker source with fake globals and return what it registered. */
@@ -57,23 +58,29 @@ function loadWorker(opts: { base?: string; offline?: boolean; cached?: Record<st
       // The real Cache API resolves a string request against the worker's
       // own URL, so '/portal/' and the absolute form are the same entry.
       const url = typeof req === 'string'
-        ? new URL(req, `https://books.example.com${base}portal-sw.js`).href
+        ? new URL(req, `https://books.example.com${base}portal-sw.v2.js`).href
         : req.url;
       const hit = matches.get(url);
       return Promise.resolve(hit ? { body: hit } : undefined);
     },
   };
 
+  const navigated: string[] = [];
   const self = {
     // Real WorkerLocation stringifies to its href — new URL('./', location)
     // relies on that, so the fake has to as well.
     location: {
-      href: `https://books.example.com${base}portal-sw.js`,
+      href: `https://books.example.com${base}portal-sw.v2.js`,
       toString() { return this.href; },
     },
     addEventListener: (type: string, fn: Listener) => { listeners[type] = fn; },
     skipWaiting: vi.fn(),
-    clients: { claim: vi.fn() },
+    clients: {
+      claim: vi.fn(async () => {}),
+      matchAll: vi.fn(async () => [
+        { url: 'https://books.example.com/portal/dashboard', navigate: async (u: string) => { navigated.push(u); } },
+      ]),
+    },
     registration: { scope: `https://books.example.com${base}portal/` },
   };
 
@@ -84,7 +91,7 @@ function loadWorker(opts: { base?: string; offline?: boolean; cached?: Record<st
     undefined, undefined,
   );
 
-  return { listeners, cacheNames, deleted, put, matches, fetchMock };
+  return { listeners, cacheNames, deleted, put, matches, fetchMock, navigated };
 }
 
 /** Dispatch a fetch event and resolve whatever the worker responded with. */
@@ -142,6 +149,16 @@ describe('portal service worker', () => {
     h.listeners['activate']!({ waitUntil: (p: Promise<unknown>) => waits.push(p) });
     await Promise.all(waits);
     expect(h.deleted).toEqual(['kisbooks-portal-shell-v1']);
+  });
+
+  it('reloads tabs still showing the build it replaced', async () => {
+    const h = loadWorker();
+    const waits: Array<Promise<unknown>> = [];
+    h.listeners['activate']!({ waitUntil: (p: Promise<unknown>) => waits.push(p) });
+    await Promise.all(waits);
+    // Otherwise the person sits on the old page until they navigate — which
+    // is how "I still have to hard refresh" survived the first fix.
+    expect(h.navigated).toEqual(['https://books.example.com/portal/dashboard']);
   });
 
   it('matches its own subpath on an appliance install', async () => {
