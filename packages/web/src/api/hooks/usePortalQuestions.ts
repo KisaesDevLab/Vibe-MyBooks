@@ -148,11 +148,20 @@ export function usePendingBatches() {
   });
 }
 
+export interface QuestionReleaseResult {
+  ok: boolean;
+  released: number;
+  viaStub: boolean;
+  noAudience: number;
+  results: Array<{ contactId: string; email: string; questionCount: number; outcome: 'sent' | 'suppressed' | 'error'; error?: string }>;
+}
+
+/** Releases drafts to the client AND emails the people who can answer. */
 export function useMarkBatchNotified() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (questionIds: string[]) =>
-      apiClient<{ ok: boolean }>('/practice/portal/questions/pending-batches/mark-notified', {
+      apiClient<QuestionReleaseResult>('/practice/portal/questions/pending-batches/mark-notified', {
         method: 'POST',
         body: JSON.stringify({ questionIds }),
       }),

@@ -1397,6 +1397,7 @@ function QuestionsTab() {
   });
   useEffect(() => setOffset(0), [view.signature]);
 
+  const toast = useToast();
   const { data, isLoading, isError } = useQuestionsList({
     status: statusFilter, limit, offset,
     ...(view.sortCol ? { sortBy: view.sortCol, sortDir: view.sortDir } : {}),
@@ -1431,7 +1432,23 @@ function QuestionsTab() {
             </div>
             <button
               onClick={() =>
-                markNotified.mutate(batches.flatMap((b) => b.questionIds))
+                markNotified.mutate(batches.flatMap((b) => b.questionIds), {
+                  // Say what actually happened to the mail, rather than
+                  // letting the button imply a delivery it cannot promise.
+                  onSuccess: (r) => {
+                    const sent = r.results.filter((x) => x.outcome === 'sent').length;
+                    if (r.viaStub) {
+                      toast.error(`Released ${r.released} question(s), but SMTP is not configured — nothing was emailed.`);
+                    } else if (sent > 0) {
+                      toast.success(`Released ${r.released} question(s) and emailed ${sent} contact(s).`);
+                    } else if (r.noAudience > 0) {
+                      toast.error(`Released ${r.released} question(s), but no active portal contact can answer them — add one on the Contacts tab.`);
+                    } else {
+                      toast.error(`Released ${r.released} question(s), but nothing could be emailed. Check the SMTP settings.`);
+                    }
+                  },
+                  onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not send.'),
+                })
               }
               disabled={markNotified.isPending}
               className="text-xs font-medium bg-amber-700 hover:bg-amber-800 text-white px-3 py-2 rounded-md disabled:opacity-50"
