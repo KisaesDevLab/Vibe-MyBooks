@@ -2,8 +2,12 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useItems, useDeactivateItem, useExportItems } from '../../api/hooks/useItems';
+import type { ItemSortKey } from '@kis-books/shared';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
+import { booleanSetToParam } from '../../utils/columnView';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -14,24 +18,38 @@ import type { Item } from '@kis-books/shared';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 const PAGE_SIZE = 100;
+const SORT_KEYS: readonly ItemSortKey[] = ['name', 'price', 'taxable', 'status'];
+const STATUS_OPTIONS = [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }];
+const TAXABLE_OPTIONS = [{ value: 'yes', label: 'Taxable' }, { value: 'no', label: 'Not taxable' }];
 
 export function ItemsListPage() {
   const [search, setSearchRaw] = useState('');
-  const [activeFilter, setActiveFilterRaw] = useState<boolean | undefined>(true);
+  // Sort + the Status / Taxable value filters in one persisted view; the
+  // Status select and the header popover share the same entry.
+  const view = useColumnView<ItemSortKey>('vibe:items:view', {
+    sortKeys: SORT_KEYS, defaultFilters: { status: ['active'] },
+  });
+  const activeFilter = booleanSetToParam(view.filterFor('status'), { trueValue: 'active', falseValue: 'inactive' });
+  const taxableFilter = booleanSetToParam(view.filterFor('taxable'), { trueValue: 'yes', falseValue: 'no' });
   const [offset, setOffset] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Item | null>(null);
 
   // Any filter change resets to page 1.
   const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
-  const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); };
+  const setActiveFilter = (v: boolean | undefined) =>
+    view.setFilter('status', new Set(v === undefined ? [] : [v ? 'active' : 'inactive']));
+  useEffect(() => { setOffset(0); }, [view.signature]);
 
   // Debounced: the query fires once typing pauses, not per keystroke.
   const debouncedSearch = useDebouncedValue(search);
 
   const filters = {
     isActive: activeFilter,
+    isTaxable: taxableFilter,
     search: debouncedSearch || undefined,
+    sortBy: view.sortCol || undefined,
+    sortDir: view.sortCol ? view.sortDir : undefined,
     limit: PAGE_SIZE,
     offset,
   };
@@ -114,13 +132,13 @@ export function ItemsListPage() {
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                <SortableTh padding="px-6 py-3" label="Name" {...view.thProps('name')} />
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Unit Price</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Taxable</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                <SortableTh padding="px-6 py-3" label="Unit Price" align="right" {...view.thProps('price')} />
+                <SortableTh padding="px-6 py-3" label="Taxable" align="center" {...view.thProps('taxable')} filter={view.filterProps('taxable', TAXABLE_OPTIONS, { ariaLabel: 'Filter Taxable' })} />
+                <SortableTh padding="px-6 py-3" label="Status" align="center" {...view.thProps('status')} filter={view.filterProps('status', STATUS_OPTIONS, { ariaLabel: 'Filter Status' })} />
                 <th className="px-6 py-3" />
               </tr>
             </thead>

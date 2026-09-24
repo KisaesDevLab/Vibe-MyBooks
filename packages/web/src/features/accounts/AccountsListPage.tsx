@@ -2,10 +2,13 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { AccountType } from '@kis-books/shared';
+import type { AccountType, AccountSortKey } from '@kis-books/shared';
 import { ACCOUNT_TYPES, formatAccountTypeLabel } from '@kis-books/shared';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
+import { booleanSetToParam } from '../../utils/columnView';
 import { useAccounts, useDeactivateAccount, useExportAccounts } from '../../api/hooks/useAccounts';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -21,11 +24,21 @@ import type { Account } from '@kis-books/shared';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 const PAGE_SIZE = 200;
+const SORT_KEYS: readonly AccountSortKey[] = ['number', 'name', 'type', 'detailType', 'balance', 'status'];
+const STATUS_OPTIONS = [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }];
+const TYPE_OPTIONS = ACCOUNT_TYPES.map((t) => ({ value: t, label: formatAccountTypeLabel(t) }));
 
 export function AccountsListPage() {
   const navigate = useNavigate();
-  const [typeFilter, setTypeFilterRaw] = useState<AccountType | ''>('');
-  const [activeFilter, setActiveFilterRaw] = useState<boolean | undefined>(true);
+  // Sort + the Type / Status value filters in one persisted view. The two
+  // selects and the header popovers share the same entries: a select shows
+  // its single value when exactly one is picked, "All" otherwise.
+  const view = useColumnView<AccountSortKey>('vibe:accounts:view', {
+    sortKeys: SORT_KEYS, defaultFilters: { status: ['active'] },
+  });
+  const typeSet = view.filterFor('type');
+  const typeFilter = (typeSet.size === 1 ? [...typeSet][0] : '') as AccountType | '';
+  const activeFilter = booleanSetToParam(view.filterFor('status'), { trueValue: 'active', falseValue: 'inactive' });
   const [search, setSearchRaw] = useState('');
   const [offset, setOffset] = useState(0);
   const [showForm, setShowForm] = useState(false);
@@ -35,17 +48,21 @@ export function AccountsListPage() {
   const [showBulkEdit, setShowBulkEdit] = useState(false);
 
   // Reset offset on any filter change so the user isn't stranded past the end.
-  const setTypeFilter = (v: AccountType | '') => { setTypeFilterRaw(v); setOffset(0); };
-  const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); };
+  const setTypeFilter = (v: AccountType | '') => view.setFilter('type', new Set(v ? [v] : []));
+  const setActiveFilter = (v: boolean | undefined) =>
+    view.setFilter('status', new Set(v === undefined ? [] : [v ? 'active' : 'inactive']));
   const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
+  useEffect(() => { setOffset(0); }, [view.signature]);
 
   // Debounced: the query fires once typing pauses, not per keystroke.
   const debouncedSearch = useDebouncedValue(search);
 
   const filters = {
-    accountType: typeFilter || undefined,
+    accountType: typeSet.size > 0 ? ([...typeSet] as AccountType[]) : undefined,
     isActive: activeFilter,
     search: debouncedSearch || undefined,
+    sortBy: view.sortCol || undefined,
+    sortDir: view.sortCol ? view.sortDir : undefined,
     limit: PAGE_SIZE,
     offset,
   };
@@ -122,14 +139,14 @@ export function AccountsListPage() {
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Number</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Detail Type</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                <SortableTh padding="px-6 py-3" label="Number" {...view.thProps('number')} />
+                <SortableTh padding="px-6 py-3" label="Name" {...view.thProps('name')} />
+                <SortableTh padding="px-6 py-3" label="Type" {...view.thProps('type')} filter={view.filterProps('type', TYPE_OPTIONS, { ariaLabel: 'Filter Type' })} />
+                <SortableTh padding="px-6 py-3" label="Detail Type" {...view.thProps('detailType')} />
+                <SortableTh padding="px-6 py-3" label="Balance" align="right" {...view.thProps('balance')} />
+                <SortableTh padding="px-6 py-3" label="Status" align="center" {...view.thProps('status')} filter={view.filterProps('status', STATUS_OPTIONS, { ariaLabel: 'Filter Status' })} />
                 <th className="px-6 py-3" />
               </tr>
             </thead>

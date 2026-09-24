@@ -3,20 +3,18 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Item, CreateItemInput, UpdateItemInput } from '@kis-books/shared';
+import type { Item, CreateItemInput, UpdateItemInput, ItemFilters } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../client';
 
-export interface ItemFilters {
-  isActive?: boolean;
-  search?: string;
-  limit?: number;
-  offset?: number;
-}
+export type { ItemFilters };
 
 export function useItems(filters?: ItemFilters) {
   const params = new URLSearchParams();
   if (filters?.isActive !== undefined) params.set('isActive', String(filters.isActive));
+  if (filters?.isTaxable !== undefined) params.set('isTaxable', String(filters.isTaxable));
   if (filters?.search) params.set('search', filters.search);
+  if (filters?.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters?.sortDir) params.set('sortDir', filters.sortDir);
   if (filters?.limit) params.set('limit', String(filters.limit));
   if (filters?.offset) params.set('offset', String(filters.offset));
 

@@ -2,9 +2,12 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ContactType } from '@kis-books/shared';
+import type { ContactType, ContactSortKey } from '@kis-books/shared';
+import { SortableTh } from '../../components/ui/SortableTh';
+import { useColumnView } from '../../hooks/useColumnView';
+import { booleanSetToParam } from '../../utils/columnView';
 import { useContacts, useDeactivateContact, useExportContacts, useBulkUpdateContactType, useUpdateContact } from '../../api/hooks/useContacts';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { useToast } from '../../components/ui/Toaster';
@@ -18,6 +21,8 @@ import { Plus, Upload, Download, Merge, Search, X } from 'lucide-react';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 const PAGE_SIZE = 100;
+const SORT_KEYS: readonly ContactSortKey[] = ['name', 'type', 'email', 'phone', 'status'];
+const STATUS_OPTIONS = [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }];
 
 const tabs: { label: string; value: ContactType | '' }[] = [
   { label: 'All', value: '' },
@@ -29,7 +34,12 @@ export function ContactsListPage() {
   const navigate = useNavigate();
   const [typeTab, setTypeTabRaw] = useState<ContactType | ''>('');
   const [search, setSearchRaw] = useState('');
-  const [activeFilter, setActiveFilterRaw] = useState<boolean | undefined>(true);
+  // Sort + the Status value filter live in one persisted view; the Status
+  // select below and the header popover read and write the same entry.
+  const view = useColumnView<ContactSortKey>('vibe:contacts:view', {
+    sortKeys: SORT_KEYS, defaultFilters: { status: ['active'] },
+  });
+  const activeFilter = booleanSetToParam(view.filterFor('status'), { trueValue: 'active', falseValue: 'inactive' });
   const [offset, setOffset] = useState(0);
   const [showImport, setShowImport] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
@@ -46,7 +56,10 @@ export function ContactsListPage() {
   // bulk action can't hit rows the user can no longer see.
   const setTypeTab = (v: ContactType | '') => { setTypeTabRaw(v); setOffset(0); setSelected(new Set()); };
   const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); setSelected(new Set()); };
-  const setActiveFilter = (v: boolean | undefined) => { setActiveFilterRaw(v); setOffset(0); setSelected(new Set()); };
+  const setActiveFilter = (v: boolean | undefined) =>
+    view.setFilter('status', new Set(v === undefined ? [] : [v ? 'active' : 'inactive']));
+  // Any sort or column-filter change: back to page 1, nothing selected.
+  useEffect(() => { setOffset(0); setSelected(new Set()); }, [view.signature]);
 
   // Typing stays responsive; the query fires only once the search text
   // is stable for ~400ms instead of on every keystroke.
@@ -56,6 +69,8 @@ export function ContactsListPage() {
     contactType: typeTab || undefined,
     isActive: activeFilter,
     search: debouncedSearch || undefined,
+    sortBy: view.sortCol || undefined,
+    sortDir: view.sortCol ? view.sortDir : undefined,
     limit: PAGE_SIZE,
     offset,
   };
@@ -184,7 +199,7 @@ export function ContactsListPage() {
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3 w-10">
                   <input
@@ -195,12 +210,12 @@ export function ContactsListPage() {
                     className="rounded border-gray-300"
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <SortableTh padding="px-6 py-3" label="Name" {...view.thProps('name')} />
+                <SortableTh padding="px-6 py-3" label="Type" {...view.thProps('type')} />
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[14rem]">Default category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                <SortableTh padding="px-6 py-3" label="Email" {...view.thProps('email')} />
+                <SortableTh padding="px-6 py-3" label="Phone" {...view.thProps('phone')} />
+                <SortableTh padding="px-6 py-3" label="Status" align="center" {...view.thProps('status')} filter={view.filterProps('status', STATUS_OPTIONS, { ariaLabel: 'Filter Status' })} />
                 <th className="px-6 py-3" />
               </tr>
             </thead>

@@ -11,6 +11,8 @@ export function useContacts(filters?: ContactFilters) {
   if (filters?.contactType) params.set('contactType', filters.contactType);
   if (filters?.isActive !== undefined) params.set('isActive', String(filters.isActive));
   if (filters?.search) params.set('search', filters.search);
+  if (filters?.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters?.sortDir) params.set('sortDir', filters.sortDir);
   if (filters?.limit) params.set('limit', String(filters.limit));
   if (filters?.offset) params.set('offset', String(filters.offset));
 

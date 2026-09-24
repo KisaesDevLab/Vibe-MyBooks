@@ -8,9 +8,14 @@ import { apiClient, API_BASE } from '../client';
 
 export function useAccounts(filters?: AccountFilters) {
   const params = new URLSearchParams();
-  if (filters?.accountType) params.set('accountType', filters.accountType);
+  if (filters?.accountType) {
+    const t = Array.isArray(filters.accountType) ? filters.accountType.join(',') : filters.accountType;
+    if (t) params.set('accountType', t);
+  }
   if (filters?.isActive !== undefined) params.set('isActive', String(filters.isActive));
   if (filters?.search) params.set('search', filters.search);
+  if (filters?.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters?.sortDir) params.set('sortDir', filters.sortDir);
   if (filters?.limit) params.set('limit', String(filters.limit));
   if (filters?.offset) params.set('offset', String(filters.offset));
 
