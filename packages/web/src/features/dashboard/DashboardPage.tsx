@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Landmark, FileText, ArrowRight, Wallet, Receipt, Banknote, MessageSquare, Inbox, CalendarClock, CreditCard, PenLine, PiggyBank, ArrowLeftRight, Printer, FilePlus, HandCoins } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Landmark, FileText, ArrowRight, Wallet, Receipt, Banknote, MessageSquare, Inbox, CalendarClock, CreditCard, PenLine, PiggyBank, ArrowLeftRight, Printer, FilePlus, HandCoins, ListChecks, FileSearch } from 'lucide-react';
 import type { ResourceKey, PermissionAction } from '@kis-books/shared';
 import { usePermissions } from '../../api/hooks/usePermissions';
 import { DashboardAiFooter } from '../../components/ui/DashboardAiFooter';
@@ -56,6 +56,36 @@ function BudgetProgressBar({ label, actual, budget, type }: { label: string; act
         <div className={`h-2 rounded-full transition-all ${barColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
     </div>
+  );
+}
+
+// A work-queue count. Same shape as StatCard but clickable, and it goes
+// quiet when the count is zero: a wall of zeroes trains people to stop
+// reading the row.
+function WorkCard({ title, count, subtitle, icon: Icon, to, navigate }: {
+  title: string; count: number; subtitle?: string; icon: React.ElementType;
+  to: string; navigate: (to: string) => void;
+}) {
+  const waiting = count > 0;
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(to)}
+      className={`text-left bg-white rounded-lg border shadow-sm p-5 transition-colors hover:bg-gray-50 ${
+        waiting ? 'border-amber-300' : 'border-gray-200'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-500">{title}</p>
+          <p className={`text-2xl font-bold mt-1 ${waiting ? 'text-gray-900' : 'text-gray-400'}`}>{count}</p>
+          {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+        </div>
+        <div className={`p-3 rounded-lg ${waiting ? 'bg-amber-500' : 'bg-gray-300'}`}>
+          <Icon className="h-6 w-6 text-white" />
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -151,6 +181,14 @@ interface DashboardSummary {
   budgetPerformance: BudgetPerf | null;
   bankingHealth: { totalConnections: number; needsAttention: number; needsAttentionItems: Array<{ id: string; institutionName: string; itemStatus: string; errorMessage: string | null }>; pendingFeedItems: number } | null;
   portalActivity: { questionsAwaitingReply: number; receiptsToReview: number; docRequestsOverdue: number; docRequestsUnread?: number } | null;
+  /** Counts of work waiting on a person. A null count means the feature that
+   *  owns it is off for this tenant, so its card is hidden. */
+  workQueue: {
+    uncategorized: { notPosted: number; inSuspense: number; total: number } | null;
+    openQuestions: number | null;
+    openRequests: number | null;
+    statementsPendingReview: number | null;
+  } | null;
   errors: string[];
 }
 
@@ -180,6 +218,7 @@ export function DashboardPage() {
     queryFn: () => apiClient<DashboardSummary>('/dashboard/summary?months=6'),
   });
   const summary = summaryQ.data;
+  const work = summary?.workQueue ?? null;
 
   // Chart period of view. The consolidated summary always fetches the
   // 6-month default, so switching periods refetches only the dedicated
@@ -411,6 +450,55 @@ export function DashboardPage() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* What is waiting on someone. Above the money because this is the
+          part of the page a bookkeeper can act on today; each card is the
+          same number its screen shows, and clicking goes straight there. */}
+      {work && (work.uncategorized || work.openQuestions !== null
+        || work.openRequests !== null || work.statementsPendingReview !== null) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {work.uncategorized && (
+            <WorkCard
+              title="Uncategorized"
+              count={work.uncategorized.total}
+              subtitle={`${work.uncategorized.notPosted} not posted · ${work.uncategorized.inSuspense} in suspense`}
+              icon={ListChecks}
+              to="/practice/uncategorized"
+              navigate={navigate}
+            />
+          )}
+          {work.openQuestions !== null && (
+            <WorkCard
+              title="Open questions"
+              count={work.openQuestions}
+              subtitle="Asked of clients, not resolved"
+              icon={MessageSquare}
+              to="/practice/client-portal"
+              navigate={navigate}
+            />
+          )}
+          {work.openRequests !== null && (
+            <WorkCard
+              title="Open document requests"
+              count={work.openRequests}
+              subtitle="Asked for, not sent in"
+              icon={Inbox}
+              to="/practice/reminders"
+              navigate={navigate}
+            />
+          )}
+          {work.statementsPendingReview !== null && (
+            <WorkCard
+              title="Statements to review"
+              count={work.statementsPendingReview}
+              subtitle="Read by AI, awaiting your check"
+              icon={FileSearch}
+              to="/banking/statement-imports"
+              navigate={navigate}
+            />
+          )}
         </div>
       )}
 

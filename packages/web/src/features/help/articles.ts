@@ -711,6 +711,26 @@ There are three ways to start, all from **Banking > Reconcile**:
 `,
   },
   {
+    id: 'dashboard-work-queue',
+    title: 'What Needs You Today',
+    category: 'Getting Started',
+    summary: 'The four counts across the top of the dashboard, what each one counts, and where it takes you.',
+    body: `
+## What Needs You Today
+
+The dashboard opens with four counts of work waiting on a person. Each is the same number the screen behind it shows, and clicking one goes straight there.
+
+- **Uncategorized** \u2014 bank lines nobody has dealt with yet, plus amounts already parked in suspense. The small print splits the two. Goes to Practice \u2192 Uncategorized.
+- **Open questions** \u2014 questions asked of clients that are not resolved, which is the Questions tab's own default filter. Goes to Practice \u2192 Client Portal.
+- **Open document requests** \u2014 documents you have asked for and not received. A document the client HAS sent that nobody has reviewed is separate; it appears in the portal activity panel further down. Goes to Practice \u2192 Reminders.
+- **Statements to review** \u2014 bank statements the AI has finished reading that nobody has accepted yet. Goes to Banking \u2192 Statement imports.
+
+A card turns amber when the count is above zero and greys out at zero, so a quiet row means a quiet day rather than something to read.
+
+A card you do not see is one whose feature is switched off for the firm. It is hidden rather than shown as a zero, because a zero would read as "nothing to do" when the truth is "not turned on".
+`,
+  },
+  {
     id: 'why-a-payee-was-guessed',
     title: 'Why a Payee or Category Was Guessed',
     category: 'Banking',
