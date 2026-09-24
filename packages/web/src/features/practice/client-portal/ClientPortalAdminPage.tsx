@@ -17,6 +17,7 @@ import { Paperclip,
   Eye,
   Upload,
   KeyRound,
+  Mail,
 } from 'lucide-react';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import { useToast } from '../../../components/ui/Toaster';
@@ -321,6 +322,49 @@ function ImportCsvButton() {
   );
 }
 
+function ResendInviteButton({ contact }: { contact: PortalContactSummary }) {
+  const [state, setState] = useState<'idle' | 'sending' | 'sent'>('idle');
+  if (contact.status !== 'active') return null;
+
+  const send = async () => {
+    if (!confirm(`Email the portal invitation to ${contact.email}?`)) return;
+    setState('sending');
+    try {
+      const data = await apiClient<{ sent: boolean; viaStub: boolean }>(
+        `/practice/portal/contacts/${contact.id}/invite`,
+        { method: 'POST' },
+      );
+      if (data.viaStub) {
+        throw new Error('SMTP is not configured — the invitation was logged on the server but no email was delivered. Set up SMTP under System Settings first.');
+      }
+      if (!data.sent) throw new Error('The email could not be delivered — check the SMTP settings.');
+      setState('sent');
+      setTimeout(() => setState('idle'), 4000);
+    } catch (e) {
+      setState('idle');
+      alert(e instanceof Error ? e.message : 'Send failed.');
+    }
+  };
+
+  if (state === 'sent') {
+    return (
+      <span title="Invitation sent" className="p-1.5 inline-flex text-emerald-600">
+        <CheckCircle2 className="h-4 w-4" />
+      </span>
+    );
+  }
+  return (
+    <button
+      title={`Resend the portal invitation to ${contact.email} (7-day link)`}
+      onClick={() => void send()}
+      disabled={state === 'sending'}
+      className="p-1.5 rounded hover:bg-indigo-50 text-indigo-600 disabled:opacity-50"
+    >
+      <Mail className="h-4 w-4" />
+    </button>
+  );
+}
+
 function SendLoginLinkButton({ contact }: { contact: PortalContactSummary }) {
   const [state, setState] = useState<'idle' | 'sending' | 'sent'>('idle');
   if (contact.status !== 'active') return null;
@@ -463,6 +507,7 @@ function ContactsTable({
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="inline-flex items-center gap-1">
+                    <ResendInviteButton contact={c} />
                     <SendLoginLinkButton contact={c} />
                     <PreviewButton contactId={c.id} />
                     {c.status === 'active' ? (
@@ -533,6 +578,8 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
   const [lastName, setLastName] = useState('');
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
   const [role, setRole] = useState('staff');
+  // On by default: a portal contact nobody tells about a portal never uses it.
+  const [sendInvite, setSendInvite] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
@@ -550,9 +597,18 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
       firstName: firstName.trim() || null,
       lastName: lastName.trim() || null,
       companies: selectedCompanies.map((id) => ({ companyId: id, role })),
+      sendInvite,
     };
     try {
-      await create.mutateAsync(input);
+      const res = await create.mutateAsync(input);
+      // The contact exists either way — an invitation that did not go out is
+      // said out loud rather than assumed, because the whole point is that
+      // the person hears from us.
+      if (sendInvite && res.invite && !res.invite.sent) {
+        alert(res.invite.viaStub
+          ? 'Contact added, but SMTP is not configured — the invitation was logged on the server, not delivered. Set SMTP up under System Settings, then use Resend invite.'
+          : 'Contact added, but the invitation could not be delivered. Check the SMTP settings, then use Resend invite.');
+      }
       onClose();
     } catch (err) {
       const msg =
@@ -616,6 +672,22 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
             <option value="other">Other</option>
           </select>
         </Field>
+        <label className="flex items-start gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={sendInvite}
+            onChange={(e) => setSendInvite(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium text-gray-800">Email them an invitation now</span>
+            <span className="block text-xs text-gray-600">
+              A welcome message from your firm with a link that signs them in. Good for 7 days;
+              you can resend it any time.
+            </span>
+          </span>
+        </label>
+
         <Field label="Companies" required>
           <div className="border border-gray-300 rounded-md max-h-44 overflow-y-auto p-2">
             {companies.length === 0 ? (

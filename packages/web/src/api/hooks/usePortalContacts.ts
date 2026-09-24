@@ -47,8 +47,16 @@ export interface PortalContactDetail {
   companies: PortalContactCompanyLink[];
 }
 
+export interface PortalInviteResult {
+  sent: boolean;
+  viaStub: boolean;
+  rateLimited: boolean;
+}
+
 export interface CreatePortalContactInput {
   email: string;
+  /** Default true — email the person their invitation as soon as they exist. */
+  sendInvite?: boolean;
   phone?: string | null;
   firstName?: string | null;
   lastName?: string | null;
@@ -115,7 +123,7 @@ export function useCreatePortalContact() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreatePortalContactInput) =>
-      apiClient<{ id: string }>('/practice/portal/contacts', {
+      apiClient<{ id: string; invite: PortalInviteResult | null }>('/practice/portal/contacts', {
         method: 'POST',
         body: JSON.stringify(input),
       }),

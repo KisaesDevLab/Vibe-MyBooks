@@ -2900,6 +2900,42 @@ Click **Send N answers**. Nothing posts \u2014 the row stays, marked **Sent \u00
 If you try to post directly from the Practice page while in suggest mode, the server refuses with *SUGGEST_ONLY_MODE* and names who can approve.`,
   },
   {
+    id: 'portal-invitations',
+    title: 'Inviting Clients to the Portal',
+    category: 'Client Portal',
+    summary: 'What the invitation email is, how to resend it, and why a client might not have received one.',
+    body: `
+## Inviting Clients to the Portal
+
+### The invitation
+
+When you add a portal contact, **Email them an invitation now** is ticked by default. They get a message naming your firm, explaining what the portal is for, and carrying a link that signs them straight in. The link is good for **7 days** and can be used once.
+
+Untick it when you are setting someone up ahead of time and do not want them contacted yet.
+
+### Resending
+
+Each contact row has two email actions:
+
+- **Resend invite** (envelope) \u2014 sends the full invitation again with a fresh 7-day link. Use this when the client says they never got it, or the link has expired.
+- **Send sign-in link** (key) \u2014 sends the ordinary sign-in link, which expires in **15 minutes**. Use this when someone is trying to get in right now.
+
+Sending either one cancels any earlier link for that contact. A contact can receive at most **5 links an hour**, shared with the requests they make themselves from the login page, so repeated clicks can lock them out of self-service for the rest of the hour \u2014 the screen tells you when that happens.
+
+### "They never got the email"
+
+Check these in order:
+
+1. **SMTP.** If mail is not configured, the app says so instead of showing a green tick \u2014 the invitation is written to the server log and nothing is delivered. Set it up under System Settings, then resend.
+2. **Spam or a filtered address.** The message comes from your firm's configured sending address.
+3. **Paused contact.** A paused contact cannot be invited; reactivate them first.
+
+### The same person at two different firms
+
+A portal contact belongs to one client. If the same email address is set up under two of your clients, those are two separate contacts. When that person asks for a sign-in link from the portal's front page they receive **one email per client**, each opening that client's portal \u2014 there is no firm-picker screen, and the one they click decides where they land. A link you send from a specific client's contact list always opens that client.
+`,
+  },
+  {
     id: 'portal-client-categorization',
     title: 'Letting clients suggest categories',
     category: 'Client Portal',
