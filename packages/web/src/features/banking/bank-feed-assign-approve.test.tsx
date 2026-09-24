@@ -17,6 +17,10 @@ import {
 
 const approveMutate = vi.fn();
 const bulkApproveMutate = vi.fn();
+// Inline category pick stages through assign(); resolve so the picker closes.
+const assignMutate = vi.fn(
+  (_input: unknown, opts?: { onSettled?: () => void }) => opts?.onSettled?.(),
+);
 // Re-cleanse resolves successfully so the selection-persistence test can
 // assert the checkboxes survive an in-place bulk action.
 const bulkRecleanseMutate = vi.fn(
@@ -24,6 +28,40 @@ const bulkRecleanseMutate = vi.fn(
 );
 
 const feedItems = [
+  // The pending row comes FIRST: existing tests click the LAST checkbox
+  // and expect the assigned row.
+  {
+    // A pending row with a rule/AI suggestion — the inline click-to-edit
+    // target. Carries a suggested contact and tag that a pick must keep.
+    id: 'item-pending',
+    tenantId: 't1',
+    bankConnectionId: 'conn-1',
+    feedDate: '2026-06-02',
+    description: 'PENDING VENDOR',
+    originalDescription: 'PENDING VENDOR 002',
+    amount: '15.0000',
+    status: 'pending',
+    suggestedAccountId: 'acct-9',
+    suggestedAccountName: 'Meals',
+    suggestedContactId: 'c-sugg',
+    suggestedContactName: 'Suggested Diner',
+    confidenceScore: '0.80',
+    matchedTransactionId: null,
+    payeeNameOnCheck: null,
+    checkNumber: null,
+    memo: null,
+    bankAccountName: 'Checking',
+    institutionName: 'Test Bank',
+    suggestedTagId: 'tag-sugg',
+    suggestedTagName: 'Travel',
+    lineTags: null,
+    assignedAccountId: null,
+    assignedAccountName: null,
+    assignedContactId: null,
+    assignedTagId: null,
+    assignedTagName: null,
+    assignedMemo: null,
+  },
   {
     id: 'item-assigned',
     tenantId: 't1',
@@ -66,10 +104,20 @@ vi.mock('../../api/hooks/useBanking', () => ({
     refetch: vi.fn(),
   }),
   useApproveFeedItem: () => ({ ...passthroughMutation(), mutate: approveMutate }),
+  useAssignFeedItem: () => ({ ...passthroughMutation(), mutate: assignMutate }),
   useBulkApprove: () => ({ ...passthroughMutation(), mutate: bulkApproveMutate }),
   useBulkRecleanse: () => ({ ...passthroughMutation(), mutate: bulkRecleanseMutate }),
 }));
-vi.mock('../../api/hooks/useAccounts', () => accountsMocks());
+// The inline picker needs an account to find; no accountNumber so the
+// option's visible text is the plain name.
+vi.mock('../../api/hooks/useAccounts', () => ({
+  ...accountsMocks(),
+  useAccounts: () => ({
+    data: { data: [{ id: 'acct-1', name: 'Rent', accountType: 'expense', accountNumber: null, isActive: true }], total: 1 },
+    isLoading: false,
+    isError: false,
+  }),
+}));
 vi.mock('../../api/hooks/useContacts', () => contactsMocks());
 vi.mock('../../api/hooks/useCompany', () => companyMocks());
 vi.mock('../../api/hooks/useTags', () => tagsMocks());
@@ -86,7 +134,37 @@ import { BankFeedPage } from './BankFeedPage';
 beforeEach(() => {
   approveMutate.mockClear();
   bulkApproveMutate.mockClear();
+  assignMutate.mockClear();
   sessionStorage.clear();
+});
+
+describe('BankFeedPage — inline category on click', () => {
+  it('clicking a pending row\'s category opens a picker; picking stages via assign() with the row\'s contact and tag, and posts nothing', async () => {
+    renderRoute(<BankFeedPage />);
+    // The suggestion text is the click target.
+    fireEvent.click(screen.getByRole('button', { name: 'Meals' }));
+    const input = screen.getByPlaceholderText(/search accounts/i);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'Rent' } });
+    fireEvent.click(await waitFor(() => screen.getByText('Rent')));
+
+    await waitFor(() => expect(assignMutate).toHaveBeenCalledTimes(1));
+    expect(assignMutate.mock.calls[0]![0]).toEqual({
+      id: 'item-pending', accountId: 'acct-1', contactId: 'c-sugg', tagId: 'tag-sugg', memo: null,
+    });
+    expect(approveMutate).not.toHaveBeenCalled();
+    // The picker closes once the stage settles.
+    await waitFor(() => expect(screen.queryByPlaceholderText(/search accounts/i)).toBeNull());
+  });
+
+  it('the staged pill re-opens the picker; cancel backs out without staging', () => {
+    renderRoute(<BankFeedPage />);
+    fireEvent.click(screen.getByRole('button', { name: /office expense/i }));
+    expect(screen.getByPlaceholderText(/search accounts/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /cancel category edit/i }));
+    expect(screen.queryByPlaceholderText(/search accounts/i)).toBeNull();
+    expect(assignMutate).not.toHaveBeenCalled();
+  });
 });
 
 describe('BankFeedPage — assigned row', () => {

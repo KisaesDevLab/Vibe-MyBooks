@@ -133,6 +133,11 @@ export function BankFeedPage() {
   // used to reset to newest-first on every visit.
   const [sortKey, setSortKey] = useSessionState<SortKey>('vibe:bank-feed:sortKey', 'feedDate');
   const [sortDir, setSortDir] = useSessionState<SortDir>('vibe:bank-feed:sortDir', 'desc');
+  // Row whose CATEGORY cell is showing the inline picker (click-to-edit on a
+  // collapsed row). Picking stages the account at once — the same reversible
+  // assign() that "Accept suggestion" uses, never a post — so there is no
+  // extra Save; Approve stays the step that touches the ledger.
+  const [inlineCatId, setInlineCatId] = useState<string | null>(null);
   const [matchModalFor, setMatchModalFor] = useState<string | null>(null);
   const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -357,6 +362,20 @@ export function BankFeedPage() {
       refetch();
       setExpandedId(null);
     }
+  };
+
+  // Inline category pick on a collapsed row: stage the account and carry
+  // whatever contact / tag / memo the row already has (staged first, then
+  // suggested) so a re-pick on an 'assigned' row never drops them.
+  const stageInlineCategory = (item: BankFeedItem, accountId: string) => {
+    if (!accountId) return;
+    assign.mutate({
+      id: item.id,
+      accountId,
+      contactId: item.assignedContactId || item.suggestedContactId || null,
+      tagId: item.assignedTagId || item.suggestedTagId || null,
+      memo: item.assignedMemo || null,
+    }, { onSettled: () => setInlineCatId(null) });
   };
 
   // Per-row Approve — posts a staged ('assigned') item to the ledger.
@@ -969,13 +988,54 @@ export function BankFeedPage() {
                           )}
                           <PayrollOverlapBanner feedItemId={item.id} />
                         </div>
+                      ) : inlineCatId === item.id ? (
+                        // Click-to-edit picker. Picking stages immediately
+                        // (see stageInlineCategory); ✕ or Escape backs out.
+                        <div
+                          className="flex items-center gap-1"
+                          onKeyDown={(e) => { if (e.key === 'Escape') setInlineCatId(null); }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="min-w-[12rem] flex-1">
+                            <AccountSelector
+                              value={item.assignedAccountId || item.suggestedAccountId || ''}
+                              onChange={(v) => stageInlineCategory(item, v)}
+                              compact
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setInlineCatId(null)}
+                            aria-label="Cancel category edit"
+                            className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       ) : item.status === 'assigned' ? (
                         // Staged category — visually distinct from a posted
                         // ('categorized') row: a purple pill = "ready to approve".
-                        <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 text-purple-700 px-2 py-0.5 text-xs font-medium" title="Staged — approve to post">
+                        // Clicking it re-opens the picker to stage a different account.
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setInlineCatId(item.id); }}
+                          title="Staged — approve to post. Click to change the category."
+                          className="inline-flex items-center gap-1 rounded-full bg-purple-50 text-purple-700 px-2 py-0.5 text-xs font-medium hover:bg-purple-100"
+                        >
                           <Check className="h-3 w-3" />
                           {item.assignedAccountName || 'Assigned'}
-                        </span>
+                        </button>
+                      ) : item.status === 'pending' ? (
+                        // Pending row: the suggestion (or a dash) is a click
+                        // target that opens the picker in place.
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setInlineCatId(item.id); }}
+                          title="Click to set the category"
+                          className="text-left text-gray-900 rounded px-1 -mx-1 hover:bg-gray-100 hover:text-primary-700"
+                        >
+                          {item.suggestedAccountName || <span className="text-gray-400">Set category…</span>}
+                        </button>
                       ) : (
                         <span className="text-gray-900">{item.suggestedAccountName || '—'}</span>
                       )}
