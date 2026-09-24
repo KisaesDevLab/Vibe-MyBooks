@@ -3,12 +3,32 @@
 // Free for small businesses; see LICENSE for terms.
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 18.1 — service worker for
-// the portal PWA. Strategy: cache-first for the static shell,
-// network-first for /api/*. Offline queue for receipt uploads
-// piggybacks on Background Sync where available.
+// the portal PWA.
+//
+// Strategy: NETWORK-FIRST for navigations and /api/*, cache-first only
+// for content-hashed /assets/*. The page itself must never be served
+// from the cache while the network is up: it was, until 2026-09-24, and
+// the result was that a returning client kept running whatever build
+// they first visited. Every portal change shipped since their first
+// visit was invisible to them until they hard-refreshed, which is the
+// one thing that bypasses a service worker. Hashed asset filenames are
+// immutable, so those stay cache-first and still make the portal work
+// offline once visited.
 
-const SHELL_CACHE = 'kisbooks-portal-shell-v1';
-const SHELL_ASSETS = ['/', '/portal/', '/portal/login', '/portal-manifest.json'];
+// Bumping this name is what evicts a stale shell: activate deletes every
+// cache that is not the current one. Bump it whenever the strategy below
+// changes, so clients holding the old one are rebuilt from the network.
+const SHELL_CACHE = 'kisbooks-portal-shell-v2';
+
+// Paths are relative to where the worker is served, not the origin root:
+// on an appliance subpath install the SPA lives at /mybooks/ and these
+// become /mybooks/portal/ etc. With absolute '/portal/' the matches below
+// never fired on those installs and the worker did nothing at all.
+const BASE = new URL('./', self.location).pathname;
+const SHELL_ASSETS = [`${BASE}portal/`, `${BASE}portal/login`, `${BASE}portal-manifest.json`];
+
+const isApi = (p) => p.startsWith(`${BASE}api/`);
+const isHashedAsset = (p) => p.startsWith(`${BASE}assets/`);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -31,7 +51,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   // Network-first for API calls.
-  if (url.pathname.startsWith('/api/')) {
+  if (isApi(url.pathname)) {
     event.respondWith(
       fetch(event.request).catch(() =>
         caches.match(event.request).then((m) => m || new Response('', { status: 504 })),
@@ -40,8 +60,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for portal shell.
-  if (url.pathname.startsWith('/portal/') || url.pathname.startsWith('/assets/')) {
+  // Network-first for the page itself, so a deploy is visible on the next
+  // load rather than after a hard refresh. The cached copy is the offline
+  // fallback, and is refreshed on every successful load.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(SHELL_CACHE).then((c) => c.put(event.request, copy));
+          return res;
+        })
+        .catch(() =>
+          caches.match(event.request)
+            .then((m) => m || caches.match(`${BASE}portal/`))
+            .then((m) => m || new Response('', { status: 504 })),
+        ),
+    );
+    return;
+  }
+
+  // Cache-first for build assets. Their filenames carry a content hash, so
+  // a cached one can never be the wrong version of itself.
+  if (isHashedAsset(url.pathname)) {
     event.respondWith(
       caches.match(event.request).then(
         (cached) =>

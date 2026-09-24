@@ -86,7 +86,10 @@ export function PortalLayout() {
     if ('serviceWorker' in navigator) {
       const base = import.meta.env.BASE_URL;
       navigator.serviceWorker
-        .register(`${base}portal-sw.js`, { scope: `${base}portal/` })
+        // updateViaCache 'none': check the worker script against the server
+        // rather than the HTTP cache, so a new build's worker is picked up on
+        // the next visit instead of whenever the cached copy expires.
+        .register(`${base}portal-sw.js`, { scope: `${base}portal/`, updateViaCache: 'none' })
         .catch(() => {
           // expected on HTTP origins — not a hard failure
         });

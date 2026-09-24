@@ -313,7 +313,9 @@ export function PortalCategorizePage() {
                     onChange={(e) => setPicks((p) => ({ ...p, [item.targetId]: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
                   >
-                    <option value="">Choose…</option>
+                    {/* Says what to do, not "Choose…": picking from the list
+                        and writing a note are both complete answers here. */}
+                    <option value="">Select a Name or enter a note</option>
                     {Object.entries(grouped).map(([group, list]) => (
                       <optgroup key={group} label={group}>
                         {list.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
