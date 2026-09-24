@@ -16,11 +16,20 @@ import {
 
 let lastOpts: Record<string, unknown> = {};
 
+// One row, so the table (and its sortable headers) renders.
+const row = {
+  id: 'item-1', tenantId: 't1', bankConnectionId: 'conn-1', feedDate: '2026-06-01', amount: '12.5000',
+  status: 'pending', description: 'COFFEE SHOP', originalDescription: 'COFFEE SHOP 001',
+  suggestedAccountId: null, suggestedAccountName: null, suggestedContactId: null, suggestedContactName: null,
+  confidenceScore: null, matchedTransactionId: null, payeeNameOnCheck: null, checkNumber: null, memo: null,
+  bankAccountName: 'Checking', institutionName: 'Test Bank', suggestedTagId: null, suggestedTagName: null, lineTags: null,
+};
+
 vi.mock('../../api/hooks/useBanking', () => ({
   ...bankingMocks(),
   useBankFeed: (opts: Record<string, unknown>) => {
     lastOpts = opts;
-    return { data: { data: [], total: 0 }, isLoading: false, isError: false, isFetching: false, refetch: vi.fn() };
+    return { data: { data: [row], total: 1 }, isLoading: false, isError: false, isFetching: false, refetch: vi.fn() };
   },
 }));
 vi.mock('../../api/hooks/useAccounts', () => accountsMocks());
