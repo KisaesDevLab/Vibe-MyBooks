@@ -67,13 +67,20 @@ export function PortalDashboardPage() {
   // null = hidden (feature off, permission off, or fetch failed).
   const [bankAccounts, setBankAccounts] = useState<DashboardBankAccount[] | null>(null);
   // PORTAL_CATEGORIZE_V1 — how many transactions are waiting on this client.
+  // null = not known yet (still loading, or the request failed).
   const [categorizeCount, setCategorizeCount] = useState<number | null>(null);
-  // Whether the tenant flag is actually on, tracked separately from the count.
-  // The tile is the ONLY way into /portal/categorize — PortalLayout has no nav
-  // links — so gating it on count > 0 made the screen unreachable whenever the
-  // queue happened to be empty, which is also the state a firm sees right after
-  // turning the feature on. Mirrors how billPayEnabled shows on permission.
-  const [categorizeAvailable, setCategorizeAvailable] = useState(false);
+  // Set only when the server says the tenant flag is OFF. Anything else —
+  // slow request, transport error, a stale app shell — leaves the entry
+  // point alone, because the permission on /me is enough to know the client
+  // is allowed in, and a client who cannot find the page is the whole
+  // problem this screen exists to solve.
+  const [categorizeFeatureOff, setCategorizeFeatureOff] = useState(false);
+  // The way into /portal/categorize (PortalLayout has no nav links), shown on
+  // the client's PERMISSION rather than on a successful count fetch. It used
+  // to require the fetch to come back first, so an unreachable or slow API —
+  // or a browser running a stale build — left the client with no way in at
+  // all, and "I have to hard refresh to see it" was the result.
+  const categorizeAvailable = categorizeEnabled && !categorizeFeatureOff;
 
   // PORTAL_BANKING_V1 — separate request because the response carries
   // featureEnabled (tenant flag) which the /me permission can't know.
@@ -97,24 +104,42 @@ export function PortalDashboardPage() {
 
   // Separate request for the same reason as banking: the response carries
   // featureEnabled (the tenant flag), which the /me permission cannot know.
+  // Re-run on focus so a tab left open all morning shows today's number
+  // instead of the one it loaded with.
   useEffect(() => {
     if (!activeCompanyId || !categorizeEnabled) {
       setCategorizeCount(null);
-      setCategorizeAvailable(false);
+      setCategorizeFeatureOff(false);
       return;
     }
     let cancelled = false;
-    fetch(`${import.meta.env.BASE_URL}api/portal/categorize/queue?companyId=${activeCompanyId}&limit=1`, {
-      credentials: 'include',
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        if (cancelled || !body || body.featureEnabled === false) return;
-        setCategorizeAvailable(true);
-        setCategorizeCount(typeof body.total === 'number' ? body.total : null);
+    const load = () => {
+      fetch(`${import.meta.env.BASE_URL}api/portal/categorize/queue?companyId=${activeCompanyId}&limit=1&t=${Date.now()}`, {
+        credentials: 'include',
+        cache: 'no-store',
       })
-      .catch(() => { /* feature off or transport error — hide the tile */ });
-    return () => { cancelled = true; };
+        .then((r) => (r.ok ? r.json() : null))
+        .then((body) => {
+          if (cancelled || !body) return;
+          if (body.featureEnabled === false) {
+            setCategorizeFeatureOff(true);
+            setCategorizeCount(null);
+            return;
+          }
+          setCategorizeFeatureOff(false);
+          setCategorizeCount(typeof body.total === 'number' ? body.total : null);
+        })
+        .catch(() => { /* leave the entry point and the last known count */ });
+    };
+    load();
+    const onFocus = () => { if (document.visibilityState === 'visible') load(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
   }, [activeCompanyId, categorizeEnabled]);
 
   useEffect(() => {
@@ -382,10 +407,10 @@ export function PortalDashboardPage() {
             </p>
           </Link>
         )}
-        {/* The banner above carries this when rows are waiting; this quiet
-            card is what keeps /portal/categorize reachable when they are not.
-            A null count means the total did not come back — say nothing about
-            the queue rather than claim it is empty. */}
+        {/* The banner above shouts when rows are waiting; this card is the
+            way in the rest of the time, INCLUDING when the count never came
+            back. A client who is allowed on this page always has a door to
+            it, whatever the network or a stale app shell is doing. */}
         {categorizeAvailable && (categorizeCount ?? 0) === 0 && (
           <Link
             to="/portal/categorize"
@@ -395,7 +420,7 @@ export function PortalDashboardPage() {
             <p className="text-xs text-gray-500 mt-1">
               {categorizeCount === 0
                 ? 'Nothing is waiting on you right now.'
-                : 'Tell your bookkeeper what these were for.'}
+                : 'Open your list and tell your bookkeeper what these were for.'}
             </p>
           </Link>
         )}

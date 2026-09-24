@@ -80,6 +80,33 @@ describe('PortalDashboardPage — transactions needing the client', () => {
     expect(screen.queryByText('Nothing is waiting on you right now.')).toBeNull();
   });
 
+  it('still offers the way in when the count request fails outright', async () => {
+    // The client is allowed on the page — that comes from /me, not from this
+    // request — so a dead API, or a browser running a stale build, must not
+    // leave them with no door to it. This is what "I have to hard refresh to
+    // see it" looked like from the client's side.
+    vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+      String(url).includes('/portal/categorize/queue')
+        ? Promise.reject(new Error('offline'))
+        : { ok: true, json: async () => ({ open: [], receipts: [], reports: [], items: [] }) }));
+    renderRoute(<PortalDashboardPage />);
+    expect(await screen.findByText('Categorize transactions')).toBeTruthy();
+    expect(screen.getByText('Categorize transactions').closest('a')?.getAttribute('href'))
+      .toBe('/portal/categorize');
+  });
+
+  it('hides it only when the firm has the feature switched off', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (String(url).includes('/portal/categorize/queue')
+        ? { featureEnabled: false }
+        : { open: [], receipts: [], reports: [], items: [] }),
+    })));
+    renderRoute(<PortalDashboardPage />);
+    await waitFor(() => expect(screen.queryByText('Categorize transactions')).toBeNull());
+    expect(screen.queryByText(/need your input/)).toBeNull();
+  });
+
   it('drops the banner but keeps the way in when nothing is waiting', async () => {
     queueTotal = 0;
     renderRoute(<PortalDashboardPage />);
