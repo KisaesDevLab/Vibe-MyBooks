@@ -41,7 +41,7 @@ export function FindingsTab({ period }: Props) {
   const [activeFinding, setActiveFinding] = useState<Finding | null>(null);
 
   const registryQ = useCheckRegistry();
-  const summaryQ = useFindingsSummary(activeCompanyId ?? null);
+  const summaryQ = useFindingsSummary(activeCompanyId ?? null, { periodStart: period.periodStart, periodEnd: period.periodEnd });
   const findingsQ = useFindingsInfinite({
     status: statusFilter ?? undefined,
     severity: severityFilter ?? undefined,
@@ -178,8 +178,8 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
       </h2>
       <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">
         {hasFilters
-          ? 'Try clearing a filter, or run checks now to surface fresh anomalies.'
-          : 'Reviewer checks (duplicate detection, materiality, missing W-9, etc.) run automatically every 24 hours per company. You can also run them on demand above.'}
+          ? 'Try clearing a filter. Findings belong to the selected period — run the checks for this period if you have not yet.'
+          : 'Reviewer checks (duplicate detection, large transactions, missing W-9, etc.) run only when you start them, for the selected period. Click Run checks now above.'}
       </p>
     </div>
   );

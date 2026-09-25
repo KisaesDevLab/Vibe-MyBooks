@@ -426,6 +426,26 @@ The system compares incoming transactions against existing ones based on:
 `,
   },
   {
+    id: 'close-review',
+    title: 'Month-End Close Review',
+    category: 'Transactions',
+    summary: 'Review a client\'s bank feed and run review checks for one month at a time.',
+    body: `
+## Month-End Close Review
+
+**Practice → Close Review** is where you review one client for one month. Pick the month with the **Period** picker: step with the arrows or choose any month and year. It defaults to the month that just ended.
+
+### Checks only run when you start them
+Nothing runs in the background. Open **Findings** and click **Run checks now** to review the selected month. Running the same month again adds only new items. Each month keeps its own findings, and the summary cards always match the list below them.
+
+### Buckets
+The bank-feed items dated in the month, grouped by how sure the system is: potential matches, rule matches, auto classifications, and needs review. An item leaves its bucket once it is categorized, matched, or excluded anywhere in the app.
+
+### Checklist
+The findings task is only marked done after the checks have been run for that month and nothing is left open.
+`,
+  },
+  {
     id: 'registers',
     title: 'Using Account Registers',
     category: 'Transactions',

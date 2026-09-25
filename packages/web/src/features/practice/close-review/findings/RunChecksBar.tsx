@@ -27,7 +27,7 @@ interface Props {
 //     Confirm dialog reminds the bookkeeper that AI credits will
 //     be consumed.
 export function RunChecksBar({ companyId, period }: Props) {
-  const { data: runsData } = useCheckRuns(5);
+  const { data: runsData } = useCheckRuns(5, { companyId, periodStart: period.periodStart });
   const runChecks = useRunChecks();
   const runAiJudgment = useRunAiJudgment();
   const aiJudgmentEnabled = useFeatureFlag('AI_JUDGMENT_CHECKS_V1');
@@ -40,7 +40,7 @@ export function RunChecksBar({ companyId, period }: Props) {
     ? `Last run ${formatRelative(new Date(lastRun.completedAt))}`
     : lastRun
       ? 'Last run still in progress…'
-      : 'No runs yet — kick one off to populate findings.';
+      : `Not reviewed yet for ${period.label.replace(' (current)', '')}. Checks only run when you start them.`;
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
@@ -112,12 +112,12 @@ export function RunChecksBar({ companyId, period }: Props) {
       <ConfirmDialog
         open={aiConfirmOpen}
         title="Run AI judgment review?"
-        message="This will use AI credits. The AI reviews up to 100 of your largest recent expenses (≥ $25, last 30 days) and flags anything that looks personal rather than business. Each transaction is one AI call."
+        message={`This will use AI credits. The AI reviews up to 100 of the largest expenses (≥ $25) dated in ${period.label.replace(' (current)', '')} and flags anything that looks personal rather than business. Each transaction is one AI call.`}
         confirmLabel="Run AI review"
         variant="primary"
         onConfirm={() => {
           setAiConfirmOpen(false);
-          runAiJudgment.mutate({ companyId: companyId ?? undefined });
+          runAiJudgment.mutate({ companyId: companyId ?? undefined, periodStart: period.periodStart, periodEnd: period.periodEnd });
         }}
         onCancel={() => setAiConfirmOpen(false)}
       />

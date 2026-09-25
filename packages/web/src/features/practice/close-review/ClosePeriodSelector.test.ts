@@ -3,31 +3,32 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { describe, it, expect } from 'vitest';
-import { buildClosePeriods } from './ClosePeriodSelector';
+import { defaultClosePeriod, periodForMonth } from './ClosePeriodSelector';
 
-describe('buildClosePeriods', () => {
-  it('returns 4 periods with current month first', () => {
+describe('close period helpers', () => {
+  it('defaults to the month that just ended', () => {
     const now = new Date(Date.UTC(2026, 3, 15)); // April 15 2026
-    const periods = buildClosePeriods(now);
-    expect(periods).toHaveLength(4);
-    expect(periods[0]?.label).toBe('April 2026 (current)');
-    expect(periods[1]?.label).toBe('March 2026');
-    expect(periods[2]?.label).toBe('February 2026');
-    expect(periods[3]?.label).toBe('January 2026');
+    const p = defaultClosePeriod(now);
+    expect(p.label).toBe('March 2026');
+    expect(p.periodStart).toBe('2026-03-01T00:00:00.000Z');
+    expect(p.periodEnd).toBe('2026-04-01T00:00:00.000Z');
   });
 
-  it('handles year boundaries correctly', () => {
-    const now = new Date(Date.UTC(2026, 1, 10)); // February 2026
-    const periods = buildClosePeriods(now);
-    expect(periods[2]?.label).toBe('December 2025');
-    expect(periods[3]?.label).toBe('November 2025');
+  it('crosses the year boundary', () => {
+    const now = new Date(Date.UTC(2026, 0, 10)); // January 2026
+    expect(defaultClosePeriod(now).label).toBe('December 2025');
   });
 
-  it('periodStart is first ms of month, periodEnd is first ms of next month', () => {
-    const now = new Date(Date.UTC(2026, 3, 15));
-    const periods = buildClosePeriods(now);
-    const april = periods[0]!;
-    expect(april.periodStart).toBe('2026-04-01T00:00:00.000Z');
-    expect(april.periodEnd).toBe('2026-05-01T00:00:00.000Z');
+  it('reaches any earlier month, not just the last four', () => {
+    const now = new Date(Date.UTC(2026, 8, 25));
+    const p = periodForMonth(2022, 6, now);
+    expect(p.label).toBe('July 2022');
+    expect(p.periodStart).toBe('2022-07-01T00:00:00.000Z');
+    expect(p.periodEnd).toBe('2022-08-01T00:00:00.000Z');
+  });
+
+  it('marks the current month', () => {
+    const now = new Date(Date.UTC(2026, 8, 25));
+    expect(periodForMonth(2026, 8, now).label).toBe('September 2026 (current)');
   });
 });

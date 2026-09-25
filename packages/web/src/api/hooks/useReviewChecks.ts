@@ -25,9 +25,10 @@ const KEYS = {
     ['practice', 'checks', 'finding', id] as const,
   events: (id: string) =>
     ['practice', 'checks', 'finding-events', id] as const,
-  summary: (companyId: string | null) =>
-    ['practice', 'checks', 'summary', companyId] as const,
-  runs: (limit: number) => ['practice', 'checks', 'runs', limit] as const,
+  summary: (companyId: string | null, periodStart?: string) =>
+    ['practice', 'checks', 'summary', companyId, periodStart ?? null] as const,
+  runs: (limit: number, companyId?: string | null, periodStart?: string) =>
+    ['practice', 'checks', 'runs', limit, companyId ?? null, periodStart ?? null] as const,
   suppressions: ['practice', 'checks', 'suppressions'] as const,
   overrides: ['practice', 'checks', 'overrides'] as const,
 };
@@ -139,10 +140,15 @@ export interface FindingsSummary {
   total: number;
 }
 
-export function useFindingsSummary(companyId: string | null) {
-  const qs = companyId ? `?companyId=${companyId}` : '';
+// Scoped exactly like the findings list, so a card's count always matches
+// the rows the list can show for the same period.
+export function useFindingsSummary(companyId: string | null, period?: { periodStart: string; periodEnd: string }) {
+  const params = new URLSearchParams();
+  if (companyId) params.set('companyId', companyId);
+  if (period) { params.set('periodStart', period.periodStart); params.set('periodEnd', period.periodEnd); }
+  const qs = params.toString() ? `?${params.toString()}` : '';
   return useQuery({
-    queryKey: KEYS.summary(companyId),
+    queryKey: KEYS.summary(companyId, period?.periodStart),
     queryFn: () =>
       apiClient<FindingsSummary>(`/practice/checks/findings-summary${qs}`),
     staleTime: 15 * 1000,
@@ -163,13 +169,13 @@ export interface RunResultClient {
 export function useRunChecks() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { companyId?: string | null; periodStart?: string; periodEnd?: string }) =>
+    mutationFn: (input: { companyId?: string | null; periodStart: string; periodEnd: string }) =>
       apiClient<{ runs: RunResultClient[] }>('/practice/checks/run', {
         method: 'POST',
         body: JSON.stringify({
           ...(input.companyId ? { companyId: input.companyId } : {}),
-          ...(input.periodStart ? { periodStart: input.periodStart } : {}),
-          ...(input.periodEnd ? { periodEnd: input.periodEnd } : {}),
+          periodStart: input.periodStart,
+          periodEnd: input.periodEnd,
         }),
       }),
     onSuccess: () => {
@@ -179,16 +185,19 @@ export function useRunChecks() {
   });
 }
 
-// "Run AI judgment" trigger. Same body shape as useRunChecks but
-// hits the separate /run-ai-judgment endpoint that opts in to AI
-// handlers. Gated server-side by the AI_JUDGMENT_CHECKS_V1 flag.
+// "Run AI judgment" trigger: runs ONLY the AI checks, for the selected
+// close period. Gated server-side by the AI_JUDGMENT_CHECKS_V1 flag.
 export function useRunAiJudgment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { companyId?: string | null }) =>
+    mutationFn: (input: { companyId?: string | null; periodStart: string; periodEnd: string }) =>
       apiClient<{ runs: RunResultClient[] }>('/practice/checks/run-ai-judgment', {
         method: 'POST',
-        body: JSON.stringify(input.companyId ? { companyId: input.companyId } : {}),
+        body: JSON.stringify({
+          ...(input.companyId ? { companyId: input.companyId } : {}),
+          periodStart: input.periodStart,
+          periodEnd: input.periodEnd,
+        }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['practice', 'checks'] });
@@ -196,11 +205,14 @@ export function useRunAiJudgment() {
   });
 }
 
-export function useCheckRuns(limit: number = 20) {
+export function useCheckRuns(limit: number = 20, scope: { companyId?: string | null; periodStart?: string } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (scope.companyId) params.set('companyId', scope.companyId);
+  if (scope.periodStart) params.set('periodStart', scope.periodStart);
   return useQuery({
-    queryKey: KEYS.runs(limit),
+    queryKey: KEYS.runs(limit, scope.companyId, scope.periodStart),
     queryFn: () =>
-      apiClient<{ runs: CheckRun[] }>(`/practice/checks/runs?limit=${limit}`),
+      apiClient<{ runs: CheckRun[] }>(`/practice/checks/runs?${params.toString()}`),
     staleTime: 30 * 1000,
   });
 }

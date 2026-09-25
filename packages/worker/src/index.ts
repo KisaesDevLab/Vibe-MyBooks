@@ -29,7 +29,6 @@ import { runChunkedTagBackfill } from '../../api/src/services/tags/backfill-swee
 import { startCloudflaredAlerter, stopCloudflaredAlerter } from '../../api/src/services/cloudflared/alert.service.js';
 import { startBackupVerifier, stopBackupVerifier } from '../../api/src/services/backup-verify.service.js';
 import { startClassificationStateBackfill } from '../../api/src/services/classification-state-backfill.service.js';
-import { startCheckScheduler, stopCheckScheduler } from '../../api/src/services/review-checks/scheduler.service.js';
 import { startPortalRecurringScheduler, stopPortalRecurringScheduler } from '../../api/src/services/portal-recurring-scheduler.service.js';
 import { startPortalReminderScheduler, stopPortalReminderScheduler } from '../../api/src/services/portal-reminder-scheduler.service.js';
 import { startRecurringDocRequestScheduler, stopRecurringDocRequestScheduler } from '../../api/src/services/recurring-doc-request-scheduler.service.js';
@@ -66,7 +65,6 @@ try {
   startCloudflaredAlerter();
   startBackupVerifier();
   startClassificationStateBackfill();
-  startCheckScheduler();
   startPortalRecurringScheduler();
   startPortalReminderScheduler();
   startRecurringDocRequestScheduler();
@@ -74,7 +72,7 @@ try {
   startBalanceValidationScheduler();
   startPlaidSyncScheduler();
   startReportPackSweepScheduler();
-  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, review-checks-scheduler, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler, ai-retention-scheduler, balance-validation-scheduler, report-pack-sweep-scheduler');
+  console.log('[Worker] Schedulers registered: backup-scheduler, recurring-scheduler, cloudflared-alerter, backup-verifier, classification-state-backfill, portal-recurring-scheduler, portal-reminder-scheduler, recurring-doc-request-scheduler, ai-retention-scheduler, balance-validation-scheduler, report-pack-sweep-scheduler');
 
   // Report-pack render worker — always on (bulk PDF export is a core
   // reports feature). One Chromium per job, merged with pdf-lib, uploaded
@@ -182,7 +180,6 @@ const shutdown = async (signal: string) => {
   ]);
   stopCloudflaredAlerter();
   stopBackupVerifier();
-  stopCheckScheduler();
   stopPlaidSyncScheduler();
   stopPortalRecurringScheduler();
   stopPortalReminderScheduler();

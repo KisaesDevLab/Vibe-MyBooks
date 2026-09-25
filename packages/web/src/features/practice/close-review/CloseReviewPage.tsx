@@ -2,14 +2,14 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import { useFeatureFlag } from '../../../api/hooks/useFeatureFlag';
 import { useSummary } from '../../../api/hooks/useClassificationState';
-import { buildClosePeriods, ClosePeriodSelector } from './ClosePeriodSelector';
+import { defaultClosePeriod, ClosePeriodSelector } from './ClosePeriodSelector';
 import { BucketsTab } from './BucketsTab';
 import { FindingsTab } from './FindingsTab';
 import { ManualQueueTab } from './ManualQueueTab';
@@ -32,8 +32,7 @@ type Tab = 'checklist' | 'buckets' | 'findings' | 'manual';
 export function CloseReviewPage() {
   const { activeCompanyId } = useCompanyContext();
   const bucketWorkflowEnabled = useFeatureFlag('AI_BUCKET_WORKFLOW_V1');
-  const periods = useMemo(() => buildClosePeriods(), []);
-  const [period, setPeriod] = useState(periods[0]!);
+  const [period, setPeriod] = useState(() => defaultClosePeriod());
   // Default to the Checklist — it's the workflow driver AND it's
   // flag-independent. (The previous 'buckets' default raced the
   // feature-flag query: the flag is undefined on first render, so a
