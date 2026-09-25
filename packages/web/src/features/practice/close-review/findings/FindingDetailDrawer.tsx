@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Clock,
   MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 import type { CheckRegistryEntry, Finding, FindingStatus } from '@kis-books/shared';
 import {
@@ -19,10 +20,14 @@ import {
   useFindingEvents,
   useTransitionFinding,
   usePayeeHistory,
+  useFindingAi,
+  useExplainFinding,
   useCreateSuppression,
 } from '../../../../api/hooks/useReviewChecks';
 import { useBulkUpdateTransactions } from '../../../../api/hooks/useTransactions';
 import { useMergeContacts } from '../../../../api/hooks/useContacts';
+import { useFeatureFlag } from '../../../../api/hooks/useFeatureFlag';
+import { apiClient } from '../../../../api/client';
 import { ContactSelector } from '../../../../components/forms/ContactSelector';
 import { useToast } from '../../../../components/ui/Toaster';
 import { Button } from '../../../../components/ui/Button';
@@ -190,6 +195,8 @@ export function FindingDetailDrawer({ finding: findingProp, registry, onClose }:
 
           {/* How this payee is usually coded — the baseline for judging
               an inconsistency before recoding. */}
+          <FindingAiPanel finding={finding} />
+
           <PayeeCodingHistory findingId={finding.id} />
 
           {/* Duplicate names: merge right here (moves every transaction onto
@@ -604,6 +611,69 @@ function DuplicateMerge({ finding }: { finding: Finding }) {
         <Button size="sm" variant="secondary" loading={merge.isPending} onClick={() => keep(a, b)}>Keep “{a.name}”</Button>
         <Button size="sm" variant="secondary" loading={merge.isPending} onClick={() => keep(b, a)}>Keep “{b.name}”</Button>
       </div>
+    </section>
+  );
+}
+
+// On-request AI review of one row: why it may be wrong, a likely fix, and a
+// question for the client. Stored on the finding; flagged "out of date" when
+// the underlying books change, with Re-run.
+function FindingAiPanel({ finding }: { finding: Finding }) {
+  const enabled = useFeatureFlag('AI_JUDGMENT_CHECKS_V1') === true;
+  const portalOn = useFeatureFlag('CLIENT_PORTAL_V1') === true;
+  const q = useFindingAi(enabled ? finding.id : null);
+  const explain = useExplainFinding();
+  const toast = useToast();
+  const [asking, setAsking] = useState(false);
+  if (!enabled) return null;
+  const ai = q.data?.ai ?? null;
+  const run = () => explain.mutate(finding.id, { onError: (e: Error) => toast.error(e.message || 'The AI could not explain this item.') });
+  const ask = async () => {
+    if (!ai?.clientQuestion || !finding.transactionId || !finding.companyId) return;
+    setAsking(true);
+    try {
+      await apiClient('/practice/portal/questions/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ companyId: finding.companyId, body: ai.clientQuestion, transactionIds: [finding.transactionId] }),
+      });
+      toast.success('Question saved for the client. They get it in their next reminder.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not ask the client.');
+    } finally {
+      setAsking(false);
+    }
+  };
+  return (
+    <section className="rounded-lg border border-violet-200 bg-violet-50/50 p-3" aria-label="AI review">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h4 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-violet-800">
+          <Sparkles className="h-3.5 w-3.5" /> AI review
+        </h4>
+        <Button size="sm" variant="secondary" onClick={run} loading={explain.isPending}>
+          {ai ? 'Re-run' : 'Explain this'}
+        </Button>
+      </div>
+      {!ai ? (
+        <p className="text-xs text-gray-600">Ask the AI why this may be wrong, what to fix, and what to ask the client. Uses AI credits.</p>
+      ) : (
+        <div className="space-y-2 text-sm text-gray-800">
+          {q.data?.stale && (
+            <p className="rounded bg-amber-100 px-2 py-1 text-xs text-amber-900">Out of date: the books changed since this was written. Re-run for a fresh read.</p>
+          )}
+          <p>{ai.explanation}</p>
+          {ai.suggestedFix && <p><span className="font-medium">Suggested fix:</span> {ai.suggestedFix}</p>}
+          {ai.clientQuestion && (
+            <div className="rounded border border-violet-200 bg-white p-2">
+              <div className="text-xs text-gray-500">Question for the client</div>
+              <p className="text-sm">{ai.clientQuestion}</p>
+              {portalOn && finding.transactionId && finding.companyId && (
+                <Button size="sm" variant="secondary" className="mt-2" onClick={() => void ask()} loading={asking}>Ask the client this</Button>
+              )}
+            </div>
+          )}
+          <p className="text-[11px] text-gray-500">{ai.provider} · {ai.model} · {new Date(ai.at).toLocaleString()}. Check it before acting on it.</p>
+        </div>
+      )}
     </section>
   );
 }

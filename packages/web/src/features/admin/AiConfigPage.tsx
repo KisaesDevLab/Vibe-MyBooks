@@ -41,6 +41,7 @@ const PROVIDER_FIELD_DEPS: Array<{ fields: ReadonlyArray<string>; providers: Rea
   { fields: ['geminiApiKey'], providers: ['gemini'] },
   { fields: ['ollamaBaseUrl'], providers: ['ollama'] },
   { fields: ['openaiCompatApiKey', 'openaiCompatBaseUrl', 'openaiCompatModel'], providers: ['openai_compat'] },
+  { fields: ['digitaloceanApiKey', 'digitaloceanModel', 'digitaloceanBaseUrl'], providers: ['digitalocean'] },
 ];
 
 // Suggested self-hosted model tags. MiniCPM-V 4.5 is the default
@@ -56,6 +57,8 @@ const PROVIDERS = [
   // Studio, vLLM, or any cloud proxy that speaks the OpenAI chat API).
   // Model name is free-form and configured in the credentials section.
   { key: 'openai_compat', label: 'OpenAI-compatible (custom)', models: OLLAMA_MODEL_SUGGESTIONS },
+  // DigitalOcean serverless inference — cloud, open-weight models.
+  { key: 'digitalocean', label: 'DigitalOcean (open models)', models: ['openai-gpt-oss-120b', 'openai-gpt-oss-20b'] },
 ];
 
 // A model field: a free-text input backed by a datalist of REAL models fetched
@@ -130,6 +133,7 @@ const TASK_FUNCTIONS: ReadonlyArray<{ key: AiFunctionKey; label: string; showThr
   { key: 'ocr', label: 'OCR', showThreshold: true },
   { key: 'document_classification', label: 'Document Classification', showThreshold: true },
   { key: 'chat', label: 'Chat', showThreshold: false },
+  { key: 'close_review', label: 'Close Review AI (explanations, client questions)', showThreshold: false },
 ];
 
 // Coerce a per-function override draft into a clean payload: blank/unset
@@ -149,6 +153,9 @@ function normalizeTaskOption(opt: TaskOption | undefined): TaskOption | null {
     numCtx: opt.numCtx ?? null,
     // Batched categorization chunk size (categorization only); null = default.
     batchSize: opt.batchSize ?? null,
+    // Provider/model (close_review only); blank = use categorization's.
+    provider: opt.provider || null,
+    model: opt.model?.trim() || null,
   };
   // Only include boolean overrides when explicitly set (a checkbox the
   // admin actually toggled) so we don't clobber the default with false.
@@ -187,6 +194,9 @@ export function AiConfigPage() {
     openaiCompatBaseUrl: string;
     openaiCompatModel: string;
     openaiCompatApiKey: string;
+    digitaloceanApiKey: string;
+    digitaloceanModel: string;
+    digitaloceanBaseUrl: string;
     openaiCompatMode: 'auto' | 'native' | 'compat';
     glmOcrEnabled: boolean;
     glmOcrBaseUrl: string;
@@ -221,6 +231,9 @@ export function AiConfigPage() {
     openaiCompatBaseUrl: '',
     openaiCompatModel: '',
     openaiCompatApiKey: '',
+    digitaloceanApiKey: '',
+    digitaloceanModel: '',
+    digitaloceanBaseUrl: '',
     openaiCompatMode: 'auto',
     glmOcrEnabled: false,
     glmOcrBaseUrl: '',
@@ -267,6 +280,8 @@ export function AiConfigPage() {
         ollamaBaseUrl: data.ollamaBaseUrl || '',
         openaiCompatBaseUrl: data.openaiCompatBaseUrl || '',
         openaiCompatModel: data.openaiCompatModel || '',
+        digitaloceanModel: data.digitaloceanModel || '',
+        digitaloceanBaseUrl: data.digitaloceanBaseUrl || '',
         openaiCompatMode: data.openaiCompatMode || 'auto',
         glmOcrEnabled: !!data.glmOcrEnabled,
         glmOcrBaseUrl: data.glmOcrBaseUrl || '',
@@ -331,6 +346,7 @@ export function AiConfigPage() {
     form.anthropicApiKey, form.openaiApiKey, form.geminiApiKey,
     form.ollamaBaseUrl,
     form.openaiCompatApiKey, form.openaiCompatBaseUrl, form.openaiCompatModel,
+    form.digitaloceanApiKey, form.digitaloceanModel, form.digitaloceanBaseUrl,
   ]);
 
   const [selfTest, setSelfTest] = useState<{ rows: SelfTestRow[]; runAt: string } | null>(null);
@@ -710,6 +726,57 @@ export function AiConfigPage() {
             )}
           </div>
 
+          {/* DigitalOcean serverless inference: open-weight models (e.g.
+              gpt-oss-120b) hosted by DO. A CLOUD provider — PII scrubbing
+              and company consent apply as for any cloud provider. */}
+          <div className="space-y-2 border-t border-gray-100 pt-4">
+            <p className="text-xs text-gray-500">
+              DigitalOcean serverless inference — open-weight models such as gpt-oss-120b. Cloud: data leaves this
+              server (scrubbed per your privacy level). DigitalOcean states it does not store or train on prompts.
+            </p>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Input label="DigitalOcean model access key" type="password" value={form.digitaloceanApiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, digitaloceanApiKey: e.target.value }))}
+                  placeholder={data?.hasDigitaloceanKey ? '••••••••••• (configured)' : 'Model access key from the DigitalOcean control panel'} />
+              </div>
+              <div className="pt-5">
+                <Button variant="secondary" size="sm" onClick={() => handleTest('digitalocean')}
+                  disabled={!form.digitaloceanApiKey && !data?.hasDigitaloceanKey}>Test</Button>
+              </div>
+            </div>
+            <Input label="DigitalOcean model" value={form.digitaloceanModel}
+              onChange={(e) => setForm((f) => ({ ...f, digitaloceanModel: e.target.value }))}
+              list="digitalocean-model-suggestions"
+              placeholder="e.g. openai-gpt-oss-120b (Test lists the available ids)" />
+            <datalist id="digitalocean-model-suggestions">
+              <option value="openai-gpt-oss-120b" />
+              <option value="openai-gpt-oss-20b" />
+            </datalist>
+            <Input label="Endpoint (optional)" value={form.digitaloceanBaseUrl}
+              onChange={(e) => setForm((f) => ({ ...f, digitaloceanBaseUrl: e.target.value }))}
+              placeholder="https://inference.do-ai.run" />
+            {data?.hasDigitaloceanKey && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Clear stored DigitalOcean key?')) return;
+                  await apiClient('/ai/admin/config', { method: 'PUT', body: JSON.stringify({ digitaloceanApiKey: null }) });
+                  queryClient.invalidateQueries({ queryKey: ['ai', 'admin', 'config'] });
+                }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Clear stored key
+              </button>
+            )}
+            {testResults['digitalocean'] && (
+              <p className={`text-xs ${testResults['digitalocean']!.ok ? 'text-green-600' : 'text-red-600'}`}>
+                {testResults['digitalocean']!.ok ? <CheckCircle className="h-3 w-3 inline mr-1" /> : <XCircle className="h-3 w-3 inline mr-1" />}
+                {testResults['digitalocean']!.msg}
+              </p>
+            )}
+          </div>
+
           {/* GLM-OCR engine — dedicated llama.cpp OCR server for the
               statement-import pipeline (detect → OCR → extract → reconcile).
               Separate from the chat/vision providers above; only used to
@@ -1054,6 +1121,28 @@ function TaskSettingsCard({
               This model both categorizes bank-feed transactions AND cleans up their names — it&apos;s a
               single AI call, so one model covers both.
             </p>
+          )}
+          {fnKey === 'close_review' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Provider</label>
+                <select
+                  value={opt.provider ?? ''}
+                  onChange={(e) => patch({ provider: (e.target.value || null) as TaskOption['provider'] })}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  aria-label="Close Review AI provider"
+                >
+                  <option value="">Same as categorization</option>
+                  {PROVIDERS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+                </select>
+              </div>
+              <Input
+                label="Model"
+                value={opt.model ?? ''}
+                onChange={(e) => patch({ model: e.target.value })}
+                placeholder={opt.provider === 'digitalocean' ? 'e.g. openai-gpt-oss-120b' : 'Provider default'}
+              />
+            </div>
           )}
           <div className="grid grid-cols-2 gap-3">
             <Input

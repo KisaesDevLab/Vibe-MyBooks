@@ -101,7 +101,9 @@ export type AiProviderName =
   // endpoint — Ollama's /v1 interface, llama.cpp's built-in server, LM
   // Studio, vLLM, etc. Configured via openaiCompatBaseUrl /
   // openaiCompatModel / openaiCompatApiKey.
-  | 'openai_compat';
+  | 'openai_compat'
+  // DigitalOcean serverless inference (cloud; open-weight models).
+  | 'digitalocean';
 export type PiiProtectionLevel = 'strict' | 'standard' | 'permissive';
 export type ChatDataAccessLevel = 'none' | 'contextual' | 'full';
 
@@ -134,6 +136,9 @@ export interface AiConfigDto {
   openaiCompatModel: string | null;
   openaiCompatMode?: 'auto' | 'native' | 'compat';
   hasOpenaiCompatKey: boolean;
+  hasDigitaloceanKey?: boolean;
+  digitaloceanModel?: string | null;
+  digitaloceanBaseUrl?: string | null;
   // GLM-OCR engine (statement-import pipeline). Dedicated llama.cpp OCR server.
   glmOcrEnabled: boolean;
   glmOcrBaseUrl: string | null;
@@ -204,6 +209,9 @@ export interface UpdateAiConfigInput {
   openaiCompatBaseUrl?: string | null;
   openaiCompatModel?: string | null;
   openaiCompatMode?: 'auto' | 'native' | 'compat';
+  digitaloceanApiKey?: string | null;
+  digitaloceanModel?: string | null;
+  digitaloceanBaseUrl?: string | null;
   // GLM-OCR engine. apiKey is write-only (3-state: null clears, blank no-op).
   glmOcrEnabled?: boolean;
   glmOcrBaseUrl?: string | null;

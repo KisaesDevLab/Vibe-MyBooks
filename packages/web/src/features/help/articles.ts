@@ -450,6 +450,8 @@ Nothing runs in the background: click **Run checks now** to review the selected 
 
 Click a row for details, including how that payee was coded over the prior 12 months. Duplicate-name rows can be merged right there: every transaction moves to the name you keep.
 
+**AI review.** When AI review is on for the client, the row details have an **Explain this** button. The AI says why the row may be wrong, suggests a fix, and drafts a question you can send to the client with **Ask the client this**. It only runs when you click, and it says **Out of date** once the books change so you can re-run it. An admin picks the AI provider under **Admin → AI → Task Settings → Close Review AI** — for example DigitalOcean with an open model.
+
 Useful defaults: large transactions start at $1,000; the 1099 report leaves out card payments (the card processor reports those); P&L changes flag when an account moves more than 20% **and** $100 from its trailing average.
 `,
   },

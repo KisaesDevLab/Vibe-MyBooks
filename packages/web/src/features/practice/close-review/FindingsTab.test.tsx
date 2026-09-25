@@ -54,6 +54,8 @@ vi.mock('../../../api/hooks/useReviewChecks', async () => {
     useCreateSuppression: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
     useReportCounts: () => ({ data: { counts: countsStore.counts } }),
     usePayeeHistory: () => ({ data: undefined }),
+    useFindingAi: () => ({ data: undefined }),
+    useExplainFinding: () => ({ mutate: vi.fn(), isPending: false }),
   };
 });
 

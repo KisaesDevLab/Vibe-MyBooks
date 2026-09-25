@@ -508,3 +508,32 @@ export function usePayeeHistory(findingId: string | null) {
     staleTime: 60 * 1000,
   });
 }
+
+export interface FindingAiClient {
+  explanation: string;
+  suggestedFix: string;
+  clientQuestion: string;
+  model: string;
+  provider: string;
+  at: string;
+}
+
+export function useFindingAi(findingId: string | null) {
+  return useQuery({
+    queryKey: ['practice', 'checks', 'finding-ai', findingId] as const,
+    queryFn: () => apiClient<{ ai: FindingAiClient | null; stale: boolean }>(`/practice/checks/findings/${findingId}/ai`),
+    enabled: !!findingId,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useExplainFinding() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (findingId: string) =>
+      apiClient<{ ai: FindingAiClient; stale: boolean }>(`/practice/checks/findings/${findingId}/explain`, { method: 'POST' }),
+    onSuccess: (_r, findingId) => {
+      qc.invalidateQueries({ queryKey: ['practice', 'checks', 'finding-ai', findingId] });
+    },
+  });
+}
