@@ -2210,6 +2210,31 @@ Passkeys and magic links are enabled system-wide in **Admin > Two-Factor Auth > 
 
   // ─── AI Processing ──────────────────────────────────────────
   {
+    id: 'ai-router',
+    title: 'Sending AI Features Through the Vibe AI Router',
+    category: 'AI Processing',
+    summary: 'Choose Direct or Router for each AI feature from Admin → AI.',
+    body: `
+## Sending AI Features Through the Vibe AI Router
+
+Super admins can send individual AI features through the appliance's **Vibe AI Router** instead of the providers set up on the AI page. The router picks the model and applies its own data and budget rules.
+
+### Turning it on
+1. Connect the router with \`vibe enable\` (this is done on the server).
+2. Go to **Admin → AI** and find the **Vibe AI Router** card.
+3. Tick **Use the AI Router**, then click **Test connection**.
+4. For each feature, choose **Direct** or **Router**. Changes apply right away.
+
+### Bank statements
+Statements start on **Direct**. Routing them asks you to confirm first. Statement text is scrubbed of personal details before it goes to the router, unless you tick **The router keeps bank statements on this server**. Check images are only sent with that box ticked or with cloud vision turned on. Statement page reading (GLM-OCR) always stays on this server.
+
+### Good to know
+- Features left on **Direct** keep using the providers and fallback order on the AI page.
+- If the router is down, routed features fail with an error instead of quietly switching to another provider.
+- Sending a new feature through the router asks each company to accept the AI disclosure again.
+`,
+  },
+  {
     id: 'ai-categorization',
     title: 'AI Transaction Categorization',
     category: 'AI Processing',

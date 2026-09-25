@@ -186,6 +186,9 @@ export interface AiConfigDto {
 // strips unknown keys.
 export interface UpdateAiConfigInput {
   isEnabled?: boolean;
+  routerEnabled?: boolean;
+  routerFeatures?: Record<string, 'router' | 'direct'>;
+  routerStatementsOnBox?: boolean;
   categorizationProvider?: AiProviderName | null;
   categorizationModel?: string | null;
   ocrProvider?: AiProviderName | null;

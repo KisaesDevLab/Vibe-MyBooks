@@ -2,6 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
+import { AiRouterCard, type RouterInfo } from './AiRouterCard';
 import { useState, useEffect, useId } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
@@ -401,19 +402,10 @@ export function AiConfigPage() {
         </div>
       )}
 
-      {/* MIG-2: provider credentials / task assignment / fallback chains are inert in router mode */}
-      {(data as { aiMode?: string } | undefined)?.aiMode === 'router' && (
-        <div className="p-4 bg-sky-50 border border-sky-300 rounded-lg text-sm text-sky-900 max-w-2xl">
-          <strong>Managed by Vibe AI Router.</strong> This installation sends AI requests through
-          the appliance&apos;s Vibe AI Router (VIBE_AI_MODE=router). Model choice, data-boundary
-          policy, PII scrubbing, budgets, and cost tracking are configured per task class in the
-          router console — the provider credentials, task assignments, and fallback chains below
-          are inactive (kept for standalone direct deployments). Consent, per-company task
-          toggles, GLM-OCR, and the local extraction pipeline still apply and stay on this page.
-        </div>
-      )}
-
       <div className="max-w-2xl space-y-6">
+        {(data as { router?: RouterInfo } | undefined)?.router && (
+          <AiRouterCard router={(data as unknown as { router: RouterInfo }).router} />
+        )}
         {/* System disclosure — tier 1 of two-tier consent. AI cannot
             be enabled until an admin accepts this. */}
         <div className={`rounded-lg border shadow-sm p-6 ${disclosure?.acceptedAt ? 'bg-green-50/50 border-green-200' : 'bg-amber-50 border-amber-300'}`}>
