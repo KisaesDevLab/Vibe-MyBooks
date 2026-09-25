@@ -19,6 +19,9 @@ vi.mock('../../../api/hooks/useReviewChecks', () => ({
   useCloseChecklist: () => ({ data: { tasks: checklistStore.tasks }, isLoading: false }),
   useCompleteChecklistTask: () => ({ mutate: completeMutate, isPending: false }),
   useReopenChecklistTask: () => ({ mutate: reopenMutate, isPending: false }),
+  useCloseRecord: () => ({ data: undefined }),
+  useSignClose: () => ({ mutate: vi.fn(), isPending: false }),
+  useUndoCloseSignoff: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import { ChecklistTab } from './ChecklistTab';

@@ -178,6 +178,10 @@ export function ClientSwitcherPage() {
                 onClick={() => toggleSort('lastSync')}
                 title="Most recent Plaid sync attempt across this client's bank connections"
               >Last bank sync {sortIcon('lastSync')}</th>
+              <th
+                className="px-4 py-3 text-left font-medium text-gray-600"
+                title={`Close Review status for ${LAST_MONTH_LABEL}`}
+              >{LAST_MONTH_LABEL} close</th>
               <th className="px-4 py-3 text-right font-medium text-gray-600" />
             </tr>
           </thead>
@@ -248,6 +252,15 @@ export function ClientSwitcherPage() {
                       </span>
                     )}
                   </td>
+                  <td className="px-4 py-3">
+                    {bankingState === 'pending' ? (
+                      <span className="text-gray-300">…</span>
+                    ) : bankingState === 'failed' || !banking ? (
+                      <span className="text-gray-400">—</span>
+                    ) : (
+                      <CloseBadge status={banking.lastMonthCloseStatus} />
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     {switchingId === t.tenantId ? (
                       <span className="text-xs text-gray-400">switching…</span>
@@ -259,7 +272,7 @@ export function ClientSwitcherPage() {
               );
             })}
             {pageRows.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">
                 {search ? 'No clients match your search.' : 'No clients found.'}
               </td></tr>
             )}
@@ -289,4 +302,23 @@ export function ClientSwitcherPage() {
       )}
     </div>
   );
+}
+
+// Last calendar month, e.g. "Aug 2026" — the month normally being closed.
+const LAST_MONTH_LABEL = (() => {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+})();
+
+const CLOSE_BADGE: Record<string, { label: string; cls: string }> = {
+  not_started: { label: 'Not started', cls: 'text-gray-400' },
+  in_progress: { label: 'In progress', cls: 'bg-amber-50 text-amber-800 border border-amber-200' },
+  prepared: { label: 'Ready for review', cls: 'bg-blue-50 text-blue-800 border border-blue-200' },
+  closed: { label: 'Closed', cls: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
+};
+
+function CloseBadge({ status }: { status: string | undefined }) {
+  const b = CLOSE_BADGE[status ?? 'not_started'] ?? CLOSE_BADGE['not_started']!;
+  return <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${b.cls}`}>{b.label}</span>;
 }

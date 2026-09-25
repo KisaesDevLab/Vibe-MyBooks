@@ -23,6 +23,9 @@ vi.mock('../../../providers/CompanyProvider', () => ({
   }),
 }));
 
+const countsStore: { counts: Array<{ checkKey: string; open: number; accepted: number; excluded: number }> } = { counts: [] };
+const infiniteArgs: Array<Record<string, unknown>> = [];
+
 vi.mock('../../../api/hooks/useReviewChecks', async () => {
   return {
     useCheckRegistry: () => registryStore.data
@@ -32,13 +35,13 @@ vi.mock('../../../api/hooks/useReviewChecks', async () => {
       data: { rows: findingsStore.rows, nextCursor: null },
       isLoading: findingsStore.isLoading,
     }),
-    useFindingsInfinite: () => ({
+    useFindingsInfinite: (input: Record<string, unknown>) => { infiniteArgs.push(input); return {
       data: { pages: [{ rows: findingsStore.rows, nextCursor: null }], pageParams: [undefined] },
       isLoading: findingsStore.isLoading,
       hasNextPage: false,
       isFetchingNextPage: false,
       fetchNextPage: vi.fn(),
-    }),
+    }; },
     useFinding: () => ({ data: undefined, isLoading: false }),
     useFindingEvents: () => ({ data: { events: [] }, isLoading: false }),
     useFindingsSummary: () => ({ data: summaryStore.data }),
@@ -48,7 +51,9 @@ vi.mock('../../../api/hooks/useReviewChecks', async () => {
     useTransitionFinding: () => ({ mutate: mockTransition, isPending: false }),
     useBulkTransitionFindings: () => ({ mutate: mockBulkTransition, isPending: false }),
     useSuppressions: () => ({ data: { suppressions: [] } }),
-    useCreateSuppression: () => ({ mutate: vi.fn(), isPending: false }),
+    useCreateSuppression: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+    useReportCounts: () => ({ data: { counts: countsStore.counts } }),
+    usePayeeHistory: () => ({ data: undefined }),
   };
 });
 
@@ -115,7 +120,7 @@ describe('FindingsTab', () => {
   it('renders the run-checks bar and empty state when no findings', () => {
     renderRoute(<FindingsTab period={TEST_PERIOD} />);
     expect(screen.getByRole('button', { name: /Run checks now/ })).toBeInTheDocument();
-    expect(screen.getByText(/No findings match these filters/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing to review/)).toBeInTheDocument();
   });
 
   it('renders the findings table when rows are present', () => {
@@ -243,5 +248,22 @@ describe('FindingsTab', () => {
     fireEvent.click(document.querySelector('table tbody tr')!);
     const dialog = await waitFor(() => screen.getByRole('dialog'));
     expect(within(dialog).getByPlaceholderText(/Required for high\/critical/)).toBeInTheDocument();
+  });
+
+  it('lists reports by section with open counts, and a report click scopes the list', () => {
+    countsStore.counts = [
+      { checkKey: 'expense_without_payee', open: 4, accepted: 1, excluded: 0 },
+      { checkKey: 'vendor_1099_threshold_no_w9', open: 2, accepted: 0, excluded: 0 },
+    ];
+    renderRoute(<FindingsTab period={TEST_PERIOD} />);
+    expect(screen.getByText('Transaction review')).toBeInTheDocument();
+    expect(screen.getByText('Payee review')).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Review reports' });
+    expect(nav.textContent).toMatch(/All reports\s*6/);
+    fireEvent.click(screen.getByRole('button', { name: /Transactions without a payee/ }));
+    expect(infiniteArgs.at(-1)).toMatchObject({ checkKey: 'expense_without_payee', status: 'open' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Accepted' }));
+    expect(infiniteArgs.at(-1)).toMatchObject({ checkKey: 'expense_without_payee', status: 'resolved' });
+    countsStore.counts = [];
   });
 });

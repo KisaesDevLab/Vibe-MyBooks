@@ -419,3 +419,92 @@ export function useReopenChecklistTask() {
     },
   });
 }
+
+// ── Close workspace ────────────────────────────────────────────────
+
+export interface ReportCount { checkKey: string; open: number; accepted: number; excluded: number }
+
+function closeQs(companyId: string | null, periodStart: string, periodEnd: string) {
+  const p = new URLSearchParams({ periodStart, periodEnd });
+  if (companyId) p.set('companyId', companyId);
+  return p.toString();
+}
+
+export function useReportCounts(companyId: string | null, periodStart: string, periodEnd: string) {
+  return useQuery({
+    queryKey: ['practice', 'checks', 'reports', companyId, periodStart] as const,
+    queryFn: () => apiClient<{ counts: ReportCount[] }>(`/practice/checks/reports?${closeQs(companyId, periodStart, periodEnd)}`),
+    staleTime: 15 * 1000,
+  });
+}
+
+export interface CloseRecordClient {
+  companyId: string | null;
+  periodStart: string;
+  periodEnd: string;
+  status: 'not_started' | 'in_progress' | 'prepared' | 'closed';
+  preparedBy: string | null;
+  preparedByName: string | null;
+  preparedAt: string | null;
+  preparedNote: string | null;
+  reviewedBy: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  reviewedNote: string | null;
+  openFindings: number;
+  hasRun: boolean;
+}
+
+export function useCloseRecord(companyId: string | null, periodStart: string, periodEnd: string) {
+  return useQuery({
+    queryKey: ['practice', 'checks', 'close', companyId, periodStart] as const,
+    queryFn: () => apiClient<{ close: CloseRecordClient }>(`/practice/checks/close?${closeQs(companyId, periodStart, periodEnd)}`),
+    staleTime: 10 * 1000,
+  });
+}
+
+export function useSignClose() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { companyId?: string | null; periodStart: string; periodEnd: string; role: 'preparer' | 'reviewer'; note?: string }) =>
+      apiClient<{ close: CloseRecordClient }>('/practice/checks/close/sign', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...(input.companyId ? { companyId: input.companyId } : {}),
+          periodStart: input.periodStart, periodEnd: input.periodEnd, role: input.role,
+          ...(input.note ? { note: input.note } : {}),
+        }),
+      }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['practice', 'checks', 'close'] }); },
+  });
+}
+
+export function useUndoCloseSignoff() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { companyId?: string | null; periodStart: string; periodEnd: string }) =>
+      apiClient<{ close: CloseRecordClient }>('/practice/checks/close/undo', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...(input.companyId ? { companyId: input.companyId } : {}),
+          periodStart: input.periodStart, periodEnd: input.periodEnd,
+        }),
+      }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['practice', 'checks', 'close'] }); },
+  });
+}
+
+export interface PayeeHistory {
+  payeeId: string | null;
+  payeeName: string | null;
+  rows: Array<{ accountId: string; accountName: string; count: number; total: string }>;
+}
+
+export function usePayeeHistory(findingId: string | null) {
+  return useQuery({
+    queryKey: ['practice', 'checks', 'payee-history', findingId] as const,
+    queryFn: () => apiClient<PayeeHistory>(`/practice/checks/findings/${findingId}/payee-history`),
+    enabled: !!findingId,
+    staleTime: 60 * 1000,
+  });
+}

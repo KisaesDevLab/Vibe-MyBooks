@@ -18,9 +18,11 @@ import {
   useFinding,
   useFindingEvents,
   useTransitionFinding,
+  usePayeeHistory,
   useCreateSuppression,
 } from '../../../../api/hooks/useReviewChecks';
 import { useBulkUpdateTransactions } from '../../../../api/hooks/useTransactions';
+import { useMergeContacts } from '../../../../api/hooks/useContacts';
 import { ContactSelector } from '../../../../components/forms/ContactSelector';
 import { useToast } from '../../../../components/ui/Toaster';
 import { Button } from '../../../../components/ui/Button';
@@ -185,6 +187,14 @@ export function FindingDetailDrawer({ finding: findingProp, registry, onClose }:
               assignment so the correction happens without leaving the
               review. */}
           <InlineContactFix finding={finding} />
+
+          {/* How this payee is usually coded — the baseline for judging
+              an inconsistency before recoding. */}
+          <PayeeCodingHistory findingId={finding.id} />
+
+          {/* Duplicate names: merge right here (moves every transaction onto
+              the kept contact, then deactivates the other). */}
+          <DuplicateMerge finding={finding} />
 
           {/* Remaining payload context, humanized; ids collapse into
               a technical-details disclosure. */}
@@ -527,6 +537,73 @@ function PayloadView({ payload }: { payload: Record<string, unknown> | null }) {
           </dl>
         </details>
       )}
+    </section>
+  );
+}
+
+function PayeeCodingHistory({ findingId }: { findingId: string }) {
+  const q = usePayeeHistory(findingId);
+  const data = q.data;
+  if (!data || !data.payeeId) return null;
+  const total = data.rows.reduce((a, r) => a + r.count, 0);
+  const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+  return (
+    <section className="rounded-lg border border-gray-200 bg-white p-3">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        How {data.payeeName ?? 'this payee'} was coded (prior 12 months)
+      </h4>
+      {data.rows.length === 0 ? (
+        <p className="text-sm text-gray-500">No earlier transactions with this payee.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {data.rows.map((r) => {
+            const pct = total > 0 ? Math.round((r.count / total) * 100) : 0;
+            return (
+              <li key={r.accountId} className="text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-gray-800">{r.accountName}</span>
+                  <span className="shrink-0 text-xs tabular-nums text-gray-500">
+                    {r.count} of {total} · {fmt.format(Math.abs(Number(r.total)))}
+                  </span>
+                </div>
+                <div className="mt-0.5 h-1.5 rounded bg-gray-100" aria-hidden="true">
+                  <div className="h-1.5 rounded bg-indigo-400" style={{ width: `${pct}%` }} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function DuplicateMerge({ finding }: { finding: Finding }) {
+  const merge = useMergeContacts();
+  const transition = useTransitionFinding();
+  const toast = useToast();
+  const p = (finding.payload ?? {}) as Record<string, unknown>;
+  if (finding.checkKey !== 'duplicate_entity_names' || finding.status === 'resolved') return null;
+  const a = { id: p['contactIdA'] as string | undefined, name: p['nameA'] as string | undefined };
+  const b = { id: p['contactIdB'] as string | undefined, name: p['nameB'] as string | undefined };
+  if (!a.id || !b.id) return null;
+  const keep = (target: typeof a, source: typeof a) => {
+    merge.mutate({ sourceId: source.id!, targetId: target.id! }, {
+      onSuccess: () => {
+        transition.mutate({ id: finding.id, status: 'resolved', resolutionNote: `Merged "${source.name}" into "${target.name}"` });
+        toast.success(`Merged "${source.name}" into "${target.name}". Its transactions now belong to "${target.name}".`);
+      },
+      onError: (e: Error) => toast.error(e.message || 'Could not merge.'),
+    });
+  };
+  return (
+    <section className="rounded-lg border border-gray-200 bg-white p-3">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Merge the duplicates</h4>
+      <p className="mb-2 text-xs text-gray-600">Keeps one, moves every transaction from the other onto it, and deactivates the other.</p>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" loading={merge.isPending} onClick={() => keep(a, b)}>Keep “{a.name}”</Button>
+        <Button size="sm" variant="secondary" loading={merge.isPending} onClick={() => keep(b, a)}>Keep “{b.name}”</Button>
+      </div>
     </section>
   );
 }

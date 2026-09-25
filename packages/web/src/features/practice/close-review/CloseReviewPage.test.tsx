@@ -45,6 +45,9 @@ vi.mock('../../../api/hooks/useReviewChecks', () => ({
   useCloseChecklist: () => ({ data: { tasks: [] }, isLoading: false, isError: false, refetch: vi.fn() }),
   useCompleteChecklistTask: () => ({ mutate: vi.fn(), isPending: false }),
   useReopenChecklistTask: () => ({ mutate: vi.fn(), isPending: false }),
+  useCloseRecord: () => ({ data: undefined }),
+  useSignClose: () => ({ mutate: vi.fn(), isPending: false }),
+  useUndoCloseSignoff: () => ({ mutate: vi.fn(), isPending: false }),
   useCheckRegistry: () => ({ data: { checks: [] }, isLoading: false }),
   useFindings: () => ({ data: { rows: [], nextCursor: null }, isLoading: false }),
   useFindingsInfinite: () => ({
@@ -86,12 +89,12 @@ describe('CloseReviewPage', () => {
     expect(screen.getByRole('heading', { name: 'Close Review' })).toBeInTheDocument();
   });
 
-  it('renders the four tabs with Checklist first (and default)', () => {
+  it('renders the four tabs with Overview first (and default)', () => {
     renderRoute(<CloseReviewPage />);
-    expect(screen.getByRole('button', { name: 'Checklist' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Buckets' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Findings' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Manual Queue' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Overview' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bank feed' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Manual queue' })).toBeInTheDocument();
     // Default tab content: the checklist progress line renders.
     expect(screen.getByText(/close tasks done/)).toBeInTheDocument();
   });
@@ -105,7 +108,7 @@ describe('CloseReviewPage', () => {
   it('disables the Buckets tab when AI_BUCKET_WORKFLOW_V1 is off', () => {
     flagStore.value = false;
     renderRoute(<CloseReviewPage />);
-    const bucketsBtn = screen.getByRole('button', { name: 'Buckets' });
+    const bucketsBtn = screen.getByRole('button', { name: 'Bank feed' });
     expect(bucketsBtn).toBeDisabled();
   });
 });

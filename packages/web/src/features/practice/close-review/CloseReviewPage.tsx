@@ -55,7 +55,7 @@ export function CloseReviewPage() {
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Close Review</h1>
           <p className="text-sm text-gray-500">
-            Review AI-categorized transactions, rule-matched items, and anomalies for the close period.
+            One client, one month: clear the bank feed, work the review reports, then sign off.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -80,23 +80,23 @@ export function CloseReviewPage() {
         <TabButton
           active={tab === 'checklist'}
           onClick={() => setTab('checklist')}
-          label="Checklist"
+          label="Overview"
         />
         <TabButton
           active={tab === 'buckets'}
           disabled={bucketWorkflowEnabled === false}
           onClick={() => setTab('buckets')}
-          label="Buckets"
+          label="Bank feed"
         />
         <TabButton
           active={tab === 'findings'}
           onClick={() => setTab('findings')}
-          label="Findings"
+          label="Review"
         />
         <TabButton
           active={tab === 'manual'}
           onClick={() => setTab('manual')}
-          label="Manual Queue"
+          label="Manual queue"
         />
       </div>
 

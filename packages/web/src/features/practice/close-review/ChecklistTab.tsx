@@ -23,6 +23,7 @@ import { Button } from '../../../components/ui/Button';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
 import { useToast } from '../../../components/ui/Toaster';
+import { CloseSignoffCard } from './CloseSignoffCard';
 import type { ClosePeriod } from './ClosePeriodSelector';
 
 const SECTIONS: Array<{ key: CloseChecklistTask['section']; title: string; blurb: string }> = [
@@ -80,6 +81,7 @@ export function ChecklistTab({ period, onOpenFindings }: { period: ClosePeriod; 
 
   return (
     <div className="flex flex-col gap-4">
+      <CloseSignoffCard companyId={activeCompanyId ?? null} period={period} />
       <p className="text-sm text-gray-600">
         <span className="font-semibold text-gray-900">{doneCount} of {tasks.length}</span> close tasks done for {period.label}.
       </p>

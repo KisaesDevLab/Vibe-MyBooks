@@ -433,16 +433,24 @@ The system compares incoming transactions against existing ones based on:
     body: `
 ## Month-End Close Review
 
-**Practice → Close Review** is where you review one client for one month. Pick the month with the **Period** picker: step with the arrows or choose any month and year. It defaults to the month that just ended.
+**Practice → Close Review** is where you close one client for one month. Pick the month with the **Period** picker: step with the arrows or choose any month and year. It defaults to the month that just ended.
 
-### Checks only run when you start them
-Nothing runs in the background. Open **Findings** and click **Run checks now** to review the selected month. Running the same month again adds only new items. Each month keeps its own findings, and the summary cards always match the list below them.
+### Overview
+The month's sign-off and the close checklist. The **preparer** signs off once the work is done (the checks must have been run for the month), then a **reviewer** signs to close it. Either step can be undone, newest first. Practice → Clients shows each client's close status for last month.
 
-### Buckets
+### Bank feed
 The bank-feed items dated in the month, grouped by how sure the system is: potential matches, rule matches, auto classifications, and needs review. An item leaves its bucket once it is categorized, matched, or excluded anywhere in the app.
 
-### Checklist
-The findings task is only marked done after the checks have been run for that month and nothing is left open.
+### Review
+Nothing runs in the background: click **Run checks now** to review the selected month. The left side lists every report by section (Transaction review, Payee review, Final review) with the number still open. Pick a report to see only its rows, and switch between **To review**, **Accepted** and **Dismissed**. Select rows to:
+- **Accept** — reviewed and fine for this month
+- **Dismiss** — not an issue
+- **Exclude payee** — stop flagging that payee in this report for this client
+- **Ask the client** — send each transaction to the client portal as a question (they get it in their next reminder)
+
+Click a row for details, including how that payee was coded over the prior 12 months. Duplicate-name rows can be merged right there: every transaction moves to the name you keep.
+
+Useful defaults: large transactions start at $1,000; the 1099 report leaves out card payments (the card processor reports those); P&L changes flag when an account moves more than 20% **and** $100 from its trailing average.
 `,
   },
   {
