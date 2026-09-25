@@ -117,6 +117,6 @@ export const usePostAccrualEntry = () => useAccrualMutation((id: string) =>
 export const useUnpostAccrualEntry = () => useAccrualMutation((id: string) =>
   apiClient(`/practice/accruals/entries/${id}/unpost`, { method: 'POST' }));
 export const usePostAllAccruals = () => useAccrualMutation((input: { companyId: string | null; periodStart: string }) =>
-  apiClient<{ posted: number }>('/practice/accruals/post-all', { method: 'POST', body: JSON.stringify(input) }));
+  apiClient<{ posted: number; skipped: number }>('/practice/accruals/post-all', { method: 'POST', body: JSON.stringify(input) }));
 export const useImportAccruals = () => useAccrualMutation((input: { companyId: string | null; csv: string }) =>
   apiClient<{ created: number; errors: Array<{ row: number; error: string }> }>('/practice/accruals/import', { method: 'POST', body: JSON.stringify(input) }));

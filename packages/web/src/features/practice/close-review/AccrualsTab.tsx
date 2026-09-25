@@ -89,7 +89,7 @@ export function AccrualsTab({ period }: { period: ClosePeriod }) {
             {drafts.length > 0 && (
               <Button size="sm" loading={postAll.isPending}
                 onClick={() => postAll.mutate({ companyId, periodStart: ps }, {
-                  onSuccess: (r) => toast.success(`Posted ${r.posted} entr${r.posted === 1 ? 'y' : 'ies'}.`), onError: err,
+                  onSuccess: (r) => toast.success(`Posted ${r.posted} entr${r.posted === 1 ? 'y' : 'ies'}.${r.skipped ? ` ${r.skipped} were already posted by someone else.` : ''}`), onError: err,
                 })}>
                 Post all {drafts.length}
               </Button>
