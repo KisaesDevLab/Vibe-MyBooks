@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from 'react-plaid-link';
 import type { PlaidAccount, PlaidItem } from '@kis-books/shared';
@@ -21,9 +21,11 @@ import { ExistingInstitutionDialog } from './ExistingInstitutionDialog';
 import { FullDisconnectDialog } from './FullDisconnectDialog';
 import { apiClient } from '../../api/client';
 import { InviteClientModal } from './InviteClientModal';
-import { useBankConnectInvites, useResendBankConnectInvite, useRevokeBankConnectInvite, type BankConnectInviteRow } from '../../api/hooks/useBankConnectInvites';
+import { useBankConnectInvites, useResendBankConnectInvite, useRevokeBankConnectInvite, type BankConnectInviteRow, type InviteStatusFilter, type InviteKindFilter } from '../../api/hooks/useBankConnectInvites';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { Pagination } from '../../components/ui/Pagination';
 import { useFeatureFlag } from '../../api/hooks/useFeatureFlag';
-import { Landmark, Upload, Unplug, RefreshCw, RotateCcw, AlertTriangle, CheckCircle, Link2, Pencil, Share2, Clock, Trash2, Send, Mail, MessageSquare } from 'lucide-react';
+import { Landmark, Upload, Unplug, RefreshCw, RotateCcw, AlertTriangle, CheckCircle, Link2, Pencil, Share2, Clock, Trash2, Send, Mail, MessageSquare, Search } from 'lucide-react';
 
 // The `/plaid/items/:id` detail endpoint returns the item plus its
 // child accounts and the denormalised hiddenAccountCount (accounts
@@ -52,14 +54,39 @@ function PlaidLinkButton({ onSuccess }: { onSuccess: (publicToken: string, metad
 // status badges + resend/revoke. The invite itself is sent from
 // InviteClientModal; connections made through an invite land in the
 // "Connected via Plaid" list below like any other, ready to map.
+const INVITE_PAGE_SIZES = ['10', '25', '50'];
+
 function BankConnectInvitesCard() {
-  const { data, isLoading } = useBankConnectInvites();
+  const [status, setStatus] = useState<InviteStatusFilter | ''>('');
+  const [kind, setKind] = useState<InviteKindFilter | ''>('');
+  const [searchInput, setSearchInput] = useState('');
+  const search = useDebouncedValue(searchInput.trim(), 300);
+  const [pageSize, setPageSize] = useState('10');
+  const [offset, setOffset] = useState(0);
+  const limit = Number(pageSize);
+  // Any filter change starts back at the first page.
+  useEffect(() => { setOffset(0); }, [status, kind, search]);
+
+  const { data, isLoading } = useBankConnectInvites({
+    limit, offset,
+    ...(status ? { status } : {}),
+    ...(kind ? { kind } : {}),
+    ...(search ? { search } : {}),
+  });
   const resend = useResendBankConnectInvite();
   const revoke = useRevokeBankConnectInvite();
   const toast = useToast();
 
   const invites = data?.invites ?? [];
-  if (isLoading || invites.length === 0) return null;
+  const total = data?.total ?? 0;
+  const filtered = !!(status || kind || search);
+  // A revoke under the Open filter can empty the last page; step back.
+  useEffect(() => {
+    if (data && offset > 0 && offset >= total) setOffset(Math.max(0, offset - limit));
+  }, [data, offset, total, limit]);
+  // Hide the card only when the firm has never sent an invite. With a
+  // filter on, an empty result still shows the bar so it can be cleared.
+  if (isLoading || (!filtered && total === 0)) return null;
 
   const badge = (s: BankConnectInviteRow['status']) => {
     const map: Record<BankConnectInviteRow['status'], string> = {
@@ -72,11 +99,46 @@ function BankConnectInvitesCard() {
     return <span className={`px-2 py-0.5 rounded text-xs font-medium ${map[s]}`}>{s}</span>;
   };
 
+  const selectCls = 'rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700';
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
-      <div className="px-4 py-3 border-b border-gray-100">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Client connection invites</h2>
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm mt-6">
+      <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mr-auto">Client connection invites</h2>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search name, email, phone"
+            aria-label="Search invites"
+            className="w-56 rounded-md border border-gray-300 py-1 pl-7 pr-2 text-sm"
+          />
+        </div>
+        <select aria-label="Filter by status" className={selectCls} value={status}
+          onChange={(e) => setStatus(e.target.value as InviteStatusFilter | '')}>
+          <option value="">All statuses</option>
+          <option value="open">Open</option>
+          <option value="connected">Connected</option>
+          <option value="expired">Expired</option>
+          <option value="revoked">Revoked</option>
+        </select>
+        <select aria-label="Filter by type" className={selectCls} value={kind}
+          onChange={(e) => setKind(e.target.value as InviteKindFilter | '')}>
+          <option value="">All types</option>
+          <option value="connect">New connection</option>
+          <option value="repair">Login fix</option>
+        </select>
+        {filtered && (
+          <Button size="sm" variant="ghost" onClick={() => { setStatus(''); setKind(''); setSearchInput(''); }}>
+            Clear
+          </Button>
+        )}
       </div>
+      {invites.length === 0 && (
+        <p className="px-4 py-6 text-center text-sm text-gray-500">No invites match these filters.</p>
+      )}
       <div className="divide-y divide-gray-100">
         {invites.map((inv) => (
           <div key={inv.id} className="px-4 py-2.5 flex flex-wrap items-center gap-3 text-sm">
@@ -120,6 +182,20 @@ function BankConnectInvitesCard() {
           </div>
         ))}
       </div>
+      {total > Number(INVITE_PAGE_SIZES[0]) && (
+        <div className="border-t border-gray-100 px-4 py-2">
+          <Pagination
+            total={total}
+            limit={limit}
+            offset={offset}
+            onChange={setOffset}
+            unit="invites"
+            pageSize={pageSize}
+            pageSizeOptions={INVITE_PAGE_SIZES}
+            onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -310,8 +386,6 @@ export function BankConnectionsPage() {
         </div>
       </div>
 
-      {invitesEnabled && <BankConnectInvitesCard />}
-
       {needsAttention.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
           <div className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-600" />
@@ -488,6 +562,10 @@ export function BankConnectionsPage() {
           <p className="text-sm">Connect your bank via Plaid or import a CSV/OFX file.</p>
         </div>
       )}
+
+      {/* Invite history sits last: it grows with every send and resend, and
+          the connections themselves are what staff come here to work. */}
+      {invitesEnabled && <BankConnectInvitesCard />}
 
       {showImport && <BankImportModal onClose={() => setShowImport(false)} />}
       {showInvite && <InviteClientModal onClose={() => setShowInvite(false)} />}

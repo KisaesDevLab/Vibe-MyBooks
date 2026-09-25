@@ -645,6 +645,7 @@ If the bank login belongs to your client, you don't need their credentials — s
 3. The client opens the link and connects their bank through Plaid in about two minutes — no MyBooks account, and their credentials go to the bank, never to you
 4. You get an email when they connect; the new accounts appear under **Connected via Plaid** ready to map to the books
 - One link works for multiple banks and expires after 7 days; you can resend (issues a fresh link) or revoke it at any time from the invites list
+- The **Client connection invites** list sits at the bottom of the Bank Connections page. Search by name, email, or phone, filter by status (Open, Connected, Expired, Revoked) or type (New connection, Login fix), and page through older invites
 
 ### Manual Import
 If your bank isn't supported for automatic connection:

@@ -7,7 +7,7 @@
 // endpoints. The client-facing public flow uses raw fetch against
 // /api/bank-connect (see features/public/BankConnectPage.tsx).
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../client';
 
 export interface BankConnectInviteRow {
@@ -38,14 +38,33 @@ export interface CreateInviteInput {
 
 const KEY = ['bank-connect-invites'];
 
-export function useBankConnectInvites(opts: { limit?: number; offset?: number } = {}) {
+export type InviteStatusFilter = 'open' | 'connected' | 'expired' | 'revoked';
+export type InviteKindFilter = 'connect' | 'repair';
+
+export interface BankConnectInviteFilters {
+  limit?: number;
+  offset?: number;
+  status?: InviteStatusFilter;
+  kind?: InviteKindFilter;
+  search?: string;
+}
+
+export function useBankConnectInvites(opts: BankConnectInviteFilters = {}) {
   const limit = opts.limit ?? 50;
   const offset = opts.offset ?? 0;
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (opts.status) params.set('status', opts.status);
+  if (opts.kind) params.set('kind', opts.kind);
+  const search = opts.search?.trim();
+  if (search) params.set('search', search);
   return useQuery({
-    queryKey: [...KEY, limit, offset],
+    queryKey: [...KEY, limit, offset, opts.status ?? '', opts.kind ?? '', search ?? ''],
     queryFn: () => apiClient<{ invites: BankConnectInviteRow[]; total: number }>(
-      `/plaid/invites?limit=${limit}&offset=${offset}`,
+      `/plaid/invites?${params.toString()}`,
     ),
+    // Keep the rows on screen while a filter change refetches, so the
+    // filter bar doesn't vanish and remount under the user's cursor.
+    placeholderData: keepPreviousData,
   });
 }
 
