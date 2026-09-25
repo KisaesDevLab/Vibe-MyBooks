@@ -452,6 +452,14 @@ Click a row for details, including how that payee was coded over the prior 12 mo
 
 **AI review.** When AI review is on for the client, the row details have an **Explain this** button. The AI says why the row may be wrong, suggests a fix, and drafts a question you can send to the client with **Ask the client this**. It only runs when you click, and it says **Out of date** once the books change so you can re-run it. An admin picks the AI provider under **Admin → AI → Task Settings → Close Review AI** — for example DigitalOcean with an open model.
 
+### Accruals
+When accruals are turned on for the client (ACCRUALS_V1), an **Accruals** tab spreads amounts over time: prepaid expenses, deferred revenue, accrued expenses and depreciation.
+- **Add schedule**: pick the type, the balance-sheet account, the income or expense account, the total, when service starts, how many months, and how to split it (equal months, half a month at each end, or by days of service). A preview shows the monthly amounts before you save. **Catch up from** posts earlier months together in a later month.
+- **Entries for the month**: nothing posts until you click **Post** (or **Post all**). Each post is a journal entry dated the last day of the month. **Unpost** voids it and puts the entry back to draft.
+- **Might need a schedule**: payments into prepaid, fixed-asset or deferred revenue accounts that no schedule covers, large expenses whose wording suggests a longer term (annual insurance, a yearly subscription), and regular bills that didn't arrive this month.
+- **Tie-out**: each schedule account's balance in the books against what the schedules say it should be.
+- **Import CSV** brings over schedules from another system. A schedule's terms can't change once anything has posted; stop it and start a new one instead.
+
 Useful defaults: large transactions start at $1,000; the 1099 report leaves out card payments (the card processor reports those); P&L changes flag when an account moves more than 20% **and** $100 from its trailing average.
 `,
   },

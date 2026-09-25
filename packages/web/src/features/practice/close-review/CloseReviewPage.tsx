@@ -12,11 +12,12 @@ import { useSummary } from '../../../api/hooks/useClassificationState';
 import { defaultClosePeriod, ClosePeriodSelector } from './ClosePeriodSelector';
 import { BucketsTab } from './BucketsTab';
 import { FindingsTab } from './FindingsTab';
+import { AccrualsTab } from './AccrualsTab';
 import { ManualQueueTab } from './ManualQueueTab';
 import { ChecklistTab } from './ChecklistTab';
 import { ProgressBar } from './ProgressBar';
 
-type Tab = 'checklist' | 'buckets' | 'findings' | 'manual';
+type Tab = 'checklist' | 'buckets' | 'findings' | 'accruals' | 'manual';
 
 // Close Review is the Practice tab landing page. Build plan §2.3:
 //   - Company switcher at top (reuses the sidebar one via context)
@@ -32,6 +33,7 @@ type Tab = 'checklist' | 'buckets' | 'findings' | 'manual';
 export function CloseReviewPage() {
   const { activeCompanyId } = useCompanyContext();
   const bucketWorkflowEnabled = useFeatureFlag('AI_BUCKET_WORKFLOW_V1');
+  const accrualsEnabled = useFeatureFlag('ACCRUALS_V1') === true;
   const [period, setPeriod] = useState(() => defaultClosePeriod());
   // Default to the Checklist — it's the workflow driver AND it's
   // flag-independent. (The previous 'buckets' default raced the
@@ -93,6 +95,13 @@ export function CloseReviewPage() {
           onClick={() => setTab('findings')}
           label="Review"
         />
+        {accrualsEnabled && (
+          <TabButton
+            active={tab === 'accruals'}
+            onClick={() => setTab('accruals')}
+            label="Accruals"
+          />
+        )}
         <TabButton
           active={tab === 'manual'}
           onClick={() => setTab('manual')}
@@ -111,6 +120,7 @@ export function CloseReviewPage() {
         />
       )}
       {tab === 'findings' && <FindingsTab period={period} />}
+      {tab === 'accruals' && accrualsEnabled && <AccrualsTab period={period} />}
       {tab === 'manual' && <ManualQueueTab period={period} />}
     </div>
   );
