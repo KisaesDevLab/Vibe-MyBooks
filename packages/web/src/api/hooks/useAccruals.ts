@@ -97,7 +97,9 @@ function useAccrualMutation<TIn, TOut>(fn: (input: TIn) => Promise<TOut>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => {
+    // Settled, not success: a Post all that fails part-way (a locked month)
+    // has still posted the earlier entries, and the screen must show that.
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ['practice', 'checks', 'checklist'] });
     },

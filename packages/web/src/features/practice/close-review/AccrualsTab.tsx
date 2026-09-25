@@ -331,7 +331,7 @@ function ImportPanel({ companyId, onDone }: { companyId: string | null; onDone: 
       <p className="mt-1 text-xs text-gray-500">
         Columns: kind (prepaid, deferred_revenue, accrued_expense, fixed_asset), description, balance account number,
         recognition account number, start month (YYYY-MM), remaining amount, remaining months, method (optional).
-        The remaining amount is spread from the start month.
+        The remaining amount is spread from the start month. A header row is optional.
       </p>
       <input type="file" accept=".csv,text/csv" className="mt-2 text-sm" aria-label="CSV file"
         onChange={async (e) => { const f = e.target.files?.[0]; if (f) setCsv(await f.text()); }} />
