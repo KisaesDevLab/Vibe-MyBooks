@@ -33,7 +33,7 @@ vi.mock('./PortalLayout', () => ({
   }),
 }));
 
-import { PortalCategorizePage } from './PortalCategorizePage';
+import { PortalCategorizePage, describeSaveFailure } from './PortalCategorizePage';
 
 const unanswered = {
   targetKind: 'bank_feed_item',
@@ -116,7 +116,7 @@ describe('portal categorize — the client note', () => {
     fireEvent.change(screen.getByPlaceholderText(/add a note for your bookkeeper/i), {
       target: { value: 'Parts for the Henderson repair' },
     });
-    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: /send to my bookkeeper/i })));
+    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: /save all/i })));
 
     await waitFor(() => expect(submitBody().items).toHaveLength(1));
     const [item] = submitBody().items;
@@ -131,7 +131,7 @@ describe('portal categorize — the client note', () => {
     await waitFor(() => screen.getByText('MYSTERY VENDOR'));
 
     fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'not_sure' } });
-    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: /send to my bookkeeper/i })));
+    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: /save all/i })));
 
     await waitFor(() => expect(screen.getByText(/add a note saying what you do know/i)).toBeTruthy());
     // Nothing was posted.
@@ -146,10 +146,10 @@ describe('portal categorize — the client note', () => {
     fireEvent.change(screen.getByPlaceholderText(/add a note for your bookkeeper/i), {
       target: { value: 'Fuel for the truck' },
     });
-    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: /send to my bookkeeper/i })));
+    fireEvent.click(await waitFor(() => screen.getByRole('button', { name: /save all/i })));
 
     await waitFor(() => expect(screen.getByText(/did not go through/i)).toBeTruthy());
-    expect(screen.getByText(/no longer on your list/i)).toBeTruthy();
+    expect(screen.getAllByText(/no longer on your list/i).length).toBeGreaterThan(0);
     // The typed note survives so nothing the client wrote is thrown away.
     await waitFor(() => {
       const box = screen.getByPlaceholderText(/add a note for your bookkeeper/i) as HTMLTextAreaElement;
@@ -162,5 +162,49 @@ describe('portal categorize — the client note', () => {
     renderRoute(<PortalCategorizePage />);
     await waitFor(() => screen.getByText(/Check 1748/));
     expect(screen.getByText(/Deposit for the Miller job/)).toBeTruthy();
+  });
+
+  it('saves one card on its own with the card\'s Save button', async () => {
+    const second = { ...unanswered, targetId: 'feed-2', description: 'OTHER VENDOR' };
+    wireLoad([unanswered, second], { accepted: ['feed-1'], failed: [] });
+    renderRoute(<PortalCategorizePage />);
+    await waitFor(() => screen.getByText('MYSTERY VENDOR'));
+    const notes = screen.getAllByPlaceholderText(/add a note for your bookkeeper/i);
+    fireEvent.change(notes[0]!, { target: { value: 'Paint for the shop' } });
+    fireEvent.change(notes[1]!, { target: { value: 'Still thinking' } });
+    fireEvent.click(screen.getAllByRole('button', { name: /save answer/i })[0]!);
+    await waitFor(() => expect(submitBody().items).toHaveLength(1));
+    expect(submitBody().items[0]).toMatchObject({ targetId: 'feed-1', note: 'Paint for the shop' });
+    // The other card's draft is untouched.
+    await waitFor(() => expect(screen.getByDisplayValue('Still thinking')).toBeTruthy());
+  });
+
+  it('says why a save failed and keeps the list and the draft', async () => {
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return Promise.resolve({ ok: false, status: 403, json: async () => ({ error: { code: 'PREVIEW_READ_ONLY' } }) } as Response);
+      }
+      if (String(url).includes('/queue')) return ok({ featureEnabled: true, items: [unanswered], total: 1 });
+      if (String(url).includes('/categories')) return ok({ featureEnabled: true, categories });
+      return ok({});
+    });
+    renderRoute(<PortalCategorizePage />);
+    await waitFor(() => screen.getByText('MYSTERY VENDOR'));
+    fireEvent.change(screen.getByPlaceholderText(/add a note for your bookkeeper/i), { target: { value: 'Paint' } });
+    fireEvent.click(screen.getByRole('button', { name: /save answer/i }));
+    await waitFor(() => screen.getByRole('alert'));
+    expect(screen.getByRole('alert').textContent).toMatch(/staff preview/i);
+    expect(screen.getByText('MYSTERY VENDOR')).toBeTruthy();
+    expect(screen.getByDisplayValue('Paint')).toBeTruthy();
+    expect(screen.queryByText(/could not send your answers/i)).toBeNull();
+  });
+});
+
+describe('describeSaveFailure', () => {
+  it('names the real cause', () => {
+    expect(describeSaveFailure(401)).toMatch(/signed out/i);
+    expect(describeSaveFailure(403, 'PREVIEW_READ_ONLY')).toMatch(/preview/i);
+    expect(describeSaveFailure(429)).toMatch(/wait a minute/i);
+    expect(describeSaveFailure(500)).toMatch(/still here/i);
   });
 });

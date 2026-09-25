@@ -11,7 +11,7 @@
 // Mobile first: this is the page someone works through on a phone.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Check, HelpCircle, Loader2, Paperclip, Send, Trash2, Upload, User } from 'lucide-react';
+import { AlertTriangle, Check, HelpCircle, Loader2, Paperclip, Save, Send, Trash2, Upload, User } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { usePortal } from './PortalLayout';
 
@@ -66,8 +66,25 @@ const FAILURE_COPY: Record<string, string> = {
   write_failed: 'one could not be saved',
 };
 
+class SaveError extends Error {}
+
+// Say WHY a save failed. The old copy ("Could not send your answers") was the
+// same for an expired sign-in, staff preview mode, and a server fault.
+export function describeSaveFailure(status: number, code?: string): string {
+  if (status === 401) return 'You were signed out. Sign in again to save — copy anything long you typed first.';
+  if (code === 'PREVIEW_READ_ONLY') return 'This is a staff preview, so answers are not saved. Your client can save from their own sign-in.';
+  if (code === 'FEATURE_DISABLED') return 'Answering is turned off for your account. Contact your bookkeeper.';
+  if (status === 403) return 'You do not have access to answer for this business.';
+  if (status === 429) return 'Too many saves in a row. Wait a minute, then save again — what you typed is still here.';
+  if (status === 400) return 'That answer could not be read. Check it and save again.';
+  return 'Something went wrong on our side. Save again in a moment — what you typed is still here.';
+}
+
 export function PortalCategorizePage() {
-  const { activeCompanyId } = usePortal();
+  const { activeCompanyId, me } = usePortal();
+  // Staff previewing the portal cannot save (the server refuses). Say so up
+  // front instead of letting the Save buttons fail.
+  const isPreview = !!me?.preview;
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [payees, setPayees] = useState<Payee[]>([]);
@@ -80,6 +97,10 @@ export function PortalCategorizePage() {
   const [retryable, setRetryable] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [sending, setSending] = useState(false);
+  // Per-card save: which card is saving, and a message on a card whose save
+  // did not go through (kept on the card, never replacing the list).
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
   const [sentCount, setSentCount] = useState(0);
   // Inline, non-fatal messages: a row that needs a note, or rows the server
   // turned down. Distinct from `error`, which replaces the whole list.
@@ -142,32 +163,57 @@ export function PortalCategorizePage() {
   ]));
   const answered = readyIds.length;
 
-  const send = async () => {
-    if (answered === 0 || !activeCompanyId) return;
+  // Refresh the queue without blanking the page (a per-card save must not
+  // flash a spinner over everything the client is still typing).
+  const refreshQueue = useCallback(async () => {
+    if (!activeCompanyId) return;
+    try {
+      const res = await fetch(`${base}api/portal/categorize/queue?companyId=${activeCompanyId}`, { credentials: 'include' });
+      if (!res.ok) return;
+      const q = await res.json();
+      setItems(q.items ?? []);
+    } catch { /* the saved answer still shows after the next full load */ }
+  }, [activeCompanyId, base]);
 
-    const payload = readyIds.map((targetId) => {
-      const item = (items ?? []).find((i) => i.targetId === targetId)!;
-      return {
-        targetKind: item.targetKind,
-        targetId,
-        categoryId: picks[targetId] || NOT_SURE,
-        note: notes[targetId]?.trim() || undefined,
-        ...payeeFor(targetId),
-      };
-    });
+  const payloadFor = (targetId: string) => {
+    const item = (items ?? []).find((i) => i.targetId === targetId)!;
+    return {
+      targetKind: item.targetKind,
+      targetId,
+      categoryId: picks[targetId] || NOT_SURE,
+      note: notes[targetId]?.trim() || undefined,
+      ...payeeFor(targetId),
+    };
+  };
+  const needsNoteFor = (p: ReturnType<typeof payloadFor>) =>
+    p.categoryId === NOT_SURE && !p.note && !p.contactId && !p.contactLabel;
+
+  // Save the given cards. Returns true when every one was accepted.
+  const submit = async (targetIds: string[], opts: { single: boolean }): Promise<boolean> => {
+    if (targetIds.length === 0 || !activeCompanyId) return false;
+    const payload = targetIds.map(payloadFor);
 
     // The server refuses "not sure" with neither a note nor a payee. Say so
     // here instead, so the client is not told "sent 0 answers" with no reason.
-    const needsNote = payload.filter((p) => p.categoryId === NOT_SURE && !p.note && !p.contactId && !p.contactLabel);
+    const needsNote = payload.filter(needsNoteFor);
     if (needsNote.length > 0) {
-      setNotice(needsNote.length === 1
-        ? 'One answer says "I am not sure" — add a note saying what you do know, or say who it was paid to.'
-        : `${needsNote.length} answers say "I am not sure" — add a note to each saying what you do know, or say who it was paid to.`);
-      return;
+      const msg = 'Add a note saying what you do know, or say who it was paid to.';
+      if (opts.single) {
+        setCardErrors((m) => ({ ...m, [targetIds[0]!]: msg }));
+      } else {
+        setNotice(needsNote.length === 1
+          ? 'One answer says "I am not sure" — add a note saying what you do know, or say who it was paid to.'
+          : `${needsNote.length} answers say "I am not sure" — add a note to each saying what you do know, or say who it was paid to.`);
+      }
+      return false;
     }
 
     setNotice(null);
-    setSending(true);
+    setCardErrors((m) => {
+      const next = { ...m };
+      for (const id of targetIds) delete next[id];
+      return next;
+    });
     try {
       const res = await fetch(`${base}api/portal/categorize/suggestions`, {
         method: 'POST',
@@ -175,34 +221,56 @@ export function PortalCategorizePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ companyId: activeCompanyId, items: payload }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: { code?: string } } | null;
+        throw new SaveError(describeSaveFailure(res.status, body?.error?.code));
+      }
       const body = await res.json();
       const accepted: string[] = body.accepted ?? [];
       const rejected: Array<{ targetId: string; reason: string }> = body.failed ?? [];
-      setSentCount(accepted.length);
+      setSentCount((c) => c + accepted.length);
 
       // Per-row outcomes: a rejected row used to vanish silently, leaving the
       // client to believe an answer had gone in when it had not.
       if (rejected.length > 0) {
-        const reasons = [...new Set(rejected.map((f) => FAILURE_COPY[f.reason] ?? 'could not be saved'))];
-        setNotice(
-          `${rejected.length} answer${rejected.length === 1 ? '' : 's'} did not go through (${reasons.join('; ')}). ` +
-          'Your other answers were sent.',
-        );
+        setCardErrors((m) => {
+          const next = { ...m };
+          for (const f of rejected) next[f.targetId] = `Not saved: ${FAILURE_COPY[f.reason] ?? 'it could not be saved'}.`;
+          return next;
+        });
+        if (!opts.single) {
+          const reasons = [...new Set(rejected.map((f) => FAILURE_COPY[f.reason] ?? 'could not be saved'))];
+          setNotice(
+            `${rejected.length} answer${rejected.length === 1 ? '' : 's'} did not go through (${reasons.join('; ')}). ` +
+            'Your other answers were saved.',
+          );
+        }
       }
 
-      // Keep the rejected rows' drafts so nothing typed is thrown away.
-      const keep = new Set(rejected.map((f) => f.targetId));
+      // Drop the drafts that went in; keep everything else the client typed.
+      const done = new Set(targetIds.filter((id) => !rejected.some((f) => f.targetId === id)));
       const prune = (m: Record<string, string>) =>
-        Object.fromEntries(Object.entries(m).filter(([k]) => keep.has(k)));
+        Object.fromEntries(Object.entries(m).filter(([k]) => !done.has(k)));
       setPicks(prune); setNotes(prune); setPayeePicks(prune); setPayeeLabels(prune);
-      setAttempt((a) => a + 1);
-    } catch {
-      setError('Could not send your answers. Nothing was lost — try again.');
-      setRetryable(true);
-    } finally {
-      setSending(false);
+      await refreshQueue();
+      return rejected.length === 0;
+    } catch (e) {
+      // Never replace the list: the drafts stay on screen, with the reason.
+      const msg = e instanceof SaveError ? e.message : 'Could not reach the server. Check your connection and try again — what you typed is still here.';
+      if (opts.single) setCardErrors((m) => ({ ...m, [targetIds[0]!]: msg }));
+      else setNotice(msg);
+      return false;
     }
+  };
+
+  const saveOne = async (targetId: string) => {
+    setSavingId(targetId);
+    try { await submit([targetId], { single: true }); } finally { setSavingId(null); }
+  };
+
+  const send = async () => {
+    setSending(true);
+    try { await submit(readyIds, { single: false }); } finally { setSending(false); }
   };
 
   if (error) {
@@ -244,6 +312,12 @@ export function PortalCategorizePage() {
         </p>
       </header>
 
+      {isPreview && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+          You are previewing as staff. You can look around, but answers are not saved.
+        </div>
+      )}
+
       {notice && (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -254,7 +328,7 @@ export function PortalCategorizePage() {
       {sentCount > 0 && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
           <Check className="h-4 w-4" />
-          Sent {sentCount} answer{sentCount === 1 ? '' : 's'} to your bookkeeper.
+          Saved {sentCount} answer{sentCount === 1 ? '' : 's'} for your bookkeeper.
         </div>
       )}
 
@@ -395,6 +469,30 @@ export function PortalCategorizePage() {
                 </div>
               )}
 
+              {!already && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void saveOne(item.targetId)}
+                    disabled={!readyIds.includes(item.targetId) || savingId === item.targetId || sending || isPreview}
+                    title={isPreview ? 'Answers cannot be saved while previewing' : undefined}
+                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {savingId === item.targetId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save answer
+                  </button>
+                  {!readyIds.includes(item.targetId) && (
+                    <span className="text-xs text-gray-500">Pick a category, a payee, or write a note to save.</span>
+                  )}
+                  {cardErrors[item.targetId] && (
+                    <span role="alert" className="flex items-start gap-1 text-xs text-red-700">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      {cardErrors[item.targetId]}
+                    </span>
+                  )}
+                </div>
+              )}
+
               <AttachControl
                 companyId={activeCompanyId!}
                 targetKind={item.targetKind}
@@ -410,15 +508,15 @@ export function PortalCategorizePage() {
         <div className="fixed inset-x-0 bottom-0 border-t border-gray-200 bg-white p-3 shadow-lg">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
             <span className="text-sm text-gray-600">
-              {answered} answer{answered === 1 ? '' : 's'} ready
+              {answered} answer{answered === 1 ? '' : 's'} not saved yet
             </span>
             <button
               onClick={send}
-              disabled={sending}
+              disabled={sending || savingId !== null || isPreview}
               className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
             >
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Send to my bookkeeper
+              Save all {answered}
             </button>
           </div>
         </div>

@@ -100,7 +100,7 @@ describe('portal categorize — the payee', () => {
     expect(payee.querySelector('optgroup[label="Customers"] option[value="ct-wh"]')).toBeTruthy();
 
     fireEvent.change(payee, { target: { value: 'ct-hd' } });
-    fireEvent.click(screen.getByRole('button', { name: /send/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save all/i }));
     await waitFor(() => expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === 'POST')).toBe(true));
     const body = submitBody();
     expect(body.items[0]).toMatchObject({ targetId: 'feed-1', categoryId: 'not_sure', contactId: 'ct-hd' });
@@ -116,7 +116,7 @@ describe('portal categorize — the payee', () => {
     fireEvent.change(screen.getByLabelText('Who was it paid to or from?'), { target: { value: '__other' } });
     const name = screen.getByLabelText('Their name');
     fireEvent.change(name, { target: { value: 'Joe the plumber' } });
-    fireEvent.click(screen.getByRole('button', { name: /send/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save all/i }));
     await waitFor(() => expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === 'POST')).toBe(true));
     expect(submitBody().items[0]).toMatchObject({ categoryId: 'not_sure', contactLabel: 'Joe the plumber' });
     expect(submitBody().items[0].contactId).toBeUndefined();
@@ -127,7 +127,7 @@ describe('portal categorize — the payee', () => {
     renderRoute(<PortalCategorizePage />);
     await waitFor(() => screen.getByText('MYSTERY VENDOR'));
     fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'not_sure' } });
-    fireEvent.click(screen.getByRole('button', { name: /send/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save all/i }));
     expect(await screen.findByText(/add a note saying what you do know, or say who it was paid to/i)).toBeTruthy();
     expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === 'POST')).toBe(false);
   });

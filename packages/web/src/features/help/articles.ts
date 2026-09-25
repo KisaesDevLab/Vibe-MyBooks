@@ -3010,7 +3010,7 @@ A portal contact belongs to one client. If the same email address is set up unde
 
 A **What was this?** page in the portal, listing only the activity nobody could classify: bank lines the categorizer could not place, and amounts already sitting in suspense. Rows the software categorized confidently are **not** shown \u2014 inviting a client to second-guess a correct answer just manufactures review work.
 
-Each row shows the date, the cleaned-up description, the amount, and \u2014 when the row came from a bank feed \u2014 the bank's own wording under the name as **On your statement:**, so the client can match it to their statement. The picker offers income and expense categories only, by name, with no balances and no account numbers. There are two extra answers: **Personal, not business** and **I am not sure** (which asks for a note). Answers collect up behind a **Send to my bookkeeper** button, so it is one submission and one email even if they work through forty rows on a phone.
+Each row shows the date, the cleaned-up description, the amount, and \u2014 when the row came from a bank feed \u2014 the bank's own wording under the name as **On your statement:**, so the client can match it to their statement. The picker offers income and expense categories only, by name, with no balances and no account numbers. There are two extra answers: **Personal, not business** and **I am not sure** (which asks for a note). Each row has its own **Save answer** button, so an answer is kept the moment it is saved; **Save all** at the bottom saves every row that has an answer. Staff still get one email per sitting: it goes out after the client has been quiet for five minutes (thirty at most), with the total. If a save fails the row says why (signed out, staff preview, too many saves) and what was typed stays on the screen.
 
 ## The note
 
@@ -3028,7 +3028,7 @@ A client returning to the page sees its own note read back on any row still wait
 
 ## Sending in the receipt
 
-Each row also has **Attach a photo or receipt**. Photos and PDFs, up to 10 MB each and ten files per transaction. This is deliberately separate from the answer: a client often has the picture but not the category, or remembers the receipt after already answering, so the file uploads the moment it is chosen rather than waiting for **Send to my bookkeeper**.
+Each row also has **Attach a photo or receipt**. Photos and PDFs, up to 10 MB each and ten files per transaction. This is deliberately separate from the answer: a client often has the picture but not the category, or remembers the receipt after already answering, so the file uploads the moment it is chosen rather than waiting for the answer to be saved.
 
 The file lands on the same paperclip staff already use on Practice \u2192 Uncategorized \u2014 there is no separate client inbox to check. A file attached to a bank line before it posts stays visible on the posted row afterwards.
 
