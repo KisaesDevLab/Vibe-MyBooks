@@ -24,6 +24,7 @@ vi.mock('../../../api/hooks/useFeatureFlag', () => ({
   useFeatureFlags: () => ({ data: undefined }),
 }));
 vi.mock('../../../api/hooks/useClassificationState', () => ({
+  FEED_REVIEW_SORT_KEYS: ['feedDate', 'description', 'payee', 'category', 'method', 'amount', 'reviewed'],
   useFeedReviewSummary: () => ({ data: feedReviewStore.data }),
   useFeedReviewList: () => ({
     data: { pages: [{ rows: [], total: 0 }], pageParams: [0] },

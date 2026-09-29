@@ -21,6 +21,8 @@ export interface SummaryInput {
 
 export type FeedReviewMethod = 'rule' | 'ai' | 'history' | 'check_image' | 'manual' | 'matched' | 'excluded';
 export type FeedReviewStatus = 'todo' | 'reviewed' | 'all';
+export const FEED_REVIEW_SORT_KEYS = ['feedDate', 'description', 'payee', 'category', 'method', 'amount', 'reviewed'] as const;
+export type FeedReviewSortKey = (typeof FEED_REVIEW_SORT_KEYS)[number];
 
 export interface FeedReviewSummary {
   periodTotal: number;
@@ -74,16 +76,26 @@ export function useFeedReviewSummary(input: SummaryInput, enabled = true) {
 
 const FEED_REVIEW_PAGE = 100;
 
-export function useFeedReviewList(input: SummaryInput & { method?: FeedReviewMethod; status: FeedReviewStatus }) {
+export function useFeedReviewList(input: SummaryInput & {
+  method?: FeedReviewMethod;
+  status: FeedReviewStatus;
+  sortBy?: FeedReviewSortKey;
+  sortDir?: 'asc' | 'desc';
+}) {
   return useInfiniteQuery({
     queryKey: [
       'practice', 'classification', 'feed-review', 'list',
       input.companyId, input.periodStart, input.periodEnd, input.method ?? null, input.status,
+      input.sortBy ?? null, input.sortDir ?? null,
     ],
     queryFn: ({ pageParam }) => {
       const qs = scopeQs(input);
       if (input.method) qs.set('method', input.method);
       qs.set('status', input.status);
+      if (input.sortBy) {
+        qs.set('sortBy', input.sortBy);
+        qs.set('sortDir', input.sortDir ?? 'asc');
+      }
       qs.set('limit', String(FEED_REVIEW_PAGE));
       qs.set('offset', String(pageParam));
       return apiClient<{ rows: FeedReviewRow[]; total: number }>(

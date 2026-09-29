@@ -16,6 +16,7 @@ import {
   useFeedReviewList,
   useMarkFeedReviewed,
   useRecategorizeFeedItems,
+  FEED_REVIEW_SORT_KEYS,
   type FeedReviewMethod,
   type FeedReviewRow,
   type FeedReviewStatus,
@@ -26,6 +27,8 @@ import { ContactSelector } from '../../../components/forms/ContactSelector';
 import { Button } from '../../../components/ui/Button';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
+import { SortableTh } from '../../../components/ui/SortableTh';
+import { useColumnView } from '../../../hooks/useColumnView';
 import { useToast } from '../../../components/ui/Toaster';
 import type { ClosePeriod } from './ClosePeriodSelector';
 
@@ -89,8 +92,15 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
   const [editing, setEditing] = useState<string | null>(null);
   const toast = useToast();
 
+  // Column sort, kept for the tab session. No sort = newest first. Dates,
+  // amounts and the review mark open newest / largest first.
+  const view = useColumnView('vibe:close-feed-review:view', {
+    sortKeys: FEED_REVIEW_SORT_KEYS,
+    defaultDir: (col) => (col === 'feedDate' || col === 'amount' || col === 'reviewed' ? 'desc' : 'asc'),
+  });
   const query = useFeedReviewList({
     companyId, periodStart: period.periodStart, periodEnd: period.periodEnd, method, status,
+    ...(view.sortCol ? { sortBy: view.sortCol, sortDir: view.sortDir } : {}),
   });
   const mark = useMarkFeedReviewed();
   const recategorize = useRecategorizeFeedItems();
@@ -101,7 +111,7 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
   useEffect(() => {
     setSelected(new Set());
     setEditing(null);
-  }, [companyId, period.periodStart, method, status]);
+  }, [companyId, period.periodStart, method, status, view.signature]);
 
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.feedItemId));
   const toggle = (id: string) => setSelected((prev) => {
@@ -262,13 +272,13 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
                     onChange={() => setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.feedItemId)))}
                   />
                 </th>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Description</th>
-                <th className="px-3 py-2">Payee</th>
-                <th className="px-3 py-2">Category</th>
-                <th className="px-3 py-2">How</th>
-                <th className="px-3 py-2 text-right">Amount</th>
-                <th className="px-3 py-2 text-right">Actions</th>
+                <SortableTh label="Date" {...view.thProps('feedDate')} />
+                <SortableTh label="Description" {...view.thProps('description')} />
+                <SortableTh label="Payee" {...view.thProps('payee')} />
+                <SortableTh label="Category" {...view.thProps('category')} />
+                <SortableTh label="How" {...view.thProps('method')} />
+                <SortableTh align="right" label="Amount" {...view.thProps('amount')} />
+                <SortableTh align="right" label="Reviewed" {...view.thProps('reviewed')} />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">

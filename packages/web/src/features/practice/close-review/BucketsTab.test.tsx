@@ -9,10 +9,12 @@ import type { FeedReviewRow, FeedReviewSummary } from '../../../api/hooks/useCla
 
 const markMutate = vi.fn();
 const recategorizeMutate = vi.fn();
+const listSpy = vi.fn();
 const listStore: { rows: FeedReviewRow[] } = { rows: [] };
 
 vi.mock('../../../api/hooks/useClassificationState', () => ({
-  useFeedReviewList: () => ({
+  FEED_REVIEW_SORT_KEYS: ['feedDate', 'description', 'payee', 'category', 'method', 'amount', 'reviewed'],
+  useFeedReviewList: (input: unknown) => (listSpy(input), {
     data: { pages: [{ rows: listStore.rows, total: listStore.rows.length }], pageParams: [0] },
     isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(),
   }),
@@ -70,6 +72,8 @@ const row = (over: Partial<FeedReviewRow>): FeedReviewRow => ({
 beforeEach(() => {
   markMutate.mockReset();
   recategorizeMutate.mockReset();
+  listSpy.mockReset();
+  sessionStorage.clear();
   listStore.rows = [
     row({}),
     row({ feedItemId: 'f2', description: 'ACME SUPPLY', amount: '-500.0000', method: 'manual', suggestedAccountName: 'Office Supplies', payeeName: null, payeeContactId: null }),
@@ -160,5 +164,18 @@ describe('BucketsTab', () => {
     expect(recategorizeMutate.mock.calls[0]![0]).toEqual({
       feedItemIds: ['f1', 'f2'], accountId: 'acct-7', companyId: 'company-1',
     });
+  });
+
+  it('sorts by a column header, flips on a second click, and keeps the view for the session', () => {
+    renderTab();
+    const last = () => listSpy.mock.calls.at(-1)![0] as { sortBy?: string; sortDir?: string };
+    expect(last().sortBy).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: /^payee/i }));
+    expect(last()).toMatchObject({ sortBy: 'payee', sortDir: 'asc' });
+    fireEvent.click(screen.getByRole('button', { name: /^payee/i }));
+    expect(last()).toMatchObject({ sortBy: 'payee', sortDir: 'desc' });
+    fireEvent.click(screen.getByRole('button', { name: /^amount/i }));
+    expect(last()).toMatchObject({ sortBy: 'amount', sortDir: 'desc' });
+    expect(sessionStorage.getItem('vibe:close-feed-review:view')).toContain('"sortCol":"amount"');
   });
 });
