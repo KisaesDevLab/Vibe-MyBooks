@@ -4,6 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
+  TransactionActivityResponse,
   Transaction, TransactionFilters, RelatedTransactionsResult,
   BulkUpdateTransactionsInput, BulkUpdateTransactionsResult,
 } from '@kis-books/shared';
@@ -59,6 +60,16 @@ export function useRelatedTransactions(id: string) {
   return useQuery({
     queryKey: ['transactions', id, 'related'],
     queryFn: () => apiClient<RelatedTransactionsResult>(`/transactions/${id}/related`),
+    enabled: !!id,
+  });
+}
+
+// Activity card: everything recorded about the transaction, oldest first.
+// Keyed under ['transactions', id] so any transaction mutation refreshes it.
+export function useTransactionActivity(id: string) {
+  return useQuery({
+    queryKey: ['transactions', id, 'activity'],
+    queryFn: () => apiClient<TransactionActivityResponse>(`/transactions/${id}/activity`),
     enabled: !!id,
   });
 }

@@ -2685,6 +2685,30 @@ Use the **Transaction Report** button on the transaction — see *Transaction Re
 `,
   },
   {
+    id: 'transaction-activity',
+    title: 'Transaction Activity — Who Did What, and When',
+    category: 'Transactions',
+    summary: 'The Activity card at the bottom of a transaction lists everything recorded about it.',
+    body: `
+## Transaction Activity
+
+The **Activity** card at the bottom of every transaction lists what happened to it, oldest first, with the date and time and who did it ("Automatic" when the system did it):
+
+- **Where it came from** — downloaded from the bank, imported from a bank file or statement, or imported from another program
+- **The suggestion** — the category a bank rule, AI, the payee's history or a check image suggested
+- **Posting** — categorized or posted, and by whom
+- **Edits** — what changed (payee, category, date, amount, memo), including bulk changes
+- **Voids**, with the reason
+- **Review** — marked reviewed (or the mark removed) in Close Review
+- **Attachments** added or removed
+- **Review findings** on it and whether they were accepted or dismissed
+- **Client questions** — sent, viewed, answered, resolved
+- **Checks printed**, and **invoices sent, viewed and paid**
+
+Long histories show the newest entries; click **Show earlier entries** for the rest. Edits made before this card existed may show only that something was saved, not what it replaced.
+`,
+  },
+  {
     id: 'transaction-report',
     title: 'Transaction Report — a Transaction With Its Attachments',
     category: 'Transactions',

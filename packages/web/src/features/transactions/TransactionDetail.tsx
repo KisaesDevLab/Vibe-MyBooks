@@ -14,6 +14,7 @@ import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { AskClientAboutTransactionButton } from './AskClientAboutTransactionButton';
 import { RecurringScheduleModal } from './RecurringScheduleModal';
 import { RelatedTransactionsCard } from './RelatedTransactionsCard';
+import { TransactionActivityCard } from './TransactionActivityCard';
 import { TransactionReportButton } from './TransactionReportButton';
 
 const billStatusColors: Record<string, string> = {
@@ -255,6 +256,8 @@ export function TransactionDetail() {
       <div className="mt-6">
         <AttachmentPanel attachableType={txn.txnType === 'aje' ? 'journal_entry' : txn.txnType} attachableId={txn.id} />
       </div>
+
+      <TransactionActivityCard transactionId={txn.id} />
 
       {/* Void dialog */}
       {showVoidDialog && (

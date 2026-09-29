@@ -394,6 +394,7 @@ export const transactionsMocks = () => ({
   useTransactions: () => emptyList,
   useTransaction: passthroughQuery(null),
   useRelatedTransactions: passthroughQuery({ related: [], truncated: false }),
+  useTransactionActivity: passthroughQuery({ events: [] }),
   useCreateTransaction: passthroughMutation,
   useUpdateTransaction: passthroughMutation,
   useVoidTransaction: passthroughMutation,

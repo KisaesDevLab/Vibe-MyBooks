@@ -4,19 +4,21 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import type { RelatedTransactionsResult, Transaction } from '@kis-books/shared';
+import type { RelatedTransactionsResult, Transaction, TransactionActivityEvent } from '@kis-books/shared';
 import { renderRoute } from '../../test-utils';
 import { transactionsMocks } from '../../test-mocks';
 
-const state: { txn: Partial<Transaction> | null; related: RelatedTransactionsResult } = {
+const state: { txn: Partial<Transaction> | null; related: RelatedTransactionsResult; activity: TransactionActivityEvent[] } = {
   txn: null,
   related: { related: [], truncated: false },
+  activity: [],
 };
 
 vi.mock('../../api/hooks/useTransactions', () => ({
   ...transactionsMocks(),
   useTransaction: () => ({ data: state.txn ? { transaction: state.txn } : undefined, isLoading: false, isError: false, refetch: vi.fn() }),
   useRelatedTransactions: () => ({ data: state.related, isLoading: false, isError: false, refetch: vi.fn() }),
+  useTransactionActivity: () => ({ data: { events: state.activity }, isLoading: false, isError: false, refetch: vi.fn() }),
 }));
 vi.mock('../../providers/CompanyProvider', () => ({
   useCompanyContext: () => ({ activeCompanyId: 'company-1', activeCompanyName: 'Test Co', companies: [] }),
@@ -41,6 +43,7 @@ const render = () => renderRoute(<TransactionDetail />, { route: `/transactions/
 beforeEach(() => {
   state.txn = null;
   state.related = { related: [], truncated: false };
+  state.activity = [];
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -112,5 +115,40 @@ describe('TransactionDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /Transaction Report/ }));
     await waitFor(() => expect(screen.getByText('Chromium failed to start')).toBeInTheDocument());
     expect(tab.close).toHaveBeenCalled();
+  });
+
+  it('shows the activity log at the bottom, oldest first, with who did each step', () => {
+    state.txn = { ...base, txnType: 'expense', total: '8.7500' };
+    state.activity = [
+      { at: '2026-07-07T21:27:00.000Z', kind: 'imported', title: 'Imported from a bank file', detail: '“SLACK”', actor: null },
+      { at: '2026-07-07T21:37:00.000Z', kind: 'created', title: 'Posted from the bank feed', detail: '$8.75', actor: 'Kurt Krueger' },
+      { at: '2026-09-29T20:44:00.000Z', kind: 'reviewed', title: 'Marked reviewed in Close Review', detail: null, actor: 'Jane Doe' },
+    ];
+    render();
+    expect(screen.getByRole('heading', { name: 'Activity' })).toBeInTheDocument();
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
+    const log = items.filter((t) => /Imported from a bank file|Posted from the bank feed|Marked reviewed/.test(t));
+    expect(log[0]).toContain('Imported from a bank file');
+    expect(log[0]).toContain('Automatic');
+    expect(log[1]).toContain('by Kurt Krueger');
+    expect(log[2]).toContain('by Jane Doe');
+  });
+
+  it('collapses a long history to the newest entries', () => {
+    state.txn = { ...base, txnType: 'expense', total: '1.0000' };
+    state.activity = Array.from({ length: 11 }, (_, i) => ({
+      at: new Date(Date.UTC(2026, 0, i + 1)).toISOString(), kind: 'edited' as const, title: `Edit ${i + 1}`, detail: null, actor: 'A',
+    }));
+    render();
+    expect(screen.queryByText('Edit 1')).not.toBeInTheDocument();
+    expect(screen.getByText('Edit 11')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show 3 earlier entries' }));
+    expect(screen.getByText('Edit 1')).toBeInTheDocument();
+  });
+
+  it('says so when nothing is recorded', () => {
+    state.txn = { ...base, txnType: 'expense', total: '1.0000' };
+    render();
+    expect(screen.getByText('No activity recorded for this transaction.')).toBeInTheDocument();
   });
 });
