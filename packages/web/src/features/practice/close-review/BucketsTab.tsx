@@ -2,29 +2,19 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Landmark } from 'lucide-react';
-import type { ClassificationBucket } from '@kis-books/shared';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, CheckCircle2, ExternalLink, Landmark } from 'lucide-react';
 import type { FeedReviewSummary } from '../../../api/hooks/useClassificationState';
-import { BucketSummaryRow } from './BucketSummaryRow';
-import { PotentialMatchesBucket } from './buckets/PotentialMatchesBucket';
-import { RulesBucket } from './buckets/RulesBucket';
-import { AutoClassificationsBucket } from './buckets/AutoClassificationsBucket';
-import { NeedsReviewBucket } from './buckets/NeedsReviewBucket';
 import { FeedReviewSection } from './FeedReviewSection';
 import { periodForMonth, type ClosePeriod } from './ClosePeriodSelector';
-import type { BucketSummary } from '@kis-books/shared';
 
 interface Props {
   companyId: string | null;
   period: ClosePeriod;
-  summary: BucketSummary | undefined;
   feedReview: FeedReviewSummary | undefined;
   onChangePeriod: (next: ClosePeriod) => void;
   onOpenReview: () => void;
 }
-
-type ActiveBucket = Exclude<ClassificationBucket, 'auto_medium'>;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -33,17 +23,13 @@ function monthLabel(ym: string): string {
   return `${MONTHS[(m ?? 1) - 1]} ${y}`;
 }
 
-// Bank feed tab. Two passes over the period's bank transactions:
-//   1. Still to categorize — the bucket workflow (only while anything is
-//      uncategorized; usually empty by close time because the categorizing
-//      happens on the Banking screen).
-//   2. Review what was categorized — the reviewer pass (FeedReviewSection).
-// A client with no bank feed at all gets an explanation instead of empty
-// tiles, and uncategorized items in OTHER months get a banner so they are
-// not hidden by the period picker.
-export function BucketsTab({ companyId, period, summary, feedReview, onChangePeriod, onOpenReview }: Props) {
-  const [active, setActive] = useState<ActiveBucket>('needs_review');
-
+// Bank feed tab — the reviewer pass over the month's bank transactions.
+// Categorizing itself happens on Banking → Bank feed; while anything in the
+// month is still uncategorized this tab says how many and links there with
+// the month pre-filtered. A client with no bank feed at all gets an
+// explanation instead, and uncategorized items in OTHER months get a banner
+// so they are not hidden by the period picker.
+export function BucketsTab({ companyId, period, feedReview, onChangePeriod, onOpenReview }: Props) {
   if (feedReview && !feedReview.hasBankFeed) {
     return (
       <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
@@ -65,8 +51,11 @@ export function BucketsTab({ companyId, period, summary, feedReview, onChangePer
     );
   }
 
-  const openInPeriod = (summary?.totalUncategorized ?? 0) + (feedReview?.periodOpen ?? 0) > 0;
+  const openInPeriod = feedReview?.periodOpen ?? 0;
   const otherMonths = feedReview?.otherMonthsOpen ?? [];
+  // Banking's date filter is inclusive: first to last day of the month.
+  const from = period.periodStart.slice(0, 10);
+  const to = new Date(new Date(period.periodEnd).getTime() - 86_400_000).toISOString().slice(0, 10);
 
   return (
     <div className="flex flex-col gap-4">
@@ -90,24 +79,20 @@ export function BucketsTab({ companyId, period, summary, feedReview, onChangePer
         </div>
       )}
 
-      {openInPeriod ? (
-        <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-gray-900">Still to categorize</h3>
-          <BucketSummaryRow
-            summary={summary}
-            activeBucket={active === 'auto_high' ? 'auto_high' : active}
-            onBucketClick={(bucket) => {
-              // auto_medium shares the Bucket 3 view with auto_high
-              setActive(bucket === 'auto_medium' ? 'auto_high' : (bucket as ActiveBucket));
-            }}
-          />
-          {active === 'potential_match' && <PotentialMatchesBucket companyId={companyId} period={period} />}
-          {active === 'rule' && <RulesBucket companyId={companyId} period={period} />}
-          {active === 'auto_high' && (
-            <AutoClassificationsBucket companyId={companyId} period={period} summary={summary} />
-          )}
-          {active === 'needs_review' && <NeedsReviewBucket companyId={companyId} period={period} />}
-        </section>
+      {openInPeriod > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          <span>
+            <span className="font-semibold">{openInPeriod} bank transaction{openInPeriod === 1 ? '' : 's'}</span>{' '}
+            in {period.label} still need{openInPeriod === 1 ? 's' : ''} categorizing.
+          </span>
+          <Link
+            to={`/banking/feed?from=${from}&to=${to}`}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-rose-800 ring-1 ring-rose-200 hover:bg-rose-100"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open in Banking
+          </Link>
+        </div>
       ) : feedReview ? (
         <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />

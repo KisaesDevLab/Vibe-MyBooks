@@ -7,7 +7,7 @@
 // so the list API filters + counts correctly (not a client-side slice).
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderRoute } from '../../test-utils';
 import {
   bankingMocks, accountsMocks, contactsMocks, companyMocks, tagsMocks,
@@ -92,5 +92,24 @@ describe('BankFeedPage — Rules filter', () => {
     fireEvent.click(screen.getByLabelText('Rules'));
     const last = useBankFeedSpy.mock.calls.at(-1)![0] as { ruleOnly?: boolean };
     expect(last.ruleOnly).toBe(true);
+  });
+});
+
+describe('BankFeedPage — month deep link from Close Review', () => {
+  it('applies ?from=&to= as the date filter and shows only unprocessed items', async () => {
+    sessionStorage.setItem('vibe:bank-feed:actionableOnly', 'false');
+    renderRoute(<BankFeedPage />, { route: '/banking/feed?from=2026-07-01&to=2026-07-31', path: '/banking/feed' });
+    await waitFor(() => {
+      const last = useBankFeedSpy.mock.calls.at(-1)![0] as { startDate?: string; endDate?: string; actionableOnly?: boolean };
+      expect(last.startDate).toBe('2026-07-01');
+      expect(last.endDate).toBe('2026-07-31');
+      expect(last.actionableOnly).toBe(true);
+    });
+  });
+
+  it('ignores malformed dates', () => {
+    renderRoute(<BankFeedPage />, { route: '/banking/feed?from=nope', path: '/banking/feed' });
+    const last = useBankFeedSpy.mock.calls.at(-1)![0] as { startDate?: string };
+    expect(last.startDate).toBeUndefined();
   });
 });

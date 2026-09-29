@@ -17,14 +17,6 @@ vi.mock('../../../api/hooks/useClassificationState', () => ({
   }),
   useMarkFeedReviewed: () => ({ mutate: markMutate, isPending: false }),
   useRecategorizeFeedItems: () => ({ mutate: vi.fn(), isPending: false }),
-  useBucketInfinite: () => ({
-    data: { pages: [{ rows: [], nextCursor: null }], pageParams: [undefined] },
-    isLoading: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(),
-  }),
-  useApprove: () => ({ mutate: vi.fn(), isPending: false }),
-  useApproveAll: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
-  useReclassify: () => ({ mutate: vi.fn(), isPending: false }),
-  useVendorEnrichment: () => ({ data: null, isLoading: false, isError: false }),
 }));
 
 import { BucketsTab } from './BucketsTab';
@@ -61,12 +53,6 @@ const row = (over: Partial<FeedReviewRow>): FeedReviewRow => ({
   suggestedAccountName: null, reviewedAt: null, ...over,
 });
 
-const noBuckets = {
-  periodStart: PERIOD.periodStart, periodEnd: PERIOD.periodEnd,
-  buckets: { potential_match: 0, rule: 0, auto_high: 0, auto_medium: 0, needs_review: 0 },
-  totalUncategorized: 0, totalApproved: 3, findingsCount: 0,
-};
-
 beforeEach(() => {
   markMutate.mockReset();
   listStore.rows = [
@@ -77,7 +63,7 @@ beforeEach(() => {
 
 function renderTab(over: Partial<Parameters<typeof BucketsTab>[0]> = {}) {
   const props = {
-    companyId: 'company-1', period: PERIOD, summary: noBuckets, feedReview: summary(),
+    companyId: 'company-1', period: PERIOD, feedReview: summary(),
     onChangePeriod: vi.fn(), onOpenReview: vi.fn(), ...over,
   };
   renderRoute(<BucketsTab {...props} />);
@@ -88,7 +74,6 @@ describe('BucketsTab', () => {
   it('explains a client with no bank feed and points to Review', () => {
     const props = renderTab({ feedReview: summary({ hasBankFeed: false, periodTotal: 0, doneTotal: 0, reviewed: 0, byMethod: methods() }) });
     expect(screen.getByText('This client has no bank feed')).toBeInTheDocument();
-    expect(screen.queryByText('Potential Matches')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Go to Review' }));
     expect(props.onOpenReview).toHaveBeenCalled();
   });
@@ -96,7 +81,7 @@ describe('BucketsTab', () => {
   it('says nothing is left to categorize and lists the categorized items for review', () => {
     renderTab();
     expect(screen.getByText(/Nothing left to categorize in August 2026/)).toBeInTheDocument();
-    expect(screen.queryByText('Still to categorize')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /open in banking/i })).not.toBeInTheDocument();
     expect(screen.getByText('Review what was categorized')).toBeInTheDocument();
     expect(screen.getByText('HOME DEPOT')).toBeInTheDocument();
     expect(screen.getByText('Changed from suggestion: Office Supplies')).toBeInTheDocument();
@@ -121,13 +106,12 @@ describe('BucketsTab', () => {
     expect(markMutate.mock.calls[0]![0]).toEqual({ feedItemIds: ['f1', 'f2'], reviewed: true, companyId: 'company-1' });
   });
 
-  it('shows the bucket workflow while items are still uncategorized', () => {
-    renderTab({
-      summary: { ...noBuckets, buckets: { ...noBuckets.buckets, needs_review: 2 }, totalUncategorized: 2 },
-      feedReview: summary({ periodOpen: 2, periodTotal: 5 }),
-    });
-    expect(screen.getByText('Still to categorize')).toBeInTheDocument();
+  it('links the month\'s uncategorized items to Banking, filtered to the month', () => {
+    renderTab({ feedReview: summary({ periodOpen: 2, periodTotal: 5 }) });
+    expect(screen.getByText(/still need categorizing/)).toBeInTheDocument();
     expect(screen.queryByText(/Nothing left to categorize/)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open in banking/i }))
+      .toHaveAttribute('href', '/banking/feed?from=2026-08-01&to=2026-08-31');
   });
 
   it('links uncategorized items in other months to that period', () => {

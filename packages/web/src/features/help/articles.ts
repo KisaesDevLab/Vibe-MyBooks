@@ -441,9 +441,9 @@ The month's sign-off and the close checklist. The **preparer** signs off once th
 The bar under the page title shows how many of the month's bank transactions have been reviewed.
 
 ### Bank feed
-Two passes over the bank transactions dated in the month:
-- **Still to categorize** — only shown while something is uncategorized. Items are grouped by how sure the system is: potential matches, rule matches, auto classifications, and needs review. An item leaves its bucket once it is categorized, matched, or excluded anywhere in the app.
-- **Review what was categorized** — everything already categorized, matched or excluded (usually done on the Banking screen), with the category and payee it was posted with. Filter by how it was coded: **Bank rule**, **AI suggestion**, **Payee history**, **Check image**, **By hand** (a person picked or changed the category — the original suggestion is shown), **Matched** or **Excluded**. Click **Looks right** to mark a row reviewed, or **Recategorize** to change the category and/or payee on the posted transaction (this also teaches the payee history and marks it reviewed). Select several rows to do the same in bulk. Split transactions are changed on the transaction itself.
+Categorizing happens on **Banking → Bank feed**. If anything dated in the month is still uncategorized, this tab says how many and has an **Open in Banking** button that opens the bank feed filtered to that month.
+
+**Review what was categorized** lists everything already categorized, matched or excluded (usually done on the Banking screen), with the category and payee it was posted with. Filter by how it was coded: **Bank rule**, **AI suggestion**, **Payee history**, **Check image**, **By hand** (a person picked or changed the category — the original suggestion is shown), **Matched** or **Excluded**. Click **Looks right** to mark a row reviewed, or **Recategorize** to change the category and/or payee on the posted transaction (this also teaches the payee history and marks it reviewed). Select several rows to do the same in bulk. Split transactions are changed on the transaction itself.
 
 If other months still have uncategorized items, a banner lists them — click a month to jump to it. A client with no bank feed (for example, books kept as journal entries) shows a note instead; review those books with the review checks.
 

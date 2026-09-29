@@ -10,7 +10,6 @@ import { renderRoute } from '../../../test-utils';
 // deterministic. The page itself is the unit under test; its
 // children are covered by their own unit tests.
 const flagStore: { value: boolean | undefined } = { value: true };
-const summaryStore: { data: unknown } = { data: undefined };
 const feedReviewStore: { data: unknown } = { data: undefined };
 
 vi.mock('../../../providers/CompanyProvider', () => ({
@@ -25,7 +24,6 @@ vi.mock('../../../api/hooks/useFeatureFlag', () => ({
   useFeatureFlags: () => ({ data: undefined }),
 }));
 vi.mock('../../../api/hooks/useClassificationState', () => ({
-  useSummary: () => ({ data: summaryStore.data }),
   useFeedReviewSummary: () => ({ data: feedReviewStore.data }),
   useFeedReviewList: () => ({
     data: { pages: [{ rows: [], total: 0 }], pageParams: [0] },
@@ -33,19 +31,7 @@ vi.mock('../../../api/hooks/useClassificationState', () => ({
   }),
   useMarkFeedReviewed: () => ({ mutate: vi.fn(), isPending: false }),
   useRecategorizeFeedItems: () => ({ mutate: vi.fn(), isPending: false }),
-  useBucket: () => ({ data: { rows: [], nextCursor: null }, isLoading: false }),
-  useBucketInfinite: () => ({
-    data: { pages: [{ rows: [], nextCursor: null }], pageParams: [undefined] },
-    isLoading: false,
-    hasNextPage: false,
-    isFetchingNextPage: false,
-    fetchNextPage: vi.fn(),
-  }),
-  useApprove: () => ({ mutate: vi.fn(), isPending: false }),
-  useApproveAll: () => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue({}), isPending: false }),
-  useReclassify: () => ({ mutate: vi.fn(), isPending: false }),
-  useVendorEnrichment: () => ({ data: null, isLoading: false, isError: false }),
-}));
+}))
 // The Checklist tab is the default, so its hooks (and the Findings
 // tab's, reachable by click) must be stubbed or they issue real
 // fetches in jsdom.
@@ -81,14 +67,6 @@ import { CloseReviewPage } from './CloseReviewPage';
 
 beforeEach(() => {
   flagStore.value = true;
-  summaryStore.data = {
-    periodStart: '2026-04-01T00:00:00.000Z',
-    periodEnd: '2026-05-01T00:00:00.000Z',
-    buckets: { potential_match: 0, rule: 0, auto_high: 0, auto_medium: 0, needs_review: 3 },
-    totalUncategorized: 3,
-    totalApproved: 0,
-    findingsCount: 0,
-  };
   feedReviewStore.data = undefined;
 });
 

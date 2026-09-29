@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import { useFeatureFlag } from '../../../api/hooks/useFeatureFlag';
-import { useFeedReviewSummary, useSummary } from '../../../api/hooks/useClassificationState';
+import { useFeedReviewSummary } from '../../../api/hooks/useClassificationState';
 import { defaultClosePeriod, ClosePeriodSelector } from './ClosePeriodSelector';
 import { BucketsTab } from './BucketsTab';
 import { FindingsTab } from './FindingsTab';
@@ -19,17 +19,15 @@ import { ProgressBar } from './ProgressBar';
 
 type Tab = 'checklist' | 'buckets' | 'findings' | 'accruals' | 'manual';
 
-// Close Review is the Practice tab landing page. Build plan §2.3:
+// Close Review is the Practice tab landing page: one client, one month.
 //   - Company switcher at top (reuses the sidebar one via context)
-//   - Close period selector (current + prior 3)
-//   - Summary row (rendered inside BucketsTab so it stays co-
-//     located with the bucket drill-down)
-//   - Tab nav: Buckets | Findings | Manual Queue
+//   - Close period picker (any month; defaults to the one that just ended)
+//   - Progress bar: the month's bank transactions reviewed
+//   - Tabs: Overview | Bank feed | Review | Accruals (flag) | Manual queue
 //
-// When AI_BUCKET_WORKFLOW_V1 is off, the Buckets tab is disabled
-// (the feature-flag switch can be flipped per tenant). Findings
-// and Manual Queue tabs remain visible so the page isn't
-// completely empty under that configuration.
+// When AI_BUCKET_WORKFLOW_V1 is off, the Bank feed tab is disabled
+// (the feature-flag switch can be flipped per tenant). The other tabs
+// remain so the page isn't empty under that configuration.
 export function CloseReviewPage() {
   const { activeCompanyId } = useCompanyContext();
   const bucketWorkflowEnabled = useFeatureFlag('AI_BUCKET_WORKFLOW_V1');
@@ -40,12 +38,6 @@ export function CloseReviewPage() {
   // feature-flag query: the flag is undefined on first render, so a
   // flag-off tenant landed on a disabled tab with a blank content area.)
   const [tab, setTab] = useState<Tab>('checklist');
-
-  const { data: summary } = useSummary({
-    companyId: activeCompanyId ?? null,
-    periodStart: period.periodStart,
-    periodEnd: period.periodEnd,
-  });
 
   // The progress bar tracks the reviewer pass: every bank-feed item dated in
   // the period, reviewed or not (uncategorized ones count as not reviewed).
@@ -130,7 +122,6 @@ export function CloseReviewPage() {
         <BucketsTab
           companyId={activeCompanyId ?? null}
           period={period}
-          summary={summary}
           feedReview={feedReview}
           onChangePeriod={setPeriod}
           onOpenReview={() => setTab('findings')}
@@ -167,7 +158,7 @@ function TabButton({
             ? 'border-indigo-600 text-indigo-700'
             : 'border-transparent text-gray-500 hover:text-gray-700',
       )}
-      title={disabled ? 'Enable AI_BUCKET_WORKFLOW_V1 to access the Buckets tab' : undefined}
+      title={disabled ? 'Enable AI_BUCKET_WORKFLOW_V1 to access the Bank feed tab' : undefined}
     >
       {label}
     </button>

@@ -3,6 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
 import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem, useBulkAssign, useExcludeFeedItem, useBulkApprove, useBulkExclude, useBulkUnexclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck, useSuggestAccountForContact, useBackfillFeedCheckPayees } from '../../api/hooks/useBanking';
 import type { ReprocessRulesResultDto, FeedPayeeBackfillReportDto } from '../../api/hooks/useBanking';
@@ -122,6 +123,24 @@ export function BankFeedPage() {
   // categorized, or excluded rows. Session-persisted like the other filters.
   const [actionableOnly, setActionableOnly] = useSessionState('vibe:bank-feed:actionableOnly', DEFAULT_ACTIONABLE_ONLY);
   const [ruleOnly, setRuleOnly] = useSessionState('vibe:bank-feed:ruleOnly', false);
+  // Deep link from Close Review ("Open in Banking"): ?from=YYYY-MM-DD&to=YYYY-MM-DD
+  // opens the feed on that month's still-to-do items. Applied once, then
+  // dropped from the URL so the filters stay the user's to change.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    const isDate = (v: string | null): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    if (!isDate(from) && !isDate(to)) return;
+    if (isDate(from)) setStartDate(from);
+    if (isDate(to)) setEndDate(to);
+    setActionableOnly(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('from');
+    next.delete('to');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Sort persists for the tab session like the filters do — a chosen order
   // used to reset to newest-first on every visit. One view object feeds the
   // headers and the "Sort by" dropdown alike.
