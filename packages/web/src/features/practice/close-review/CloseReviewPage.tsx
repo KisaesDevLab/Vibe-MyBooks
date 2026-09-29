@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import { useFeatureFlag } from '../../../api/hooks/useFeatureFlag';
-import { useSummary } from '../../../api/hooks/useClassificationState';
+import { useFeedReviewSummary, useSummary } from '../../../api/hooks/useClassificationState';
 import { defaultClosePeriod, ClosePeriodSelector } from './ClosePeriodSelector';
 import { BucketsTab } from './BucketsTab';
 import { FindingsTab } from './FindingsTab';
@@ -47,9 +47,16 @@ export function CloseReviewPage() {
     periodEnd: period.periodEnd,
   });
 
-  const totalRemaining = summary?.totalUncategorized ?? 0;
-  const totalApproved = summary?.totalApproved ?? 0;
-  const progressTotal = totalRemaining + totalApproved;
+  // The progress bar tracks the reviewer pass: every bank-feed item dated in
+  // the period, reviewed or not (uncategorized ones count as not reviewed).
+  // Only fetched when the bank-feed workflow is on — the endpoint is gated.
+  const { data: feedReview } = useFeedReviewSummary({
+    companyId: activeCompanyId ?? null,
+    periodStart: period.periodStart,
+    periodEnd: period.periodEnd,
+  }, bucketWorkflowEnabled !== false);
+  const progressTotal = feedReview?.periodTotal ?? 0;
+  const progressReviewed = feedReview?.reviewed ?? 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -72,11 +79,14 @@ export function CloseReviewPage() {
         </div>
       </div>
 
-      <ProgressBar
-        remaining={totalRemaining}
-        total={progressTotal}
-        label="This close period"
-      />
+      {progressTotal > 0 && (
+        <ProgressBar
+          remaining={progressTotal - progressReviewed}
+          total={progressTotal}
+          countAs="reviewed"
+          label={`Bank transactions reviewed for ${period.label}`}
+        />
+      )}
 
       <div className="flex items-center gap-1 border-b border-gray-200">
         <TabButton
@@ -110,13 +120,20 @@ export function CloseReviewPage() {
       </div>
 
       {tab === 'checklist' && (
-        <ChecklistTab period={period} onOpenFindings={() => setTab('findings')} />
+        <ChecklistTab
+          period={period}
+          onOpenFindings={() => setTab('findings')}
+          onOpenBankFeed={bucketWorkflowEnabled === false ? undefined : () => setTab('buckets')}
+        />
       )}
       {tab === 'buckets' && bucketWorkflowEnabled !== false && (
         <BucketsTab
           companyId={activeCompanyId ?? null}
           period={period}
           summary={summary}
+          feedReview={feedReview}
+          onChangePeriod={setPeriod}
+          onOpenReview={() => setTab('findings')}
         />
       )}
       {tab === 'findings' && <FindingsTab period={period} />}

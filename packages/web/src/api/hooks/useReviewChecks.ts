@@ -372,6 +372,8 @@ export interface CloseChecklistTask {
   manuallyCompleted: boolean;
   completedAt: string | null;
   note: string | null;
+  /** Findings task only: checks have not been run for this period. */
+  needsRun?: boolean;
 }
 
 const checklistKey = (companyId: string | null, periodStart: string, periodEnd?: string) =>

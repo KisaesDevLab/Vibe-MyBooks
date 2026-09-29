@@ -11,6 +11,7 @@ import { renderRoute } from '../../../test-utils';
 // children are covered by their own unit tests.
 const flagStore: { value: boolean | undefined } = { value: true };
 const summaryStore: { data: unknown } = { data: undefined };
+const feedReviewStore: { data: unknown } = { data: undefined };
 
 vi.mock('../../../providers/CompanyProvider', () => ({
   useCompanyContext: () => ({
@@ -25,6 +26,13 @@ vi.mock('../../../api/hooks/useFeatureFlag', () => ({
 }));
 vi.mock('../../../api/hooks/useClassificationState', () => ({
   useSummary: () => ({ data: summaryStore.data }),
+  useFeedReviewSummary: () => ({ data: feedReviewStore.data }),
+  useFeedReviewList: () => ({
+    data: { pages: [{ rows: [], total: 0 }], pageParams: [0] },
+    isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(),
+  }),
+  useMarkFeedReviewed: () => ({ mutate: vi.fn(), isPending: false }),
+  useRecategorizeFeedItems: () => ({ mutate: vi.fn(), isPending: false }),
   useBucket: () => ({ data: { rows: [], nextCursor: null }, isLoading: false }),
   useBucketInfinite: () => ({
     data: { pages: [{ rows: [], nextCursor: null }], pageParams: [undefined] },
@@ -81,6 +89,7 @@ beforeEach(() => {
     totalApproved: 0,
     findingsCount: 0,
   };
+  feedReviewStore.data = undefined;
 });
 
 describe('CloseReviewPage', () => {
@@ -110,5 +119,16 @@ describe('CloseReviewPage', () => {
     renderRoute(<CloseReviewPage />);
     const bucketsBtn = screen.getByRole('button', { name: 'Bank feed' });
     expect(bucketsBtn).toBeDisabled();
+  });
+
+  it('shows reviewer progress for the period, hidden when there is no bank activity', () => {
+    const empty = { rule: { total: 0, reviewed: 0 }, ai: { total: 0, reviewed: 0 }, history: { total: 0, reviewed: 0 }, check_image: { total: 0, reviewed: 0 }, manual: { total: 0, reviewed: 0 }, matched: { total: 0, reviewed: 0 }, excluded: { total: 0, reviewed: 0 } };
+    feedReviewStore.data = { periodTotal: 0, periodOpen: 0, doneTotal: 0, reviewed: 0, byMethod: empty, hasBankFeed: false, otherMonthsOpen: [] };
+    const { unmount } = renderRoute(<CloseReviewPage />);
+    expect(screen.queryByText(/reviewed$/)).not.toBeInTheDocument();
+    unmount();
+    feedReviewStore.data = { periodTotal: 253, periodOpen: 0, doneTotal: 253, reviewed: 40, byMethod: empty, hasBankFeed: true, otherMonthsOpen: [] };
+    renderRoute(<CloseReviewPage />);
+    expect(screen.getByText('40 of 253 reviewed')).toBeInTheDocument();
   });
 });

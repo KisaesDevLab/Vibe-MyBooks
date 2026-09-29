@@ -9,6 +9,7 @@ import type { CloseChecklistTask } from '../../../api/hooks/useReviewChecks';
 
 const completeMutate = vi.fn();
 const reopenMutate = vi.fn();
+const runChecksMutate = vi.fn();
 const checklistStore: { tasks: CloseChecklistTask[] } = { tasks: [] };
 
 vi.mock('../../../providers/CompanyProvider', () => ({
@@ -19,6 +20,7 @@ vi.mock('../../../api/hooks/useReviewChecks', () => ({
   useCloseChecklist: () => ({ data: { tasks: checklistStore.tasks }, isLoading: false }),
   useCompleteChecklistTask: () => ({ mutate: completeMutate, isPending: false }),
   useReopenChecklistTask: () => ({ mutate: reopenMutate, isPending: false }),
+  useRunChecks: () => ({ mutate: runChecksMutate, isPending: false }),
   useCloseRecord: () => ({ data: undefined }),
   useSignClose: () => ({ mutate: vi.fn(), isPending: false }),
   useUndoCloseSignoff: () => ({ mutate: vi.fn(), isPending: false }),
@@ -41,6 +43,7 @@ const task = (over: Partial<CloseChecklistTask>): CloseChecklistTask => ({
 beforeEach(() => {
   completeMutate.mockReset();
   reopenMutate.mockReset();
+  runChecksMutate.mockReset();
   checklistStore.tasks = [
     task({ key: 'reconcile:acct-1', section: 'reconciliations', label: 'Reconcile Checking', done: true, detail: 'Reconciled through 2026-06-30' }),
     task({ key: 'bank_feed', section: 'transactions', label: 'Clear the bank feed', detail: '3 bank-feed items dated in or before this period still need categorizing or approval' }),
@@ -91,5 +94,34 @@ describe('ChecklistTab', () => {
     renderRoute(<ChecklistTab period={PERIOD} onOpenFindings={onOpenFindings} />);
     fireEvent.click(screen.getByRole('button', { name: /open findings/i }));
     expect(onOpenFindings).toHaveBeenCalled();
+  });
+
+  it('prompts to run the checks when none have run for the period', () => {
+    checklistStore.tasks = [
+      task({ key: 'findings', section: 'review', label: 'Clear review-check findings', needsRun: true }),
+    ];
+    renderRoute(<ChecklistTab period={PERIOD} onOpenFindings={() => {}} />);
+    expect(screen.getByText(/Review checks have not been run for June 2026/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /run checks now/i }));
+    expect(runChecksMutate.mock.calls[0]![0]).toEqual({
+      companyId: 'company-1',
+      periodStart: PERIOD.periodStart,
+      periodEnd: PERIOD.periodEnd,
+    });
+  });
+
+  it('hides the run prompt once checks have run', () => {
+    renderRoute(<ChecklistTab period={PERIOD} onOpenFindings={() => {}} />);
+    expect(screen.queryByText(/have not been run/)).not.toBeInTheDocument();
+  });
+
+  it('routes the categorized-review task to the Bank feed tab', () => {
+    checklistStore.tasks = [
+      task({ key: 'bank_feed_review', section: 'transactions', label: 'Review the categorized bank transactions', detail: '0 of 253 reviewed — 253 to go' }),
+    ];
+    const onOpenBankFeed = vi.fn();
+    renderRoute(<ChecklistTab period={PERIOD} onOpenFindings={() => {}} onOpenBankFeed={onOpenBankFeed} />);
+    fireEvent.click(screen.getByRole('button', { name: /review categorized/i }));
+    expect(onOpenBankFeed).toHaveBeenCalled();
   });
 });

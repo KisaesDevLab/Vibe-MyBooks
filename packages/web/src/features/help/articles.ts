@@ -429,17 +429,23 @@ The system compares incoming transactions against existing ones based on:
     id: 'close-review',
     title: 'Month-End Close Review',
     category: 'Transactions',
-    summary: 'Review a client\'s bank feed and run review checks for one month at a time.',
+    summary: 'Review how a client\'s bank transactions were categorized and run review checks, one month at a time.',
     body: `
 ## Month-End Close Review
 
 **Practice → Close Review** is where you close one client for one month. Pick the month with the **Period** picker: step with the arrows or choose any month and year. It defaults to the month that just ended.
 
 ### Overview
-The month's sign-off and the close checklist. The **preparer** signs off once the work is done (the checks must have been run for the month), then a **reviewer** signs to close it. Either step can be undone, newest first. Practice → Clients shows each client's close status for last month.
+The month's sign-off and the close checklist. The **preparer** signs off once the work is done (the checks must have been run for the month), then a **reviewer** signs to close it. Either step can be undone, newest first. Practice → Clients shows each client's close status for last month. If the review checks haven't been run for the month yet, a banner at the top says so and has a **Run checks now** button.
+
+The bar under the page title shows how many of the month's bank transactions have been reviewed.
 
 ### Bank feed
-The bank-feed items dated in the month, grouped by how sure the system is: potential matches, rule matches, auto classifications, and needs review. An item leaves its bucket once it is categorized, matched, or excluded anywhere in the app.
+Two passes over the bank transactions dated in the month:
+- **Still to categorize** — only shown while something is uncategorized. Items are grouped by how sure the system is: potential matches, rule matches, auto classifications, and needs review. An item leaves its bucket once it is categorized, matched, or excluded anywhere in the app.
+- **Review what was categorized** — everything already categorized, matched or excluded (usually done on the Banking screen), with the category and payee it was posted with. Filter by how it was coded: **Bank rule**, **AI suggestion**, **Payee history**, **Check image**, **By hand** (a person picked or changed the category — the original suggestion is shown), **Matched** or **Excluded**. Click **Looks right** to mark a row reviewed, or **Recategorize** to change the category and/or payee on the posted transaction (this also teaches the payee history and marks it reviewed). Select several rows to do the same in bulk. Split transactions are changed on the transaction itself.
+
+If other months still have uncategorized items, a banner lists them — click a month to jump to it. A client with no bank feed (for example, books kept as journal entries) shows a note instead; review those books with the review checks.
 
 ### Review
 Nothing runs in the background: click **Run checks now** to review the selected month. The left side lists every report by section (Transaction review, Payee review, Final review) with the number still open. Pick a report to see only its rows, and switch between **To review**, **Accepted** and **Dismissed**. Select rows to:

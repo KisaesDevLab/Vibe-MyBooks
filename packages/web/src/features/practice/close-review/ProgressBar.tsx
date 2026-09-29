@@ -6,12 +6,14 @@ interface Props {
   remaining: number;
   total: number;
   label?: string;
+  /** Count wording: "3 of 10 remaining" (default) or "7 of 10 reviewed". */
+  countAs?: 'remaining' | 'reviewed';
 }
 
 // "X of Y remaining" progress surface. Build-plan §2.5 asks for
 // this on the Close Review page; used here at both the top-of-
 // page overall level and per-bucket.
-export function ProgressBar({ remaining, total, label }: Props) {
+export function ProgressBar({ remaining, total, label, countAs = 'remaining' }: Props) {
   const completed = Math.max(0, total - remaining);
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
   return (
@@ -19,7 +21,7 @@ export function ProgressBar({ remaining, total, label }: Props) {
       <div className="flex items-center justify-between text-xs text-gray-600">
         <span>{label ?? 'Progress'}</span>
         <span>
-          {remaining} of {total} remaining
+          {countAs === 'reviewed' ? `${completed} of ${total} reviewed` : `${remaining} of ${total} remaining`}
         </span>
       </div>
       <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
