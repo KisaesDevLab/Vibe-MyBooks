@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { Check, ExternalLink, Pencil, Undo2 } from 'lucide-react';
+import { Check, ExternalLink, Pencil, Undo2, UserRound } from 'lucide-react';
 import {
   useFeedReviewList,
   useMarkFeedReviewed,
@@ -84,7 +84,8 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
   const [method, setMethod] = useState<FeedReviewMethod | undefined>(undefined);
   const [status, setStatus] = useState<FeedReviewStatus>('todo');
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  // Recategorize editor: one row id, or 'bulk' for the selection.
+  // Editor: one row id, or a bulk editor for the selection (payee only or
+  // category only).
   const [editing, setEditing] = useState<string | null>(null);
   const toast = useToast();
 
@@ -209,8 +210,11 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
           <Button size="sm" onClick={() => markReviewed([...selected], true)} loading={mark.isPending}>
             <Check className="mr-1 h-4 w-4" /> Looks right
           </Button>
-          <Button size="sm" variant="secondary" onClick={() => setEditing('bulk')}>
-            <Pencil className="mr-1 h-4 w-4" /> Recategorize…
+          <Button size="sm" variant="secondary" onClick={() => setEditing('bulk-payee')}>
+            <UserRound className="mr-1 h-4 w-4" /> Change payee…
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setEditing('bulk-category')}>
+            <Pencil className="mr-1 h-4 w-4" /> Change category…
           </Button>
           {status !== 'todo' && (
             <Button size="sm" variant="secondary" onClick={() => markReviewed([...selected], false)}>
@@ -222,8 +226,10 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
           </button>
         </div>
       )}
-      {editing === 'bulk' && (
+      {(editing === 'bulk-payee' || editing === 'bulk-category') && (
         <RecategorizeEditor
+          key={editing}
+          fields={editing === 'bulk-payee' ? 'payee' : 'category'}
           count={selected.size}
           saving={recategorize.isPending}
           onCancel={() => setEditing(null)}
@@ -437,8 +443,10 @@ function FeedReviewTableRow({
 }
 
 function RecategorizeEditor({
-  count, initialAccountId = '', initialContactId = '', saving, onCancel, onApply,
+  fields = 'both', count, initialAccountId = '', initialContactId = '', saving, onCancel, onApply,
 }: {
+  /** Bulk edits change one thing at a time; a single row can change both. */
+  fields?: 'both' | 'payee' | 'category';
   count: number;
   initialAccountId?: string;
   initialContactId?: string;
@@ -451,12 +459,16 @@ function RecategorizeEditor({
   const changed = (accountId && accountId !== initialAccountId) || (contactId && contactId !== initialContactId);
   return (
     <div className="flex flex-wrap items-end gap-3 border-y border-gray-100 bg-gray-50 px-4 py-3">
-      <div className="min-w-[240px] flex-1">
-        <AccountSelector label="Category" value={accountId} onChange={setAccountId} compact />
-      </div>
-      <div className="min-w-[220px] flex-1">
-        <ContactSelector label="Payee (optional)" value={contactId} onChange={setContactId} compact />
-      </div>
+      {fields !== 'payee' && (
+        <div className="min-w-[240px] flex-1">
+          <AccountSelector label={count > 1 ? `Category for ${count} transactions` : 'Category'} value={accountId} onChange={setAccountId} compact />
+        </div>
+      )}
+      {fields !== 'category' && (
+        <div className="min-w-[220px] flex-1">
+          <ContactSelector label={count > 1 ? `Payee for ${count} transactions` : 'Payee'} value={contactId} onChange={setContactId} compact />
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <Button size="sm" variant="secondary" onClick={onCancel}>Cancel</Button>
         <Button

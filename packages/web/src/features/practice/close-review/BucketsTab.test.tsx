@@ -8,6 +8,7 @@ import { renderRoute } from '../../../test-utils';
 import type { FeedReviewRow, FeedReviewSummary } from '../../../api/hooks/useClassificationState';
 
 const markMutate = vi.fn();
+const recategorizeMutate = vi.fn();
 const listStore: { rows: FeedReviewRow[] } = { rows: [] };
 
 vi.mock('../../../api/hooks/useClassificationState', () => ({
@@ -16,7 +17,20 @@ vi.mock('../../../api/hooks/useClassificationState', () => ({
     isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(),
   }),
   useMarkFeedReviewed: () => ({ mutate: markMutate, isPending: false }),
-  useRecategorizeFeedItems: () => ({ mutate: vi.fn(), isPending: false }),
+  useRecategorizeFeedItems: () => ({ mutate: recategorizeMutate, isPending: false }),
+}));
+
+// The real selectors fetch and search; a plain input keeps the test on the
+// editor's wiring.
+vi.mock('../../../components/forms/ContactSelector', () => ({
+  ContactSelector: ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+    <input aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
+  ),
+}));
+vi.mock('../../../components/forms/AccountSelector', () => ({
+  AccountSelector: ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+    <input aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
+  ),
 }));
 
 import { BucketsTab } from './BucketsTab';
@@ -55,6 +69,7 @@ const row = (over: Partial<FeedReviewRow>): FeedReviewRow => ({
 
 beforeEach(() => {
   markMutate.mockReset();
+  recategorizeMutate.mockReset();
   listStore.rows = [
     row({}),
     row({ feedItemId: 'f2', description: 'ACME SUPPLY', amount: '-500.0000', method: 'manual', suggestedAccountName: 'Office Supplies', payeeName: null, payeeContactId: null }),
@@ -121,5 +136,29 @@ describe('BucketsTab', () => {
     const next = (props.onChangePeriod as ReturnType<typeof vi.fn>).mock.calls[0]![0] as ClosePeriod;
     expect(next.periodStart).toBe('2026-07-01T00:00:00.000Z');
     expect(next.periodEnd).toBe('2026-08-01T00:00:00.000Z');
+  });
+
+  it('changes the payee on the selection without touching the category', () => {
+    renderTab();
+    fireEvent.click(screen.getByLabelText('Select all loaded rows'));
+    fireEvent.click(screen.getByRole('button', { name: /change payee/i }));
+    expect(screen.queryByLabelText(/Category for/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Payee for 2 transactions'), { target: { value: 'contact-9' } });
+    fireEvent.click(screen.getByRole('button', { name: /save \(2\) and mark reviewed/i }));
+    expect(recategorizeMutate.mock.calls[0]![0]).toEqual({
+      feedItemIds: ['f1', 'f2'], contactId: 'contact-9', companyId: 'company-1',
+    });
+  });
+
+  it('changes the category on the selection without touching the payee', () => {
+    renderTab();
+    fireEvent.click(screen.getByLabelText('Select all loaded rows'));
+    fireEvent.click(screen.getByRole('button', { name: /change category/i }));
+    expect(screen.queryByLabelText(/Payee for/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Category for 2 transactions'), { target: { value: 'acct-7' } });
+    fireEvent.click(screen.getByRole('button', { name: /save \(2\) and mark reviewed/i }));
+    expect(recategorizeMutate.mock.calls[0]![0]).toEqual({
+      feedItemIds: ['f1', 'f2'], accountId: 'acct-7', companyId: 'company-1',
+    });
   });
 });
