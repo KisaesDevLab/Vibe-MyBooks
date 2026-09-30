@@ -25,13 +25,13 @@ vi.mock('../../../api/hooks/useClassificationState', () => ({
 // The real selectors fetch and search; a plain input keeps the test on the
 // editor's wiring.
 vi.mock('../../../components/forms/ContactSelector', () => ({
-  ContactSelector: ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
-    <input aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
+  ContactSelector: ({ label, value, onChange }: { label?: string; value: string; onChange: (v: string) => void }) => (
+    <input aria-label={label ?? 'Payee picker'} value={value} onChange={(e) => onChange(e.target.value)} />
   ),
 }));
 vi.mock('../../../components/forms/AccountSelector', () => ({
-  AccountSelector: ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
-    <input aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
+  AccountSelector: ({ label, value, onChange }: { label?: string; value: string; onChange: (v: string) => void }) => (
+    <input aria-label={label ?? 'Category picker'} value={value} onChange={(e) => onChange(e.target.value)} />
   ),
 }));
 
@@ -62,7 +62,7 @@ const summary = (over: Partial<FeedReviewSummary> = {}): FeedReviewSummary => ({
 });
 
 const row = (over: Partial<FeedReviewRow>): FeedReviewRow => ({
-  feedItemId: 'f1', feedDate: '2026-08-04', description: 'HOME DEPOT', amount: '120.5000', status: 'categorized',
+  feedItemId: 'f1', feedDate: '2026-08-04', description: 'HOME DEPOT', originalDescription: 'HOME DEPOT #4411 KALAMAZOO MI', amount: '120.5000', status: 'categorized',
   method: 'rule', bankAccountName: 'Checking', institutionName: 'Bank', mask: '1234',
   transactionId: 't1', txnType: 'expense', txnVoid: false, payeeContactId: 'c1', payeeName: 'Home Depot',
   categoryAccountId: 'a1', categoryAccountName: '6100 · Repairs', categoryCount: 1,
@@ -177,5 +177,41 @@ describe('BucketsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /^amount/i }));
     expect(last()).toMatchObject({ sortBy: 'amount', sortDir: 'desc' });
     expect(sessionStorage.getItem('vibe:close-feed-review:view')).toContain('"sortCol":"amount"');
+  });
+  it('edits a row\'s payee in place and saves on pick', () => {
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: 'Home Depot' }));
+    fireEvent.change(screen.getByLabelText('Payee picker'), { target: { value: 'contact-9' } });
+    expect(recategorizeMutate.mock.calls[0]![0]).toEqual({
+      feedItemIds: ['f1'], contactId: 'contact-9', companyId: 'company-1',
+    });
+  });
+
+  it('edits a row\'s category in place and saves on pick', () => {
+    renderTab();
+    fireEvent.click(screen.getAllByRole('button', { name: '6100 · Repairs' })[0]!);
+    fireEvent.change(screen.getByLabelText('Category picker'), { target: { value: 'acct-7' } });
+    expect(recategorizeMutate.mock.calls[0]![0]).toEqual({
+      feedItemIds: ['f1'], accountId: 'acct-7', companyId: 'company-1',
+    });
+  });
+
+  it('backs out of an inline edit with Escape without saving', () => {
+    renderTab();
+    fireEvent.click(screen.getAllByRole('button', { name: '6100 · Repairs' })[0]!);
+    fireEvent.keyDown(screen.getByLabelText('Category picker'), { key: 'Escape' });
+    expect(screen.queryByLabelText('Category picker')).not.toBeInTheDocument();
+    expect(recategorizeMutate).not.toHaveBeenCalled();
+  });
+
+  it('does not offer an inline category edit on a split', () => {
+    listStore.rows = [row({ categoryCount: 3, categoryAccountId: null, categoryAccountName: null })];
+    renderTab();
+    expect(screen.getByText('Split (3 lines)').closest('button')).toBeNull();
+  });
+
+  it('shows the bank\'s raw description on hover', () => {
+    renderTab();
+    expect(screen.getByText('HOME DEPOT')).toHaveAttribute('title', 'Bank description: HOME DEPOT #4411 KALAMAZOO MI');
   });
 });

@@ -38,6 +38,7 @@ export interface FeedReviewRow {
   feedItemId: string;
   feedDate: string;
   description: string | null;
+  originalDescription: string | null;
   amount: string;
   status: string;
   method: FeedReviewMethod;

@@ -5,13 +5,14 @@
 // Close Review → Bank feed, the reviewer pass. Lists the period's bank-feed
 // items that are already categorized, matched or excluded — usually done on
 // the Banking screen before the close — grouped by how each one got its
-// category, so a reviewer can confirm ("Looks right") or fix
-// ("Recategorize") the coding. Progress is "X of N reviewed".
+// category, so a reviewer can confirm ("Looks right") or fix the coding —
+// click a row's payee or category to change it in place, as on Banking.
+// Progress is "X of N reviewed".
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { Check, ExternalLink, Pencil, Undo2, UserRound } from 'lucide-react';
+import { Check, ExternalLink, Pencil, Undo2, UserRound, X } from 'lucide-react';
 import {
   useFeedReviewList,
   useMarkFeedReviewed,
@@ -87,9 +88,10 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
   const [method, setMethod] = useState<FeedReviewMethod | undefined>(undefined);
   const [status, setStatus] = useState<FeedReviewStatus>('todo');
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  // Editor: one row id, or a bulk editor for the selection (payee only or
-  // category only).
-  const [editing, setEditing] = useState<string | null>(null);
+  // Bulk editor for the selection (payee only or category only).
+  const [editing, setEditing] = useState<'bulk-payee' | 'bulk-category' | null>(null);
+  // Click-to-edit cell on one row. Picking a value saves right away.
+  const [inline, setInline] = useState<InlineCell | null>(null);
   const toast = useToast();
 
   // Column sort, kept for the tab session. No sort = newest first. Dates,
@@ -111,6 +113,7 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
   useEffect(() => {
     setSelected(new Set());
     setEditing(null);
+    setInline(null);
   }, [companyId, period.periodStart, method, status, view.signature]);
 
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.feedItemId));
@@ -143,6 +146,7 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
         companyId,
       },
       {
+        onSettled: () => setInline(null),
         onSuccess: (res) => {
           setEditing(null);
           setSelected(new Set());
@@ -288,8 +292,8 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
                   row={row}
                   selected={selected.has(row.feedItemId)}
                   onToggle={() => toggle(row.feedItemId)}
-                  editing={editing === row.feedItemId}
-                  onEdit={() => setEditing(editing === row.feedItemId ? null : row.feedItemId)}
+                  inlineField={inline?.feedItemId === row.feedItemId ? inline.field : null}
+                  onInlineEdit={(field) => setInline(field ? { feedItemId: row.feedItemId, field } : null)}
                   onLooksRight={() => markReviewed([row.feedItemId], true)}
                   onUndo={() => markReviewed([row.feedItemId], false)}
                   saving={recategorize.isPending}
@@ -333,21 +337,46 @@ function MethodChip({ label, count, active, onClick, title }: {
   );
 }
 
-function categoryCell(row: FeedReviewRow) {
+interface InlineCell {
+  feedItemId: string;
+  field: 'payee' | 'category';
+}
+
+function categoryLabel(row: FeedReviewRow) {
   if (row.status === 'excluded') return <span className="text-gray-400">Not posted</span>;
   if (row.categoryCount > 1) return <span className="text-gray-700">Split ({row.categoryCount} lines)</span>;
   if (!row.categoryAccountName) return <span className="text-gray-400">—</span>;
   return <span className="text-gray-900">{row.categoryAccountName}</span>;
 }
 
+// Click-to-edit picker, as on the Banking screen: picking saves at once;
+// ✕ or Escape backs out.
+function InlinePicker({ label, onCancel, children }: { label: string; onCancel: () => void; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-1" onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}>
+      <div className="min-w-[12rem] flex-1">{children}</div>
+      <button
+        type="button"
+        onClick={onCancel}
+        aria-label={`Cancel ${label} edit`}
+        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+const EDITABLE_CELL = 'text-left rounded px-1 -mx-1 hover:bg-gray-100 hover:text-indigo-700 disabled:cursor-wait';
+
 function FeedReviewTableRow({
-  row, selected, onToggle, editing, onEdit, onLooksRight, onUndo, saving, onApply, busy,
+  row, selected, onToggle, inlineField, onInlineEdit, onLooksRight, onUndo, saving, onApply, busy,
 }: {
   row: FeedReviewRow;
   selected: boolean;
   onToggle: () => void;
-  editing: boolean;
-  onEdit: () => void;
+  inlineField: InlineCell['field'] | null;
+  onInlineEdit: (field: InlineCell['field'] | null) => void;
   onLooksRight: () => void;
   onUndo: () => void;
   saving: boolean;
@@ -357,106 +386,130 @@ function FeedReviewTableRow({
   // Feed amounts are positive for money out; show money in as positive.
   const amount = -Number(row.amount);
   const canRecategorize = row.status !== 'excluded' && !!row.transactionId && !row.txnVoid;
+  // A split has no single category line to swap — that's edited on the
+  // transaction itself.
+  const canEditCategory = canRecategorize && row.categoryCount <= 1;
   const bank = row.bankAccountName ?? row.institutionName;
+  const bankText = row.originalDescription ?? row.description;
   return (
-    <>
-      <tr className={clsx(selected && 'bg-indigo-50/50')}>
-        <td className="px-3 py-2 align-top">
-          <input type="checkbox" aria-label={`Select ${row.description ?? 'transaction'}`} checked={selected} onChange={onToggle} />
-        </td>
-        <td className="whitespace-nowrap px-3 py-2 align-top text-gray-700">{row.feedDate}</td>
-        <td className="px-3 py-2 align-top">
-          <div className="text-gray-900">{row.description ?? '—'}</div>
-          {bank && <div className="text-xs text-gray-500">{bank}{row.mask ? ` ••${row.mask}` : ''}</div>}
-        </td>
-        <td className="px-3 py-2 align-top">
-          {row.payeeName ?? <span className="text-amber-700">No payee</span>}
-        </td>
-        <td className="px-3 py-2 align-top">
-          {categoryCell(row)}
-          {row.suggestedAccountName && (
-            <div className="text-xs text-gray-500">Changed from suggestion: {row.suggestedAccountName}</div>
-          )}
-          {row.txnVoid && <div className="text-xs text-rose-700">Transaction is void</div>}
-        </td>
-        <td className="px-3 py-2 align-top">
-          <span
-            title={METHOD_HINTS[row.method]}
-            className={clsx('inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium', METHOD_TONES[row.method])}
-          >
-            {METHOD_LABELS[row.method]}
-          </span>
-        </td>
-        <td className={clsx('whitespace-nowrap px-3 py-2 text-right align-top tabular-nums', amount > 0 ? 'text-emerald-700' : 'text-gray-900')}>
-          {money.format(amount)}
-        </td>
-        <td className="px-3 py-2 align-top">
-          <div className="flex items-center justify-end gap-1.5">
-            {row.reviewedAt ? (
-              <button
-                type="button"
-                onClick={onUndo}
-                disabled={busy}
-                title="Undo the review mark"
-                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-              >
-                <Check className="h-3.5 w-3.5" /> Reviewed
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onLooksRight}
-                disabled={busy}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-              >
-                <Check className="h-3.5 w-3.5" /> Looks right
-              </button>
-            )}
-            {canRecategorize && (
-              <button
-                type="button"
-                onClick={onEdit}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
-              >
-                <Pencil className="h-3.5 w-3.5" /> Recategorize
-              </button>
-            )}
-            {row.transactionId && (
-              <Link
-                to={`/transactions/${row.transactionId}`}
-                title="Open the transaction"
-                aria-label="Open the transaction"
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Link>
-            )}
-          </div>
-        </td>
-      </tr>
-      {editing && (
-        <tr>
-          <td colSpan={8} className="p-0">
-            <RecategorizeEditor
-              count={1}
-              initialAccountId={row.categoryCount === 1 ? (row.categoryAccountId ?? '') : ''}
-              initialContactId={row.payeeContactId ?? ''}
-              saving={saving}
-              onCancel={onEdit}
-              onApply={onApply}
+    <tr className={clsx(selected && 'bg-indigo-50/50')}>
+      <td className="px-3 py-2 align-top">
+        <input type="checkbox" aria-label={`Select ${row.description ?? 'transaction'}`} checked={selected} onChange={onToggle} />
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 align-top text-gray-700">{row.feedDate}</td>
+      <td className="px-3 py-2 align-top">
+        <div
+          className={clsx('text-gray-900', bankText && 'cursor-help')}
+          title={bankText ? `Bank description: ${bankText}` : undefined}
+        >
+          {row.description ?? '—'}
+        </div>
+        {bank && <div className="text-xs text-gray-500">{bank}{row.mask ? ` ••${row.mask}` : ''}</div>}
+      </td>
+      <td className="px-3 py-2 align-top">
+        {inlineField === 'payee' ? (
+          <InlinePicker label="payee" onCancel={() => onInlineEdit(null)}>
+            <ContactSelector
+              value={row.payeeContactId ?? ''}
+              onChange={(v) => { if (v && v !== row.payeeContactId) onApply('', v); }}
+              compact
             />
-          </td>
-        </tr>
-      )}
-    </>
+          </InlinePicker>
+        ) : canRecategorize ? (
+          <button
+            type="button"
+            onClick={() => onInlineEdit('payee')}
+            disabled={saving}
+            title="Click to change the payee"
+            className={EDITABLE_CELL}
+          >
+            {row.payeeName ?? <span className="text-amber-700">No payee</span>}
+          </button>
+        ) : (
+          row.payeeName ?? <span className="text-amber-700">No payee</span>
+        )}
+      </td>
+      <td className="px-3 py-2 align-top">
+        {inlineField === 'category' ? (
+          <InlinePicker label="category" onCancel={() => onInlineEdit(null)}>
+            <AccountSelector
+              value={row.categoryAccountId ?? ''}
+              onChange={(v) => { if (v && v !== row.categoryAccountId) onApply(v, ''); }}
+              compact
+            />
+          </InlinePicker>
+        ) : canEditCategory ? (
+          <button
+            type="button"
+            onClick={() => onInlineEdit('category')}
+            disabled={saving}
+            title="Click to change the category"
+            className={EDITABLE_CELL}
+          >
+            {categoryLabel(row)}
+          </button>
+        ) : (
+          categoryLabel(row)
+        )}
+        {row.suggestedAccountName && (
+          <div className="text-xs text-gray-500">Changed from suggestion: {row.suggestedAccountName}</div>
+        )}
+        {row.txnVoid && <div className="text-xs text-rose-700">Transaction is void</div>}
+      </td>
+      <td className="px-3 py-2 align-top">
+        <span
+          title={METHOD_HINTS[row.method]}
+          className={clsx('inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium', METHOD_TONES[row.method])}
+        >
+          {METHOD_LABELS[row.method]}
+        </span>
+      </td>
+      <td className={clsx('whitespace-nowrap px-3 py-2 text-right align-top tabular-nums', amount > 0 ? 'text-emerald-700' : 'text-gray-900')}>
+        {money.format(amount)}
+      </td>
+      <td className="px-3 py-2 align-top">
+        <div className="flex items-center justify-end gap-1.5">
+          {row.reviewedAt ? (
+            <button
+              type="button"
+              onClick={onUndo}
+              disabled={busy}
+              title="Undo the review mark"
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+            >
+              <Check className="h-3.5 w-3.5" /> Reviewed
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onLooksRight}
+              disabled={busy}
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Check className="h-3.5 w-3.5" /> Looks right
+            </button>
+          )}
+          {row.transactionId && (
+            <Link
+              to={`/transactions/${row.transactionId}`}
+              title="Open the transaction"
+              aria-label="Open the transaction"
+              className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
 
 function RecategorizeEditor({
-  fields = 'both', count, initialAccountId = '', initialContactId = '', saving, onCancel, onApply,
+  fields, count, initialAccountId = '', initialContactId = '', saving, onCancel, onApply,
 }: {
-  /** Bulk edits change one thing at a time; a single row can change both. */
-  fields?: 'both' | 'payee' | 'category';
+  /** Bulk edits change one thing at a time. */
+  fields: 'payee' | 'category';
   count: number;
   initialAccountId?: string;
   initialContactId?: string;
