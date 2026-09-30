@@ -19,6 +19,8 @@ export interface FsReportListItem {
   id: string;
   name: string;
   periodEnd: string;
+  periodStart: string | null;
+  periodType: string | null;
   framework: 'gaap' | 'cash' | 'tax';
   bookBasis: 'accrual' | 'cash';
   status: 'draft' | 'final';

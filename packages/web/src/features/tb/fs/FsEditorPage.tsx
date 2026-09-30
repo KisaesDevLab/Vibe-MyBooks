@@ -32,6 +32,9 @@ import { useToast } from '../../../components/ui/Toaster';
 import { FsOutlinePanel } from './FsOutlinePanel';
 import { CashFlowPanel, ChecksPanel, FrontMatterPanel, StatementSettingsPanel, StylePanel } from './FsPanels';
 import { FsLivePreview, FsPdfProof } from './FsPreview';
+import { FsColumnsPicker, FsPeriodPicker, periodOf } from './FsPeriodPicker';
+import { fsResolvePeriod } from '@kis-books/shared';
+import { useTbProfile } from '../../../api/hooks/useTb';
 
 type Tab = 'statements' | 'style' | 'front' | 'cashflow' | 'checks';
 
@@ -58,6 +61,8 @@ export function FsEditorPage() {
   const { data: library } = useFsLibrary();
   const { data: tagsData } = useTags({ isActive: true });
   const { data: cfData } = useFsCashFlowOverrides();
+  const { data: tbProfile } = useTbProfile();
+  const fyStartMonth = tbProfile?.fiscal.fiscalYearStartMonth ?? 1;
   const saveCf = useSaveFsCashFlowOverrides();
 
   const [name, setName] = useState('');
@@ -241,13 +246,22 @@ export function FsEditorPage() {
           </div>
         </div>
         <fieldset disabled={isFinal} className="flex flex-wrap items-center gap-3 text-sm">
-          <label className="flex items-center gap-1.5">Period end
-            <input type="date" className="rounded-md border border-gray-300 px-2 text-sm py-1" value={settings.periodEnd} onChange={(e) => e.target.value && setS({ periodEnd: e.target.value })} />
-          </label>
+          <span className="flex items-center gap-1.5">Period
+            <FsPeriodPicker fyStartMonth={fyStartMonth} taxBasis={settings.framework === 'tax'} disabled={isFinal}
+              value={periodOf(settings, fyStartMonth)}
+              onChange={(v) => setS({ periodEnd: v.end, period: { type: v.type, start: v.start } })} />
+          </span>
           <label className="flex items-center gap-1.5">Basis
             <select className="rounded-md border border-gray-300 px-2 text-sm py-1" value={settings.framework} onChange={(e) => {
               const framework = e.target.value as FsReportSettings['framework'];
-              setS({ framework, bookBasis: framework === 'cash' ? 'cash' : settings.bookBasis, columns: framework === 'tax' && settings.columns.mode === 'month_ytd' ? { ...settings.columns, mode: 'single' } : settings.columns });
+              const toTax = framework === 'tax';
+              const annual = toTax ? fsResolvePeriod('annual', settings.periodEnd, fyStartMonth) : null;
+              setS({
+                framework, bookBasis: framework === 'cash' ? 'cash' : settings.bookBasis,
+                // Tax basis is annual only (tax adjustments are undated).
+                ...(annual ? { periodEnd: annual.end, period: { type: 'annual', start: annual.start } } : {}),
+                columns: toTax && !['single', 'cy_py'].includes(settings.columns.mode) ? { ...settings.columns, mode: 'single' } : settings.columns,
+              });
             }}>
               <option value="gaap">GAAP</option><option value="cash">Cash basis</option><option value="tax">Income tax basis</option>
             </select>
@@ -257,20 +271,9 @@ export function FsEditorPage() {
               <option value="accrual">Accrual</option><option value="cash">Cash</option>
             </select>
           )}
-          <label className="flex items-center gap-1.5">Columns
-            <select className="rounded-md border border-gray-300 px-2 text-sm py-1" value={settings.columns.mode} onChange={(e) => setS({ columns: { ...settings.columns, mode: e.target.value as FsReportSettings['columns']['mode'] } })}>
-              <option value="single">This period</option>
-              <option value="cy_py">This year vs prior year</option>
-              {settings.framework !== 'tax' && <option value="month_ytd">Month + year to date</option>}
-            </select>
-          </label>
-          <label className="flex items-center gap-1"><input type="checkbox" checked={settings.columns.pctOfRevenue} onChange={(e) => setS({ columns: { ...settings.columns, pctOfRevenue: e.target.checked } })} />% of revenue</label>
-          {settings.columns.mode === 'cy_py' && (
-            <>
-              <label className="flex items-center gap-1"><input type="checkbox" checked={settings.columns.varianceAmt} onChange={(e) => setS({ columns: { ...settings.columns, varianceAmt: e.target.checked } })} />$ change</label>
-              <label className="flex items-center gap-1"><input type="checkbox" checked={settings.columns.variancePct} onChange={(e) => setS({ columns: { ...settings.columns, variancePct: e.target.checked } })} />% change</label>
-            </>
-          )}
+          <span className="flex items-center gap-1.5">Columns
+            <FsColumnsPicker value={settings.columns} taxBasis={settings.framework === 'tax'} disabled={isFinal} onChange={(columns) => setS({ columns })} />
+          </span>
           <label className="flex items-center gap-1.5">Tag
             <select className="rounded-md border border-gray-300 px-2 text-sm py-1 max-w-[10rem]" value={settings.tagId ?? ''} onChange={(e) => setS({ tagId: e.target.value || null })}>
               <option value="">Whole company</option>
@@ -383,7 +386,7 @@ export function FsEditorPage() {
             {view === 'pdf' ? <FsPdfProof {...pdf} /> : computed.error ? (
               <div className="p-6 text-sm text-red-700">{computed.error}</div>
             ) : preview.isError ? (
-              <div className="p-6 text-sm text-red-700">Could not load the ledger balances. <button className="underline" onClick={() => preview.refetch()}>Retry</button></div>
+              <div className="p-6 text-sm text-red-700">{isApiError(preview.error) && preview.error.status === 400 ? preview.error.message : 'Could not load the ledger balances.'} <button className="underline" onClick={() => preview.refetch()}>Retry</button></div>
             ) : html ? <FsLivePreview html={html} /> : <LoadingSpinner className="py-16" />}
           </div>
         </div>

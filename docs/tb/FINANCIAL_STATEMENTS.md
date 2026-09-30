@@ -20,6 +20,19 @@ Draft → Final versioning, PDF / DOCX / XLSX output and portal publishing.
 | Routes | `packages/api/src/routes/tb-fs.routes.ts` (mounted at `/api/v1/tb/fs`) |
 | Web | `packages/web/src/features/tb/fs/` |
 
+## Reporting periods (migration 0190)
+
+`fs_reports.period_type` / `period_start` (NULL = legacy fiscal-YTD,
+normalized by `normalizeFsSettings`). `fsPlanColumns` (shared
+`periods.ts`) turns settings into income-statement ranges, balance-sheet
+points, cash-flow ranges and equity blocks, plus the workpaper dates the
+loader fetches. Any range's P&L = `fsRangeComposition`: per fiscal-year
+segment `YTD(b) − YTD(a−1)` (dropped at FY start), so ranges may cross
+fiscal year-ends. Equity blocks chain when contiguous; otherwise each
+starts at "Balance, <day before start>". Side-by-side applies to the
+income statement + schedules; > 6 amount columns turns the statement
+landscape unless it pins an orientation. Tax basis is annual only.
+
 ## Numbers
 
 - Source = `computeWorkpaper` per period: Adjusted column (GAAP / cash) or
@@ -27,7 +40,6 @@ Draft → Final versioning, PDF / DOCX / XLSX output and portal publishing.
   current-year only), surfaced as `TB_FS_TAX_PY_RJE`.
 - Balance sheets are **closed**: fiscal-year-to-date P&L is folded into the
   retained-earnings fold account (system RE, else the virtual RE row).
-- Month column = YTD − prior month-end YTD within the fiscal year.
 - A tag filter applies to the income statement only; equity and cash flows
   are suppressed with `TB_FS_TAG_PARTIAL`.
 

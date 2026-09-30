@@ -405,7 +405,7 @@ function ScheduleEditor({ node, source, readOnly, onLines, onPullOut }: {
     ?? (node.ref.leadsheetCode ? source.groupings.find((x) => x.code === node.ref.leadsheetCode) : undefined) ?? null;
   const acctById = new Map(source.accounts.map((a) => [a.id, a]));
   const order = (a: string, b: string) => (acctById.get(a)?.number ?? '').localeCompare(acctById.get(b)?.number ?? '', undefined, { numeric: true });
-  const cy = source.periods.cy?.balances ?? {};
+  const cy = source.workpapers[source.periodEnd]?.balances ?? {};
   const ids = (g?.accountIds ?? []).filter((id) => {
     const t = acctById.get(id)?.accountType;
     return !!t;

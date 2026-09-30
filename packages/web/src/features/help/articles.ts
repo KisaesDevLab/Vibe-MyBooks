@@ -2815,7 +2815,7 @@ Tax-basis-only entries that never touch the books — they shape the Tax column,
     summary: 'Build presentation-quality balance sheets, income statements, equity and cash flow statements with schedules, your letterhead and accountant\'s report.',
     body: `Trial Balance → Financial Statements builds report-ready statements from the client's leadsheets. It appears when an administrator turns on FINANCIAL_STATEMENTS_V1 (with TRIAL_BALANCE_V1) for the client.
 
-**Creating statements.** Click New statements, pick the period end, the basis (GAAP, cash basis, or income tax basis — tax basis uses the Tax column, including tax adjustments), and the columns: this period only, this year vs prior year, or month + year to date, optionally with % of revenue and $ / % change. Start from the built-in layout, this client's saved layout, or a firm template (you'll be asked to match any template lines to this client's leadsheets).
+**Creating statements.** Click New statements and pick the reporting period — a fiscal year, a fiscal quarter, a month, year to date, or any date range (ranges may cross a fiscal year-end, e.g. a trailing twelve months). Choose the basis (GAAP, cash basis, or income tax basis — tax basis uses the Tax column and is annual only) and the columns: this period; this period vs the same period last year (with $ / % change); period + year to date; period + year to date vs last year; or side by side by month or quarter with a Total column (wide statements print landscape automatically). In comparative layouts choose whether the balance sheet compares to the prior fiscal year-end or the same date last year. The equity statement and statement of cash flows cover the selected period (plus year to date when shown). Roll forward creates the next period (next quarter, month, or year). Start from the built-in layout, this client's saved layout, or a firm template (you'll be asked to match any template lines to this client's leadsheets).
 
 **The editor.** The left panel edits; the right shows a live preview of the printed pages.
 - **Statements**: include / exclude and reorder the balance sheet, income statement, equity statement and statement of cash flows; change titles; set orientation or paper per statement.
@@ -2828,6 +2828,8 @@ Tax-basis-only entries that never touch the books — they shape the Tax column,
 **Exact PDF** renders the real PDF of your unsaved changes. **Download** gives PDF, Word (.docx — real tables you can edit) or Excel (.xlsx — totals are live formulas).
 
 **Finalize** freezes the numbers, layout and PDF as a version. If the ledger changes afterwards the version is marked "Ledger changed" (and tells you whether these statements would actually differ) but never changes. Reopen to make changes — finalizing again creates the next version. From **Versions** you can download any version and **Publish to portal**, which puts the PDF on the client's portal Financials page.
+
+**Leadsheets** (Trial Balance → Leadsheets) decide which accounts land on which statement line: use Move to… on any account row to move it to another leadsheet or remove it, and Add account to pull any account (including zero-balance ones) into the leadsheet you're viewing.
 
 **Firm library** (link at the top of the list): letterhead and logo, accountant's report templates (seeded from the standard compilation and preparation reports), style presets and layout templates — shared by every client your firm serves. Only firm administrators can change it; save a client's layout as a template from the editor.`,
   },

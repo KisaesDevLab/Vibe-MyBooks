@@ -9,7 +9,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookMarked, CheckCircle2, FilePlus2, Globe, RotateCw, Trash2, TriangleAlert } from 'lucide-react';
-import type { FsColumnMode, FsFramework } from '@kis-books/shared';
+import { fsFiscalYearStart, fsResolvePeriod, fsRangePhrase, type FsColumnsConfig, type FsFramework } from '@kis-books/shared';
+import { FsColumnsPicker, FsPeriodPicker, type FsPeriodValue } from './FsPeriodPicker';
 import {
   useArchiveFsReport, useCreateFsReport, useFsBindPreview, useFsLayouts, useFsLibrary, useFsReports, useRollForwardFsReport,
 } from '../../../api/hooks/useFinancialStatements';
@@ -34,6 +35,8 @@ export function FsReportListPage() {
   const toast = useToast();
   const [offset, setOffset] = useState(0);
   const { data, isLoading, isError, refetch } = useFsReports({ limit: PAGE, offset });
+  const { data: tbProfile } = useTbProfile();
+  const fyStartMonth = tbProfile?.fiscal.fiscalYearStartMonth ?? 1;
   const [creating, setCreating] = useState(false);
   const [archiveId, setArchiveId] = useState<string | null>(null);
   const archive = useArchiveFsReport();
@@ -72,7 +75,7 @@ export function FsReportListPage() {
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Period end</th>
+                <th className="px-4 py-2 font-medium">Period</th>
                 <th className="px-4 py-2 font-medium">Basis</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium text-right">Actions</th>
@@ -82,7 +85,7 @@ export function FsReportListPage() {
               {data.reports.map((r) => (
                 <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/tb/financial-statements/${r.id}`)}>
                   <td className="px-4 py-2 font-medium text-gray-900">{r.name}</td>
-                  <td className="px-4 py-2 text-gray-700">{r.periodEnd}</td>
+                  <td className="px-4 py-2 text-gray-700">{fsRangePhrase(r.periodStart ?? fsFiscalYearStart(r.periodEnd, fyStartMonth), r.periodEnd, fyStartMonth).replace(/^For the /, '')}</td>
                   <td className="px-4 py-2 text-gray-700">{FRAMEWORK_LABEL[r.framework]}{r.framework !== 'cash' ? ` · ${r.bookBasis}` : ''}</td>
                   <td className="px-4 py-2">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -147,18 +150,19 @@ function NewStatementsDialog({ onClose, onCreated }: { onClose: () => void; onCr
   const bind = useFsBindPreview();
   const defaultEnd = profile?.fiscal.priorFiscalYearEnd ?? `${new Date().getFullYear() - 1}-12-31`;
   const [name, setName] = useState('');
-  const [periodEnd, setPeriodEnd] = useState('');
+  const fyStartMonth = profile?.fiscal.fiscalYearStartMonth ?? 1;
+  const [periodSel, setPeriodSel] = useState<FsPeriodValue | null>(null);
   const [framework, setFramework] = useState<FsFramework>('gaap');
   const [bookBasis, setBookBasis] = useState<'accrual' | 'cash'>(profile?.fiscal.accountingMethod === 'cash' ? 'cash' : 'accrual');
-  const [mode, setMode] = useState<FsColumnMode>('cy_py');
-  const [pct, setPct] = useState(false);
-  const [varAmt, setVarAmt] = useState(false);
-  const [varPct, setVarPct] = useState(false);
+  const [columns, setColumns] = useState<FsColumnsConfig>({ mode: 'cy_py', pctOfRevenue: false, varianceAmt: false, variancePct: false });
   const [source, setSource] = useState<Source>({ kind: 'default' });
   const [presetId, setPresetId] = useState<string>('');
   const [resolutions, setResolutions] = useState<Record<string, string | null>>({});
-  const end = periodEnd || defaultEnd;
-  const effMode: FsColumnMode = framework === 'tax' && mode === 'month_ytd' ? 'single' : mode;
+  const period: FsPeriodValue = periodSel ?? fsResolvePeriod('annual', defaultEnd, fyStartMonth);
+  const end = period.end;
+  // Tax basis is annual only (tax adjustments are undated).
+  const effPeriod: FsPeriodValue = framework === 'tax' && period.type !== 'annual' ? fsResolvePeriod('annual', period.end, fyStartMonth) : period;
+  const effColumns: FsColumnsConfig = framework === 'tax' && !['single', 'cy_py'].includes(columns.mode) ? { ...columns, mode: 'single' } : columns;
 
   const pickSource = (s: Source) => {
     setSource(s);
@@ -171,8 +175,9 @@ function NewStatementsDialog({ onClose, onCreated }: { onClose: () => void; onCr
     create.mutate({
       name: name.trim() || `Financial Statements ${end.slice(0, 4)}`,
       settings: {
-        periodEnd: end, framework, bookBasis: framework === 'cash' ? 'cash' : bookBasis,
-        columns: { mode: effMode, pctOfRevenue: pct, varianceAmt: effMode === 'cy_py' && varAmt, variancePct: effMode === 'cy_py' && varPct },
+        periodEnd: effPeriod.end, period: { type: effPeriod.type, start: effPeriod.start },
+        framework, bookBasis: framework === 'cash' ? 'cash' : bookBasis,
+        columns: { ...effColumns, varianceAmt: effColumns.mode === 'cy_py' && effColumns.varianceAmt, variancePct: effColumns.mode === 'cy_py' && effColumns.variancePct },
         tagId: null,
       },
       layoutSource: source.kind === 'company_layout'
@@ -201,10 +206,6 @@ function NewStatementsDialog({ onClose, onCreated }: { onClose: () => void; onCr
               <input className="mt-1 w-full rounded-md border border-gray-300 px-2 text-sm" placeholder={`Financial Statements ${end.slice(0, 4)}`} value={name} onChange={(e) => setName(e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-gray-700 font-medium">Period end</span>
-              <input type="date" className="mt-1 w-full rounded-md border border-gray-300 px-2 text-sm" value={end} onChange={(e) => setPeriodEnd(e.target.value)} />
-            </label>
-            <label className="block">
               <span className="text-gray-700 font-medium">Reporting basis</span>
               <select className="mt-1 w-full rounded-md border border-gray-300 px-2 text-sm" value={framework} onChange={(e) => setFramework(e.target.value as FsFramework)}>
                 <option value="gaap">GAAP (book)</option>
@@ -223,21 +224,14 @@ function NewStatementsDialog({ onClose, onCreated }: { onClose: () => void; onCr
             )}
           </div>
 
-          <fieldset>
-            <legend className="text-gray-700 font-medium">Columns</legend>
-            <div className="mt-1 flex flex-wrap gap-4">
-              {([['single', 'This period only'], ['cy_py', 'This year vs prior year'], ['month_ytd', 'Month + year to date']] as const).map(([v, l]) => (
-                <label key={v} className={`inline-flex items-center gap-1.5 ${framework === 'tax' && v === 'month_ytd' ? 'opacity-40' : ''}`}>
-                  <input type="radio" name="mode" checked={effMode === v} disabled={framework === 'tax' && v === 'month_ytd'} onChange={() => setMode(v)} />{l}
-                </label>
-              ))}
-            </div>
-            <div className="mt-2 flex flex-wrap gap-4 text-gray-600">
-              <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={pct} onChange={(e) => setPct(e.target.checked)} />% of revenue</label>
-              {effMode === 'cy_py' && <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={varAmt} onChange={(e) => setVarAmt(e.target.checked)} />$ change</label>}
-              {effMode === 'cy_py' && <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={varPct} onChange={(e) => setVarPct(e.target.checked)} />% change</label>}
-            </div>
-          </fieldset>
+          <div>
+            <span className="text-gray-700 font-medium">Reporting period</span>
+            <div className="mt-1"><FsPeriodPicker value={effPeriod} fyStartMonth={fyStartMonth} taxBasis={framework === 'tax'} onChange={setPeriodSel} /></div>
+          </div>
+          <div>
+            <span className="text-gray-700 font-medium">Columns</span>
+            <div className="mt-1"><FsColumnsPicker value={effColumns} taxBasis={framework === 'tax'} onChange={setColumns} /></div>
+          </div>
 
           <fieldset>
             <legend className="text-gray-700 font-medium">Layout</legend>
