@@ -2831,7 +2831,7 @@ Tax-basis-only entries that never touch the books — they shape the Tax column,
 
 **Leadsheets** (Trial Balance → Leadsheets) decide which accounts land on which statement line: use Move to… on any account row to move it to another leadsheet or remove it, and Add account to pull any account (including zero-balance ones) into the leadsheet you're viewing.
 
-**Firm library** (link at the top of the list): letterhead and logo, accountant's report templates (seeded from the standard compilation and preparation reports), style presets and layout templates — shared by every client your firm serves. Only firm administrators can change it; save a client's layout as a template from the editor.`,
+**Firm library** (link at the top of the list): letterhead and logo (show the logo, the firm name and address, or both; logo small, medium, full width inside the margins, or edge to edge across the top of the page), accountant's report templates (seeded from the standard compilation and preparation reports), style presets and layout templates — shared by every client your firm serves. Only firm administrators can change it; save a client's layout as a template from the editor.`,
   },
 
   // ─── Client Portal ────────────────────────────────────────────

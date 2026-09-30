@@ -70,6 +70,7 @@ function LetterheadTab({ lh, canEdit }: { lh: FsLibrary['letterhead']; canEdit: 
       displayName: lh?.displayName ?? '', addressLine1: lh?.addressLine1 ?? '', addressLine2: lh?.addressLine2 ?? '', city: lh?.city ?? '',
       state: lh?.state ?? '', postalCode: lh?.postalCode ?? '', phone: lh?.phone ?? '', email: lh?.email ?? '', website: lh?.website ?? '',
       logoDataUri: lh?.logoDataUri ?? null, accountantSignature: lh?.accountantSignature ?? '', letterheadAlign: lh?.letterheadAlign ?? 'left',
+      letterheadContent: lh?.letterheadContent ?? 'both', logoSize: lh?.logoSize ?? 'small',
     });
   }, [lh]);
   const set = (k: keyof FsLetterheadInput, v: string | null) => setForm((f) => ({ ...f, [k]: v }));
@@ -95,9 +96,24 @@ function LetterheadTab({ lh, canEdit }: { lh: FsLibrary['letterhead']; canEdit: 
         <div className="grid grid-cols-2 gap-2">{text('phone', 'Phone')}{text('email', 'Email')}</div>
         {text('website', 'Website')}
         {text('accountantSignature', "Signature line (e.g. 'Smith & Co., CPAs')")}
-        <label className="block"><span className="text-xs font-medium text-gray-600">Letterhead alignment</span>
-          <select className={`mt-0.5 ${input}`} value={form.letterheadAlign ?? 'left'} onChange={(e) => set('letterheadAlign', e.target.value)}>
-            <option value="left">Left</option><option value="center">Centered</option>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block"><span className="text-xs font-medium text-gray-600">Letterhead shows</span>
+            <select className={`mt-0.5 ${input}`} value={form.letterheadContent ?? 'both'} onChange={(e) => set('letterheadContent', e.target.value)}>
+              <option value="both">Logo and firm name / address</option>
+              <option value="logo">Logo only</option>
+              <option value="text">Firm name / address only</option>
+            </select></label>
+          <label className="block"><span className="text-xs font-medium text-gray-600">Alignment</span>
+            <select className={`mt-0.5 ${input}`} value={form.letterheadAlign ?? 'left'} onChange={(e) => set('letterheadAlign', e.target.value)}>
+              <option value="left">Left</option><option value="center">Centered</option><option value="right">Right</option>
+            </select></label>
+        </div>
+        <label className="block"><span className="text-xs font-medium text-gray-600">Logo size</span>
+          <select className={`mt-0.5 ${input}`} value={form.logoSize ?? 'small'} disabled={!canEdit || (form.letterheadContent ?? 'both') === 'text'} onChange={(e) => set('logoSize', e.target.value)}>
+            <option value="small">Small (up to 0.9 in tall)</option>
+            <option value="medium">Medium (up to 1.5 in tall)</option>
+            <option value="content_width">Full width, inside the page margins</option>
+            <option value="full_bleed">Edge to edge — top and sides of the page (banner)</option>
           </select></label>
         <div>
           <span className="text-xs font-medium text-gray-600">Logo (PNG or JPEG, up to 700 KB)</span>
@@ -108,18 +124,50 @@ function LetterheadTab({ lh, canEdit }: { lh: FsLibrary['letterhead']; canEdit: 
         </div>
         {canEdit && <Button loading={save.isPending} onClick={() => save.mutate(form, { onSuccess: () => toast.success('Letterhead saved'), onError: (e) => toast.error(isApiError(e) ? e.message : 'Save failed') })}>Save letterhead</Button>}
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <p className="text-xs uppercase tracking-wide text-gray-400 mb-3">Preview</p>
-        <div className={form.letterheadAlign === 'center' ? 'text-center' : ''}>
-          {form.logoDataUri && <img src={form.logoDataUri} alt="" className={`max-h-16 max-w-[200px] mb-2 ${form.letterheadAlign === 'center' ? 'mx-auto' : ''}`} />}
-          <div className="font-bold text-gray-900">{form.displayName || 'Your firm name'}</div>
-          <div className="text-xs text-gray-600">
-            {[form.addressLine1, form.addressLine2, [form.city, [form.state, form.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).map((l, i) => <div key={i}>{l}</div>)}
-            <div>{[form.phone, form.email, form.website].filter(Boolean).join(' · ')}</div>
-          </div>
+      <LetterheadPreview form={form} />
+    </fieldset>
+  );
+}
+
+// Scaled page (1 in = 40 px) showing the letterhead as it prints on the
+// accountant's report, with 1-inch margins.
+function LetterheadPreview({ form }: { form: FsLetterheadInput }) {
+  const IN = 40;
+  const content = form.letterheadContent ?? 'both';
+  const size = form.logoSize ?? 'small';
+  const align = form.letterheadAlign ?? 'left';
+  const logo = form.logoDataUri && content !== 'text' ? form.logoDataUri : null;
+  const showText = content !== 'logo' || !form.logoDataUri;
+  const alignCls = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
+  const logoPos = align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : '';
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Preview — accountant&apos;s report page</p>
+      <div className="relative mx-auto bg-white shadow border border-gray-200 overflow-hidden" style={{ width: 8.5 * IN, height: 11 * IN, padding: IN }}>
+        <div className={alignCls}>
+          {logo && size === 'full_bleed' && (
+            <img src={logo} alt="" style={{ display: 'block', width: 8.5 * IN, maxWidth: 'none', margin: `${-IN}px ${-IN}px 0 ${-IN}px` }} />
+          )}
+          {logo && size === 'content_width' && <img src={logo} alt="" className="block w-full mb-1.5" />}
+          {logo && (size === 'small' || size === 'medium') && (
+            <img src={logo} alt="" className={`block max-w-full mb-1.5 ${logoPos}`} style={{ maxHeight: (size === 'medium' ? 1.5 : 0.9) * IN }} />
+          )}
+          {showText && (
+            <div className={size === 'full_bleed' && logo ? 'mt-2' : ''}>
+              <div className="font-bold text-gray-900 text-[11px]">{form.displayName || 'Your firm name'}</div>
+              <div className="text-[8px] text-gray-600 leading-tight">
+                {[form.addressLine1, form.addressLine2, [form.city, [form.state, form.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).map((l, i) => <div key={i}>{l}</div>)}
+                <div>{[form.phone, form.email, form.website].filter(Boolean).join(' · ')}</div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="mt-4 text-center text-[10px] font-bold text-gray-800">Accountant&apos;s Compilation Report</div>
+        <div className="mt-2 space-y-1.5">
+          {[100, 96, 98, 60, 0, 100, 94, 97, 72].map((w, i) => <div key={i} className="h-1 rounded bg-gray-200" style={{ width: `${w}%`, opacity: w ? 1 : 0 }} />)}
         </div>
       </div>
-    </fieldset>
+    </div>
   );
 }
 
