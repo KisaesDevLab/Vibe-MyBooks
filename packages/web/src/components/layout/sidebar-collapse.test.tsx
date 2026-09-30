@@ -29,6 +29,15 @@ vi.mock('../../api/hooks/usePermissions', () => ({
 vi.mock('./CompanySwitcher', () => ({ CompanySwitcher: () => null }));
 vi.mock('./PracticeGroup', () => ({ PracticeGroup: () => null }));
 vi.mock('./FirmGroup', () => ({ FirmGroup: () => null }));
+// Real TrialBalanceGroup (a self-owned collapse state) with one item, so
+// the title's collapse-all broadcast is exercised end to end.
+vi.mock('../../hooks/useTrialBalanceVisibility', () => ({
+  useTrialBalanceVisibility: () => ({
+    ready: true,
+    showGroup: true,
+    items: [{ key: 'workpaper', label: 'Workpaper', path: '/tb/workpaper', minRole: 'bookkeeper' }],
+  }),
+}));
 vi.mock('./SidebarDisplayControls', () => ({ SidebarDisplayControls: () => null }));
 vi.mock('../../features/chat/ChatFab', () => ({ ChatFab: () => null }));
 vi.mock('../../features/chat/ChatController', () => ({
@@ -114,5 +123,30 @@ describe('collapsible sidebar', () => {
     // Backdrop close button appears with the open drawer.
     fireEvent.click(screen.getByRole('button', { name: 'Close menu' }));
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('clicking the app title collapses every menu group and persists it', () => {
+    setViewport(true);
+    renderRoute(<AppShell />);
+
+    // Defaults: Transactions + Trial Balance open, Reporting closed.
+    expect(screen.getByRole('link', { name: 'Registers' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Workpaper' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Reporting$/i }));
+    expect(screen.getByRole('link', { name: 'Reports' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all menu groups' }));
+
+    expect(screen.queryByRole('link', { name: 'Registers' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Reports' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Workpaper' })).toBeNull();
+    // Unlabeled top group (Dashboard) has no header, so it stays reachable.
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+
+    const stored = JSON.parse(window.localStorage.getItem('sidebar-collapsed-groups') ?? '{}') as Record<string, boolean>;
+    expect(stored['Transactions']).toBe(true);
+    expect(stored['Reporting']).toBe(true);
+    expect(stored['Manage']).toBe(true);
+    expect(window.localStorage.getItem('tb-group-collapsed')).toBe('1');
   });
 });

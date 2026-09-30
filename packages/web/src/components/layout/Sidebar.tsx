@@ -69,6 +69,7 @@ import { CompanySwitcher } from './CompanySwitcher';
 import { PracticeGroup } from './PracticeGroup';
 import { TrialBalanceGroup } from './TrialBalanceGroup';
 import { FirmGroup } from './FirmGroup';
+import { dispatchSidebarCollapseAll, useSidebarCollapseAll } from './sidebarEvents';
 import type { LucideIcon } from 'lucide-react';
 import type { ResourceKey, FirmCapabilityKey } from '@kis-books/shared';
 import { usePermissions } from '../../api/hooks/usePermissions';
@@ -277,6 +278,7 @@ function SidebarLink({ item, end, onClick, collapsed }: { item: NavItem; end?: b
 
 function AdminSection({ onNavigate, collapsed, items }: { onNavigate?: () => void; collapsed?: boolean; items: NavItem[] }) {
   const [open, setOpen] = useState(false);
+  useSidebarCollapseAll(() => setOpen(false));
 
   return (
     <>
@@ -424,19 +426,31 @@ function useCollapsedGroups() {
     }
   });
 
+  const persist = (next: Record<string, boolean>) => {
+    try {
+      localStorage.setItem(COLLAPSED_GROUPS_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore quota / privacy-mode errors
+    }
+  };
+
   const toggle = (label: string) => {
     setCollapsed((prev) => {
       const next = { ...prev, [label]: !prev[label] };
-      try {
-        localStorage.setItem(COLLAPSED_GROUPS_STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // ignore quota / privacy-mode errors
-      }
+      persist(next);
       return next;
     });
   };
 
-  return { collapsed, toggle };
+  // Title click: fold every labeled group at once.
+  const collapseAll = () => {
+    const next: Record<string, boolean> = {};
+    for (const group of navGroups) if (group.label) next[group.label] = true;
+    persist(next);
+    setCollapsed(next);
+  };
+
+  return { collapsed, toggle, collapseAll };
 }
 
 const DEFAULT_APP_NAME = 'Vibe MyBooks';
@@ -469,7 +483,7 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
   const visibleAdminItems = isSuperAdmin
     ? adminNavItems
     : adminNavItems.filter((item) => item.adminCapability !== undefined && hasAdminCap(item.adminCapability));
-  const { collapsed: collapsedGroups, toggle: toggleGroup } = useCollapsedGroups();
+  const { collapsed: collapsedGroups, toggle: toggleGroup, collapseAll: collapseAllGroups } = useCollapsedGroups();
   // Branding may be missing during the initial /me fetch — fall back to
   // the default name so the header never flashes empty.
   const appName = meData?.branding?.appName || DEFAULT_APP_NAME;
@@ -492,7 +506,17 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
         </div>
       ) : (
         <div className="px-6 py-5" style={{ borderBottom: '1px solid #374151' }}>
-          <h1 className="text-xl font-bold" style={{ color: '#FFFFFF' }}>{appName}</h1>
+          {/* Clicking the title folds every menu group (main groups
+              here; Admin / Practice / Trial Balance via the event). */}
+          <button
+            type="button"
+            onClick={() => { collapseAllGroups(); dispatchSidebarCollapseAll(); }}
+            title="Collapse all menu groups"
+            aria-label="Collapse all menu groups"
+            className="block w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <h1 className="text-xl font-bold" style={{ color: '#FFFFFF' }}>{appName}</h1>
+          </button>
         </div>
       )}
 

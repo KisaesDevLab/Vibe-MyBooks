@@ -23,6 +23,7 @@ import {
 import clsx from 'clsx';
 import type { LucideIcon } from 'lucide-react';
 import { useTrialBalanceVisibility, type TbNavItem } from '../../hooks/useTrialBalanceVisibility';
+import { useSidebarCollapseAll } from './sidebarEvents';
 
 const TB_COLLAPSED_STORAGE_KEY = 'tb-group-collapsed';
 
@@ -86,6 +87,7 @@ function TbLink({ item, onClick }: { item: TbNavItem; onClick?: () => void }) {
 export function TrialBalanceGroup({ onNavigate }: { onNavigate?: () => void }) {
   const { ready, showGroup, items } = useTrialBalanceVisibility();
   const [collapsed, setCollapsed] = useState<boolean>(() => readInitialCollapsed());
+  useSidebarCollapseAll(() => setCollapsed(true));
 
   useEffect(() => {
     try {

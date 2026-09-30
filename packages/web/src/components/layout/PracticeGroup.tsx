@@ -19,6 +19,7 @@ import {
 import clsx from 'clsx';
 import type { LucideIcon } from 'lucide-react';
 import { usePracticeVisibility, type PracticeNavItem } from '../../hooks/usePracticeVisibility';
+import { useSidebarCollapseAll } from './sidebarEvents';
 
 // Localstorage key for this group's collapsed state — kept separate
 // from the SIDEBAR_COLLAPSED_GROUPS_STORAGE_KEY used by the main
@@ -100,6 +101,7 @@ function SectionDivider({ label }: { label: string }) {
 export function PracticeGroup({ onNavigate }: { onNavigate?: () => void }) {
   const { ready, showGroup, sections } = usePracticeVisibility();
   const [collapsed, setCollapsed] = useState<boolean>(() => readInitialCollapsed());
+  useSidebarCollapseAll(() => setCollapsed(true));
 
   useEffect(() => {
     try {
