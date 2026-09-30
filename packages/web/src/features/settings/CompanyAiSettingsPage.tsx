@@ -19,6 +19,8 @@ const TASK_LABELS: Array<{ key: AiTaskKey; label: string; desc: string }> = [
   { key: 'statement_parsing', label: 'Parse uploaded bank statements', desc: 'Extract transactions from bank statement PDFs and images.' },
   { key: 'document_classification', label: 'Auto-classify uploaded documents', desc: 'Identify whether an attachment is a receipt, invoice, statement, or tax form.' },
   { key: 'report_summary', label: 'Generate AI report summaries', desc: 'Send summarized report figures (revenue, expenses, net income, KPIs) to the AI provider to draft an executive summary your bookkeeper reviews.' },
+  { key: 'judgment_review', label: 'AI review of close findings', desc: 'Lets your bookkeeper ask the AI to explain a flagged item in Close Review ("Explain this") and run AI judgment checks such as personal-looking expenses. Sends the flagged transaction\'s sanitized description, amount, and category.' },
+  { key: 'enrich_vendor', label: 'AI vendor lookup', desc: 'Infer a merchant\'s business type and likely category from its name when it first appears in your bank feed.' },
 ];
 
 export function CompanyAiSettingsPage() {

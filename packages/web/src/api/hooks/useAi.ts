@@ -761,7 +761,16 @@ export function useAcceptSystemAiDisclosure() {
   });
 }
 
-export type AiTaskKey = 'categorization' | 'receipt_ocr' | 'statement_parsing' | 'document_classification' | 'report_summary';
+// Keep in sync with the API's AiTaskKey (ai-consent.service) and
+// aiTaskTogglesSchema — a key missing here can't get a Company Settings toggle.
+export type AiTaskKey =
+  | 'categorization'
+  | 'receipt_ocr'
+  | 'statement_parsing'
+  | 'document_classification'
+  | 'enrich_vendor'
+  | 'judgment_review'
+  | 'report_summary';
 
 export interface TenantConsentCompanyRow {
   id: string;
