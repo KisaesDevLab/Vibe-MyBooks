@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, isApiError } from '../../api/client';
 import { useTbProfile } from '../../api/hooks/useTb';
+import { useAccounts } from '../../api/hooks/useAccounts';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
@@ -187,10 +188,43 @@ export function TbLeadsheetsPage() {
 
   const signoffsFor = (groupingId: string) => signoffs.filter((s) => s.groupingId === groupingId);
 
+  // Every member account shows — zero-balance ones too, so they can be
+  // moved or removed like any other.
+  const { data: acctData } = useAccounts({ limit: 500 });
+  const allAccounts = acctData?.data ?? [];
+  const accountsById = useMemo(() => new Map(allAccounts.map((a) => [a.id, a])), [allAccounts]);
+  const groupingOfAccount = useMemo(() => {
+    const m = new Map<string, Grouping>();
+    for (const g of groupings) for (const id of g.accountIds) m.set(id, g);
+    return m;
+  }, [groupings]);
   const memberRows: TbWorkpaperRow[] = (selected?.accountIds ?? [])
-    .map((id) => rowsById.get(id))
+    .map((id) => {
+      const r = rowsById.get(id);
+      if (r) return r;
+      const a = accountsById.get(id);
+      if (!a) return null;
+      return {
+        accountId: a.id, accountNumber: a.accountNumber, name: a.name, accountType: a.accountType, detailType: a.detailType,
+        isVirtualRe: false, unadjusted: 0, aje: 0, adjusted: 0, taxRje: 0, tax: 0, units: [], byTag: [],
+      } as unknown as TbWorkpaperRow;
+    })
     .filter((r): r is TbWorkpaperRow => !!r)
-    .sort((a, b) => (a.accountNumber ?? '').localeCompare(b.accountNumber ?? ''));
+    .sort((a, b) => (a.accountNumber ?? '').localeCompare(b.accountNumber ?? '', undefined, { numeric: true }));
+
+  const moveAccount = useMutation({
+    mutationFn: ({ accountId, groupingId }: { accountId: string; groupingId: string | null }) =>
+      apiClient(`/tb/groupings/membership/${accountId}`, { method: 'PUT', body: JSON.stringify({ groupingId }) }),
+    onSuccess: (_d, v) => {
+      invalidate('groupings');
+      const target = v.groupingId ? groupings.find((g) => g.id === v.groupingId)?.name : null;
+      toast.success(target ? `Moved to ${target}` : 'Removed from the leadsheet');
+    },
+    onError: (e) => toast.error(isApiError(e) ? e.message : 'Move failed'),
+  });
+  const candidates = allAccounts
+    .filter((a) => selected && !selected.accountIds.includes(a.id))
+    .sort((a, b) => (a.accountNumber ?? '').localeCompare(b.accountNumber ?? '', undefined, { numeric: true }));
 
   const subtotal = (col: 'unadjusted' | 'aje' | 'adjusted' | 'taxRje' | 'tax') =>
     memberRows.reduce((sum, r) => sum + r[col], 0);
@@ -380,7 +414,8 @@ export function TbLeadsheetsPage() {
                       <th className="py-2 pr-3 text-right">Tax RJE</th>
                       <th className="py-2 pr-3 text-right">Tax</th>
                       <th className="py-2 pr-3">Marks</th>
-                      <th className="py-2">Files</th>
+                      <th className="py-2 pr-3">Files</th>
+                      <th className="py-2">Leadsheet</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -477,11 +512,27 @@ export function TbLeadsheetsPage() {
                               </label>
                             </span>
                           </td>
+                          <td className="py-1.5">
+                            <select value="" aria-label={`Move ${r.name} to another leadsheet`} disabled={moveAccount.isPending}
+                              title="Move this account to another leadsheet"
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (!v) return;
+                                moveAccount.mutate({ accountId: r.accountId, groupingId: v === '__none' ? null : v });
+                              }}
+                              className="rounded border border-gray-300 px-1 py-0.5 text-xs max-w-[140px]">
+                              <option value="">Move to…</option>
+                              {groupings.filter((g) => g.id !== selected.id).map((g) => (
+                                <option key={g.id} value={g.id}>{g.leadsheetCode ? `${g.leadsheetCode} — ` : ''}{g.name}</option>
+                              ))}
+                              <option value="__none">Remove from leadsheet</option>
+                            </select>
+                          </td>
                         </tr>
                       );
                     })}
                     {memberRows.length === 0 && (
-                      <tr><td colSpan={9} className="py-4 text-sm text-gray-500">No accounts with activity in this grouping.</td></tr>
+                      <tr><td colSpan={10} className="py-4 text-sm text-gray-500">No accounts in this leadsheet yet — add one below.</td></tr>
                     )}
                   </tbody>
                   <tfoot>
@@ -493,9 +544,27 @@ export function TbLeadsheetsPage() {
                       })}
                       <td />
                       <td />
+                      <td />
                     </tr>
                   </tfoot>
                 </table>
+                <div className="mt-3 flex items-center gap-2">
+                  <label className="text-xs text-gray-500" htmlFor="leadsheet-add-account">Add account</label>
+                  <select id="leadsheet-add-account" value="" disabled={moveAccount.isPending}
+                    onChange={(e) => e.target.value && moveAccount.mutate({ accountId: e.target.value, groupingId: selected.id })}
+                    className="rounded border border-gray-300 px-2 py-1 text-xs max-w-md">
+                    <option value="">Choose an account to add to {selected.name}…</option>
+                    {candidates.map((a) => {
+                      const cur = groupingOfAccount.get(a.id);
+                      return (
+                        <option key={a.id} value={a.id}>
+                          {a.accountNumber ? `${a.accountNumber} ` : ''}{a.name}{cur ? ` (now in ${cur.name})` : ''}{a.isActive ? '' : ' — inactive'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <span className="text-[11px] text-gray-400">An account belongs to one leadsheet; adding it here moves it.</span>
+                </div>
               </div>
 
               {/* ── Notes (7.4) ──────────────────────────────── */}
