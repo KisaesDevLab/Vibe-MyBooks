@@ -151,7 +151,7 @@ export function FeedReviewSection({ companyId, period, summary }: Props) {
           setEditing(null);
           setSelected(new Set());
           if (res.skipped.length === 0) {
-            toast.success(`Updated ${res.updated} transaction${res.updated === 1 ? '' : 's'} and marked ${res.updated === 1 ? 'it' : 'them'} reviewed.`);
+            toast.success(`Updated ${res.updated} transaction${res.updated === 1 ? '' : 's'}.`);
           } else {
             const first = res.skipped[0]!;
             const why = SKIP_REASONS[first.reason] ?? first.reason;
@@ -543,7 +543,7 @@ function RecategorizeEditor({
             contactId !== initialContactId ? contactId : '',
           )}
         >
-          Save{count > 1 ? ` (${count})` : ''} and mark reviewed
+          Save{count > 1 ? ` (${count})` : ''}
         </Button>
       </div>
     </div>

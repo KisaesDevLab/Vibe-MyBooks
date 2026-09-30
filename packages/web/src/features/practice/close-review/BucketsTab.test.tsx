@@ -148,7 +148,7 @@ describe('BucketsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /change payee/i }));
     expect(screen.queryByLabelText(/Category for/)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Payee for 2 transactions'), { target: { value: 'contact-9' } });
-    fireEvent.click(screen.getByRole('button', { name: /save \(2\) and mark reviewed/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^save \(2\)$/i }));
     expect(recategorizeMutate.mock.calls[0]![0]).toEqual({
       feedItemIds: ['f1', 'f2'], contactId: 'contact-9', companyId: 'company-1',
     });
@@ -160,7 +160,8 @@ describe('BucketsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /change category/i }));
     expect(screen.queryByLabelText(/Payee for/)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Category for 2 transactions'), { target: { value: 'acct-7' } });
-    fireEvent.click(screen.getByRole('button', { name: /save \(2\) and mark reviewed/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^save \(2\)$/i }));
+    expect(markMutate).not.toHaveBeenCalled();
     expect(recategorizeMutate.mock.calls[0]![0]).toEqual({
       feedItemIds: ['f1', 'f2'], accountId: 'acct-7', companyId: 'company-1',
     });
