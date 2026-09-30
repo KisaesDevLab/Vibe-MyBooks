@@ -38,3 +38,13 @@ Key dependencies:
 - BullMQ (MIT) - Taskforce.sh
 - Puppeteer (Apache 2.0) - Google LLC
 - Nodemailer (MIT) - Andris Reinman
+
+Bundled fonts (packages/api/assets/fs-fonts, used by report-ready
+financial statements; license texts in fs-fonts/licenses):
+- Liberation Serif / Liberation Sans (SIL OFL 1.1) - Red Hat, Inc.
+- Carlito (SIL OFL 1.1) - tyPoland Lukasz Dziedzic
+- Caladea (SIL OFL 1.1) - The Caladea Project Authors
+- EB Garamond (SIL OFL 1.1) - The EB Garamond Project Authors
+- Source Serif 4 (SIL OFL 1.1) - Adobe
+- Lato (SIL OFL 1.1) - Lukasz Dziedzic
+- Libre Baskerville (SIL OFL 1.1) - Impallari Type

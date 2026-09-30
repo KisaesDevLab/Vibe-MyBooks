@@ -19,6 +19,7 @@ export type TbNavKey =
   | 'mapping'
   | 'ajes'
   | 'leadsheets'
+  | 'financial-statements'
   | 'tax-entries'
   | 'm1'
   | 'reports'
@@ -30,6 +31,8 @@ export interface TbNavItem {
   label: string;
   path: string;
   minRole: 'owner' | 'bookkeeper';
+  // Second flag an item needs on top of TRIAL_BALANCE_V1.
+  extraFlag?: PracticeFeatureFlagKey;
 }
 
 const TB_FLAG: PracticeFeatureFlagKey = 'TRIAL_BALANCE_V1';
@@ -40,6 +43,7 @@ export const TB_NAV_CATALOG: readonly TbNavItem[] = [
   { key: 'mapping', label: 'Tax Mapping', path: '/tb/mapping', minRole: 'bookkeeper' },
   { key: 'ajes', label: 'Adjusting Entries', path: '/tb/ajes', minRole: 'bookkeeper' },
   { key: 'leadsheets', label: 'Leadsheets', path: '/tb/leadsheets', minRole: 'bookkeeper' },
+  { key: 'financial-statements', label: 'Financial Statements', path: '/tb/financial-statements', minRole: 'bookkeeper', extraFlag: 'FINANCIAL_STATEMENTS_V1' },
   { key: 'tax-entries', label: 'Tax Adjustments', path: '/tb/tax-entries', minRole: 'bookkeeper' },
   { key: 'm1', label: 'Schedule M-1 / M-2', path: '/tb/m1', minRole: 'bookkeeper' },
   { key: 'reports', label: 'TB Reports', path: '/tb/reports', minRole: 'bookkeeper' },
@@ -53,12 +57,14 @@ export function filterTbNav(
   userType: 'staff' | 'client' | undefined,
   flagEnabled: boolean,
   staff: boolean,
+  flags: Partial<Record<string, boolean>> = {},
 ): TbNavItem[] {
   if (userType === 'client') return [];
   if (role === 'readonly' || !role) return [];
   if (!staff) return [];
   if (!flagEnabled) return [];
   return items.filter((item) => {
+    if (item.extraFlag && !flags[item.extraFlag]) return false;
     if (item.minRole === 'owner' && role !== 'owner') return false;
     if (item.minRole === 'bookkeeper' && !['owner', 'accountant', 'bookkeeper'].includes(role)) return false;
     return true;
@@ -88,6 +94,7 @@ export function useTrialBalanceVisibility(): TbVisibility {
     userType,
     flagsData!.flags?.[TB_FLAG]?.enabled === true,
     isPracticeStaff(role, !!user?.isSuperAdmin, (firmsData!.firms ?? []).length > 0),
+    Object.fromEntries(Object.entries(flagsData!.flags ?? {}).map(([k, v]) => [k, v?.enabled === true])),
   );
   return { ready: true, showGroup: items.length > 0, items };
 }

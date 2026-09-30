@@ -285,6 +285,10 @@ const TbTaxEntriesPage = lazyNamed(() => import('./features/tb/TbTaxEntriesPage'
 const TbM1Page = lazyNamed(() => import('./features/tb/TbM1Page'), 'TbM1Page');
 const TbExportsPage = lazyNamed(() => import('./features/tb/TbExportsPage'), 'TbExportsPage');
 const TbReportsPage = lazyNamed(() => import('./features/tb/TbReportsPage'), 'TbReportsPage');
+const FsReportListPage = lazyNamed(() => import('./features/tb/fs/FsReportListPage'), 'FsReportListPage');
+const FsEditorPage = lazyNamed(() => import('./features/tb/fs/FsEditorPage'), 'FsEditorPage');
+const FsLibraryPage = lazyNamed(() => import('./features/tb/fs/FsLibraryPage'), 'FsLibraryPage');
+const FsRouteGuard = lazyNamed(() => import('./features/tb/fs/FsRouteGuard'), 'FsRouteGuard');
 
 // ─── Auth (cold-path + one-time setup) — kept out of the main bundle ─
 const RegisterPage = lazyNamed(() => import('./features/auth/RegisterPage'), 'RegisterPage');
@@ -651,6 +655,11 @@ export function App() {
               <Route path="ajes/new" element={<AjeFormPage />} />
               <Route path="ajes/:id/edit" element={<AjeFormPage />} />
               <Route path="leadsheets" element={<TbLeadsheetsPage />} />
+              <Route path="financial-statements" element={<FsRouteGuard />}>
+                <Route index element={<FsReportListPage />} />
+                <Route path="library" element={<FsLibraryPage />} />
+                <Route path=":reportId" element={<FsEditorPage />} />
+              </Route>
               <Route path="tax-entries" element={<TbTaxEntriesPage />} />
               <Route path="m1" element={<TbM1Page />} />
               <Route path="reports" element={<TbReportsPage />} />

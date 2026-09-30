@@ -31,6 +31,9 @@ interface PublishedReport {
   pdfUrl: string | null;
   data: Record<string, unknown> | null;
   layout: unknown[] | null;
+  // 'financial_statements' = a finalized report-ready statement set from
+  // the firm (PDF only; no in-page snapshot).
+  source?: string;
 }
 
 export function PortalFinancialsPage() {
@@ -126,7 +129,9 @@ export function PortalFinancialsPage() {
                   className="flex-1 text-left rounded-md hover:bg-gray-50"
                 >
                   <p className="text-sm font-semibold text-gray-900">
-                    {r.periodStart} → {r.periodEnd}
+                    {r.source === 'financial_statements' && typeof r.data?.['title'] === 'string'
+                      ? r.data['title']
+                      : `${r.periodStart} → ${r.periodEnd}`}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     Published {new Date(r.publishedAt).toLocaleDateString()} · v{r.version}
@@ -141,7 +146,7 @@ export function PortalFinancialsPage() {
                   </a>
                 )}
               </div>
-              {openId === r.id && r.data && (
+              {openId === r.id && r.data && r.source !== 'financial_statements' && (
                 <div className="px-4 pb-4 pt-3 border-t border-gray-100">
                   <ReportSnapshot data={r.data} layout={r.layout ?? []} />
                 </div>

@@ -2808,6 +2808,29 @@ Tax-basis-only entries that never touch the books — they shape the Tax column,
 
 **TB Reports** covers the workpaper, grouped TB, Tax Return Order, Tax-Basis P&L, Flux Analysis, AJE/Bookkeeper listings, Schedule M-1/M-2, Workpaper Index, and Diagnostics — each downloadable as CSV/PDF and available in Report Packs. **Tax Exports** generates UltraTax CS, Lacerte, CCH Axcess, GoSystem RS, generic CSV, or an Excel working trial balance once validation passes; history shows whether the books changed after a file was generated.`,
   },
+  {
+    id: 'financial-statements',
+    title: 'Financial Statements — report-ready compiled statements',
+    category: 'Trial Balance',
+    summary: 'Build presentation-quality balance sheets, income statements, equity and cash flow statements with schedules, your letterhead and accountant\'s report.',
+    body: `Trial Balance → Financial Statements builds report-ready statements from the client's leadsheets. It appears when an administrator turns on FINANCIAL_STATEMENTS_V1 (with TRIAL_BALANCE_V1) for the client.
+
+**Creating statements.** Click New statements, pick the period end, the basis (GAAP, cash basis, or income tax basis — tax basis uses the Tax column, including tax adjustments), and the columns: this period only, this year vs prior year, or month + year to date, optionally with % of revenue and $ / % change. Start from the built-in layout, this client's saved layout, or a firm template (you'll be asked to match any template lines to this client's leadsheets).
+
+**The editor.** The left panel edits; the right shows a live preview of the printed pages.
+- **Statements**: include / exclude and reorder the balance sheet, income statement, equity statement and statement of cash flows; change titles; set orientation or paper per statement.
+- **Outline**: drag sections, leadsheets, subtotals, text, blank lines and page breaks into any order. Each leadsheet can show as one summary line, as detail (every account), or as a summary line with a supporting schedule (printed after the statements under Supplementary Information and referenced as "Schedule 1"). In a leadsheet's account list you can reorder accounts, combine several into one line with your own caption, split them again, or pull one account out as its own line on the statement.
+- **Style**: typeface (Times New Roman-, Arial-, Calibri-, Cambria-compatible, Garamond, Baskerville and more — embedded in the PDF), base size, sizes and bold / italic / caps for each element, whole dollars or cents, negatives in parentheses, dollar signs on the first line and totals, page size, margins, footer text ("See Accountant's Compilation Report.") and page numbers. Apply or save firm styles.
+- **Report & cover**: cover page, table of contents, and the accountant's report from your firm's library, with the report date and wording customizable for this engagement.
+- **Cash flow**: how each balance-sheet leadsheet or account flows into the indirect-method statement of cash flows (operating, investing, financing, noncash, cash, or excluded).
+- **Checks**: the balance sheet balances, net income agrees with the ledger, every account with a balance is placed, and the cash flows reconcile. Whole-dollar rounding is placed automatically so every column foots and net income is identical on every statement; you can choose which line takes the rounding.
+
+**Exact PDF** renders the real PDF of your unsaved changes. **Download** gives PDF, Word (.docx — real tables you can edit) or Excel (.xlsx — totals are live formulas).
+
+**Finalize** freezes the numbers, layout and PDF as a version. If the ledger changes afterwards the version is marked "Ledger changed" (and tells you whether these statements would actually differ) but never changes. Reopen to make changes — finalizing again creates the next version. From **Versions** you can download any version and **Publish to portal**, which puts the PDF on the client's portal Financials page.
+
+**Firm library** (link at the top of the list): letterhead and logo, accountant's report templates (seeded from the standard compilation and preparation reports), style presets and layout templates — shared by every client your firm serves. Only firm administrators can change it; save a client's layout as a template from the editor.`,
+  },
 
   // ─── Client Portal ────────────────────────────────────────────
   {

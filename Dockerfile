@@ -87,6 +87,8 @@ RUN npm install --workspace=@kis-books/shared --workspace=@kis-books/api --omit=
 COPY --from=api-build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=api-build /app/packages/api/dist ./packages/api/dist
 COPY --from=api-build /app/packages/api/src/db/migrations ./packages/api/src/db/migrations
+# Bundled OFL fonts embedded into report-ready financial statement PDFs.
+COPY --from=api-build /app/packages/api/assets ./packages/api/assets
 COPY --from=web-build /app/packages/web/dist ./packages/web/dist
 
 # Copy scripts

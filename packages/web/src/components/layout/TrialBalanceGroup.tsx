@@ -17,6 +17,7 @@ import {
   FilePlus2,
   Calculator,
   FileBarChart2,
+  FileSpreadsheet,
   Download,
   Settings2,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ const ICONS: Record<string, LucideIcon> = {
   'mapping': GitBranch,
   'ajes': FilePlus2,
   'leadsheets': BookOpenCheck,
+  'financial-statements': FileSpreadsheet,
   'tax-entries': FilePlus2,
   'm1': Calculator,
   'reports': FileBarChart2,
