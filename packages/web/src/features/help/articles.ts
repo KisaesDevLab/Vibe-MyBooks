@@ -2744,6 +2744,27 @@ A single PDF holds up to 250 transactions, 40 attachments and 100 MB of files. W
 `,
   },
   {
+    id: 'report-packs',
+    title: 'Report Packs — Reports, Reconciliations and Source Documents in One PDF',
+    category: 'Reports',
+    summary: 'Bundle financial reports, bank reconciliations, bank statements and the Transaction Report into one PDF.',
+    body: `
+## Report Packs
+
+**Reports \u2192 Report Packs** saves a set of reports with a period (this month, last quarter, year to date, a custom range\u2026) and builds them into one PDF with an optional cover page, table of contents, page numbers and footer. Pick reports from the list on the left; reorder them with the arrows; **Generate** builds the PDF in the background and offers it for download.
+
+## Banking & Source Documents
+
+Three sections bring the paperwork behind the numbers into the pack, all for the pack's period:
+
+- **Bank Reconciliations** \u2014 every *completed* reconciliation whose statement date falls in the period, for all of the company's bank and credit card accounts. A summary page lists them; then each reconciliation gets a page (balances, who completed it, cleared and uncleared transactions) followed by **its bank statement**. Untick **Include the statement after each reconciliation** to leave the statements out. Reconciliations still in progress are not included.
+- **Bank Statements** \u2014 every uploaded bank statement whose period ends in the pack's period, reconciled or not. An index page lists each statement (account, period, closing balance, whether it was reconciled), then the statement files follow. Statements imported from a bank download (OFX/QFX) have no file and are listed only.
+- **Transaction Report** \u2014 the date-range Transaction Report for the period, optionally narrowed to one **type** or **account**, with or without voided transactions and attachments. A long period is included in full, every part one after another, so it can make a long pack.
+
+Statement and attachment pages are framed and captioned with the account and period, and the pack's page numbers run through them. A file that can't be read is noted on the index instead of stopping the pack. If your role can't view attachments, the files are left out and the pack says so; the Transaction Report section needs access to transactions.
+`,
+  },
+  {
     id: 'cloud-storage-setup',
     title: 'Setting Up Cloud Storage (Per-Tenant)',
     category: 'Settings',

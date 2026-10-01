@@ -139,6 +139,23 @@ describe('ReportPackBuilderPage', () => {
     expect(screen.queryByLabelText(/Cash Flow Statement comparison/i)).toBeNull();
   });
 
+  it('offers the source-document sections with their own options', () => {
+    renderRoute(<ReportPackBuilderPage />, { route: '/reports/packs/new', path: '/reports/packs/new' });
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /Bank Reconciliations/i }));
+    const stmts = screen.getByLabelText(/Bank Reconciliations include statements/i) as HTMLInputElement;
+    expect(stmts.checked).toBe(true); // on by default
+    fireEvent.click(stmts);
+    expect((screen.getByLabelText(/Bank Reconciliations include statements/i) as HTMLInputElement).checked).toBe(false);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /^Transaction Report$/i }));
+    const type = screen.getByLabelText(/Transaction Report transaction type/i) as HTMLSelectElement;
+    expect(Array.from(type.options).map((o) => o.value)).toContain('expense');
+    expect(screen.getByLabelText(/Transaction Report include voided/i)).toBeTruthy();
+    // Attachments start on for the Transaction Report.
+    expect((screen.getByLabelText(/Transaction Report include attachments/i) as HTMLInputElement).checked).toBe(true);
+  });
+
   it('disables adding more reports once the cap is reached', () => {
     // A catalog padded past the cap so we can exercise the 30-report ceiling.
     const padded = Array.from({ length: PACK_MAX_COUNT + 3 }, (_, i) => ({

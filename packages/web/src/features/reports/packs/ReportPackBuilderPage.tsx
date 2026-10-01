@@ -27,6 +27,7 @@ import {
   getReportDef,
   resolvePreset,
   resolveReportDates,
+  TXN_TYPE_LABELS,
   type ReportDef,
   type PeriodPreset,
   type ReportPackItemOptions,
@@ -48,6 +49,7 @@ import { ErrorMessage } from '../../../components/ui/ErrorMessage';
 import { useToast } from '../../../components/ui/Toaster';
 import { DateRangePicker } from '../DateRangePicker';
 import { ReportTagFilter } from '../ReportTagFilter';
+import { AccountSelector } from '../../../components/forms/AccountSelector';
 
 const PRESET_OPTIONS: Array<{ value: PeriodPreset; label: string }> = [
   { value: 'this-month', label: 'This Month' },
@@ -93,7 +95,8 @@ function ReportItemOptions({
   onChange: (next: ReportPackItemOptions) => void;
 }) {
   const spec = def.options;
-  const hasAny = spec.basis || spec.compare || spec.groupBy || spec.showPct || spec.tagFilter || spec.includeAttachments;
+  const hasAny = spec.basis || spec.compare || spec.groupBy || spec.showPct || spec.tagFilter || spec.includeAttachments
+    || spec.statements || spec.txnFilters;
   if (!hasAny) return null;
 
   // Merge a patch and drop keys that carry no meaning (undefined / null /
@@ -168,6 +171,40 @@ function ReportItemOptions({
           % of income
         </label>
       )}
+      {spec.txnFilters && (
+        <>
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            Type
+            <select
+              value={options.txnType ?? ''}
+              onChange={(e) => set({ txnType: e.target.value || undefined })}
+              className="rounded border border-gray-300 px-2 py-1 text-xs"
+              aria-label={`${def.label} transaction type`}
+            >
+              <option value="">All types</option>
+              {(Object.entries(TXN_TYPE_LABELS) as Array<[string, string]>).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+            <span>Account</span>
+            <div className="w-56">
+              <AccountSelector value={options.accountId ?? ''} onChange={(v) => set({ accountId: v || undefined })} compact />
+            </div>
+          </div>
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={options.includeVoid ?? false}
+              onChange={(e) => set({ includeVoid: e.target.checked })}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              aria-label={`${def.label} include voided`}
+            />
+            Include voided
+          </label>
+        </>
+      )}
       {spec.includeAttachments && (
         <label className="flex items-center gap-1.5 text-xs text-gray-600">
           <input
@@ -175,10 +212,27 @@ function ReportItemOptions({
             checked={options.includeAttachments ?? false}
             onChange={(e) => set({ includeAttachments: e.target.checked })}
             className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            aria-label={`${def.label} include row attachments`}
+            aria-label={`${def.label} include attachments`}
           />
           Include attachments
         </label>
+      )}
+      {spec.statements && (
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            checked={!options.omitStatements}
+            onChange={(e) => set({ omitStatements: !e.target.checked })}
+            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            aria-label={`${def.label} include statements`}
+          />
+          Include the statement after each reconciliation
+        </label>
+      )}
+      {def.id === 'transaction-report' && options.includeAttachments && (
+        <p className="w-full text-[11px] text-gray-500">
+          A long period with many receipts can make a long pack — narrow it by type or account if needed.
+        </p>
       )}
       {spec.tagFilter && (
         <label className="flex items-center gap-1.5 text-xs text-gray-600">
@@ -281,6 +335,12 @@ export function ReportPackBuilderPage() {
   const atCap = selectedIds.length >= PACK_MAX_COUNT;
 
   const toggleReport = (reportId: string, checked: boolean) => {
+    // A source-document section is mostly about its files: start with
+    // attachments on (the user can untick it).
+    const def = getReportDef(reportId);
+    if (checked && def?.kind === 'document' && def.options.includeAttachments) {
+      setItemOptions((o) => (o[reportId] ? o : { ...o, [reportId]: { includeAttachments: true } }));
+    }
     setSelectedIds((prev) => {
       if (checked) {
         if (prev.includes(reportId) || prev.length >= PACK_MAX_COUNT) return prev;
