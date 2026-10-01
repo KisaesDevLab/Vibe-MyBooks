@@ -16,6 +16,17 @@ import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { usePortalContacts } from '../../../api/hooks/usePortalContacts';
 import { useFeatureFlag } from '../../../api/hooks/useFeatureFlag';
 import { api } from './RemindersPage';
+import {
+  DOCUMENT_TYPE_LABELS,
+  ROUTE_TO_STATEMENT_PROCESSING,
+  StaffNotifyPicker,
+  StatementRoutingSelect,
+  isStatementType,
+  liveNotifyIds,
+  routingPayload,
+  useBankConnectionOptions,
+  useStaffUserOptions,
+} from './docRequestFormParts';
 
 // RECURRING_DOC_REQUESTS_V1 — standing-rule list + create/edit form.
 
@@ -25,22 +36,6 @@ const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
   annually: 'Annually',
 };
 
-const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
-  bank_statement: 'Bank statement',
-  cc_statement: 'Credit-card statement',
-  payroll_report: 'Payroll report',
-  receipt_batch: 'Receipt batch',
-  sales_tax_report: 'Sales tax report',
-  accounts_receivable: 'Accounts receivable',
-  inventory: 'Inventory',
-  accounts_payable: 'Accounts payable',
-  loan_balance: 'Loan balance',
-  other: 'Other',
-};
-
-// Sentinel value for the routing dropdown: "parse now, review on the
-// Statement Processing page" (statement_routing = 'statement_processing').
-const ROUTE_TO_STATEMENT_PROCESSING = '__statement_processing';
 
 export function RecurringDocRequestsTab() {
   const [rules, setRules] = useState<RecurringDocRequestSummary[] | null>(null);
@@ -327,31 +322,12 @@ const CRON_PRESETS: Array<{ id: string; label: string; expression: string; tz?: 
   { id: 'last-business-day', label: 'Last business day of month', expression: '@last-business-day-of-month' },
 ];
 
-interface BankConnectionOption {
-  id: string;
-  institutionName: string | null;
-  mask: string | null;
-  companyId: string | null;
-}
-
-// Staff users offered in the "notify when the client submits" picker.
-// /company/users is the Team page's list (everyone with access to this
-// tenant); client-type and inactive users are filtered out client-side
-// and rejected server-side too.
-interface StaffUserOption {
-  id: string;
-  email: string;
-  displayName: string | null;
-  userType: 'staff' | 'client';
-  isActive: boolean;
-}
-
 function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalProps) {
   const { data: contactsData } = usePortalContacts({ status: 'active' });
   const cronEnabled = useFeatureFlag('RECURRING_CRON_V1');
   const stmtAutoImportEnabled = useFeatureFlag('STATEMENT_AUTO_IMPORT_V1');
   const smsEnabled = useFeatureFlag('DOC_REQUEST_SMS_V1');
-  const [bankConnections, setBankConnections] = useState<BankConnectionOption[]>([]);
+  const bankConnections = useBankConnectionOptions(stmtAutoImportEnabled);
   // One dropdown drives statement routing: '' = receipts inbox,
   // ROUTE_TO_STATEMENT_PROCESSING = parse for staff review, a
   // connection id = auto-import into that connection.
@@ -361,19 +337,8 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
       : initial?.bankConnectionId ?? '',
   );
 
-  useEffect(() => {
-    if (!stmtAutoImportEnabled) return;
-    void api<{ connections: BankConnectionOption[] }>('/practice/bank-connections')
-      .then((r) => setBankConnections(r.connections))
-      .catch(() => setBankConnections([]));
-  }, [stmtAutoImportEnabled]);
-  const [staffUsers, setStaffUsers] = useState<StaffUserOption[] | null>(null);
+  const staffUsers = useStaffUserOptions();
   const [notifyUserIds, setNotifyUserIds] = useState<string[]>(initial?.notifyUserIds ?? []);
-  useEffect(() => {
-    void api<{ users: StaffUserOption[] }>('/company/users')
-      .then((r) => setStaffUsers(r.users.filter((u) => u.userType === 'staff' && u.isActive)))
-      .catch(() => setStaffUsers([]));
-  }, []);
   const toggleNotify = (id: string) =>
     setNotifyUserIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const [contactId, setContactId] = useState(initial?.contactId ?? '');
@@ -456,22 +421,13 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
         // Staff emailed when the contact uploads against this rule. A
         // selection that no longer matches a listed user (deactivated
         // since) is dropped so the save doesn't 400.
-        notifyUserIds: staffUsers ? notifyUserIds.filter((id) => staffUsers.some((u) => u.id === id)) : notifyUserIds,
+        notifyUserIds: liveNotifyIds(staffUsers, notifyUserIds),
         // Only meaningful for bank/cc statement document types. When the
         // routing dropdown isn't rendered (flag off, or a non-statement
         // type), OMIT the fields entirely — sending a reset here would
         // silently wipe an existing rule's routing config on any
         // unrelated edit made while the flag is off.
-        ...(stmtAutoImportEnabled && (documentType === 'bank_statement' || documentType === 'cc_statement')
-          ? {
-              statementRouting:
-                routingChoice === ROUTE_TO_STATEMENT_PROCESSING ? 'statement_processing'
-                : routingChoice ? 'auto_import'
-                : 'inbox',
-              bankConnectionId:
-                routingChoice && routingChoice !== ROUTE_TO_STATEMENT_PROCESSING ? routingChoice : null,
-            }
-          : {}),
+        ...(stmtAutoImportEnabled && isStatementType(documentType) ? routingPayload(routingChoice) : {}),
       };
       if (mode === 'create') {
         if (!contactId) {
@@ -588,33 +544,8 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
               </p>
             </label>
           )}
-          {stmtAutoImportEnabled && (documentType === 'bank_statement' || documentType === 'cc_statement') && (
-            <label className="block text-sm">
-              <span className="block text-gray-800 mb-1">When the statement arrives</span>
-              <select
-                value={routingChoice}
-                onChange={(e) => setRoutingChoice(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-              >
-                <option value="">Receipts inbox — pick a bank connection manually</option>
-                <option value={ROUTE_TO_STATEMENT_PROCESSING}>
-                  Statement Processing — parse now, review &amp; import there
-                </option>
-                {bankConnections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    Auto-import: {c.institutionName ?? 'Bank connection'}
-                    {c.mask ? ` ····${c.mask}` : ''}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                {routingChoice === ROUTE_TO_STATEMENT_PROCESSING
-                  ? 'The PDF is parsed on arrival and appears on Banking → Statement Processing as pending review — you pick the account and import from there.'
-                  : routingChoice
-                    ? 'Uploads against this rule are parsed and imported as bank-feed items directly (held for review if the parse quality check fails).'
-                    : 'Uploads wait in the receipts inbox until you route each one to a bank connection.'}
-              </p>
-            </label>
+          {stmtAutoImportEnabled && isStatementType(documentType) && (
+            <StatementRoutingSelect value={routingChoice} onChange={setRoutingChoice} connections={bankConnections} subject="this rule" />
           )}
           {cronEnabled && (
             <fieldset className="block text-sm">
@@ -755,33 +686,7 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
               )}
             </div>
           )}
-          <fieldset className="block text-sm">
-            <legend className="block text-gray-800 mb-1">Email staff when the client submits</legend>
-            {staffUsers === null ? (
-              <p className="text-xs text-gray-500">Loading team…</p>
-            ) : staffUsers.length === 0 ? (
-              <p className="text-xs text-gray-500">No active staff users have access to this client.</p>
-            ) : (
-              <div className="max-h-36 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100">
-                {staffUsers.map((u) => (
-                  <label key={u.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifyUserIds.includes(u.id)}
-                      onChange={() => toggleNotify(u.id)}
-                    />
-                    <span className="truncate">
-                      {u.displayName ? `${u.displayName} — ${u.email}` : u.email}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
-            <p className="text-xs text-gray-500 mt-1">
-              Each checked person gets an email the moment the contact uploads against this request.
-              The submission also shows as unread on the dashboard and the Clients screen until someone marks it reviewed.
-            </p>
-          </fieldset>
+          <StaffNotifyPicker staffUsers={staffUsers} selected={notifyUserIds} onToggle={toggleNotify} />
           <fieldset className="block text-sm">
             <legend className="block text-gray-800 mb-1">Reminder cadence after issuance</legend>
             <div className="space-y-1">

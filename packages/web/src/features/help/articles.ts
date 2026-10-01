@@ -2987,8 +2987,16 @@ The Reconciliation page has a separate **backfill check payees** tool. That one 
     id: 'document-requests',
     title: 'Document requests: tracking client submissions',
     category: 'Client Portal',
-    summary: 'Standing document requests, where unread client submissions show up, how to mark them reviewed, and how to email staff when a client uploads.',
-    body: `A **standing document request** (Practice → Reminders → Recurring requests) asks a portal contact for a document on a schedule — a bank statement on the 3rd of every month, a quarterly payroll report, and so on. Each cycle issues one request, emails (or texts) the contact, and nudges them on the reminder cadence until they upload it or a staff member closes it.
+    summary: 'One-time and standing document requests, where unread client submissions show up, how to mark them reviewed, and how to email staff when a client uploads.',
+    body: `## Asking for one document, once
+
+Go to **Practice \u2192 Reminders \u2192 Open requests** and click **New request**. Choose the client contact, say what you need (for example "2025 Form 1098 from Chase"), pick the document type and the period it is for, and set a due date if you want one. You can also choose who on your team is emailed when it arrives and, if text messages are enabled, whether to send it by email, text or both. **Send request** sends it straight away.
+
+That's it \u2014 nothing repeats and there is nothing to tidy up afterwards. The request shows in the client's portal, they are reminded on your firm's document-request reminder schedule until they upload it, and it appears in the Open requests grid where you can **Remind now**, **Mark received** or **Cancel** it like any other.
+
+## Standing requests
+
+A **standing document request** (Practice → Reminders → Recurring requests) asks a portal contact for a document on a schedule — a bank statement on the 3rd of every month, a quarterly payroll report, and so on. Each cycle issues one request, emails (or texts) the contact, and nudges them on the reminder cadence until they upload it or a staff member closes it.
 
 ## Where a client submission shows up
 
@@ -3002,7 +3010,7 @@ Click the uploaded **filename** on any submitted row to open the document right 
 
 ## Emailing staff when the client submits
 
-In the rule editor, **Email staff when the client submits** lists the active staff users who have access to this client. Everyone checked gets an email the moment the contact uploads against that rule — client name, request, period, and filename, with a link to the unread submissions grid. Editing the list applies to requests already outstanding. Only staff users with access to the client can be chosen; SMTP must be configured under Admin for the email to go out (the submission still shows as unread either way).
+In the rule editor (and on the **New request** form), **Email staff when the client submits** lists the active staff users who have access to this client. Everyone checked gets an email the moment the contact uploads against that rule — client name, request, period, and filename, with a link to the unread submissions grid. Editing the list applies to requests already outstanding. Only staff users with access to the client can be chosen; SMTP must be configured under Admin for the email to go out (the submission still shows as unread either way).
 
 Requires the tenant flag **RECURRING_DOC_REQUESTS_V1**.`,
   },

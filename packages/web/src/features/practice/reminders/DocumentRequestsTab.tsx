@@ -3,13 +3,14 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Inbox, Send, CheckSquare, XCircle, Eye, MailOpen, Paperclip, Download, X } from 'lucide-react';
+import { Inbox, Send, CheckSquare, XCircle, Eye, MailOpen, Paperclip, Download, X, Plus } from 'lucide-react';
 import type { DocRequestStatus, DocumentRequestSummary } from '@kis-books/shared';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { Pagination } from '../../../components/ui/Pagination';
 import { SortableTh } from '../../../components/ui/SortableTh';
 import { useColumnView } from '../../../hooks/useColumnView';
 import { api } from './RemindersPage';
+import { NewDocRequestModal } from './NewDocRequestModal';
 
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
 
@@ -58,6 +59,7 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
   const [drawerFor, setDrawerFor] = useState<DocumentRequestSummary | null>(null);
   // Inline viewer for the file the client actually uploaded.
   const [viewerFor, setViewerFor] = useState<DocumentRequestSummary | null>(null);
+  const [showNew, setShowNew] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -152,7 +154,7 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
         <div>
           <h2 className="text-base font-semibold text-gray-900">Open document requests</h2>
           <p className="text-sm text-gray-600 mt-0.5">
-            One row per issued cycle. {total} match{total === 1 ? '' : 'es'} the current filter.
+            One row per request — one-time requests and each cycle of a standing request. {total} match{total === 1 ? '' : 'es'} the current filter.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -185,6 +187,13 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
             />
             Overdue only
           </label>
+          <button
+            type="button"
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-md"
+          >
+            <Plus className="h-4 w-4" /> New request
+          </button>
         </div>
       </div>
 
@@ -353,6 +362,18 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
           filename={viewerFor.submittedFilename ?? 'attachment'}
           caption={`${viewerFor.contactName ?? viewerFor.contactEmail} · ${viewerFor.description} · ${viewerFor.periodLabel}`}
           onClose={() => setViewerFor(null)}
+        />
+      )}
+      {showNew && (
+        <NewDocRequestModal
+          onClose={() => setShowNew(false)}
+          onCreated={(msg) => {
+            setShowNew(false);
+            if (msg.ok) { setError(null); setInfo(msg.text); } else { setInfo(null); setError(msg.text); }
+            if (statusFilter !== 'pending' && statusFilter !== 'all') setStatusFilter('pending');
+            void reload();
+            onChange?.();
+          }}
         />
       )}
     </section>
