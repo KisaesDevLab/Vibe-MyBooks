@@ -112,7 +112,7 @@ describe('TransactionDetail', () => {
       ok: false, status: 500, json: async () => ({ error: { message: 'Chromium failed to start' } }),
     }));
     render();
-    fireEvent.click(screen.getByRole('button', { name: /Transaction Report/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Transaction Report$/ }));
     await waitFor(() => expect(screen.getByText('Chromium failed to start')).toBeInTheDocument());
     expect(tab.close).toHaveBeenCalled();
   });
