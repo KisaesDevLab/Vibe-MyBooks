@@ -17,7 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { MARK_TONES, useTbYearOverride, fiscalYearEndFor, useWorkpaper, usd, type TbWorkpaperRow } from './workpaperShared';
-import { Download, Paperclip, Pencil, Check } from 'lucide-react';
+import { Download, Paperclip, Pencil, Check, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
 import { useSessionState } from '../../hooks/useSessionState';
 import { TbPdfViewer } from './TbPdfViewer';
 import clsx from 'clsx';
@@ -188,7 +188,50 @@ export function TbLeadsheetsPage() {
     onError: err,
   });
 
-  const groupings = groupData?.groupings ?? [];
+  const savedGroupings = groupData?.groupings ?? [];
+  // Edit mode can re-sequence the leadsheets (arrows or drag). The draft
+  // order shows immediately; it's saved as one PUT /tb/groupings/order.
+  const [orderDraft, setOrderDraft] = useState<string[] | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const groupings = useMemo(() => {
+    if (!orderDraft) return savedGroupings;
+    const byId = new Map(savedGroupings.map((g) => [g.id, g]));
+    const ordered = orderDraft.map((id) => byId.get(id)).filter((g): g is Grouping => !!g);
+    // Anything added meanwhile keeps its place at the end.
+    return [...ordered, ...savedGroupings.filter((g) => !orderDraft.includes(g.id))];
+  }, [savedGroupings, orderDraft]);
+  const saveOrder = useMutation({
+    mutationFn: (ids: string[]) => apiClient('/tb/groupings/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
+    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['tb', 'groupings'] }); setOrderDraft(null); },
+    onError: (e: unknown) => {
+      setOrderDraft(null);
+      toast.error(e instanceof Error ? e.message : 'Could not save the leadsheet order.');
+    },
+  });
+  const commitOrder = (ids: string[]) => { setOrderDraft(ids); saveOrder.mutate(ids); };
+  const moveGrouping = (id: string, delta: -1 | 1) => {
+    const ids = groupings.map((g) => g.id);
+    const i = ids.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j]!, ids[i]!];
+    commitOrder(ids);
+  };
+  const onGroupingDragOver = (e: React.DragEvent, overId: string) => {
+    e.preventDefault();
+    if (!draggingId || draggingId === overId) return;
+    const ids = groupings.map((g) => g.id);
+    const from = ids.indexOf(draggingId);
+    const to = ids.indexOf(overId);
+    if (from < 0 || to < 0) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]!);
+    setOrderDraft(ids);
+  };
+  const onGroupingDragEnd = () => {
+    setDraggingId(null);
+    if (orderDraft && orderDraft.join() !== savedGroupings.map((g) => g.id).join()) saveOrder.mutate(orderDraft);
+    else setOrderDraft(null);
+  };
   const selected = groupings.find((g) => g.id === selectedId) ?? groupings[0] ?? null;
   const rowsById = useMemo(() => new Map((wpData?.workpaper.rows ?? []).map((r) => [r.accountId, r])), [wpData]);
   const marks = marksData?.tickmarks ?? [];
@@ -308,15 +351,26 @@ export function TbLeadsheetsPage() {
           <div className="space-y-4 h-fit">
             <div className="rounded-lg border border-gray-200 bg-white p-3">
               <h2 className="text-xs uppercase text-gray-500 font-medium px-1 mb-2">Groupings</h2>
+              {editing && <p className="text-[11px] text-gray-400 px-1 mb-2">Drag or use the arrows to change the leadsheet order.</p>}
               <ul className="space-y-1">
-                {groupings.map((g) => {
+                {groupings.map((g, gi) => {
                   const sigs = signoffsFor(g.id);
                   const prep = sigs.find((s) => s.role === 'preparer');
                   const rev = sigs.find((s) => s.role === 'reviewer');
                   return (
-                    <li key={g.id}>
+                    <li key={g.id} onDragOver={editing ? (e) => onGroupingDragOver(e, g.id) : undefined}
+                      className={clsx('flex items-center gap-1', draggingId === g.id && 'opacity-50')}>
+                      {editing && (
+                        <span draggable
+                          onDragStart={(e) => { e.dataTransfer.setData('text/plain', g.id); e.dataTransfer.effectAllowed = 'move'; setDraggingId(g.id); }}
+                          onDragEnd={onGroupingDragEnd}
+                          className="cursor-grab text-gray-300 hover:text-gray-500 shrink-0" title="Drag to reorder"
+                          aria-label={`Reorder ${g.name}`}>
+                          <GripVertical className="h-4 w-4" />
+                        </span>
+                      )}
                       <button onClick={() => setSelectedId(g.id)}
-                        className={clsx('w-full text-left rounded-lg px-2 py-1.5 text-sm flex items-center justify-between gap-2',
+                        className={clsx('flex-1 min-w-0 text-left rounded-lg px-2 py-1.5 text-sm flex items-center justify-between gap-2',
                           selected?.id === g.id ? 'bg-blue-50 text-blue-900' : 'hover:bg-gray-50')}>
                         <span className="truncate">
                           {g.leadsheetCode && <span className="font-mono text-xs text-gray-400 mr-1">{g.leadsheetCode}</span>}
@@ -328,6 +382,18 @@ export function TbLeadsheetsPage() {
                           <SignBadge label="R" signed={!!rev} stale={rev?.stale} />
                         </span>
                       </button>
+                      {editing && (
+                        <span className="flex flex-col shrink-0">
+                          <button type="button" onClick={() => moveGrouping(g.id, -1)} disabled={gi === 0 || saveOrder.isPending}
+                            className="text-gray-400 hover:text-blue-600 disabled:opacity-30" aria-label={`Move ${g.name} up`} title="Move up">
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button type="button" onClick={() => moveGrouping(g.id, 1)} disabled={gi === groupings.length - 1 || saveOrder.isPending}
+                            className="text-gray-400 hover:text-blue-600 disabled:opacity-30" aria-label={`Move ${g.name} down`} title="Move down">
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                      )}
                     </li>
                   );
                 })}
