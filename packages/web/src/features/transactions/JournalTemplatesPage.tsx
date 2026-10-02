@@ -13,14 +13,15 @@ import { useNavigate } from 'react-router-dom';
 import type { JeTemplateLineInput } from '@kis-books/shared';
 import {
   useJeTemplates, useJeTemplate, useCreateJeTemplate,
-  useReplaceJeTemplateLines, useDeleteJeTemplate, useUpdateJeTemplate,
+  useReplaceJeTemplateLines, useDeleteJeTemplate, useUpdateJeTemplate, useDuplicateJeTemplate,
 } from '../../api/hooks/useJeTemplates';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { AccountSelector } from '../../components/forms/AccountSelector';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
-import { Plus, Trash2, Save, Play, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Save, Play, GripVertical, Copy } from 'lucide-react';
 
 type EditLine = JeTemplateLineInput & { _key: string };
 let keyCounter = 0;
@@ -41,20 +42,27 @@ export function JournalTemplatesPage() {
   const saveLines = useReplaceJeTemplateLines();
   const updateTpl = useUpdateJeTemplate();
   const delTpl = useDeleteJeTemplate();
+  const dupTpl = useDuplicateJeTemplate();
 
   const [lines, setLines] = useState<EditLine[]>([]);
   // Template-level default memo — prefilled as the entry memo each time the
   // template is used (see JournalTemplateEntryPage).
   const [memo, setMemo] = useState('');
+  const [name, setName] = useState('');
+  // Template-level default tag — stamped on every posted line that has no
+  // tag of its own.
+  const [defaultTagId, setDefaultTagId] = useState<string | null>(null);
   useEffect(() => {
     if (tplData?.template) {
       setMemo(tplData.template.memo ?? '');
+      setName(tplData.template.name);
+      setDefaultTagId(tplData.template.defaultTagId ?? null);
       setLines(tplData.template.lines.filter((l) => l.isActive).map((l) => ({
-        _key: newKey(), id: l.id, label: l.label, accountId: l.accountId,
+        _key: newKey(), id: l.id, label: l.label, accountId: l.accountId, tagId: l.tagId ?? null,
         normalSide: l.normalSide, sortOrder: l.sortOrder,
         isRequired: l.isRequired, isActive: true,
       })));
-    } else { setMemo(''); setLines([]); }
+    } else { setMemo(''); setName(''); setDefaultTagId(null); setLines([]); }
   }, [tplData]);
 
   const onCreate = async () => {
@@ -68,7 +76,7 @@ export function JournalTemplatesPage() {
 
   const addLine = () =>
     setLines((prev) => [...prev, {
-      _key: newKey(), label: '', accountId: null,
+      _key: newKey(), label: '', accountId: null, tagId: null,
       // Alternate the default side so a two-line template starts balanced.
       normalSide: prev.length % 2 === 0 ? 'debit' : 'credit',
       sortOrder: prev.length, isRequired: false, isActive: true,
@@ -98,15 +106,26 @@ export function JournalTemplatesPage() {
   const onSave = async () => {
     const bad = lines.find((l) => !l.label.trim());
     if (bad) { toast.error('Every line needs a label.'); return; }
+    if (!name.trim()) { toast.error('Name the template.'); return; }
     try {
-      // Persist the default memo (template header) alongside the lines.
-      await updateTpl.mutateAsync({ id: selectedId!, memo: memo.trim() || null });
+      // Persist the template header (name, default memo + tag) alongside the lines.
+      await updateTpl.mutateAsync({ id: selectedId!, name: name.trim(), memo: memo.trim() || null, defaultTagId });
       await saveLines.mutateAsync({ id: selectedId!, lines: lines.map((l, i) => ({
-        id: l.id, label: l.label.trim(), accountId: l.accountId ?? null,
+        id: l.id, label: l.label.trim(), accountId: l.accountId ?? null, tagId: l.tagId ?? null,
         normalSide: l.normalSide, sortOrder: i, isRequired: l.isRequired, isActive: true,
       })) });
       toast.success('Template saved.');
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Could not save template.'); }
+  };
+
+  const onDuplicate = async () => {
+    const copyName = window.prompt('Name for the copy:', `${tplData?.template.name ?? 'Template'} (copy)`);
+    if (copyName === null) return;
+    try {
+      const res = await dupTpl.mutateAsync({ id: selectedId!, name: copyName.trim() || undefined });
+      toast.success('Template duplicated.');
+      setSelectedId(res.template.id);
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Could not duplicate template.'); }
   };
 
   return (
@@ -156,15 +175,28 @@ export function JournalTemplatesPage() {
                     onClick={() => navigate(`/transactions/journal-templates/enter?template=${selectedId}`)}>
                     <Play className="h-4 w-4 mr-1" /> Use template
                   </Button>
+                  <Button variant="secondary" size="sm" onClick={onDuplicate} loading={dupTpl.isPending} title="Copy the saved template under a new name">
+                    <Copy className="h-4 w-4 mr-1" /> Duplicate
+                  </Button>
                   <Button variant="secondary" size="sm" onClick={async () => { if (confirm('Deactivate this template?')) { await delTpl.mutateAsync(selectedId); setSelectedId(undefined); } }}>Deactivate</Button>
                   <Button size="sm" onClick={onSave} loading={saveLines.isPending || updateTpl.isPending}><Save className="h-4 w-4 mr-1" /> Save template</Button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg border p-4">
-                <Input label="Default memo" value={memo} onChange={(e) => setMemo(e.target.value)}
-                  placeholder="e.g. Monthly depreciation" maxLength={500} />
-                <p className="mt-1 text-xs text-gray-500">Prefilled as the entry memo each time this template is used. Leave blank for none.</p>
+              <div className="bg-white rounded-lg border p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-3">
+                  <Input label="Template name" value={name} onChange={(e) => setName(e.target.value)} maxLength={255} />
+                </div>
+                <div className="sm:col-span-2">
+                  <Input label="Default memo" value={memo} onChange={(e) => setMemo(e.target.value)}
+                    placeholder="e.g. Monthly depreciation" maxLength={500} />
+                  <p className="mt-1 text-xs text-gray-500">Prefilled as the entry memo each time this template is used. Leave blank for none.</p>
+                </div>
+                <div>
+                  <span className="block text-sm font-medium text-gray-700 mb-1">Default tag</span>
+                  <LineTagPicker value={defaultTagId} onChange={(t) => setDefaultTagId(t)} ariaLabel="Default tag" />
+                  <p className="mt-1 text-xs text-gray-500">Applied to lines without their own tag. Can be changed when entering.</p>
+                </div>
               </div>
 
               <div className="bg-white rounded-lg border">
@@ -175,8 +207,9 @@ export function JournalTemplatesPage() {
                 <div className="px-4 py-2 flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-400 border-b">
                   <div className="w-4" />
                   <div className="flex-1 grid grid-cols-12 gap-2">
-                    <div className="col-span-4">Description</div>
-                    <div className="col-span-4">Account</div>
+                    <div className="col-span-3">Description</div>
+                    <div className="col-span-3">Account</div>
+                    <div className="col-span-2">Tag</div>
                     <div className="col-span-2">Side</div>
                     <div className="col-span-1 text-center">Required</div>
                     <div className="col-span-1" />
@@ -200,8 +233,9 @@ export function JournalTemplatesPage() {
                         <GripVertical className="h-4 w-4" />
                       </div>
                       <div className="flex-1 grid grid-cols-12 gap-2 items-center">
-                        <div className="col-span-4"><Input value={l.label} placeholder="Line description" onChange={(e) => patch(l._key, { label: e.target.value })} /></div>
-                        <div className="col-span-4"><AccountSelector value={l.accountId ?? ''} onChange={(v) => patch(l._key, { accountId: v })} compact /></div>
+                        <div className="col-span-3"><Input value={l.label} placeholder="Line description" onChange={(e) => patch(l._key, { label: e.target.value })} /></div>
+                        <div className="col-span-3"><AccountSelector value={l.accountId ?? ''} onChange={(v) => patch(l._key, { accountId: v })} compact /></div>
+                        <div className="col-span-2"><LineTagPicker value={l.tagId ?? null} onChange={(t) => patch(l._key, { tagId: t })} ariaLabel={`Tag for ${l.label || 'line'}`} compact /></div>
                         <div className="col-span-2">
                           <select className="w-full rounded-md border-gray-300 text-sm" value={l.normalSide} onChange={(e) => patch(l._key, { normalSide: e.target.value as 'debit' | 'credit' })} aria-label={`Side for ${l.label || 'line'}`}>
                             <option value="debit">Debit</option>

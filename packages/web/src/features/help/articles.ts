@@ -362,6 +362,30 @@ Batch Entry lets you enter multiple transactions quickly in a spreadsheet-like g
 `,
   },
   {
+    id: 'entry-templates',
+    title: 'Journal Entry & Daily Sales Templates',
+    category: 'Transactions',
+    summary: 'Reusable line layouts for recurring journal entries and daily POS sales: tags, renaming, and duplicating.',
+    body: `
+## Journal Entry & Daily Sales Templates
+
+A template saves the lines of an entry you post again and again: the accounts, debit or credit sides, and which amounts are required. Each time you use it, you only type in the amounts.
+
+- **Journal Entry Templates**: Transactions → Journal Templates. Use **Use template** or **Enter journal** to fill one in.
+- **Daily Sales Templates**: Daily Sales → Templates. These map a POS X/Z report to accounts.
+
+### Tags
+- **Default tag** (top of the template): stamped on every posted line that has no tag of its own, such as the store location.
+- **Line tag** (the Tag column): fixes a tag on one line, such as a Catering sales line that always goes to the Catering department.
+- When you enter a journal or a day's sales, the **Tag** field starts at the template's default and can be changed for that entry. Lines with their own template tag keep it, and the tag name shows beside the line.
+
+### Renaming and duplicating
+- Change the **Template name** field and click **Save template**.
+- Click **Duplicate** to copy the saved template, with its lines, accounts, tags and memo, under a new name. This is handy for a second store or a variation of the same entry.
+- **Deactivate** hides a template. Entries you already posted from it are not affected.
+`,
+  },
+  {
     id: 'recurring-transactions',
     title: 'Setting Up Recurring Transactions',
     category: 'Transactions',

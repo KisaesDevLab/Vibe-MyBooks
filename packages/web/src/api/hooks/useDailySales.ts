@@ -18,6 +18,7 @@ export interface DailySalesTemplateLine {
   section: string;
   label: string;
   accountId: string | null;
+  tagId: string | null;
   normalSide: 'debit' | 'credit';
   sortOrder: number;
   isRequired: boolean;
@@ -94,6 +95,14 @@ export function useUpdateDailySalesTemplate() {
     mutationFn: ({ id, input }: { id: string; input: UpdateDailySalesTemplateInput }) =>
       apiClient(`/daily-sales/templates/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+export function useDuplicateDailySalesTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name?: string }) =>
+      apiClient<{ template: DailySalesTemplate }>(`/daily-sales/templates/${id}/duplicate`, { method: 'POST', body: JSON.stringify({ name }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...KEY, 'templates'] }),
   });
 }
 export function useDeleteDailySalesTemplate() {

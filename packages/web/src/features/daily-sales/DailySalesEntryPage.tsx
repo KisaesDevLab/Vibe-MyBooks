@@ -10,8 +10,10 @@ import {
   useCreateDailySalesDraft, useUpdateDailySalesDraft, usePostDailySalesEntry, useVoidDailySalesEntry,
   type DailySalesTemplate, type DailySalesTemplateLine,
 } from '../../api/hooks/useDailySales';
+import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { Check, AlertTriangle, Save, Send, Ban } from 'lucide-react';
@@ -51,6 +53,9 @@ export function DailySalesEntryPage() {
   const [businessDate, setBusinessDate] = useState(todayISO());
   const [values, setValues] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState('');
+  // Entry-level tag (location/department); new entries start from the
+  // template default. Lines tagged on the template keep their own tag.
+  const [tagId, setTagId] = useState<string | null>(null);
 
   const { data: selectedTplData } = useDailySalesTemplate(!isEdit && templateId ? templateId : undefined);
 
@@ -58,6 +63,8 @@ export function DailySalesEntryPage() {
   const updateDraft = useUpdateDailySalesDraft();
   const postEntry = usePostDailySalesEntry();
   const voidEntry = useVoidDailySalesEntry();
+  const { data: tagData } = useTags();
+  const tagName = (tid: string) => tagData?.tags.find((t) => t.id === tid)?.name ?? 'tagged';
 
   // Hydrate from an existing entry.
   useEffect(() => {
@@ -66,6 +73,7 @@ export function DailySalesEntryPage() {
       setTemplateId(e.templateId);
       setBusinessDate(e.businessDate);
       setNotes(e.notes ?? '');
+      setTagId(e.tagId ?? e.template?.defaultTagId ?? null);
       const v: Record<string, string> = {};
       for (const val of e.values) v[val.templateLineId] = val.amount;
       setValues(v);
@@ -73,6 +81,9 @@ export function DailySalesEntryPage() {
   }, [entryData]);
 
   const template: DailySalesTemplate | undefined = isEdit ? entryData?.entry.template : selectedTplData?.template;
+  useEffect(() => {
+    if (!isEdit) setTagId(selectedTplData?.template.defaultTagId ?? null);
+  }, [isEdit, selectedTplData?.template.id, selectedTplData?.template.defaultTagId]);
   const status = entryData?.entry.status ?? 'draft';
   const readOnly = isEdit && status !== 'draft';
   const lines = useMemo(() => (template?.lines ?? []).filter((l) => l.isActive), [template]);
@@ -85,10 +96,10 @@ export function DailySalesEntryPage() {
 
   const persistDraft = async (): Promise<string> => {
     if (isEdit) {
-      await updateDraft.mutateAsync({ id: id!, input: { businessDate, notes, values: valuesPayload() } });
+      await updateDraft.mutateAsync({ id: id!, input: { businessDate, notes, tagId, values: valuesPayload() } });
       return id!;
     }
-    const res = await createDraft.mutateAsync({ templateId, businessDate, notes, values: valuesPayload() });
+    const res = await createDraft.mutateAsync({ templateId, businessDate, notes, tagId, values: valuesPayload() });
     return res.entry.id;
   };
 
@@ -140,6 +151,14 @@ export function DailySalesEntryPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Business date</label>
           <input type="date" className="rounded-md border-gray-300 text-sm" value={businessDate} disabled={readOnly} onChange={(e) => setBusinessDate(e.target.value)} />
         </div>
+        {template && (
+          <div className="w-48">
+            <span className="block text-sm font-medium text-gray-700 mb-1">Tag</span>
+            {readOnly
+              ? <div className="text-sm text-gray-900 py-2">{tagId ? tagName(tagId) : '—'}</div>
+              : <LineTagPicker value={tagId} onChange={(t) => setTagId(t)} ariaLabel="Entry tag" />}
+          </div>
+        )}
         {readOnly && (
           <span className={`text-xs px-2 py-1 rounded-full ${status === 'posted' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{status}</span>
         )}
@@ -166,7 +185,7 @@ export function DailySalesEntryPage() {
                       <div key={l.id} className="flex items-center gap-2">
                         <div className="flex-1">
                           <MoneyInput
-                            label={l.label + (l.accountId ? '' : ' ⚠ unmapped')}
+                            label={l.label + (l.accountId ? '' : ' ⚠ unmapped') + (l.tagId ? ` · ${tagName(l.tagId)}` : '')}
                             value={values[l.id] ?? ''}
                             onChange={(v) => setValues((prev) => ({ ...prev, [l.id]: v }))}
                             disabled={readOnly}

@@ -14,11 +14,13 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useJeTemplates, useJeTemplate } from '../../api/hooks/useJeTemplates';
 import { useCreateTransaction } from '../../api/hooks/useTransactions';
+import { useTags } from '../../api/hooks/useTags';
 import { todayLocalISO } from '../../utils/date';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useToast } from '../../components/ui/Toaster';
 import { Check, AlertTriangle, Send } from 'lucide-react';
 
@@ -41,17 +43,26 @@ export function JournalTemplateEntryPage() {
   const [templateId, setTemplateId] = useState(searchParams.get('template') ?? '');
   const [txnDate, setTxnDate] = useState(todayLocalISO());
   const [memo, setMemo] = useState('');
+  // Entry tag — seeded from the template default; lines with their own
+  // template tag keep it.
+  const [tagId, setTagId] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
 
   const { data: tplList } = useJeTemplates();
   const { data: tplData } = useJeTemplate(templateId || undefined);
   const createTxn = useCreateTransaction();
+  // Names for the per-line tags fixed on the template (shown beside the label).
+  const { data: tagData } = useTags();
+  const tagName = (id: string) => tagData?.tags.find((t) => t.id === id)?.name ?? 'tagged';
 
   const template = tplData?.template;
-  // Seed the memo from the template once per template switch.
+  // Seed the memo and tag from the template once per template switch.
   useEffect(() => {
     if (template?.memo) setMemo(template.memo);
   }, [template?.id, template?.memo]);
+  useEffect(() => {
+    setTagId(template?.defaultTagId ?? null);
+  }, [template?.id, template?.defaultTagId]);
 
   const lines = useMemo(
     () => (template?.lines ?? []).filter((l) => l.isActive).sort((a, b) => a.sortOrder - b.sortOrder),
@@ -100,7 +111,7 @@ export function JournalTemplateEntryPage() {
               debit: l.normalSide === 'debit' ? amt : '0',
               credit: l.normalSide === 'credit' ? amt : '0',
               description: l.label,
-              tagId: template?.defaultTagId ?? null,
+              tagId: l.tagId ?? tagId,
             };
           }),
       } as Record<string, unknown> & { txnType: 'journal_entry' },
@@ -131,7 +142,7 @@ export function JournalTemplateEntryPage() {
             <div key={l.id} className="flex items-end gap-2">
               <div className="flex-1">
                 <MoneyInput
-                  label={`${l.label}${l.isRequired ? ' *' : ''}${l.accountId ? '' : ' ⚠ unmapped'}`}
+                  label={`${l.label}${l.isRequired ? ' *' : ''}${l.accountId ? '' : ' ⚠ unmapped'}${l.tagId ? ` · ${tagName(l.tagId)}` : ''}`}
                   value={values[l.id] ?? ''}
                   onChange={(v) => setValues((prev) => ({ ...prev, [l.id]: v }))}
                 />
@@ -168,6 +179,10 @@ export function JournalTemplateEntryPage() {
         <DatePicker label="Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
         <div className="min-w-[16rem] flex-1">
           <Input label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
+        </div>
+        <div className="w-48">
+          <span className="block text-sm font-medium text-gray-700 mb-1">Tag</span>
+          <LineTagPicker value={tagId} onChange={(t) => setTagId(t)} ariaLabel="Entry tag" />
         </div>
       </div>
 

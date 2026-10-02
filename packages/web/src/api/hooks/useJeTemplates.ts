@@ -45,6 +45,15 @@ export function useUpdateJeTemplate() {
   });
 }
 
+export function useDuplicateJeTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name?: string }) =>
+      apiClient<{ template: JeTemplateWithLines }>(`/je-templates/${id}/duplicate`, { method: 'POST', body: JSON.stringify({ name }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['je-templates'] }),
+  });
+}
+
 export function useDeleteJeTemplate() {
   const qc = useQueryClient();
   return useMutation({

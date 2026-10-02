@@ -10,6 +10,7 @@ import { accountsMocks, transactionsMocks } from '../../test-mocks';
 const createMutateAsync = vi.fn().mockResolvedValue({ template: { id: 'tpl-1', name: 'Payroll accrual', lines: [] } });
 const saveLinesMutateAsync = vi.fn().mockResolvedValue({});
 const updateMutateAsync = vi.fn().mockResolvedValue({ template: { id: 'tpl-1' } });
+const duplicateMutateAsync = vi.fn().mockResolvedValue({ template: { id: 'tpl-2', name: 'Payroll accrual (copy)', lines: [] } });
 const templateStore: { data: unknown } = { data: undefined };
 
 vi.mock('../../api/hooks/useJeTemplates', () => ({
@@ -21,6 +22,7 @@ vi.mock('../../api/hooks/useJeTemplates', () => ({
   useCreateJeTemplate: () => ({ mutateAsync: createMutateAsync, isPending: false }),
   useUpdateJeTemplate: () => ({ mutateAsync: updateMutateAsync, isPending: false }),
   useDeleteJeTemplate: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDuplicateJeTemplate: () => ({ mutateAsync: duplicateMutateAsync, isPending: false }),
   useReplaceJeTemplateLines: () => ({ mutateAsync: saveLinesMutateAsync, isPending: false }),
 }));
 vi.mock('../../api/hooks/useAccounts', () => accountsMocks());
@@ -39,6 +41,7 @@ beforeEach(() => {
   createMutateAsync.mockClear();
   saveLinesMutateAsync.mockClear();
   updateMutateAsync.mockClear();
+  duplicateMutateAsync.mockClear();
   createTxnMutate.mockClear();
   templateStore.data = undefined;
 });
@@ -109,7 +112,7 @@ describe('JournalTemplatesPage', () => {
     // Editing + saving persists the memo via the template update endpoint.
     fireEvent.change(memoInput, { target: { value: 'Depreciation — building' } });
     fireEvent.click(screen.getByRole('button', { name: /save template/i }));
-    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledWith({ id: 'tpl-1', memo: 'Depreciation — building' }));
+    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ id: 'tpl-1', memo: 'Depreciation — building' })));
   });
 
   it('sends memo:null when the default memo is cleared', async () => {
@@ -119,7 +122,7 @@ describe('JournalTemplatesPage', () => {
     const memoInput = await screen.findByLabelText('Default memo');
     fireEvent.change(memoInput, { target: { value: '   ' } });
     fireEvent.click(screen.getByRole('button', { name: /save template/i }));
-    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledWith({ id: 'tpl-1', memo: null }));
+    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ id: 'tpl-1', memo: null })));
   });
 
   it('drag-and-drop reorders the lines and the new order persists on save', async () => {
@@ -147,6 +150,31 @@ describe('JournalTemplatesPage', () => {
     const sent = saveLinesMutateAsync.mock.calls[0]![0] as { lines: Array<{ label: string; sortOrder: number }> };
     expect(sent.lines.map((l) => l.label)).toEqual(['Accrued payroll', 'Gross wages']);
     expect(sent.lines.map((l) => l.sortOrder)).toEqual([0, 1]);
+  });
+});
+
+describe('JournalTemplatesPage rename + duplicate', () => {
+  it('saves an edited template name', async () => {
+    templateStore.data = PAYROLL_TEMPLATE;
+    renderRoute(<JournalTemplatesPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Payroll accrual' }));
+    const nameInput = await screen.findByLabelText('Template name');
+    fireEvent.change(nameInput, { target: { value: 'Semi-monthly payroll' } });
+    fireEvent.click(screen.getByRole('button', { name: /save template/i }));
+    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'tpl-1', name: 'Semi-monthly payroll', defaultTagId: null }),
+    ));
+  });
+
+  it('duplicates under the name entered in the prompt', async () => {
+    templateStore.data = PAYROLL_TEMPLATE;
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Payroll — Store 2');
+    renderRoute(<JournalTemplatesPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Payroll accrual' }));
+    await screen.findByDisplayValue('Gross wages');
+    fireEvent.click(screen.getByRole('button', { name: /duplicate/i }));
+    await waitFor(() => expect(duplicateMutateAsync).toHaveBeenCalledWith({ id: 'tpl-1', name: 'Payroll — Store 2' }));
+    promptSpy.mockRestore();
   });
 });
 
