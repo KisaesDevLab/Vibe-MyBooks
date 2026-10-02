@@ -2876,7 +2876,9 @@ Tax-basis-only entries that never touch the books — they shape the Tax column,
 
 **Finalize** freezes the numbers, layout and PDF as a version. If the ledger changes afterwards the version is marked "Ledger changed" (and tells you whether these statements would actually differ) but never changes. Reopen to make changes — finalizing again creates the next version. From **Versions** you can download any version and **Publish to portal**, which puts the PDF on the client's portal Financials page.
 
-**Leadsheets** (Trial Balance → Leadsheets) decide which accounts land on which statement line: use Move to… on any account row to move it to another leadsheet or remove it, and Add account to pull any account (including zero-balance ones) into the leadsheet you're viewing.
+**Leadsheets** (Trial Balance → Leadsheets) decide which accounts land on which statement line. Click **Edit** on the leadsheet you're viewing, then use Move to… on any account row to move it to another leadsheet or remove it, and Add account to pull any account (including zero-balance ones) into it. Click **Done** when finished. The date at the top of the Leadsheets page is the period end, the same date the Trial Balance page uses.
+
+The Balance Sheet and Profit & Loss can also be viewed by leadsheet: in the report's **View** menu choose **Grouped by leadsheet** (leadsheet headings with their accounts and totals) or **Condensed (leadsheet totals)** (one line per leadsheet). Accounts that aren't on a leadsheet are listed last under "Not on a leadsheet".
 
 **Firm library** (link at the top of the list): letterhead and logo (show the logo, the firm name and address, or both; logo small, medium, full width inside the margins, or edge to edge across the top of the page), accountant's report templates (seeded from the standard compilation and preparation reports), style presets and layout templates — shared by every client your firm serves. Only firm administrators can change it; save a client's layout as a template from the editor.`,
   },

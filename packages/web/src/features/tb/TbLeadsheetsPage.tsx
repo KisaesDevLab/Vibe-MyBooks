@@ -17,7 +17,8 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { MARK_TONES, useTbYearOverride, fiscalYearEndFor, useWorkpaper, usd, type TbWorkpaperRow } from './workpaperShared';
-import { Download, Paperclip, Pencil } from 'lucide-react';
+import { Download, Paperclip, Pencil, Check } from 'lucide-react';
+import { useSessionState } from '../../hooks/useSessionState';
 import { TbPdfViewer } from './TbPdfViewer';
 import clsx from 'clsx';
 
@@ -44,9 +45,13 @@ export function TbLeadsheetsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: profileData } = useTbProfile();
-  const [yearOverride, setYearOverride] = useTbYearOverride();
-  const taxYear = yearOverride ?? profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
-  const periodEnd = fiscalYearEndFor(taxYear, profileData?.fiscal.fiscalYearStartMonth ?? 1);
+  // Same session-persisted period end as the Trial Balance page (shared
+  // key), so both screens stay on one date. An explicit date wins;
+  // otherwise follow the module tax-year override, then the profile FY.
+  const [yearOverride] = useTbYearOverride();
+  const [periodEndPick, setPeriodEnd] = useSessionState('vibe:tb:periodEnd', '');
+  const defaultTaxYear = yearOverride ?? profileData?.fiscal.currentTaxYear ?? new Date().getFullYear();
+  const periodEnd = periodEndPick || fiscalYearEndFor(defaultTaxYear, profileData?.fiscal.fiscalYearStartMonth ?? 1);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [markPicker, setMarkPicker] = useState<{ accountId: string; column: string } | null>(null);
@@ -57,6 +62,12 @@ export function TbLeadsheetsPage() {
     queryFn: () => apiClient<{ groupings: Grouping[] }>('/tb/groupings'),
   });
   const { data: wpData } = useWorkpaper(periodEnd, basis);
+  // Tax year the chosen date falls in (server-derived, as on the TB page);
+  // tickmarks, notes, sign-offs and attachments are kept per tax year.
+  const taxYear = wpData?.workpaper.taxYear ?? defaultTaxYear;
+  // Membership editing (Move to… column + Add account) shows only in
+  // edit mode so the workpaper view stays clean.
+  const [editing, setEditing] = useState(false);
   const { data: marksData } = useQuery({
     queryKey: ['tb', 'tickmarks'],
     queryFn: () => apiClient<{ tickmarks: Tickmark[] }>('/tb/tickmarks'),
@@ -269,9 +280,9 @@ export function TbLeadsheetsPage() {
           <p className="text-sm text-gray-500">TY{taxYear} workpapers by grouping — sign-offs stamp the GL version and flag stale on later changes.</p>
         </div>
         <div className="flex items-center gap-2">
-          <input type="number" value={taxYear} aria-label="Tax year"
-            onChange={(e) => { const v = Number(e.target.value); if (v >= 2000 && v <= 2100) setYearOverride(v); }}
-            className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+          <input type="date" value={periodEnd} aria-label="Period end"
+            onChange={(e) => setPeriodEnd(e.target.value)}
+            className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
           <select value={basis} aria-label="Accounting basis"
             onChange={(e) => setBasis(e.target.value as 'accrual' | 'cash')}
             className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
@@ -361,6 +372,10 @@ export function TbLeadsheetsPage() {
                     )}
                   </h2>
                   <div className="flex items-center gap-2">
+                    <Button size="sm" variant={editing ? 'primary' : 'secondary'} onClick={() => setEditing((v) => !v)}
+                      title={editing ? 'Finish editing leadsheet accounts' : 'Move or add accounts on this leadsheet'}>
+                      {editing ? <><Check className="h-4 w-4 mr-1" /> Done</> : <><Pencil className="h-4 w-4 mr-1" /> Edit</>}
+                    </Button>
                     <Button size="sm" variant="secondary" disabled={pdfBusy}
                       onClick={() => downloadPdf(selected.id)} title="Download this leadsheet as PDF">
                       <Download className="h-4 w-4 mr-1" /> PDF
@@ -415,7 +430,7 @@ export function TbLeadsheetsPage() {
                       <th className="py-2 pr-3 text-right">Tax</th>
                       <th className="py-2 pr-3">Marks</th>
                       <th className="py-2 pr-3">Files</th>
-                      <th className="py-2">Leadsheet</th>
+                      {editing && <th className="py-2">Leadsheet</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -512,7 +527,7 @@ export function TbLeadsheetsPage() {
                               </label>
                             </span>
                           </td>
-                          <td className="py-1.5">
+                          {editing && <td className="py-1.5">
                             <select value="" aria-label={`Move ${r.name} to another leadsheet`} disabled={moveAccount.isPending}
                               title="Move this account to another leadsheet"
                               onChange={(e) => {
@@ -527,12 +542,12 @@ export function TbLeadsheetsPage() {
                               ))}
                               <option value="__none">Remove from leadsheet</option>
                             </select>
-                          </td>
+                          </td>}
                         </tr>
                       );
                     })}
                     {memberRows.length === 0 && (
-                      <tr><td colSpan={10} className="py-4 text-sm text-gray-500">No accounts in this leadsheet yet — add one below.</td></tr>
+                      <tr><td colSpan={editing ? 10 : 9} className="py-4 text-sm text-gray-500">No accounts in this leadsheet yet{editing ? ' — add one below.' : ' — click Edit to add one.'}</td></tr>
                     )}
                   </tbody>
                   <tfoot>
@@ -544,11 +559,11 @@ export function TbLeadsheetsPage() {
                       })}
                       <td />
                       <td />
-                      <td />
+                      {editing && <td />}
                     </tr>
                   </tfoot>
                 </table>
-                <div className="mt-3 flex items-center gap-2">
+                {editing && <div className="mt-3 flex items-center gap-2">
                   <label className="text-xs text-gray-500" htmlFor="leadsheet-add-account">Add account</label>
                   <select id="leadsheet-add-account" value="" disabled={moveAccount.isPending}
                     onChange={(e) => e.target.value && moveAccount.mutate({ accountId: e.target.value, groupingId: selected.id })}
@@ -564,7 +579,7 @@ export function TbLeadsheetsPage() {
                     })}
                   </select>
                   <span className="text-[11px] text-gray-400">An account belongs to one leadsheet; adding it here moves it.</span>
-                </div>
+                </div>}
               </div>
 
               {/* ── Notes (7.4) ──────────────────────────────── */}

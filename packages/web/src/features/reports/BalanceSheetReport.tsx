@@ -16,6 +16,7 @@ import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useCompanySettings } from '../../api/hooks/useCompany';
 import { ReportShell } from './ReportShell';
+import { type GroupMode, GroupModeOptions, groupModeParams, isCondensedMode, isGroupedMode, useEffectiveGroupMode } from './reportGroupMode';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
 import { ReportFooter } from './ReportFooter';
@@ -106,7 +107,6 @@ interface BSComparativeData {
 
 // Display mode: detail = flat accounts; grouped = detail-type group
 // headers + accounts + subtotals; condensed = group subtotal rows only.
-type GroupMode = 'detail' | 'grouped' | 'condensed';
 
 type BSData = BSStandardData | BSComparativeData;
 
@@ -150,7 +150,8 @@ export function BalanceSheetReport() {
   const legacyGrouped = (() => {
     try { return window.sessionStorage.getItem('vibe:report-bs:groupBy') === 'true'; } catch { return false; }
   })();
-  const [groupMode, setGroupMode] = useSessionState<GroupMode>('vibe:report-bs:groupMode', legacyGrouped ? 'grouped' : 'detail');
+  const [storedGroupMode, setGroupMode] = useSessionState<GroupMode>('vibe:report-bs:groupMode', legacyGrouped ? 'grouped' : 'detail');
+  const { mode: groupMode, leadsheetsAvailable } = useEffectiveGroupMode(storedGroupMode);
   // Shared across financial reports (localStorage): show/hide account numbers.
   const [showAcctNums, setShowAcctNums] = useLocalState(SHOW_ACCT_NUMBERS_KEY, true);
   const { activeCompanyId } = useCompanyContext();
@@ -163,8 +164,7 @@ export function BalanceSheetReport() {
   // display=condensed only affects server-side exports (PDF/CSV mirror
   // the on-screen presentation); the JSON response carries it as an
   // additive no-op field.
-  const effectiveGroupBy = groupMode !== 'detail';
-  const queryParams = `as_of_date=${debAsOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}${groupMode === 'condensed' ? '&display=condensed' : ''}`;
+  const queryParams = `as_of_date=${debAsOfDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${groupModeParams(groupMode)}`;
 
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'balance-sheet', debAsOfDate, basis, compare, activeCompanyId, scope, tagId, groupMode],
@@ -205,9 +205,7 @@ export function BalanceSheetReport() {
               className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
               aria-label="Report display mode"
             >
-              <option value="detail">Detail</option>
-              <option value="grouped">Grouped by detail type</option>
-              <option value="condensed">Condensed (group totals)</option>
+              <GroupModeOptions leadsheets={leadsheetsAvailable} />
             </select>
           </label>
           <label className="flex items-center gap-1.5 text-sm text-gray-600" title="Show account numbers on financial reports">
@@ -262,7 +260,7 @@ function StandardView({ data, mode = 'detail', showAcctNums = true }: { data: BS
   const Section = ({ title, items, total, groups }: { title: string; items: BSRow[]; total: number; groups?: BSGroup[] }) => (
     <div>
       <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
-      {groups && mode === 'condensed' ? (
+      {groups && isCondensedMode(mode) ? (
         // Condensed: one subtotal line per detail-type group, no
         // account rows. Section totals below are unchanged.
         groups.map((g, gi) => (
@@ -372,13 +370,13 @@ function ComparativeView({ data, mode = 'detail', showAcctNums = true }: { data:
         {useGroups ? (
           groups!.map((g, gi) => (
             <Fragment key={gi}>
-              {mode === 'grouped' && (
+              {isGroupedMode(mode) && (
                 <tr>
                   <td colSpan={columns.length + 1} className="px-3 pt-2 pb-1 pl-6 text-xs font-semibold text-gray-500">{g.label}</td>
                 </tr>
               )}
-              {mode === 'grouped' && g.rows.map((row, i) => <AccountRow key={i} row={row} indent />)}
-              <GroupSubtotalRow label={mode === 'condensed' ? g.label : `Total ${g.label}`} values={g.values} />
+              {isGroupedMode(mode) && g.rows.map((row, i) => <AccountRow key={i} row={row} indent />)}
+              <GroupSubtotalRow label={isCondensedMode(mode) ? g.label : `Total ${g.label}`} values={g.values} />
             </Fragment>
           ))
         ) : (

@@ -115,11 +115,11 @@ interface PLComparativeData {
 
 // Display mode: detail = flat accounts; grouped = detail-type group
 // headers + accounts + subtotals; condensed = group subtotal rows only.
-type GroupMode = 'detail' | 'grouped' | 'condensed';
 
 type PLData = PLStandardData | PLComparativeData;
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
+import { type GroupMode, GroupModeOptions, groupModeParams, isCondensedMode, isGroupedMode, useEffectiveGroupMode } from './reportGroupMode';
 import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
@@ -164,7 +164,8 @@ export function ProfitAndLossReport() {
   const legacyGrouped = (() => {
     try { return window.sessionStorage.getItem('vibe:report-pl:groupBy') === 'true'; } catch { return false; }
   })();
-  const [groupMode, setGroupMode] = useSessionState<GroupMode>('vibe:report-pl:groupMode', legacyGrouped ? 'grouped' : 'detail');
+  const [storedGroupMode, setGroupMode] = useSessionState<GroupMode>('vibe:report-pl:groupMode', legacyGrouped ? 'grouped' : 'detail');
+  const { mode: groupMode, leadsheetsAvailable } = useEffectiveGroupMode(storedGroupMode);
   // "% of Revenue" — standard view gets one column; comparison views get
   // a companion % cell per period column (common-size, each against its
   // own period's revenue). Mirrored into the PDF/CSV export via
@@ -183,9 +184,8 @@ export function ProfitAndLossReport() {
   // display=condensed and show_pct only affect server-side exports
   // (PDF/CSV mirror the on-screen presentation); the JSON response
   // carries them as additive no-op fields.
-  const effectiveGroupBy = groupMode !== 'detail';
   const effectiveShowPct = showPct;
-  const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${effectiveGroupBy ? '&group_by=detail_type' : ''}${groupMode === 'condensed' ? '&display=condensed' : ''}${effectiveShowPct ? '&show_pct=1' : ''}`;
+  const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}&basis=${basis}${compare ? `&compare=${compare}` : ''}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}${groupModeParams(groupMode)}${effectiveShowPct ? '&show_pct=1' : ''}`;
 
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'profit-loss', debStartDate, debEndDate, basis, compare, activeCompanyId, scope, tagId, groupMode, effectiveShowPct],
@@ -226,9 +226,7 @@ export function ProfitAndLossReport() {
               className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
               aria-label="Report display mode"
             >
-              <option value="detail">Detail</option>
-              <option value="grouped">Grouped by detail type</option>
-              <option value="condensed">Condensed (group totals)</option>
+              <GroupModeOptions leadsheets={leadsheetsAvailable} />
             </select>
           </label>
           <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
@@ -309,7 +307,7 @@ function StandardView({ data, showPct = false, mode = 'detail', showAcctNums = t
   const Section = ({ title, items, total, groups }: { title: string; items: PLRow[]; total: number; groups?: PLGroup[] }) => (
     <div>
       <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">{title}</h2>
-      {groups && mode === 'condensed' ? (
+      {groups && isCondensedMode(mode) ? (
         // Condensed: one subtotal line per detail-type group, no
         // account rows. Section totals below are unchanged.
         groups.map((g, gi) => (
@@ -537,13 +535,13 @@ function ComparativeView({ data, mode = 'detail', showPct = false, showAcctNums 
       <>
         {groups.map((g, gi) => (
           <Fragment key={gi}>
-            {mode === 'grouped' && (
+            {isGroupedMode(mode) && (
               <tr>
                 <td colSpan={tableSpan} className="px-3 pt-2 pb-1 pl-6 text-xs font-semibold text-gray-500">{g.label}</td>
               </tr>
             )}
-            {mode === 'grouped' && <AccountRows rows={g.rows} indent />}
-            <GroupSubtotalRow label={mode === 'condensed' ? g.label : `Total ${g.label}`} values={g.values} />
+            {isGroupedMode(mode) && <AccountRows rows={g.rows} indent />}
+            <GroupSubtotalRow label={isCondensedMode(mode) ? g.label : `Total ${g.label}`} values={g.values} />
           </Fragment>
         ))}
       </>
