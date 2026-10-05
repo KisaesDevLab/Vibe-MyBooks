@@ -12,12 +12,14 @@ import { formatMoney } from '../../../utils/money';
 import { TableScroll } from '../../../components/ui/TableScroll';
 import { Pagination } from '../../../components/ui/Pagination';
 import { Button } from '../../../components/ui/Button';
+import { SortableTh } from '../../../components/ui/SortableTh';
 import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
 import { ContactSelector } from '../../../components/forms/ContactSelector';
 import { SelectionActionBar } from './SelectionActionBar';
 import {
   useSuggestions, useApproveSuggestions, useRejectSuggestions, useMarkSuggestionsReviewed,
+  type SuggestionSortKey, type SortDir,
 } from '../../../api/hooks/useUncategorized';
 
 const PAGE_SIZE = 50;
@@ -40,10 +42,15 @@ export function ClientSuggestedTab() {
   const [overrideContactId, setOverrideContactId] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
+  // Server-side sort: the list paginates, so ordering the visible page alone
+  // would lie. '' = the endpoint's default (unread first, then newest).
+  const [sortBy, setSortBy] = useState<'' | SuggestionSortKey>('');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   const toast = useToast();
   const query = useSuggestions({
     limit: PAGE_SIZE, offset, status: 'pending', unread: unreadOnly || undefined,
+    sortBy: sortBy || undefined, sortDir: sortBy ? sortDir : undefined,
   });
   const approve = useApproveSuggestions();
   const reject = useRejectSuggestions();
@@ -61,6 +68,13 @@ export function ClientSuggestedTab() {
     return next;
   });
   const changePage = (next: number) => { setOffset(next); setSelected(new Set()); };
+  // First click sorts ascending; a second click on the same column flips it.
+  const toggleSort = (key: SuggestionSortKey) => {
+    setSortDir(sortBy === key && sortDir === 'asc' ? 'desc' : 'asc');
+    setSortBy(key);
+    setOffset(0);
+    setSelected(new Set());
+  };
 
   const runApprove = (confirmDrift = false) => {
     if (selected.size === 0) return;
@@ -178,13 +192,13 @@ export function ClientSuggestedTab() {
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="w-10 px-3 py-2" />
-              <th className="px-3 py-2">Date</th>
-              <th className="px-3 py-2">Description</th>
-              <th className="px-3 py-2 text-right">Amount</th>
-              <th className="px-3 py-2">Suggested</th>
-              <th className="px-3 py-2">Payee</th>
-              <th className="px-3 py-2">Note</th>
-              <th className="px-3 py-2">From</th>
+              <SortableTh sortKey="date" label="Date" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh sortKey="description" label="Description" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh sortKey="amount" label="Amount" align="right" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh sortKey="suggested" label="Suggested" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh sortKey="payee" label="Payee" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh sortKey="note" label="Note" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh sortKey="from" label="From" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">

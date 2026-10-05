@@ -25,6 +25,7 @@ const setFeedPayeeMutate = vi.fn();
 const bulkSetFeedPayeeMutate = vi.fn();
 // The last options each list hook was called with — how a sort click is observed.
 let lastSuspenseOpts: Record<string, unknown> = {};
+let lastSuggestionOpts: Record<string, unknown> = {};
 let lastUnpostedOpts: Record<string, unknown> = {};
 
 const suspenseRow = {
@@ -96,10 +97,13 @@ vi.mock('../../../api/hooks/useUncategorized', () => ({
       isLoading: false, isError: false, refetch: vi.fn(),
     };
   },
-  useSuggestions: () => ({
-    data: { rows: [suggestionRow], total: 1 },
-    isLoading: false, isError: false, refetch: vi.fn(),
-  }),
+  useSuggestions: (opts: Record<string, unknown>) => {
+    lastSuggestionOpts = opts;
+    return {
+      data: { rows: [suggestionRow], total: 1 },
+      isLoading: false, isError: false, refetch: vi.fn(),
+    };
+  },
   useClearSuspense: () => ({ ...passthroughMutation(), mutate: clearMutate }),
   usePostToSuspense: () => ({ ...passthroughMutation(), mutate: postToSuspenseMutate }),
   useSetSuspensePayee: () => ({ ...passthroughMutation(), mutate: setSuspensePayeeMutate }),
@@ -385,5 +389,18 @@ describe('Client suggested — the client note', () => {
     expect(screen.getByRole('columnheader', { name: 'Note' })).toBeTruthy();
     // Shown whole, not as grey subtext under the category.
     expect(screen.getByText('Parts for the Henderson repair')).toBeTruthy();
+  });
+});
+
+describe('Client suggested — sorting', () => {
+  it('sorts on the server: a header click asks the list for that column, a second click flips it', () => {
+    renderRoute(<ClientSuggestedTab />);
+    expect(lastSuggestionOpts['sortBy']).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: /^amount/i }));
+    expect(lastSuggestionOpts).toMatchObject({ sortBy: 'amount', sortDir: 'asc', offset: 0 });
+    fireEvent.click(screen.getByRole('button', { name: /^amount/i }));
+    expect(lastSuggestionOpts).toMatchObject({ sortBy: 'amount', sortDir: 'desc' });
+    fireEvent.click(screen.getByRole('button', { name: /^suggested/i }));
+    expect(lastSuggestionOpts).toMatchObject({ sortBy: 'suggested', sortDir: 'asc' });
   });
 });

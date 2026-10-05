@@ -94,6 +94,7 @@ interface Paged { limit?: number; offset?: number; search?: string }
 export type UnpostedSortKey = 'feedDate' | 'checkNumber' | 'payee' | 'description' | 'amount';
 export type SuspenseSortKey = 'txnDate' | 'checkNumber' | 'payee' | 'memo' | 'amount';
 export type SortDir = 'asc' | 'desc';
+export type SuggestionSortKey = 'date' | 'description' | 'amount' | 'suggested' | 'payee' | 'note' | 'from';
 
 function qs(params: Record<string, string | number | boolean | undefined>): string {
   const sp = new URLSearchParams();
@@ -148,7 +149,7 @@ export function useInSuspense(opts: Paged & { includeSuggestions?: boolean; sort
   });
 }
 
-export function useSuggestions(opts: Paged & { status?: string; unread?: boolean } = {}, enabled = true) {
+export function useSuggestions(opts: Paged & { status?: string; unread?: boolean; sortBy?: SuggestionSortKey; sortDir?: SortDir } = {}, enabled = true) {
   return useQuery({
     enabled,
     queryKey: ['uncategorized', 'suggestions', opts],
