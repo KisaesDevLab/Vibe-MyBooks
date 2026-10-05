@@ -23,6 +23,8 @@ const postToSuspenseMutate = vi.fn();
 const setSuspensePayeeMutate = vi.fn();
 const setFeedPayeeMutate = vi.fn();
 const bulkSetFeedPayeeMutate = vi.fn();
+const approveMutateAsync = vi.fn();
+const dismissMutate = vi.fn();
 // The last options each list hook was called with — how a sort click is observed.
 let lastSuspenseOpts: Record<string, unknown> = {};
 let lastSuggestionOpts: Record<string, unknown> = {};
@@ -109,9 +111,10 @@ vi.mock('../../../api/hooks/useUncategorized', () => ({
   useSetSuspensePayee: () => ({ ...passthroughMutation(), mutate: setSuspensePayeeMutate }),
   useSetFeedItemPayee: () => ({ ...passthroughMutation(), mutate: setFeedPayeeMutate }),
   useBulkSetFeedPayee: () => ({ ...passthroughMutation(), mutate: bulkSetFeedPayeeMutate }),
-  useApproveSuggestions: passthroughMutation,
+  useApproveSuggestions: () => ({ ...passthroughMutation(), mutateAsync: approveMutateAsync }),
   useRejectSuggestions: passthroughMutation,
   useMarkSuggestionsReviewed: passthroughMutation,
+  useDismissSuggestions: () => ({ ...passthroughMutation(), mutate: dismissMutate }),
   // The In suspense tab mounts the "Ask the client" modal closed; its hooks
   // are called (hooks always are) but disabled, so an inert stub is enough.
   useHelpRecipients: () => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() }),
@@ -160,6 +163,9 @@ beforeEach(() => {
   setSuspensePayeeMutate.mockReset();
   setFeedPayeeMutate.mockReset();
   bulkSetFeedPayeeMutate.mockReset();
+  approveMutateAsync.mockReset();
+  approveMutateAsync.mockResolvedValue({ approved: ['sug-1'], failed: [] });
+  dismissMutate.mockReset();
 });
 
 /** Resolve a payee write the way the real mutation would: success, one row. */
@@ -402,5 +408,55 @@ describe('Client suggested — sorting', () => {
     expect(lastSuggestionOpts).toMatchObject({ sortBy: 'amount', sortDir: 'desc' });
     fireEvent.click(screen.getByRole('button', { name: /^suggested/i }));
     expect(lastSuggestionOpts).toMatchObject({ sortBy: 'suggested', sortDir: 'asc' });
+  });
+});
+
+describe('Client suggested — inline category + payee, per-row approve and dismiss', () => {
+  it('edits the category in place and approves just that row with it', async () => {
+    renderRoute(<ClientSuggestedTab />);
+    // The client said "Not sure": their words stay visible, and the row
+    // cannot post until a category is picked.
+    expect(screen.getByText('Client said: Not sure')).toBeTruthy();
+    const approveRow = screen.getByRole('button', { name: /approve suggestion from cli ent/i });
+    expect((approveRow as HTMLButtonElement).disabled).toBe(true);
+
+    await pickCategory(1); // 0 = toolbar override, 1 = the row
+    expect(approveMutateAsync).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /approve suggestion from cli ent/i }));
+    await waitFor(() => expect(approveMutateAsync).toHaveBeenCalledTimes(1));
+    expect(approveMutateAsync.mock.calls[0]![0]).toEqual({
+      ids: ['sug-1'], overrideAccountId: 'acct-1', overrideContactId: undefined, confirmDrift: false,
+    });
+  });
+
+  it('carries a row payee edit into the bulk Approve', async () => {
+    renderRoute(<ClientSuggestedTab />);
+    await pickCategory(1);
+    await pickPayee(1); // 0 = toolbar override payee, 1 = the row
+    fireEvent.click(screen.getByLabelText(/select suggestion from cli ent/i));
+    fireEvent.click(screen.getByRole('button', { name: /^approve$/i }));
+    await waitFor(() => expect(approveMutateAsync).toHaveBeenCalledTimes(1));
+    expect(approveMutateAsync.mock.calls[0]![0]).toMatchObject({
+      ids: ['sug-1'], overrideAccountId: 'acct-1', overrideContactId: 'contact-1',
+    });
+  });
+
+  it('dismisses after a confirm, without approving', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderRoute(<ClientSuggestedTab />);
+    fireEvent.click(screen.getByRole('button', { name: /dismiss suggestion from cli ent/i }));
+    expect(confirm).toHaveBeenCalled();
+    expect(dismissMutate).toHaveBeenCalledTimes(1);
+    expect(dismissMutate.mock.calls[0]![0]).toEqual({ ids: ['sug-1'] });
+    expect(approveMutateAsync).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it('does nothing when the dismiss confirm is cancelled', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderRoute(<ClientSuggestedTab />);
+    fireEvent.click(screen.getByRole('button', { name: /dismiss suggestion from cli ent/i }));
+    expect(dismissMutate).not.toHaveBeenCalled();
+    confirm.mockRestore();
   });
 });

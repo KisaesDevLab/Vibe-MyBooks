@@ -3064,7 +3064,7 @@ Nothing lands there on its own. Only two paths post to suspense:
 
 - **Not posted** \u2014 bank lines still off the ledger. Give one a real category, or park it in suspense.
 - **In suspense** \u2014 amounts on the ledger awaiting a category. Tick rows, pick an account, click **Set category**, or pick a contact and click **Set payee** to name them all at once.
-- **Client suggested** \u2014 what your clients answered from the portal.
+- **Client suggested** \u2014 what your clients answered from the portal. Each row's **Suggested** category and **Payee** are pickers prefilled with the client's pick; change either in place (the client's own words stay visible underneath), then press that row's **Approve** to post it. The bulk **Approve** uses every ticked row's edits; the toolbar override pickers, when set, win over them. **Dismiss** (per row, or for the ticked rows) removes answers you already recorded yourself \u2014 nothing is posted and the client is not told. A row marked **Already handled** can only be dismissed.
 
 A row moves from the first tab to the second when you post it to suspense; it leaves the second when you give it a real category. Nothing disappears.
 
@@ -3175,7 +3175,7 @@ Picking **I am not sure** without writing anything is refused, with the reason s
 
 ## The payee
 
-Every row also asks **Who was it paid to or from?** \u2014 a list of every active contact (vendors and customers alike, on every row), plus **Someone not in this list\u2026**, which opens a box for a name. A payee on its own is a complete answer: it goes up as **I am not sure** with the payee attached. On **Practice \u2192 Uncategorized \u2192 Client suggested** the answer shows in a **Payee** column; a typed name carries a **Not in contacts** badge. To apply a typed name, pick or add that contact in the override payee picker beside the override category picker, then approve. Approving sets the payee on the posted transaction \u2014 for an amount already in suspense, in the same step that moves it out. A payee-only answer still needs a category from you before it can be approved.
+Every row also asks **Who was it paid to or from?** \u2014 a list of every active contact (vendors and customers alike, on every row), plus **Someone not in this list\u2026**, which opens a box for a name. A payee on its own is a complete answer: it goes up as **I am not sure** with the payee attached. On **Practice \u2192 Uncategorized \u2192 Client suggested** the answer shows in a **Payee** column; a typed name carries a **Not in contacts** badge. To apply a typed name, pick or add that contact in the row's Payee picker (or the toolbar's override payee picker), then approve. Approving sets the payee on the posted transaction \u2014 for an amount already in suspense, in the same step that moves it out. A payee-only answer still needs a category from you before it can be approved.
 
 Staff read the note in its own **Note** column on Practice \u2192 Uncategorized \u2192 Client suggested, in full and wrapped, beside what the client picked. When the client could not name an account, the note is the answer, so it is not buried as small print under the category. The same tab also lists answers the company's own team members sent from **Banking \u2192 Uncategorized**, marked **Team member**; a **Client** badge marks portal answers.
 

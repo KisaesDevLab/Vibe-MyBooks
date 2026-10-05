@@ -194,6 +194,14 @@ export function useRejectSuggestions() {
     ));
 }
 
+// Retires answers without posting or telling the client (recorded by hand).
+export function useDismissSuggestions() {
+  return useLedgerMutation((input: { ids: string[] }) =>
+    apiClient<{ dismissed: string[] }>(
+      `${BASE}/suggestions/dismiss`, { method: 'POST', body: JSON.stringify(input) },
+    ));
+}
+
 // ── Ask the client for help ─────────────────────────────────────
 // A notice, not a ledger action, so it does NOT use useLedgerMutation: nothing
 // on the page changes when it goes out except the "last asked" stamp.

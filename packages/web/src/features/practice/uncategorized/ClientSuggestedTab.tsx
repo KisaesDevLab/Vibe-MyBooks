@@ -5,9 +5,14 @@
 // Tab 3 — what clients answered from the portal. Nothing here has posted.
 // Approving runs the same primitives the rest of the app uses, so a locked
 // period or a voided entry is refused rather than forced.
+//
+// Each row's category and payee are editable in place, prefilled with the
+// client's pick. An edit is a draft: nothing posts until that row's Approve
+// (or the bulk Approve, which uses every row's edits). Dismiss retires an
+// answer staff already recorded by hand — no posting, no message to the client.
 
 import { useState } from 'react';
-import { AlertTriangle, Check, Loader2, MessageSquare, X } from 'lucide-react';
+import { AlertTriangle, Ban, Check, CircleDot, Loader2, MessageSquare, X } from 'lucide-react';
 import { formatMoney } from '../../../utils/money';
 import { TableScroll } from '../../../components/ui/TableScroll';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -19,10 +24,13 @@ import { ContactSelector } from '../../../components/forms/ContactSelector';
 import { SelectionActionBar } from './SelectionActionBar';
 import {
   useSuggestions, useApproveSuggestions, useRejectSuggestions, useMarkSuggestionsReviewed,
-  type SuggestionSortKey, type SortDir,
+  useDismissSuggestions,
+  type SuggestionRow, type SuggestionSortKey, type SortDir,
 } from '../../../api/hooks/useUncategorized';
 
 const PAGE_SIZE = 50;
+
+interface RowDraft { accountId?: string; contactId?: string }
 
 const REASON_COPY: Record<string, string> = {
   drifted: 'the amount or date changed since the client answered',
@@ -46,6 +54,9 @@ export function ClientSuggestedTab() {
   // would lie. '' = the endpoint's default (unread first, then newest).
   const [sortBy, setSortBy] = useState<'' | SuggestionSortKey>('');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  // Per-row category + payee edits, keyed by suggestion id.
+  const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
 
   const toast = useToast();
   const query = useSuggestions({
@@ -55,12 +66,32 @@ export function ClientSuggestedTab() {
   const approve = useApproveSuggestions();
   const reject = useRejectSuggestions();
   const markReviewed = useMarkSuggestionsReviewed();
+  const dismiss = useDismissSuggestions();
 
   const rows = query.data?.rows ?? [];
   const total = query.data?.total ?? 0;
   const pageIds = rows.map((r) => r.id);
   const allSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
-  const busy = approve.isPending || reject.isPending || markReviewed.isPending;
+  const busy = approve.isPending || reject.isPending || markReviewed.isPending || dismiss.isPending;
+
+  const rowAccount = (r: SuggestionRow) => drafts[r.id]?.accountId ?? r.suggestedAccountId ?? '';
+  const rowContact = (r: SuggestionRow) => drafts[r.id]?.contactId ?? r.suggestedContactId ?? '';
+  const rowEdited = (r: SuggestionRow) =>
+    rowAccount(r) !== (r.suggestedAccountId ?? '') || rowContact(r) !== (r.suggestedContactId ?? '');
+  const patchDraft = (id: string, patch: RowDraft) =>
+    setDrafts((d) => ({ ...d, [id]: { ...d[id], ...patch } }));
+  const forget = (ids: string[]) => {
+    setDrafts((d) => {
+      const next = { ...d };
+      for (const id of ids) delete next[id];
+      return next;
+    });
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.delete(id);
+      return next;
+    });
+  };
 
   const toggle = (id: string) => setSelected((prev) => {
     const next = new Set(prev);
@@ -76,29 +107,78 @@ export function ClientSuggestedTab() {
     setSelected(new Set());
   };
 
-  const runApprove = (confirmDrift = false) => {
+  // Approve rows with their own edits. The toolbar overrides, when set, win
+  // over a row's edit for that field (they are the explicit bulk choice).
+  // Rows that resolve to the same account + payee go up in one call.
+  const approveRows = async (ids: string[], opts: { confirmDrift: boolean; useToolbar: boolean }) => {
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const groups = new Map<string, { accountId?: string; contactId?: string; ids: string[] }>();
+    for (const id of ids) {
+      const r = byId.get(id);
+      if (!r) continue;
+      const accountId = (opts.useToolbar && overrideId) || rowAccount(r) || undefined;
+      const contactId = (opts.useToolbar && overrideContactId) || rowContact(r) || undefined;
+      const key = `${accountId ?? ''}|${contactId ?? ''}`;
+      const g = groups.get(key) ?? { accountId, contactId, ids: [] };
+      g.ids.push(id);
+      groups.set(key, g);
+    }
+    const approved: string[] = [];
+    const failed: Array<{ id: string; reason: string }> = [];
+    try {
+      for (const g of groups.values()) {
+        const res = await approve.mutateAsync({
+          ids: g.ids, overrideAccountId: g.accountId, overrideContactId: g.contactId,
+          confirmDrift: opts.confirmDrift,
+        });
+        approved.push(...res.approved);
+        failed.push(...res.failed);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not approve.');
+    }
+    if (approved.length > 0) toast.success(`Approved and posted ${approved.length}.`);
+    if (failed.length > 0) {
+      const drifted = failed.filter((f) => f.reason === 'drifted').length;
+      const detail = [...new Set(failed.map((f) => REASON_COPY[f.reason] ?? f.reason))].join('; ');
+      toast.error(`${failed.length} not approved: ${detail}.`, {
+        detail: drifted > 0
+          ? 'Open the drifted rows and use "Approve anyway" once you have checked the new amount.'
+          : undefined,
+      });
+    }
+    forget(approved);
+    return approved;
+  };
+
+  const runApprove = async (confirmDrift = false) => {
     if (selected.size === 0) return;
-    approve.mutate(
-      { ids: [...selected], overrideAccountId: overrideId || undefined, overrideContactId: overrideContactId || undefined, confirmDrift },
-      {
-        onSuccess: (res) => {
-          if (res.approved.length > 0) toast.success(`Approved and posted ${res.approved.length}.`);
-          if (res.failed.length > 0) {
-            const drifted = res.failed.filter((f) => f.reason === 'drifted').length;
-            const detail = [...new Set(res.failed.map((f) => REASON_COPY[f.reason] ?? f.reason))].join('; ');
-            toast.error(`${res.failed.length} not approved: ${detail}.`, {
-              detail: drifted > 0
-                ? 'Open the drifted rows and use "Approve anyway" once you have checked the new amount.'
-                : undefined,
-            });
-          }
-          setSelected(new Set());
-          setOverrideId('');
-          setOverrideContactId('');
-        },
-        onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not approve.'),
+    await approveRows([...selected], { confirmDrift, useToolbar: true });
+    setOverrideId('');
+    setOverrideContactId('');
+  };
+
+  const approveOne = async (r: SuggestionRow) => {
+    setRowBusyId(r.id);
+    // The row's own button: its "Changed" badge is on screen, so pressing it
+    // is the confirmation the bulk path asks for separately.
+    await approveRows([r.id], { confirmDrift: r.driftedFields.length > 0, useToolbar: false });
+    setRowBusyId(null);
+  };
+
+  const runDismiss = (ids: string[]) => {
+    if (ids.length === 0) return;
+    const what = ids.length === 1 ? 'this answer' : `these ${ids.length} answers`;
+    if (!window.confirm(`Dismiss ${what}? Nothing is posted and the client is not told. Use this when you already recorded it yourself.`)) return;
+    if (ids.length === 1) setRowBusyId(ids[0]!);
+    dismiss.mutate({ ids }, {
+      onSuccess: (res) => {
+        toast.success(`Dismissed ${res.dismissed.length}. Nothing was posted.`);
+        forget(res.dismissed);
       },
-    );
+      onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not dismiss.'),
+      onSettled: () => setRowBusyId(null),
+    });
   };
 
   const runReject = () => {
@@ -165,6 +245,15 @@ export function ClientSuggestedTab() {
           <X className="h-4 w-4 mr-1" />
           Send back
         </Button>
+        <Button
+          variant="secondary"
+          onClick={() => runDismiss([...selected])}
+          disabled={busy || selected.size === 0}
+          title="Already recorded by hand — remove from this list without posting or telling the client"
+        >
+          <Ban className="h-4 w-4 mr-1" />
+          Dismiss
+        </Button>
       </SelectionActionBar>
 
       {rejecting && (
@@ -199,19 +288,20 @@ export function ClientSuggestedTab() {
               <SortableTh sortKey="payee" label="Payee" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               <SortableTh sortKey="note" label="Note" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               <SortableTh sortKey="from" label="From" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {query.isLoading && (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
+              <tr><td colSpan={9} className="px-3 py-8 text-center text-gray-500">Loading…</td></tr>
             )}
             {query.isError && (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-red-600">
+              <tr><td colSpan={9} className="px-3 py-8 text-center text-red-600">
                 Could not load suggestions. <button className="underline" onClick={() => query.refetch()}>Retry</button>
               </td></tr>
             )}
             {!query.isLoading && !query.isError && rows.length === 0 && (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">
+              <tr><td colSpan={9} className="px-3 py-8 text-center text-gray-500">
                 No suggestions waiting.
               </td></tr>
             )}
@@ -249,33 +339,45 @@ export function ClientSuggestedTab() {
                   )}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.snapshotAmount)}</td>
-                <td className="px-3 py-2">
-                  <div className="font-medium text-gray-900">{r.suggestedLabel ?? '—'}</div>
+                {/* Category: the client's pick, editable in place. The client's
+                    own words stay visible underneath once it is changed or
+                    when they could not name an account ("Not sure"). */}
+                <td className="px-3 py-2 align-top">
+                  <div className="min-w-[12rem]">
+                    <AccountSelector
+                      value={rowAccount(r)}
+                      onChange={(v) => patchDraft(r.id, { accountId: v })}
+                      compact
+                    />
+                  </div>
+                  {(rowAccount(r) !== (r.suggestedAccountId ?? '') || !r.suggestedAccountId) && r.suggestedLabel && (
+                    <p className="mt-0.5 text-[11px] text-gray-500">Client said: {r.suggestedLabel}</p>
+                  )}
                 </td>
-                {/* Who the client said it was paid to / from. Free text
-                    (no contact id) is flagged so staff resolve it through
-                    the override payee picker; a contact that was since
-                    merged or deleted keeps its label with a note. */}
-                <td className="px-3 py-2">
-                  {r.suggestedContactName ?? r.suggestedContactLabel ? (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-gray-900">{r.suggestedContactName ?? r.suggestedContactLabel}</span>
-                      {!r.suggestedContactId && r.suggestedContactLabel && (
-                        <span
-                          className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
-                          title="The client typed this name. Pick or add a contact in the override payee picker to apply it."
-                        >
-                          Not in contacts
-                        </span>
-                      )}
-                      {r.suggestedContactId && !r.suggestedContactName && (
-                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600" title="That contact was removed after the client answered.">
-                          Contact removed
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400">—</span>
+                {/* Payee: the client's pick, editable in place. Free text (no
+                    contact id) is flagged so staff pick or quick-add the
+                    contact here; a contact since merged or deleted keeps its
+                    label with a note. */}
+                <td className="px-3 py-2 align-top">
+                  <div className="min-w-[12rem]">
+                    <ContactSelector
+                      value={rowContact(r)}
+                      onChange={(v) => patchDraft(r.id, { contactId: v })}
+                      compact
+                    />
+                  </div>
+                  {!r.suggestedContactId && r.suggestedContactLabel && !rowContact(r) && (
+                    <p
+                      className="mt-0.5 text-[11px] text-amber-700"
+                      title="The client typed this name. Pick or add the contact (quick-add is in the picker) to apply it."
+                    >
+                      Client typed: {r.suggestedContactLabel} · not in contacts
+                    </p>
+                  )}
+                  {r.suggestedContactId && !r.suggestedContactName && rowContact(r) === r.suggestedContactId && (
+                    <p className="mt-0.5 text-[11px] text-gray-500" title="That contact was removed after the client answered.">
+                      {r.suggestedContactLabel ?? 'Contact'} · removed
+                    </p>
                   )}
                 </td>
                 {/* The note gets its own column rather than grey subtext under
@@ -301,6 +403,44 @@ export function ClientSuggestedTab() {
                   }`}>
                     {r.submittedBy === 'team_member' ? 'Team member' : 'Client'}
                   </span>
+                </td>
+                <td className="px-3 py-2 align-top whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1.5">
+                    {rowEdited(r) && (
+                      <>
+                        <CircleDot className="h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
+                        <span className="sr-only">Edited, not posted yet</span>
+                      </>
+                    )}
+                    {/* An answer already handled elsewhere cannot post; it can
+                        only be dismissed. */}
+                    {!r.isStale && (
+                      <button
+                        type="button"
+                        onClick={() => approveOne(r)}
+                        disabled={busy || rowBusyId !== null || !rowAccount(r)}
+                        title={rowAccount(r) ? 'Post this row with the category and payee shown' : 'Pick a category first'}
+                        aria-label={`Approve suggestion from ${r.contactName}`}
+                        className="inline-flex items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                      >
+                        {rowBusyId === r.id && approve.isPending
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Check className="h-3.5 w-3.5" />}
+                        {r.driftedFields.length > 0 ? 'Approve anyway' : 'Approve'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => runDismiss([r.id])}
+                      disabled={busy || rowBusyId !== null}
+                      title="Already recorded by hand — dismiss without posting or telling the client"
+                      aria-label={`Dismiss suggestion from ${r.contactName}`}
+                      className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <Ban className="h-3.5 w-3.5" />
+                      Dismiss
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -29,6 +29,7 @@ vi.mock('../../../api/hooks/useUncategorized', () => ({
   useSuggestions: () => ({ data: { rows, total: rows.length }, isLoading: false, isError: false, refetch: vi.fn() }),
   useApproveSuggestions: passthroughMutation,
   useRejectSuggestions: passthroughMutation,
+  useDismissSuggestions: passthroughMutation,
   useMarkSuggestionsReviewed: passthroughMutation,
 }));
 vi.mock('../../../api/hooks/useAccounts', () => accountsMocks());
@@ -38,14 +39,13 @@ vi.mock('../../../api/hooks/useCompany', () => companyMocks());
 const { ClientSuggestedTab } = await import('./ClientSuggestedTab');
 
 describe('ClientSuggestedTab — the payee', () => {
-  it('shows the picked contact by name and flags a typed name as not in contacts', () => {
+  it('gives every row a payee picker and flags a typed name as not in contacts', () => {
     renderRoute(<ClientSuggestedTab />);
     expect(screen.getByRole('columnheader', { name: 'Payee' })).toBeTruthy();
-    expect(screen.getByText('Home Depot')).toBeTruthy();
-    expect(screen.getByText('Joe the plumber')).toBeTruthy();
-    expect(screen.getAllByText('Not in contacts')).toHaveLength(1);
-    // The override payee picker sits beside the override account picker.
-    expect(screen.getByPlaceholderText(/search contacts/i)).toBeTruthy();
+    // Free text is flagged once; a picked contact is the row picker's value.
+    expect(screen.getAllByText(/Client typed: Joe the plumber · not in contacts/)).toHaveLength(1);
+    // The toolbar override payee picker plus one editable picker per row.
+    expect(screen.getAllByPlaceholderText(/search contacts/i)).toHaveLength(1 + rows.length);
   });
 });
 
