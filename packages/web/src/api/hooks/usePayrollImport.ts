@@ -12,6 +12,9 @@ import type {
   PayrollJEPreview,
   PayrollSessionFilters,
   PayrollAccountMappingEntry,
+  PayrollLineTagInput,
+  PayrollCheckRegisterSummary,
+  PostCheckRegisterInput,
 } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../client';
 
@@ -206,7 +209,12 @@ export function useGenerateJE() {
 export function usePostJE() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ sessionId, forcePost }: { sessionId: string; forcePost?: boolean }) =>
+    mutationFn: ({ sessionId, forcePost, tagId, lineTags }: {
+      sessionId: string;
+      forcePost?: boolean;
+      tagId?: string | null;
+      lineTags?: PayrollLineTagInput[];
+    }) =>
       apiClient<{
         journalEntryIds?: string[];
         count?: number;
@@ -214,7 +222,7 @@ export function usePostJE() {
         requiresConfirmation?: boolean;
       }>(
         `/payroll-import/sessions/${sessionId}/post`,
-        { method: 'POST', body: JSON.stringify({ forcePost }) },
+        { method: 'POST', body: JSON.stringify({ forcePost, tagId, lineTags }) },
       ),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['payroll-sessions'] });
@@ -325,5 +333,32 @@ export function useAutoMapPayrollAccounts() {
         `/payroll-import/account-mappings/${companyId}/auto-map`,
         { method: 'POST' },
       ),
+  });
+}
+
+// ── Check register (standalone checks import) ──
+
+export function useCheckRegister(sessionId: string) {
+  return useQuery({
+    queryKey: ['payroll-check-register', sessionId],
+    queryFn: () => apiClient<PayrollCheckRegisterSummary>(`/payroll-import/sessions/${sessionId}/check-register`),
+    enabled: !!sessionId,
+  });
+}
+
+export function usePostCheckRegister() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, ...input }: PostCheckRegisterInput & { sessionId: string }) =>
+      apiClient<{ posted: number; transactionIds: string[] }>(
+        `/payroll-import/sessions/${sessionId}/check-register/post`,
+        { method: 'POST', body: JSON.stringify(input) },
+      ),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['payroll-check-register', vars.sessionId] });
+      qc.invalidateQueries({ queryKey: ['payroll-sessions'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+    },
   });
 }

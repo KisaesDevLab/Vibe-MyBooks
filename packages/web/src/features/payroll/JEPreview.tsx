@@ -5,6 +5,8 @@
 import { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/Button';
 import { useGenerateJE, usePostJE } from '../../api/hooks/usePayrollImport';
+import { useTags } from '../../api/hooks/useTags';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import type { PayrollJEPreview as JEPreviewType } from '@kis-books/shared';
 
 interface Props {
@@ -20,6 +22,12 @@ export function JEPreview({ sessionId, importMode, onComplete }: Props) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [overlaps, setOverlaps] = useState<Array<{ sessionId: string; filename: string; payPeriod: string; postedDate: string }>>([]);
   const [showOverlapWarning, setShowOverlapWarning] = useState(false);
+  // Tags stamped on the posted JEs: one tag for every line, plus per-line
+  // overrides keyed "jeIndex:lineIndex" (null = leave that line untagged).
+  const [allLinesTag, setAllLinesTag] = useState<string | null>(null);
+  const [lineTags, setLineTags] = useState<Map<string, string | null>>(new Map());
+  const { data: tagsData } = useTags({ isActive: true });
+  const hasTags = (tagsData?.tags?.length ?? 0) > 0;
 
   // mutateAsync has a stable identity (unlike the mutation object itself),
   // so this effect fires only when the session changes.
@@ -27,10 +35,40 @@ export function JEPreview({ sessionId, importMode, onComplete }: Props) {
   useEffect(() => {
     generateJE({ sessionId, options: { aggregationMode: 'summary' } })
       .then(data => setPreviews(data.previews));
+    setLineTags(new Map());
   }, [sessionId, generateJE]);
 
+  const tagForLine = (jeIndex: number, lineIndex: number) => {
+    const key = `${jeIndex}:${lineIndex}`;
+    return lineTags.has(key) ? lineTags.get(key)! : allLinesTag;
+  };
+
+  const setLineTag = (jeIndex: number, lineIndex: number, tagId: string | null) => {
+    setLineTags(prev => {
+      const next = new Map(prev);
+      const key = `${jeIndex}:${lineIndex}`;
+      if (tagId === allLinesTag) next.delete(key);
+      else next.set(key, tagId);
+      return next;
+    });
+  };
+
+  // Choosing a tag for all lines replaces any per-line choices.
+  const applyTagToAllLines = (tagId: string | null) => {
+    setAllLinesTag(tagId);
+    setLineTags(new Map());
+  };
+
   const handlePost = async (forcePost = false) => {
-    const result = await postMutation.mutateAsync({ sessionId, forcePost });
+    const result = await postMutation.mutateAsync({
+      sessionId,
+      forcePost,
+      tagId: allLinesTag,
+      lineTags: [...lineTags.entries()].map(([key, tagId]) => {
+        const [jeIndex, lineIndex] = key.split(':').map(Number) as [number, number];
+        return { jeIndex, lineIndex, date: previews[jeIndex]!.date, tagId };
+      }),
+    });
     if (result.requiresConfirmation && result.overlaps) {
       setOverlaps(result.overlaps);
       setShowOverlapWarning(true);
@@ -61,6 +99,21 @@ export function JEPreview({ sessionId, importMode, onComplete }: Props) {
         </h3>
       </div>
 
+      {hasTags && previews.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm px-6 py-4 flex flex-wrap items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">Tag all lines</label>
+          <LineTagPicker
+            value={allLinesTag}
+            onChange={(tagId) => applyTagToAllLines(tagId)}
+            ariaLabel="Tag all lines"
+            className="w-56"
+          />
+          <p className="text-xs text-gray-500">
+            Applies to every line of {previews.length > 1 ? 'all the journal entries' : 'the journal entry'}. Change a single line's tag in its row below.
+          </p>
+        </div>
+      )}
+
       {previews.map((preview, idx) => (
         <div key={idx} className="bg-white rounded-lg border border-gray-200 shadow-sm">
           {/* Header */}
@@ -87,6 +140,7 @@ export function JEPreview({ sessionId, importMode, onComplete }: Props) {
               <tr className="border-b border-gray-200">
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Account</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Description</th>
+                {hasTags && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Tag</th>}
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">Debit</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500">Credit</th>
               </tr>
@@ -105,6 +159,17 @@ export function JEPreview({ sessionId, importMode, onComplete }: Props) {
                     )}
                   </td>
                   <td className="px-6 py-2 text-sm text-gray-600">{line.description}</td>
+                  {hasTags && (
+                    <td className="px-6 py-1 text-sm">
+                      <LineTagPicker
+                        value={tagForLine(idx, li)}
+                        onChange={(tagId) => setLineTag(idx, li, tagId)}
+                        ariaLabel={`Tag for ${line.description}`}
+                        className="w-44"
+                        compact
+                      />
+                    </td>
+                  )}
                   <td className="px-6 py-2 text-sm text-right font-mono">
                     {line.debit !== '0.00' && `$${parseFloat(line.debit).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                   </td>
@@ -116,7 +181,7 @@ export function JEPreview({ sessionId, importMode, onComplete }: Props) {
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-gray-300 font-medium">
-                <td className="px-6 py-3 text-sm" colSpan={2}>Total</td>
+                <td className="px-6 py-3 text-sm" colSpan={hasTags ? 3 : 2}>Total</td>
                 <td className="px-6 py-3 text-sm text-right font-mono">
                   ${parseFloat(preview.totalDebits).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </td>

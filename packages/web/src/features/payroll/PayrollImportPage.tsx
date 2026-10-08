@@ -11,8 +11,20 @@ import { DescriptionMapper } from './DescriptionMapper';
 import { ValidationResults } from './ValidationResults';
 import { JEPreview } from './JEPreview';
 import { ProviderGuide } from './ProviderGuide';
+import { CheckRegisterImport } from './CheckRegisterImport';
 
 type Step = 'upload' | 'mapping' | 'validation' | 'preview' | 'done';
+
+/** Payroll Relief's checks register: header row has Payee Name + Cash Account. */
+async function looksLikeChecksFile(file: File): Promise<boolean> {
+  if (!/\.(csv|tsv|txt)$/i.test(file.name)) return false;
+  try {
+    const head = (await file.slice(0, 2048).text()).toLowerCase();
+    return head.includes('payee name') && head.includes('cash account');
+  } catch {
+    return false;
+  }
+}
 
 export function PayrollImportPage() {
   const navigate = useNavigate();
@@ -53,8 +65,9 @@ export function PayrollImportPage() {
     setSessionId(sess.id);
     setImportMode(sess.importMode || '');
     // uploaded → still needs mapping; mapped/validated → jump to validation
-    // (from which the user can proceed to preview/post).
-    setStep(sess.status === 'uploaded' ? 'mapping' : 'validation');
+    // (from which the user can proceed to preview/post). A check register has
+    // a single review-and-post screen, shown on the mapping step.
+    setStep(sess.importMode === 'check_register' || sess.status === 'uploaded' ? 'mapping' : 'validation');
   }, [resumeSession, sessionId]);
 
   useEffect(() => {
@@ -69,13 +82,27 @@ export function PayrollImportPage() {
     });
   }, [resumePreview]);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    const files = Array.from(e.dataTransfer.files);
+  // With two files, the checks register is the companion whichever order the
+  // OS hands them over in (a checks file uploaded as the main file would be
+  // imported on its own as a check register).
+  const setFiles = useCallback(async (files: File[]) => {
+    if (files.length >= 2) {
+      const [a, b] = files as [File, File];
+      if (await looksLikeChecksFile(a) && !(await looksLikeChecksFile(b))) {
+        setMainFile(b);
+        setCompanionFile(a);
+        return;
+      }
+    }
     if (files.length >= 1) setMainFile(files[0]!);
     if (files.length >= 2) setCompanionFile(files[1]!);
   }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    void setFiles(Array.from(e.dataTransfer.files));
+  }, [setFiles]);
 
   const handleUpload = async () => {
     if (!mainFile) return;
@@ -141,11 +168,7 @@ export function PayrollImportPage() {
               className="hidden"
               accept=".csv,.tsv,.xls,.xlsx,.txt"
               multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                if (files.length >= 1) setMainFile(files[0]!);
-                if (files.length >= 2) setCompanionFile(files[1]!);
-              }}
+              onChange={(e) => { void setFiles(Array.from(e.target.files || [])); }}
             />
             <div className="text-gray-500">
               <p className="text-lg font-medium">Drop your payroll file here</p>
@@ -247,9 +270,13 @@ export function PayrollImportPage() {
                   </span>
                 )}
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  importMode === 'prebuilt_je' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
+                  importMode === 'prebuilt_je' ? 'bg-purple-100 text-purple-800'
+                    : importMode === 'check_register' ? 'bg-amber-100 text-amber-800'
+                    : 'bg-green-100 text-green-800'
                 }`}>
-                  {importMode === 'prebuilt_je' ? 'Mode B: Pre-Built JE Import' : 'Mode A: Employee-Level Import'}
+                  {importMode === 'prebuilt_je' ? 'Mode B: Pre-Built JE Import'
+                    : importMode === 'check_register' ? 'Check Register Import'
+                    : 'Mode A: Employee-Level Import'}
                 </span>
                 <span className="text-sm text-gray-600">
                   {uploadResult.preview.rowCount} rows
@@ -278,7 +305,9 @@ export function PayrollImportPage() {
             </div>
           )}
 
-          {importMode === 'prebuilt_je' ? (
+          {importMode === 'check_register' ? (
+            <CheckRegisterImport sessionId={sessionId} onComplete={handlePostComplete} />
+          ) : importMode === 'prebuilt_je' ? (
             <DescriptionMapper
               sessionId={sessionId}
               providerKey={uploadResult?.preview?.detectedProvider || 'payroll_relief_gl'}
@@ -311,7 +340,9 @@ export function PayrollImportPage() {
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-gray-900">Payroll Posted Successfully</h2>
-          <p className="mt-2 text-gray-600">Journal entries have been posted to the general ledger.</p>
+          <p className="mt-2 text-gray-600">
+            {importMode === 'check_register' ? 'The checks have' : 'Journal entries have'} been posted to the general ledger.
+          </p>
           <div className="mt-6 flex gap-3 justify-center">
             <Button onClick={() => navigate('/payroll/imports')}>View Import History</Button>
             <Button variant="secondary" onClick={() => { setStep('upload'); setSessionId(''); setMainFile(null); setCompanionFile(null); }}>

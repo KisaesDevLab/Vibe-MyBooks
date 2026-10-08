@@ -246,7 +246,7 @@ const PROVIDER_GUIDES: ProviderInstructions[] = [
       'You will need to map each description (e.g. "Wages and Salary", "Social Security Payable") to an account in your chart of accounts. Once mapped, these mappings are saved and automatically applied to future imports.',
       'If the export contains multiple pay dates, each date will generate a separate journal entry.',
       'Lines prefixed with "1099" (e.g. "1099 Wages and Salary") represent contractor payments and are handled separately.',
-      'The optional checks file contains individual check/direct deposit records that can be posted as cash disbursement transactions.',
+      'The checks file (Checks.csv) can also be uploaded on its own. It imports as a Check Register: each check or EFT posts as a check out of the bank account, against either one account you choose (such as Payroll Clearing) or the account number in the file\'s Account column. Only the amount paid is needed; $0 voided rows are skipped.',
     ],
     fileExpected: 'Zipped CSV export from Integration > Export G/L. GL entries file with columns: Date, Reference, Account, Description, Debit, Credit, Memo. Optionally also a checks file with columns: Check Number, Date, Payee Name, Cash Account, Account, Amount, Memo.',
   },

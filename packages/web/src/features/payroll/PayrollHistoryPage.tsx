@@ -201,7 +201,7 @@ export function PayrollHistoryPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-xs text-gray-500">
-                          {s.importMode === 'prebuilt_je' ? 'Mode B' : 'Mode A'}
+                          {s.importMode === 'prebuilt_je' ? 'Mode B' : s.importMode === 'check_register' ? 'Checks' : 'Mode A'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
