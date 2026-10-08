@@ -6,6 +6,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '../../components/ui/Button';
 import { useDescriptionMap, useSaveDescriptionMap } from '../../api/hooks/usePayrollImport';
 import { useAccounts } from '../../api/hooks/useAccounts';
+import { useTags } from '../../api/hooks/useTags';
+import { LineTagPicker } from '../../components/forms/SplitRowV2';
 
 interface Props {
   sessionId: string;
@@ -22,15 +24,23 @@ export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl'
   const allAccounts = accountsData?.data || [];
 
   const [localMappings, setLocalMappings] = useState<Record<string, string>>({});
+  // Tag per description, saved with the mapping. Starts from the saved tag
+  // or the one suggested from a " - <Tag name>" suffix.
+  const [localTags, setLocalTags] = useState<Record<string, string | null>>({});
+  const { data: tagsData } = useTags({ isActive: true });
+  const hasTags = (tagsData?.tags?.length ?? 0) > 0;
 
   // Initialize from server data
   useEffect(() => {
     if (mappings.length > 0) {
       const initial: Record<string, string> = {};
+      const initialTags: Record<string, string | null> = {};
       for (const m of mappings) {
         if (m.accountId) initial[m.sourceDescription] = m.accountId;
+        initialTags[m.sourceDescription] = m.tagId ?? null;
       }
       setLocalMappings(initial);
+      setLocalTags(initialTags);
     }
   }, [mappings]);
 
@@ -57,6 +67,7 @@ export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl'
       .map(([desc, accountId]) => ({
         sourceDescription: desc,
         accountId,
+        tagId: localTags[desc] ?? null,
       }));
 
     if (entries.length === 0) return;
@@ -108,10 +119,11 @@ export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl'
       <div className="space-y-1">
         <div className="grid grid-cols-12 gap-2 py-2 text-xs font-medium text-gray-500 border-b border-gray-200">
           <div className="col-span-1">Status</div>
-          <div className="col-span-4">Description</div>
+          <div className={hasTags ? 'col-span-3' : 'col-span-4'}>Description</div>
           <div className="col-span-1 text-center">D/C</div>
           <div className="col-span-1 text-right">Amount</div>
-          <div className="col-span-5">Account</div>
+          <div className={hasTags ? 'col-span-4' : 'col-span-5'}>Account</div>
+          {hasTags && <div className="col-span-2">Tag</div>}
         </div>
 
         {mappings.map(m => {
@@ -132,7 +144,7 @@ export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl'
                   <span className="text-red-500">&#10007;</span>
                 )}
               </div>
-              <div className="col-span-4 text-sm font-mono truncate" title={m.sourceDescription}>
+              <div className={`${hasTags ? 'col-span-3' : 'col-span-4'} text-sm font-mono truncate`} title={m.sourceDescription}>
                 {m.sourceDescription}
               </div>
               <div className="col-span-1 text-center">
@@ -145,7 +157,7 @@ export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl'
               <div className="col-span-1 text-right text-sm font-mono">
                 ${m.sampleAmount}
               </div>
-              <div className="col-span-5">
+              <div className={hasTags ? 'col-span-4' : 'col-span-5'}>
                 <select
                   className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   value={currentAccountId}
@@ -159,6 +171,17 @@ export function DescriptionMapper({ sessionId, providerKey = 'payroll_relief_gl'
                   ))}
                 </select>
               </div>
+              {hasTags && (
+                <div className="col-span-2" title={m.tagSuggested && localTags[m.sourceDescription] === m.tagId ? 'Suggested from the description' : undefined}>
+                  <LineTagPicker
+                    value={localTags[m.sourceDescription] ?? null}
+                    onChange={(tagId) => setLocalTags(prev => ({ ...prev, [m.sourceDescription]: tagId }))}
+                    ariaLabel={`Tag for ${m.sourceDescription}`}
+                    className="w-full"
+                    compact
+                  />
+                </div>
+              )}
             </div>
           );
         })}

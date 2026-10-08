@@ -38,16 +38,21 @@ export function JEPreview({ sessionId, importMode, onComplete }: Props) {
     setLineTags(new Map());
   }, [sessionId, generateJE]);
 
+  // Without an override a line takes the all-lines tag, else the tag its
+  // description is mapped to (Mode B) — the same rule the server applies.
+  const baseTag = (jeIndex: number, lineIndex: number) =>
+    allLinesTag ?? previews[jeIndex]?.lines[lineIndex]?.tagId ?? null;
+
   const tagForLine = (jeIndex: number, lineIndex: number) => {
     const key = `${jeIndex}:${lineIndex}`;
-    return lineTags.has(key) ? lineTags.get(key)! : allLinesTag;
+    return lineTags.has(key) ? lineTags.get(key)! : baseTag(jeIndex, lineIndex);
   };
 
   const setLineTag = (jeIndex: number, lineIndex: number, tagId: string | null) => {
     setLineTags(prev => {
       const next = new Map(prev);
       const key = `${jeIndex}:${lineIndex}`;
-      if (tagId === allLinesTag) next.delete(key);
+      if (tagId === baseTag(jeIndex, lineIndex)) next.delete(key);
       else next.set(key, tagId);
       return next;
     });
@@ -109,7 +114,7 @@ export function JEPreview({ sessionId, importMode, onComplete }: Props) {
             className="w-56"
           />
           <p className="text-xs text-gray-500">
-            Applies to every line of {previews.length > 1 ? 'all the journal entries' : 'the journal entry'}. Change a single line's tag in its row below.
+            Applies to every line of {previews.length > 1 ? 'all the journal entries' : 'the journal entry'}, replacing the tags from the description mapping. Leave it empty to keep those. Change a single line's tag in its row below.
           </p>
         </div>
       )}

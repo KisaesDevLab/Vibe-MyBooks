@@ -160,7 +160,7 @@ export function useSaveDescriptionMap() {
     mutationFn: ({ sessionId, providerKey, mappings }: {
       sessionId: string;
       providerKey: string;
-      mappings: Array<{ sourceDescription: string; accountId: string; lineCategory?: string }>;
+      mappings: Array<{ sourceDescription: string; accountId: string; lineCategory?: string; tagId?: string | null }>;
     }) =>
       apiClient(`/payroll-import/sessions/${sessionId}/description-map`, {
         method: 'PUT',
