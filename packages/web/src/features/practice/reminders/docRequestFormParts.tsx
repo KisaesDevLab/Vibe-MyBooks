@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import type { DocumentType, StatementRoutingMode } from '@kis-books/shared';
 import { api } from './RemindersPage';
+import { bankConnectionLabel, type BankConnectionOption } from '../bankConnectionLabel';
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   bank_statement: 'Bank statement',
@@ -40,13 +41,6 @@ export function routingPayload(choice: string): { statementRouting: StatementRou
       : 'inbox',
     bankConnectionId: choice && choice !== ROUTE_TO_STATEMENT_PROCESSING ? choice : null,
   };
-}
-
-interface BankConnectionOption {
-  id: string;
-  institutionName: string | null;
-  mask: string | null;
-  companyId: string | null;
 }
 
 /** The firm's bank connections for the routing picker (only fetched when enabled). */
@@ -87,8 +81,7 @@ export function StatementRoutingSelect({
         </option>
         {connections.map((c) => (
           <option key={c.id} value={c.id}>
-            Auto-import: {c.institutionName ?? 'Bank connection'}
-            {c.mask ? ` ····${c.mask}` : ''}
+            Auto-import into {bankConnectionLabel(c)}
           </option>
         ))}
       </select>

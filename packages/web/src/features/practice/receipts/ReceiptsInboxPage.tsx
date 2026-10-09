@@ -9,6 +9,7 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import { SortableTh } from '../../../components/ui/SortableTh';
 import { useColumnView } from '../../../hooks/useColumnView';
+import { bankConnectionLabel, type BankConnectionOption } from '../bankConnectionLabel';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 18.8 — bookkeeper Receipts Inbox.
 // Replaces the prior placeholder. Talks to /api/v1/practice/receipts.
@@ -313,13 +314,6 @@ export function ReceiptsInboxPage() {
   );
 }
 
-interface BankConnectionOption {
-  id: string;
-  institutionName: string | null;
-  mask: string | null;
-  companyId: string | null;
-}
-
 function RouteStatementDialog({
   receipt,
   onClose,
@@ -388,8 +382,7 @@ function RouteStatementDialog({
             <option value="">Select a connection…</option>
             {conns.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.institutionName ?? 'Bank connection'}
-                {c.mask ? ` ····${c.mask}` : ''}
+                {bankConnectionLabel(c)}
               </option>
             ))}
           </select>
