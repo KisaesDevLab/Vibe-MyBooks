@@ -220,6 +220,69 @@ export function useDuplicateReportPack() {
   });
 }
 
+// ─── Pack templates (super admin saves; staff apply) ────────────
+
+export interface ReportPackTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  reportCount: number;
+  reportIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+const TEMPLATES_KEY = ['report-pack-templates'] as const;
+
+export function useReportPackTemplates(enabled = true) {
+  return useQuery({
+    queryKey: TEMPLATES_KEY,
+    queryFn: () => apiClient<{ templates: ReportPackTemplate[] }>('/reports/pack-templates'),
+    enabled,
+  });
+}
+
+export function useSavePackAsTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ packId, name, description }: { packId: string; name?: string; description?: string | null }) =>
+      apiClient<{ template: ReportPackTemplate }>(`/reports/packs/${packId}/save-as-template`, {
+        method: 'POST', body: JSON.stringify({ name, description }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TEMPLATES_KEY }),
+  });
+}
+
+export function useApplyPackTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ templateId, name }: { templateId: string; name?: string }) =>
+      apiClient<ReportPackDetail>(`/reports/pack-templates/${templateId}/apply`, {
+        method: 'POST', body: JSON.stringify(name ? { name } : {}),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: PACKS_KEY }),
+  });
+}
+
+export function useRenamePackTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      apiClient<{ template: ReportPackTemplate }>(`/reports/pack-templates/${id}`, {
+        method: 'PUT', body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TEMPLATES_KEY }),
+  });
+}
+
+export function useDeletePackTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient<void>(`/reports/pack-templates/${id}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TEMPLATES_KEY }),
+  });
+}
+
 // ─── Runs ────────────────────────────────────────────────────────
 
 export function useCreatePackRun() {

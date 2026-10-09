@@ -10,7 +10,9 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Play, Pencil, Copy, Trash2 } from 'lucide-react';
+import { Plus, Play, Pencil, Copy, Trash2, LayoutTemplate, BookmarkPlus } from 'lucide-react';
+import { useMe } from '../../../api/hooks/useAuth';
+import { PackTemplatesModal, SaveAsTemplateDialog } from './PackTemplatesModal';
 import { SortableTh } from '../../../components/ui/SortableTh';
 import { useColumnView } from '../../../hooks/useColumnView';
 import { selectRows } from '../../../utils/columnView';
@@ -54,6 +56,11 @@ export function ReportPacksListPage() {
   const createRun = useCreatePackRun();
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
+  const { data: me } = useMe();
+  const isSuperAdmin = !!me?.user?.isSuperAdmin;
+  const isStaff = me?.user?.userType !== 'client';
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [saveTemplateFor, setSaveTemplateFor] = useState<{ id: string; name: string } | null>(null);
 
   const view = useColumnView<'name' | 'reports' | 'period' | 'updated'>('vibe:report-packs:view', {
     sortKeys: ['name', 'reports', 'period', 'updated'],
@@ -100,9 +107,16 @@ export function ReportPacksListPage() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-2xl font-bold text-gray-900">Report Packs</h1>
-        <Button onClick={() => navigate('/reports/packs/new')}>
-          <Plus className="h-4 w-4 mr-1" /> New Report Pack
-        </Button>
+        <div className="flex items-center gap-2">
+          {isStaff && (
+            <Button variant="secondary" onClick={() => setShowTemplates(true)}>
+              <LayoutTemplate className="h-4 w-4 mr-1" /> From template
+            </Button>
+          )}
+          <Button onClick={() => navigate('/reports/packs/new')}>
+            <Plus className="h-4 w-4 mr-1" /> New Report Pack
+          </Button>
+        </div>
       </div>
 
       {/* Background-worker health. When the worker/Redis is down, packs still
@@ -193,6 +207,17 @@ export function ReportPacksListPage() {
                       >
                         <Copy className="h-4 w-4" />
                       </button>
+                      {isSuperAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => setSaveTemplateFor({ id: pack.id, name: pack.name })}
+                          className="p-2 text-gray-400 hover:text-gray-700"
+                          aria-label={`Save ${pack.name} as template`}
+                          title="Save as template (available to staff in every client)"
+                        >
+                          <BookmarkPlus className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setPendingDelete({ id: pack.id, name: pack.name })}
@@ -209,6 +234,9 @@ export function ReportPacksListPage() {
           </table>
         </div>
       )}
+
+      {showTemplates && <PackTemplatesModal isSuperAdmin={isSuperAdmin} onClose={() => setShowTemplates(false)} />}
+      {saveTemplateFor && <SaveAsTemplateDialog pack={saveTemplateFor} onClose={() => setSaveTemplateFor(null)} />}
 
       <ConfirmDialog
         open={!!pendingDelete}
