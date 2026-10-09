@@ -151,7 +151,7 @@ export function PortalDashboardPage() {
       const [questions, receipts, reports] = await Promise.allSettled([
         fetch(`${base}api/portal/questions?companyId=${activeCompanyId}`, { credentials: 'include' })
           .then((r) => (r.ok ? r.json() : null)),
-        fetch(`${base}api/portal/receipts?companyId=${activeCompanyId}`, { credentials: 'include' })
+        fetch(`${base}api/portal/receipts?companyId=${activeCompanyId}&kind=receipt`, { credentials: 'include' })
           .then((r) => (r.ok ? r.json() : null)),
         fetch(`${base}api/portal/financials?companyId=${activeCompanyId}`, { credentials: 'include' })
           .then((r) => (r.ok ? r.json() : null)),

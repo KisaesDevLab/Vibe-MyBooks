@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, RotateCcw, Check, Image as ImageIcon, Upload as UploadIcon, CloudOff } from 'lucide-react';
 import { usePortal } from './PortalLayout';
 import { drainQueue, enqueueReceipt, listQueue } from './receiptQueue';
+import { PortalUploadsList } from './PortalUploadsList';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 18.2/18.6 — contact-mode
 // receipt capture. Single-tap capture, retake, and upload via
@@ -29,6 +30,7 @@ export function PortalCapturePage() {
   const [err, setErr] = useState<string | null>(null);
   const [queueCount, setQueueCount] = useState(0);
   const [drainStatus, setDrainStatus] = useState<string | null>(null);
+  const [uploadsVersion, setUploadsVersion] = useState(0);
 
   // 18.3 — drain pending offline uploads when the capture page mounts
   // and on every reconnect. Runs in the background so the camera UI
@@ -188,6 +190,7 @@ export function PortalCapturePage() {
       if (!res.ok) throw new Error(`Upload failed (${res.status})`);
       const data = (await res.json()) as { id: string; duplicate: boolean };
       setUploaded(data.duplicate ? 'Already on file — duplicate detected.' : 'Uploaded.');
+      setUploadsVersion((v) => v + 1);
     } catch (e) {
       // Network error → enqueue. Server-side 4xx/5xx → surface error
       // (don't queue garbage that will keep failing).
@@ -297,6 +300,8 @@ export function PortalCapturePage() {
           )}
         </>
       )}
+
+      {activeCompanyId && <PortalUploadsList companyId={activeCompanyId} refreshKey={uploadsVersion} />}
     </div>
   );
 }
