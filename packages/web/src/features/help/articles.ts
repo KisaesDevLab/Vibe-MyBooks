@@ -2775,7 +2775,7 @@ A single PDF holds up to 250 transactions, 40 attachments and 100 MB of files. W
     body: `
 ## Report Packs
 
-**Reports \u2192 Report Packs** saves a set of reports with a period (this month, last quarter, year to date, a custom range\u2026) and builds them into one PDF with an optional cover page, table of contents, page numbers and footer. Pick reports from the list on the left; reorder them with the arrows; **Generate** builds the PDF in the background and offers it for download. The **Filename template** names the downloaded PDF \u2014 click a placeholder to add it: `{tenant}` (client name), `{company}`, `{pack}`, `{start}`, `{end}` and `{range}` (start_to_end, or the as-of date). For example `{tenant}-{range}` downloads as *TimberStone_LLC-2026-09-01_to_2026-09-30.pdf*; the builder shows a live example.
+**Reports \u2192 Report Packs** saves a set of reports with a period (this month, last quarter, year to date, a custom range\u2026) and builds them into one PDF with an optional cover page, table of contents, page numbers and footer. Pick reports from the list on the left; reorder them with the arrows; **Generate** builds the PDF in the background and offers it for download. The **Filename template** names the downloaded PDF \u2014 click a placeholder to add it: **{tenant}** (client name), **{company}**, **{pack}**, **{start}**, **{end}** and **{range}** (start_to_end, or the as-of date). For example **{tenant}-{range}** downloads as *TimberStone_LLC-2026-09-01_to_2026-09-30.pdf*; the builder shows a live example.
 
 ## Banking & Source Documents
 
