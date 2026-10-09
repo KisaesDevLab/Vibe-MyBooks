@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  RotateCcw,
 } from 'lucide-react';
 import type {
   CoaTemplate,
@@ -155,6 +156,19 @@ export function CoaTemplatesPage() {
       // Also invalidate the public business-type options so any other
       // tab that's already loaded the dropdown picks up the change.
       queryClient.invalidateQueries({ queryKey: ['coa-template-options'] });
+    },
+    onError: (err: Error) => setErrorMessage(err.message),
+  });
+
+  // Built-ins only: put the accounts back to the version shipped with the app.
+  const resetMutation = useMutation({
+    mutationFn: async (slug: string) => {
+      const res = await apiClient<{ template: CoaTemplate }>(`/admin/coa-templates/${slug}/reset`, { method: 'POST' });
+      return res.template;
+    },
+    onSuccess: () => {
+      setErrorMessage(null);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'coa-templates'] });
     },
     onError: (err: Error) => setErrorMessage(err.message),
   });
@@ -309,6 +323,14 @@ export function CoaTemplatesPage() {
                             <EyeOff className="h-2.5 w-2.5" /> Hidden
                           </span>
                         )}
+                        {t.accountsCustomized && (
+                          <span
+                            className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800"
+                            title="Built-in template edited here — app updates no longer change it until you reset it"
+                          >
+                            Customized
+                          </span>
+                        )}
                         {t.isBuiltin && (
                           <span title="Built-in (cannot be deleted, but editable)">
                             <Lock className="h-3.5 w-3.5 text-gray-400" />
@@ -354,7 +376,12 @@ export function CoaTemplatesPage() {
                       </span>
                       {detail.isBuiltin && (
                         <span className="inline-flex items-center text-gray-600">
-                          <Lock className="h-3 w-3 mr-1" /> Built-in — editable, but cannot be deleted
+                          <Lock className="h-3 w-3 mr-1" /> Built-in — editable, but cannot be deleted. System accounts can be renamed or renumbered, not removed.
+                        </span>
+                      )}
+                      {detail.accountsCustomized && (
+                        <span className="inline-flex items-center text-amber-700">
+                          Customized — app updates to this template are paused until you reset it
                         </span>
                       )}
                       {detail.isHidden && (
@@ -387,6 +414,21 @@ export function CoaTemplatesPage() {
                         <><EyeOff className="h-4 w-4 mr-1.5" /> Hide</>
                       )}
                     </Button>
+                    {detail.isBuiltin && detail.accountsCustomized && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          if (window.confirm(`Reset "${detail.label}" to the accounts shipped with the app? Your edits to this template will be lost. Existing clients are not affected.`)) {
+                            resetMutation.mutate(detail.slug);
+                          }
+                        }}
+                        disabled={resetMutation.isPending}
+                        loading={resetMutation.isPending}
+                        title="Restore the accounts shipped with the app"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-1.5" /> Reset to default
+                      </Button>
+                    )}
                     {!detail.isBuiltin && (
                       <Button variant="danger" onClick={handleDelete} disabled={deleteMutation.isPending}>
                         <Trash2 className="h-4 w-4 mr-1.5" /> Delete
