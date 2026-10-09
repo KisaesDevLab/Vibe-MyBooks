@@ -12,7 +12,6 @@ import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
 import { useLocalState, SHOW_ACCT_NUMBERS_KEY } from '../../hooks/useLocalState';
-import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useCompanySettings } from '../../api/hooks/useCompany';
 import { ReportShell } from './ReportShell';
@@ -21,6 +20,7 @@ import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
 import { ReportFooter } from './ReportFooter';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 interface BSRow {
   accountId?: string | null;
@@ -158,7 +158,7 @@ export function BalanceSheetReport() {
 
   // Native date inputs fire per-segment while typing — only re-query once
   // the as-of date is complete and stable.
-  const debAsOfDate = useDebouncedDate(asOfDate);
+  const debAsOfDate = asOfDate;
 
   // Grouping applies to BOTH the standard and comparative views.
   // display=condensed only affects server-side exports (PDF/CSV mirror
@@ -181,7 +181,7 @@ export function BalanceSheetReport() {
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">As of:</span>
-            <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)}
+            <CommitInput type="date" value={asOfDate} onCommit={setAsOfDate}
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
           </div>
           <select value={basis} onChange={(e) => setBasis(e.target.value as 'accrual' | 'cash')}

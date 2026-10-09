@@ -19,7 +19,6 @@ import { TXN_TYPE_LABELS, type TxnType } from '@kis-books/shared';
 import { apiClient } from '../../api/client';
 import { useTags } from '../../api/hooks/useTags';
 import { useSessionState } from '../../hooks/useSessionState';
-import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -78,8 +77,8 @@ export function TransactionRangeReport() {
   // Which part is being built right now (0 = the single-part button).
   const [building, setBuilding] = useState<number | null>(null);
 
-  const debStart = useDebouncedDate(startDate);
-  const debEnd = useDebouncedDate(endDate);
+  const debStart = startDate;
+  const debEnd = endDate;
   const { data: tagData } = useTags({ isActive: true });
 
   const params = new URLSearchParams();

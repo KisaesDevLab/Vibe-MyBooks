@@ -10,7 +10,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useBills } from '../../api/hooks/useAp';
 import { useFeatureFlag } from '../../api/hooks/useFeatureFlag';
 import { useSessionState } from '../../hooks/useSessionState';
-import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useTags } from '../../api/hooks/useTags';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -18,6 +17,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { EmptyStateChat } from '../chat/EmptyStateChat';
 import type { BillStatus } from '@kis-books/shared';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   unpaid: { label: 'Unpaid', color: 'bg-yellow-100 text-yellow-800' },
@@ -52,9 +52,9 @@ export function BillListPage() {
   const [startDate, setStartDate] = useSessionState('vibe:bills:startDate', '');
   const [endDate, setEndDate] = useSessionState('vibe:bills:endDate', '');
   const [tagFilter, setTagFilter] = useSessionState('vibe:bills:tag', '');
-  const debouncedSearch = useDebouncedValue(search);
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
+  const debouncedSearch = search;
+  const debStartDate = startDate;
+  const debEndDate = endDate;
   // Server-side pagination — any filter change resets to page 1.
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [offset, setOffset] = useState(0);
@@ -92,9 +92,9 @@ export function BillListPage() {
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-4 space-y-3">
         <div className="flex gap-3 flex-wrap items-end">
-          <input
+          <CommitInput
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
+            onCommit={(v) => { setSearch(v); setOffset(0); }}
             placeholder="Search by vendor, bill #, vendor invoice #..."
             className="flex-1 min-w-[200px] rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
@@ -121,12 +121,12 @@ export function BillListPage() {
         <div className="flex gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
-            <input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setOffset(0); }}
+            <CommitInput type="date" value={startDate} onCommit={(v) => { setStartDate(v); setOffset(0); }}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
-            <input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setOffset(0); }}
+            <CommitInput type="date" value={endDate} onCommit={(v) => { setEndDate(v); setOffset(0); }}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
         </div>

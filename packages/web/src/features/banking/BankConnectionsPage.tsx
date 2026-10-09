@@ -22,10 +22,10 @@ import { FullDisconnectDialog } from './FullDisconnectDialog';
 import { apiClient } from '../../api/client';
 import { InviteClientModal } from './InviteClientModal';
 import { useBankConnectInvites, useResendBankConnectInvite, useRevokeBankConnectInvite, type BankConnectInviteRow, type InviteStatusFilter, type InviteKindFilter } from '../../api/hooks/useBankConnectInvites';
-import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { Pagination } from '../../components/ui/Pagination';
 import { useFeatureFlag } from '../../api/hooks/useFeatureFlag';
 import { Landmark, Upload, Unplug, RefreshCw, RotateCcw, AlertTriangle, CheckCircle, Link2, Pencil, Share2, Clock, Trash2, Send, Mail, MessageSquare, Search } from 'lucide-react';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 // The `/plaid/items/:id` detail endpoint returns the item plus its
 // child accounts and the denormalised hiddenAccountCount (accounts
@@ -60,7 +60,7 @@ function BankConnectInvitesCard() {
   const [status, setStatus] = useState<InviteStatusFilter | ''>('');
   const [kind, setKind] = useState<InviteKindFilter | ''>('');
   const [searchInput, setSearchInput] = useState('');
-  const search = useDebouncedValue(searchInput.trim(), 300);
+  const search = searchInput.trim();
   const [pageSize, setPageSize] = useState('10');
   const [offset, setOffset] = useState(0);
   const limit = Number(pageSize);
@@ -107,10 +107,10 @@ function BankConnectInvitesCard() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mr-auto">Client connection invites</h2>
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-          <input
+          <CommitInput
             type="search"
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onCommit={setSearchInput}
             placeholder="Search name, email, phone"
             aria-label="Search invites"
             className="w-56 rounded-md border border-gray-300 py-1 pl-7 pr-2 text-sm"

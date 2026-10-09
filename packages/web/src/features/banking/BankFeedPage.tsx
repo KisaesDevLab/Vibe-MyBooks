@@ -11,7 +11,6 @@ import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useColumnView } from '../../hooks/useColumnView';
 import { SortableTh } from '../../components/ui/SortableTh';
-import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useAiConfig, useAiCategorize, useAiBatchCategorize } from '../../api/hooks/useAi';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { AccountSelector } from '../../components/forms/AccountSelector';
@@ -26,6 +25,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
 import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, RefreshCw, Link2, Wand2, ScanLine, RotateCcw } from 'lucide-react';
 import { apiClient } from '../../api/client';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -163,9 +163,9 @@ export function BankFeedPage() {
   // STATEMENT_CHECK_PAYEE_FEED — the dry-run preview awaiting confirmation.
   const [payeePreview, setPayeePreview] = useState<FeedPayeeBackfillReportDto | null>(null);
 
-  const debouncedSearch = useDebouncedValue(search);
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
+  const debouncedSearch = search;
+  const debStartDate = startDate;
+  const debEndDate = endDate;
 
   // Pagination: the page previously requested a fixed limit of 200 with
   // no next/prev, silently truncating imports larger than that.
@@ -635,22 +635,22 @@ export function BankFeedPage() {
           <div className="relative flex-1 min-w-[180px] max-w-xs">
             <label htmlFor="bank-feed-search" className="block text-xs font-medium text-gray-500 mb-1">Search</label>
             <Search aria-hidden="true" className="absolute left-3 bottom-2.5 h-4 w-4 text-gray-400" />
-            <input
+            <CommitInput
               id="bank-feed-search"
               placeholder="Search name, amount, memo..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onCommit={setSearch}
               className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm"
             />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+            <CommitInput type="date" value={startDate} onCommit={setStartDate}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+            <CommitInput type="date" value={endDate} onCommit={setEndDate}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div>

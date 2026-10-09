@@ -12,7 +12,6 @@ import { useNavigate } from 'react-router-dom';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
-import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -44,8 +43,8 @@ export function ExpensesByVendorReport() {
   const [basis, setBasis] = useSessionState<'cash' | 'accrual'>('vibe:report-expvendor:basis', 'accrual');
   const { activeCompanyId } = useCompanyContext();
 
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
+  const debStartDate = startDate;
+  const debEndDate = endDate;
 
   const params = new URLSearchParams({ start_date: debStartDate, end_date: debEndDate });
   if (scope === 'consolidated') params.set('scope', 'consolidated');

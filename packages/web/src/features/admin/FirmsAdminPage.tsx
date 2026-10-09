@@ -19,7 +19,6 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
-import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { isApiError } from '../../api/client';
 import {
   useAdminFirms, useUpdateFirm, useDeleteFirm,
@@ -27,11 +26,12 @@ import {
 } from '../../api/hooks/useFirms';
 import { CreateFirmDialog } from '../firm/CreateFirmDialog';
 import { FirmMemberCapabilitiesDrawer } from '../firm/FirmMemberCapabilitiesDrawer';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 export function FirmsAdminPage() {
   const toast = useToast();
   const [search, setSearch] = useState('');
-  const debounced = useDebouncedValue(search);
+  const debounced = search;
   const { data, isLoading, isError, refetch } = useAdminFirms({ search: debounced });
   const update = useUpdateFirm();
   const remove = useDeleteFirm();
@@ -97,10 +97,10 @@ export function FirmsAdminPage() {
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <CommitInput
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onCommit={setSearch}
               placeholder="Search firms..."
               className="pl-9 pr-4 py-2 rounded-lg border border-gray-300 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             />

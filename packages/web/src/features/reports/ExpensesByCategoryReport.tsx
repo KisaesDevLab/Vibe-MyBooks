@@ -10,7 +10,6 @@ import type { Account, AccountType } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
-import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useAccounts } from '../../api/hooks/useAccounts';
 import { ReportShell } from './ReportShell';
@@ -190,8 +189,8 @@ export function ExpensesByCategoryReport() {
   const { activeCompanyId } = useCompanyContext();
 
   // Only query once typed dates are complete and stable.
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
+  const debStartDate = startDate;
+  const debEndDate = endDate;
 
   // Tenant's expense-side accounts for the multi-select filter.
   const accountsQuery = useAccounts({ limit: 500 });

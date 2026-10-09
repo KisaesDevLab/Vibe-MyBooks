@@ -21,7 +21,7 @@ import { MergeAccountsModal } from './MergeAccountsModal';
 import { BulkEditAccountsModal } from './BulkEditAccountsModal';
 import { Plus, Upload, Download, Merge, Search, Shield, List, Table2 } from 'lucide-react';
 import type { Account } from '@kis-books/shared';
-import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 const PAGE_SIZE = 200;
 const SORT_KEYS: readonly AccountSortKey[] = ['number', 'name', 'type', 'detailType', 'balance', 'status'];
@@ -55,7 +55,7 @@ export function AccountsListPage() {
   useEffect(() => { setOffset(0); }, [view.signature]);
 
   // Debounced: the query fires once typing pauses, not per keystroke.
-  const debouncedSearch = useDebouncedValue(search);
+  const debouncedSearch = search;
 
   const filters = {
     accountType: typeSet.size > 0 ? ([...typeSet] as AccountType[]) : undefined,
@@ -103,10 +103,10 @@ export function AccountsListPage() {
       <div className="flex gap-4 mb-4">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
+          <CommitInput
             placeholder="Search accounts..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onCommit={setSearch}
             className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm"
           />
         </div>

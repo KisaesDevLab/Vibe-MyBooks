@@ -10,7 +10,6 @@ import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
 import { useLocalState, SHOW_ACCT_NUMBERS_KEY } from '../../hooks/useLocalState';
-import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 
 // The /reports/profit-loss endpoint returns two shapes depending on whether
 // a `compare=` parameter is set. Keep both unions permissive on optional
@@ -177,8 +176,8 @@ export function ProfitAndLossReport() {
   // Debounced dates: the native date inputs fire a change per segment
   // while typing — only query once the value is a complete date and the
   // user has paused.
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
+  const debStartDate = startDate;
+  const debEndDate = endDate;
 
   // Grouping applies to BOTH the standard and comparative views.
   // display=condensed and show_pct only affect server-side exports

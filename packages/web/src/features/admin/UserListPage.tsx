@@ -11,7 +11,6 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Pagination } from '../../components/ui/Pagination';
-import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useColumnView } from '../../hooks/useColumnView';
 import { SortableTh } from '../../components/ui/SortableTh';
 import { distinctOptions } from '../../utils/columnView';
@@ -31,6 +30,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@kis-books/shared';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 interface AdminUser {
   id: string;
@@ -70,7 +70,7 @@ export function UserListPage() {
   const [companyAccessUserId, setCompanyAccessUserId] = useState<string | null>(null);
   const [tenantAccessUserId, setTenantAccessUserId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search);
+  const debouncedSearch = search;
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [offset, setOffset] = useState(0);
   const effectiveLimit = pageSize === 'all' ? ALL_LIMIT : parseInt(pageSize, 10);
@@ -259,10 +259,10 @@ export function UserListPage() {
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <CommitInput
               type="text"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onCommit={setSearch}
               placeholder="Search users..."
               className="pl-9 pr-4 py-2 rounded-lg border border-gray-300 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             />

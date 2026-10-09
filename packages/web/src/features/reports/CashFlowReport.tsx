@@ -7,7 +7,6 @@ import { DEFAULT_CF_LABELS, type CFSectionLabels } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
-import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -41,8 +40,8 @@ export function CashFlowReport() {
   const { activeCompanyId } = useCompanyContext();
 
   // Only query once typed dates are complete and stable.
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
+  const debStartDate = startDate;
+  const debEndDate = endDate;
 
   const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}`;
 

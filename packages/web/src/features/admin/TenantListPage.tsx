@@ -11,12 +11,12 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Pagination } from '../../components/ui/Pagination';
-import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { Building2, Eye, Power, LogIn, Search, Plus, X } from 'lucide-react';
 import { APPLIANCE_FIRM_SLUG } from '@kis-books/shared';
 import { useFirms } from '../../api/hooks/useFirms';
 import { SortableTh } from '../../components/ui/SortableTh';
 import { useColumnView } from '../../hooks/useColumnView';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 interface TenantRow {
   id: string;
@@ -46,7 +46,7 @@ export function TenantListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search);
+  const debouncedSearch = search;
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [offset, setOffset] = useState(0);
   const effectiveLimit = pageSize === 'all' ? ALL_LIMIT : parseInt(pageSize, 10);
@@ -177,10 +177,10 @@ export function TenantListPage() {
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <CommitInput
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onCommit={setSearch}
               placeholder="Search tenants..."
               className="pl-9 pr-4 py-2 rounded-lg border border-gray-300 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             />

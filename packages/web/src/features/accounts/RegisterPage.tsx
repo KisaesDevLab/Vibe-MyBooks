@@ -17,8 +17,8 @@ import { Pagination } from '../../components/ui/Pagination';
 import { Search, Download, Printer, Ban } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useLocalState } from '../../hooks/useLocalState';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 // Server caps per_page at 200.
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '200'];
@@ -71,9 +71,9 @@ export function RegisterPage() {
   // Typing stays responsive; the register query fires only once the
   // search text is stable and dates are complete (native date inputs
   // fire a change per segment).
-  const debouncedSearch = useDebouncedValue(search);
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
+  const debouncedSearch = search;
+  const debStartDate = startDate;
+  const debEndDate = endDate;
 
   // Close the void dialog on Escape so the user isn't trapped when they
   // mis-click. Paired with a backdrop click handler below.
@@ -245,14 +245,14 @@ export function RegisterPage() {
               className="px-2 py-1 text-xs rounded border border-gray-200 text-gray-600 hover:bg-gray-50">{p.label}</button>
           ))}
         </div>
-        <input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+        <CommitInput type="date" value={startDate} onCommit={(v) => { setStartDate(v); setPage(1); }}
           className="rounded border border-gray-300 px-2 py-1 text-xs" />
         <span className="text-gray-400 text-xs">to</span>
-        <input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+        <CommitInput type="date" value={endDate} onCommit={(v) => { setEndDate(v); setPage(1); }}
           className="rounded border border-gray-300 px-2 py-1 text-xs" />
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
-          <input placeholder="Search..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          <CommitInput placeholder="Search..." value={search} onCommit={(v) => { setSearch(v); setPage(1); }}
             className="rounded border border-gray-300 pl-6 pr-2 py-1 text-xs w-36" />
         </div>
         <select value={txnTypeFilter} onChange={(e) => { setTxnTypeFilter(e.target.value); setPage(1); }}

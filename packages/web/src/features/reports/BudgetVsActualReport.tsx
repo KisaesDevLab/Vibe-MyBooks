@@ -7,7 +7,6 @@ import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_PL_LABELS, type PLSectionLabels } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
-import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { DateRangePicker } from './DateRangePicker';
@@ -75,8 +74,8 @@ export function BudgetVsActualReport() {
   const [endDate, setEndDate] = useSessionState('vibe:report-bva:endDate', today.toISOString().split('T')[0]!);
   const [selectedBudgetId, setSelectedBudgetId] = useSessionState<string>('vibe:report-bva:budgetId', '');
   // Only query once typed dates are complete and stable.
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
+  const debStartDate = startDate;
+  const debEndDate = endDate;
   const { activeCompanyId } = useCompanyContext();
 
   // Fetch budgets for dropdown

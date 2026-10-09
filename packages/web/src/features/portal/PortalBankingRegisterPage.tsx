@@ -6,8 +6,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Search } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { usePortal } from './PortalLayout';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 // PORTAL_BANKING_V1 — sanitized mobile register for one account.
 // Newest-first line cards with running balance; "Load more" appends
@@ -56,7 +56,7 @@ export function PortalBankingRegisterPage() {
 
   const [range, setRange] = useState<RangeKey>('90d');
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search);
+  const debouncedSearch = search;
   const [page, setPage] = useState(1);
   const [data, setData] = useState<PortalRegisterData | null>(null);
   const [lines, setLines] = useState<PortalRegisterLine[]>([]);
@@ -178,10 +178,10 @@ export function PortalBankingRegisterPage() {
 
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <input
+        <CommitInput
           type="search"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onCommit={setSearch}
           placeholder="Search activity"
           className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-gray-400"
         />

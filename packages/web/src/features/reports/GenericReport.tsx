@@ -6,7 +6,6 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useClearTagOnCompanyChange } from './useClearTagOnCompanyChange';
-import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { ReportTable } from './ReportTable';
@@ -16,6 +15,7 @@ import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 interface Column {
   key: string;
@@ -62,9 +62,9 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
 
   // Only query once typed dates are complete and stable (native date
   // inputs fire a change per segment).
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
-  const debAsOfDate = useDebouncedDate(asOfDate);
+  const debStartDate = startDate;
+  const debEndDate = endDate;
+  const debAsOfDate = asOfDate;
 
   const params = new URLSearchParams(extraParams);
   if (useDateRange) { params.set('start_date', debStartDate); params.set('end_date', debEndDate); }
@@ -105,7 +105,7 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
           {useAsOfDate && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500">As of:</span>
-              <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)}
+              <CommitInput type="date" value={asOfDate} onCommit={setAsOfDate}
                 className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
             </div>
           )}

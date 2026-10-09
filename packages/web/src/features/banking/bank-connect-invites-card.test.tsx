@@ -80,6 +80,8 @@ describe('Client connection invites card', () => {
     expect(calls.at(-1)).toMatchObject({ kind: 'repair', status: 'open' });
 
     fireEvent.change(screen.getByLabelText('Search invites'), { target: { value: 'nobody' } });
+    // Filter inputs commit on Enter / blur, not per keystroke.
+    fireEvent.keyDown(screen.getByLabelText('Search invites'), { key: 'Enter' });
     await waitFor(() => expect(calls.at(-1)).toMatchObject({ search: 'nobody' }));
     expect(screen.getByText('No invites match these filters.')).toBeTruthy();
 

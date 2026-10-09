@@ -4,6 +4,7 @@
 
 import { useCompanySettings } from '../../api/hooks/useCompany';
 import { todayLocalISO, fiscalYearRange } from '../../utils/date';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 interface DateRangePickerProps {
   startDate: string;
@@ -55,10 +56,10 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
           {p.label}
         </button>
       ))}
-      <input type="date" value={startDate} onChange={(e) => onChange(e.target.value, endDate)}
+      <CommitInput type="date" value={startDate} onCommit={(v) => onChange(v, endDate)}
         className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
       <span className="text-gray-400">to</span>
-      <input type="date" value={endDate} onChange={(e) => onChange(startDate, e.target.value)}
+      <CommitInput type="date" value={endDate} onCommit={(v) => onChange(startDate, v)}
         className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
     </div>
   );

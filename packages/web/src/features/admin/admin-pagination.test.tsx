@@ -93,6 +93,8 @@ describe('TenantListPage pagination', () => {
     await screen.findByText('Tenant 0');
 
     fireEvent.change(screen.getByPlaceholderText('Search tenants...'), { target: { value: 'acme' } });
+    // Filter inputs commit on Enter / blur, not per keystroke.
+    fireEvent.keyDown(screen.getByPlaceholderText('Search tenants...'), { key: 'Enter' });
 
     await waitFor(() => expect(lastQuery('/admin/tenants').get('search')).toBe('acme'));
     expect(lastQuery('/admin/tenants').get('offset')).toBe('0');
@@ -120,6 +122,8 @@ describe('UserListPage pagination', () => {
     await screen.findByText('user0@example.com');
 
     fireEvent.change(screen.getByPlaceholderText('Search users...'), { target: { value: 'bob@' } });
+    // Filter inputs commit on Enter / blur, not per keystroke.
+    fireEvent.keyDown(screen.getByPlaceholderText('Search users...'), { key: 'Enter' });
 
     await waitFor(() => expect(lastQuery('/admin/users').get('search')).toBe('bob@'));
   });

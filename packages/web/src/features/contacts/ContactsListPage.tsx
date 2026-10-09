@@ -18,7 +18,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { ContactImportModal } from './ContactImportModal';
 import { MergeContactsModal } from './MergeContactsModal';
 import { Plus, Upload, Download, Merge, Search, X } from 'lucide-react';
-import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 const PAGE_SIZE = 100;
 const SORT_KEYS: readonly ContactSortKey[] = ['name', 'type', 'email', 'phone', 'status'];
@@ -63,7 +63,7 @@ export function ContactsListPage() {
 
   // Typing stays responsive; the query fires only once the search text
   // is stable for ~400ms instead of on every keystroke.
-  const debouncedSearch = useDebouncedValue(search);
+  const debouncedSearch = search;
 
   const filters = {
     contactType: typeTab || undefined,
@@ -160,10 +160,10 @@ export function ContactsListPage() {
       <div className="flex gap-4 mb-4">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
+          <CommitInput
             placeholder="Search contacts..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onCommit={setSearch}
             className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm"
           />
         </div>

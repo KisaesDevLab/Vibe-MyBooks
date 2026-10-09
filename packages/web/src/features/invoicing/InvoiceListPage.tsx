@@ -9,7 +9,6 @@ import { useColumnView } from '../../hooks/useColumnView';
 import { useNavigate } from 'react-router-dom';
 import { useInvoices } from '../../api/hooks/useInvoices';
 import { useSessionState } from '../../hooks/useSessionState';
-import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useTags } from '../../api/hooks/useTags';
 import { useContacts } from '../../api/hooks/useContacts';
 import { Button } from '../../components/ui/Button';
@@ -18,6 +17,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { Can } from '../../components/ui/Can';
 import { Plus, Search, Columns } from 'lucide-react';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 const PAGE_SIZE = 50;
 
@@ -102,9 +102,9 @@ export function InvoiceListPage() {
   // Typing stays responsive; the query only fires once the value is
   // stable (and, for dates, complete — native date inputs fire a change
   // per segment).
-  const debouncedSearch = useDebouncedValue(search);
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
+  const debouncedSearch = search;
+  const debStartDate = startDate;
+  const debEndDate = endDate;
 
   const setStatusFilter = (v: string) => { setStatusFilterRaw(v); setOffset(0); };
   const setSearch = (v: string) => { setSearchRaw(v); setOffset(0); };
@@ -199,7 +199,7 @@ export function InvoiceListPage() {
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
             <Search className="absolute left-3 bottom-2.5 h-4 w-4 text-gray-400" />
-            <input placeholder="Search invoices..." value={search} onChange={(e) => setSearch(e.target.value)}
+            <CommitInput placeholder="Search invoices..." value={search} onCommit={setSearch}
               className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm" />
           </div>
           <div>
@@ -236,12 +236,12 @@ export function InvoiceListPage() {
         <div className="flex gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+            <CommitInput type="date" value={startDate} onCommit={setStartDate}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+            <CommitInput type="date" value={endDate} onCommit={setEndDate}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
         </div>

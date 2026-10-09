@@ -13,7 +13,6 @@ import { ChevronDown } from 'lucide-react';
 import type { Account, AccountType } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
-import { useDebouncedDate } from '../../hooks/useDebouncedValue';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { useAccounts } from '../../api/hooks/useAccounts';
 import { ReportShell } from './ReportShell';
@@ -150,8 +149,8 @@ export function AccountDetailReport({ config }: { config: AccountDetailConfig })
   const [basis, setBasis] = useSessionState<'cash' | 'accrual'>(ns('basis'), 'accrual');
   const { activeCompanyId } = useCompanyContext();
 
-  const debStartDate = useDebouncedDate(startDate);
-  const debEndDate = useDebouncedDate(endDate);
+  const debStartDate = startDate;
+  const debEndDate = endDate;
 
   const accountsQuery = useAccounts({ limit: 500 });
   const groupAccounts = useMemo(

@@ -15,7 +15,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { ItemFormModal } from './ItemFormModal';
 import { Plus, Download, Search } from 'lucide-react';
 import type { Item } from '@kis-books/shared';
-import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 const PAGE_SIZE = 100;
 const SORT_KEYS: readonly ItemSortKey[] = ['name', 'price', 'taxable', 'status'];
@@ -42,7 +42,7 @@ export function ItemsListPage() {
   useEffect(() => { setOffset(0); }, [view.signature]);
 
   // Debounced: the query fires once typing pauses, not per keystroke.
-  const debouncedSearch = useDebouncedValue(search);
+  const debouncedSearch = search;
 
   const filters = {
     isActive: activeFilter,
@@ -106,10 +106,10 @@ export function ItemsListPage() {
       <div className="flex gap-4 mb-4">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
+          <CommitInput
             placeholder="Search items..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onCommit={setSearch}
             className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm"
           />
         </div>

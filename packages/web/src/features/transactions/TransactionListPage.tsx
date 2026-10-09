@@ -18,7 +18,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { SortableTh } from '../../components/ui/SortableTh';
 import { ArrowLeft, Plus, Search, X } from 'lucide-react';
-import { useDebouncedValue, useDebouncedDate } from '../../hooks/useDebouncedValue';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 // Rows-per-page choices. 'all' fetches up to the API cap (10000) in one
 // request — effectively the whole filtered set for typical volumes.
@@ -109,7 +109,7 @@ export function TransactionListPage() {
   // value is what drives both the query and the URL update.
   const [search, setSearch] = useState(urlSearch);
   const [showNewMenu, setShowNewMenu] = useState(false);
-  const debouncedSearch = useDebouncedValue(search);
+  const debouncedSearch = search;
 
   // Multi-select + bulk-edit state. Selection is a Set of txn ids; the bulk
   // toolbar appears whenever at least one row is selected.
@@ -221,8 +221,8 @@ export function TransactionListPage() {
   // fire a change event per segment while the user is still typing.
   const [fromInput, setFromInput] = useState(startDate);
   const [toInput, setToInput] = useState(endDate);
-  const debFrom = useDebouncedDate(fromInput);
-  const debTo = useDebouncedDate(toInput);
+  const debFrom = fromInput;
+  const debTo = toInput;
   useEffect(() => {
     if (debFrom !== startDate) setStartDate(debFrom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -442,7 +442,7 @@ export function TransactionListPage() {
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
             <Search className="absolute left-3 bottom-2.5 h-4 w-4 text-gray-400" />
-            <input placeholder="Memo, number, contact, amount..." value={search} onChange={(e) => setSearch(e.target.value)}
+            <CommitInput placeholder="Memo, number, contact, amount..." value={search} onCommit={setSearch}
               className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm" />
           </div>
           <div>
@@ -506,12 +506,12 @@ export function TransactionListPage() {
         <div className="flex gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
-            <input type="date" value={fromInput} onChange={(e) => setFromInput(e.target.value)}
+            <CommitInput type="date" value={fromInput} onCommit={setFromInput}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
-            <input type="date" value={toInput} onChange={(e) => setToInput(e.target.value)}
+            <CommitInput type="date" value={toInput} onCommit={setToInput}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           {hasFilters && (
