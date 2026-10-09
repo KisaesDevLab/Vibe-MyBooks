@@ -155,13 +155,14 @@ are those of `packages/api/src/routes/portal-*-public.routes.ts`.
 
 ### 4.3 Receipts (feature `receipts`)
 
-| POST | `/portal/receipts/upload` | multipart: `file` (jpeg/png/heic/webp/pdf, 10 MB), optional `documentRequestId`. → `201 { id, duplicate }`. A request from another company → 403 `PEER_COMPANY_MISMATCH`. |
+| POST | `/portal/receipts/upload` | multipart: `file` (jpeg/png/heic/webp/pdf, 10 MB), optional `documentRequestId`, optional `keepOpen=1` (link the file but leave the request open for more files — finish with `POST /portal/document-requests/:id/complete`; without it the upload completes the request, as before). → `201 { id, duplicate }`. A request from another company → 403 `PEER_COMPANY_MISMATCH`. |
 | GET | `/portal/receipts` | `{ receipts: [...] }` — this contact's own uploads, newest first. Optional `kind=receipt` (receipt-button uploads only) or `kind=request` (files sent against a document request). Rows add `mimeType`, `sizeBytes`, `documentRequestId`, `requestDescription`, `requestPeriodLabel`. |
 | GET | `/portal/receipts/:id/file` | The stored file, only if this contact uploaded it. `?inline=1` to display instead of download. |
 
 ### 4.4 Document requests (feature `documentRequests`)
 
-| GET | `/portal/document-requests` | `{ featureEnabled, items: [{ id, companyId, documentType, description, periodLabel, requestedAt, dueDate, status, submittedAt, … }] }` — pending requests for the linked company. Fulfil one by uploading a receipt with `documentRequestId`. |
+| GET | `/portal/document-requests` | `{ featureEnabled, items: [{ id, companyId, documentType, description, periodLabel, requestedAt, dueDate, status, submittedAt, … }] }` — pending requests for the linked company. Fulfil one by uploading a receipt with `documentRequestId`. Items carry `files: [{ receiptId, filename, mimeType, uploadedAt }]`. |
+| POST | `/portal/document-requests/:id/complete` | "I'm done" for a request uploaded with `keepOpen=1`: marks it submitted and emails staff once with every file. 400 if no file yet, 409 `DOC_REQUEST_NOT_PENDING` if already complete. |
 
 ### 4.5 Banking (feature `banking`)
 

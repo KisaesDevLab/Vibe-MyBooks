@@ -3026,7 +3026,7 @@ A **standing document request** (Practice → Reminders → Recurring requests) 
 
 ## Where a client submission shows up
 
-When the contact uploads against a request it becomes a **submitted** request that is **unread** until a staff member marks it reviewed. Unread submissions are surfaced in three places:
+In the portal the contact can upload **several files** to one request (pick many at once, or **Add more files** later); the request stays open, showing each file, until they press **I\u2019m done**. Until then the Open requests grid shows the files with \u201cclient hasn\u2019t pressed I\u2019m done\u201d, and **Mark received** closes it for them. Pressing **I\u2019m done** makes it a **submitted** request that is **unread** until a staff member marks it reviewed. Unread submissions are surfaced in three places:
 
 - **Dashboard** — the "Client portal activity" banner gets a "*N* client submissions to review" row that opens the Reminders page filtered to unread.
 - **Clients** (View all clients… at the bottom of the company switcher) — an inbox icon with a count next to any client that has unread submissions, and a red calendar icon with a count when that client has document requests past due.
@@ -3036,7 +3036,7 @@ Click the uploaded **filename** on any submitted row to open the document right 
 
 ## Emailing staff when the client submits
 
-In the rule editor (and on the **New request** form), **Email staff when the client submits** lists the active staff users who have access to this client. Everyone checked gets an email the moment the contact uploads against that rule — client name, request, period, and filename, with a link to the unread submissions grid. Editing the list applies to requests already outstanding. Only staff users with access to the client can be chosen; SMTP must be configured under Admin for the email to go out (the submission still shows as unread either way).
+In the rule editor (and on the **New request** form), **Email staff when the client submits** lists the active staff users who have access to this client. Everyone checked gets one email when the contact presses I\u2019m done (or, for uploads from Vibe PM or a staff capture, when the file arrives) — client name, request, period, and every filename, with a link to the unread submissions grid. Editing the list applies to requests already outstanding. Only staff users with access to the client can be chosen; SMTP must be configured under Admin for the email to go out (the submission still shows as unread either way).
 
 Requires the tenant flag **RECURRING_DOC_REQUESTS_V1**.`,
   },

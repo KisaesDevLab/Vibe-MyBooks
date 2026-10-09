@@ -16,6 +16,8 @@ interface PortalDocRequest {
   requestedAt: string;
   dueDate: string | null;
   status: string;
+  /** Files already sent for this request (it stays open until "I'm done"). */
+  files?: Array<{ receiptId: string; filename: string | null; uploadedAt: string }>;
 }
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 9.6 — portal dashboard.
@@ -64,6 +66,7 @@ export function PortalDashboardPage() {
     publishedReports: null,
   });
   const [docRequests, setDocRequests] = useState<PortalDocRequest[] | null>(null);
+  const [docDoneMsg, setDocDoneMsg] = useState<string | null>(null);
   // null = hidden (feature off, permission off, or fetch failed).
   const [bankAccounts, setBankAccounts] = useState<DashboardBankAccount[] | null>(null);
   // PORTAL_CATEGORIZE_V1 — how many transactions are waiting on this client.
@@ -337,9 +340,15 @@ export function PortalDashboardPage() {
         </section>
       )}
 
-      {docRequests && docRequests.length > 0 && filesEnabled && activeCompanyId && (
+      {docRequests && (docRequests.length > 0 || docDoneMsg) && filesEnabled && activeCompanyId && (
         <section className="mt-8 bg-white border border-gray-200 rounded-lg p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-3">Documents requested</h2>
+          <h2 className="text-base font-semibold text-gray-900 mb-1">Documents requested</h2>
+          <p className="text-xs text-gray-500 mb-3">
+            Upload as many files as each request needs, then press <strong>I&apos;m done</strong> so your bookkeeper knows it&apos;s complete.
+          </p>
+          {docDoneMsg && (
+            <p className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800" role="status">{docDoneMsg}</p>
+          )}
           <ul className="space-y-2">
             {docRequests.map((r) => (
               <DocRequestRow
@@ -347,6 +356,7 @@ export function PortalDashboardPage() {
                 req={r}
                 companyId={activeCompanyId}
                 onUploaded={() => void reloadDocRequests()}
+                onCompleted={(msg) => { setDocDoneMsg(msg); void reloadDocRequests(); }}
               />
             ))}
           </ul>
@@ -480,83 +490,145 @@ function Tile({
   );
 }
 
-function DocRequestRow({
+export function DocRequestRow({
   req,
   companyId,
   onUploaded,
+  onCompleted,
 }: {
   req: PortalDocRequest;
   companyId: string;
   onUploaded: () => void;
+  onCompleted: (message: string) => void;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
+  const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const files = req.files ?? [];
 
   const overdue = req.dueDate ? new Date(req.dueDate) < new Date() : false;
 
-  const onFile = async (file: File) => {
-    setUploading(true);
+  // Several files may be picked at once; each is its own upload against the
+  // request, which stays open (keepOpen=1) until the client presses I'm done.
+  const onFiles = async (picked: File[]) => {
+    if (picked.length === 0) return;
+    setError(null);
+    const failed: string[] = [];
+    for (let i = 0; i < picked.length; i += 1) {
+      setUploading({ done: i, total: picked.length });
+      try {
+        const fd = new FormData();
+        fd.append('file', picked[i]!);
+        fd.append('companyId', companyId);
+        fd.append('documentRequestId', req.id);
+        fd.append('keepOpen', '1');
+        const res = await fetch(`${import.meta.env.BASE_URL}api/portal/receipts/upload`, {
+          method: 'POST',
+          body: fd,
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+        }
+      } catch (e) {
+        failed.push(`${picked[i]!.name}: ${e instanceof Error ? e.message : 'upload failed'}`);
+      }
+    }
+    setUploading(null);
+    if (failed.length > 0) setError(`Some files did not upload — ${failed.join('; ')}`);
+    onUploaded();
+  };
+
+  const complete = async () => {
+    setCompleting(true);
     setError(null);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('companyId', companyId);
-      fd.append('documentRequestId', req.id);
-      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/receipts/upload`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/document-requests/${req.id}/complete`, {
         method: 'POST',
-        body: fd,
         credentials: 'include',
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
       }
-      setDone(true);
-      onUploaded();
+      const n = files.length;
+      onCompleted(`Thanks — "${req.description}" sent to your bookkeeper (${n} file${n === 1 ? '' : 's'}).`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed.');
+      setError(e instanceof Error ? e.message : 'Could not finish this request.');
     } finally {
-      setUploading(false);
+      setCompleting(false);
     }
   };
 
   return (
-    <li className="border border-gray-200 rounded-md p-3 flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          {done ? <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" /> : <Clock className={`h-4 w-4 shrink-0 ${overdue ? 'text-red-600' : 'text-amber-600'}`} />}
-          <p className="text-sm font-medium text-gray-900 truncate">{req.description}</p>
+    <li className="border border-gray-200 rounded-md p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {files.length > 0
+              ? <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              : <Clock className={`h-4 w-4 shrink-0 ${overdue ? 'text-red-600' : 'text-amber-600'}`} />}
+            <p className="text-sm font-medium text-gray-900 truncate">{req.description}</p>
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">
+            For {req.periodLabel}
+            {req.dueDate && ` · due ${new Date(req.dueDate).toLocaleDateString()}`}
+            {overdue && ' (overdue)'}
+          </p>
         </div>
-        <p className="text-xs text-gray-500 mt-0.5">
-          For {req.periodLabel}
-          {req.dueDate && ` · due ${new Date(req.dueDate).toLocaleDateString()}`}
-          {overdue && ' (overdue)'}
-        </p>
-        {error && <p className="text-xs text-red-700 mt-1">{error}</p>}
+        <div className="shrink-0 flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/heic,image/webp,application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              const picked = Array.from(e.target.files ?? []);
+              e.target.value = '';
+              void onFiles(picked);
+            }}
+          />
+          <button
+            type="button"
+            disabled={!!uploading || completing}
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {uploading
+              ? `Uploading ${uploading.done + 1} of ${uploading.total}…`
+              : files.length > 0 ? 'Add more files' : 'Upload files'}
+          </button>
+          {files.length > 0 && (
+            <button
+              type="button"
+              disabled={!!uploading || completing}
+              onClick={() => void complete()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {completing ? 'Sending…' : "I'm done"}
+            </button>
+          )}
+        </div>
       </div>
-      <div className="shrink-0">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/jpeg,image/png,image/heic,image/webp,application/pdf"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void onFile(f);
-          }}
-        />
-        <button
-          type="button"
-          disabled={uploading || done}
-          onClick={() => fileRef.current?.click()}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-        >
-          <Upload className="h-3.5 w-3.5" />
-          {done ? 'Uploaded' : uploading ? 'Uploading…' : 'Upload'}
-        </button>
-      </div>
+      {files.length > 0 && (
+        <ul className="mt-2 space-y-0.5 pl-6 text-xs text-gray-600">
+          {files.map((f) => (
+            <li key={f.receiptId} className="flex items-center gap-1.5 min-w-0">
+              <FileText className="h-3 w-3 shrink-0 text-gray-400" />
+              <span className="truncate">{f.filename ?? 'File'}</span>
+            </li>
+          ))}
+          <li className="text-gray-400">
+            {files.length} file{files.length === 1 ? '' : 's'} uploaded — press I&apos;m done when you&apos;ve sent everything.
+          </li>
+        </ul>
+      )}
+      {error && <p className="text-xs text-red-700 mt-1">{error}</p>}
     </li>
   );
 }

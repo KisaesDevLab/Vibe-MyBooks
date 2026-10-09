@@ -58,7 +58,7 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
   const [busyId, setBusyId] = useState<string | null>(null);
   const [drawerFor, setDrawerFor] = useState<DocumentRequestSummary | null>(null);
   // Inline viewer for the file the client actually uploaded.
-  const [viewerFor, setViewerFor] = useState<DocumentRequestSummary | null>(null);
+  const [viewerFor, setViewerFor] = useState<{ receiptId: string; filename: string; caption: string } | null>(null);
   const [showNew, setShowNew] = useState(false);
 
   const reload = useCallback(async () => {
@@ -269,23 +269,42 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
                           </span>
                         )}
                       </div>
-                      {r.status === 'submitted' && (
-                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-1 max-w-xs">
-                          {r.submittedFilename ? (
-                            <button
-                              type="button"
-                              onClick={() => setViewerFor(r)}
-                              className="inline-flex items-center gap-1 min-w-0 text-indigo-700 hover:text-indigo-900 hover:underline"
-                              title={`View ${r.submittedFilename}`}
-                            >
-                              <Paperclip className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{r.submittedFilename}</span>
-                            </button>
-                          ) : (
-                            <span>Marked received by staff</span>
-                          )}
-                        </div>
-                      )}
+                      {(() => {
+                        // Every file the client sent (multi-file requests);
+                        // older rows fall back to the single submitted file.
+                        const files = r.files && r.files.length > 0
+                          ? r.files.map((f) => ({ receiptId: f.receiptId, filename: f.filename ?? 'attachment' }))
+                          : r.submittedReceiptId && r.submittedFilename
+                            ? [{ receiptId: r.submittedReceiptId, filename: r.submittedFilename }]
+                            : [];
+                        const caption = `${r.contactName ?? r.contactEmail} · ${r.description} · ${r.periodLabel}`;
+                        if (files.length === 0) {
+                          return r.status === 'submitted'
+                            ? <div className="text-xs text-gray-500 mt-1">Marked received by staff</div>
+                            : null;
+                        }
+                        return (
+                          <div className="text-xs text-gray-500 mt-1 max-w-xs space-y-0.5">
+                            {r.status === 'pending' && (
+                              <div className="text-amber-700">
+                                {files.length} file{files.length === 1 ? '' : 's'} uploaded — client hasn&apos;t pressed I&apos;m done
+                              </div>
+                            )}
+                            {files.map((f) => (
+                              <button
+                                key={f.receiptId}
+                                type="button"
+                                onClick={() => setViewerFor({ ...f, caption })}
+                                className="flex items-center gap-1 min-w-0 text-indigo-700 hover:text-indigo-900 hover:underline"
+                                title={`View ${f.filename}`}
+                              >
+                                <Paperclip className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{f.filename}</span>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       {r.status === 'submitted' && r.submittedAt && (
                         <div className="text-xs text-gray-500">
                           {formatDate(r.submittedAt)}
@@ -356,11 +375,11 @@ export function DocumentRequestsTab({ onChange, initialFilter }: DocumentRequest
       )}
 
       {drawerFor && <ThreadDrawer request={drawerFor} onClose={() => setDrawerFor(null)} />}
-      {viewerFor?.submittedReceiptId && (
+      {viewerFor && (
         <AttachmentViewer
-          receiptId={viewerFor.submittedReceiptId}
-          filename={viewerFor.submittedFilename ?? 'attachment'}
-          caption={`${viewerFor.contactName ?? viewerFor.contactEmail} · ${viewerFor.description} · ${viewerFor.periodLabel}`}
+          receiptId={viewerFor.receiptId}
+          filename={viewerFor.filename}
+          caption={viewerFor.caption}
           onClose={() => setViewerFor(null)}
         />
       )}
