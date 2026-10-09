@@ -27,10 +27,32 @@ const base: RouterInfo = {
 beforeEach(() => mutate.mockReset());
 
 describe('AiRouterCard', () => {
-  it('explains how to set up the router when it is not configured', () => {
+  it('asks for a URL and token when the router is not connected', () => {
     renderRoute(<AiRouterCard router={{ ...base, available: false }} />);
-    expect(screen.getByText(/vibe enable/)).toBeTruthy();
+    expect(screen.getByText(/Not connected yet/)).toBeTruthy();
     expect(screen.queryByLabelText('Use the AI Router')).toBeNull();
+  });
+
+  it('saves a router connection on another server (URL + token)', () => {
+    renderRoute(<AiRouterCard router={{ ...base, available: false }} />);
+    const save = screen.getByRole('button', { name: 'Save connection' }) as HTMLButtonElement;
+    fireEvent.change(screen.getByLabelText('Router URL'), { target: { value: 'http://192.168.1.50:8220' } });
+    expect(save.disabled).toBe(true); // a token is required the first time
+    fireEvent.change(screen.getByLabelText('App token'), { target: { value: 'app-tok' } });
+    fireEvent.click(save);
+    expect(mutate).toHaveBeenCalledWith(
+      { routerUrl: 'http://192.168.1.50:8220', routerToken: 'app-tok' }, expect.anything(),
+    );
+  });
+
+  it('falls back to the server settings when the saved connection is cleared', () => {
+    renderRoute(<AiRouterCard router={{
+      ...base, connectionSource: 'settings', url: 'http://192.168.1.50:8220',
+      savedUrl: 'http://192.168.1.50:8220', hasSavedToken: true, envConfigured: true,
+    }} />);
+    expect(screen.getByText(/Using the connection saved here/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Use server settings' }));
+    expect(mutate).toHaveBeenCalledWith({ routerUrl: '', routerToken: null }, expect.anything());
   });
 
   it('switches one feature to the router', () => {

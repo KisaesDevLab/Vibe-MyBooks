@@ -16,14 +16,20 @@ export interface RouterInfo {
   enabledSetting: boolean | null;
   statementsOnBox: boolean;
   features: Array<{ taskClass: string; label: string; routed: boolean }>;
+  /** Where the connection comes from: Admin -> AI ('settings') or the server env. */
+  connectionSource?: 'settings' | 'env' | null;
+  url?: string | null;
+  savedUrl?: string | null;
+  hasSavedToken?: boolean;
+  envConfigured?: boolean;
 }
 
 const STATEMENT_CLASS = 'mybooks_statement_extract';
 
-// Admin -> AI: send individual AI features through the appliance's Vibe AI
-// Router instead of the providers configured on this page. The router URL
-// and token come from `vibe enable` (env); everything else is set here and
-// applies immediately, no restart.
+// Admin -> AI: send individual AI features through a Vibe AI Router instead
+// of the providers configured on this page. The router can be on this box or
+// another local server: its URL + app token are entered here (or come from
+// `vibe enable` env). Everything applies immediately, no restart.
 export function AiRouterCard({ router }: { router: RouterInfo }) {
   const update = useUpdateAiConfig();
   const toast = useToast();
@@ -61,9 +67,11 @@ export function AiRouterCard({ router }: { router: RouterInfo }) {
         </div>
       </div>
 
+      <RouterConnectionForm router={router} save={save} saving={update.isPending} />
+
       {!router.available ? (
         <p className="mt-3 rounded bg-gray-50 px-3 py-2 text-xs text-gray-600">
-          The router is not set up on this server. Run <code>vibe enable</code> to connect it, then come back here.
+          Not connected yet. Enter the router&apos;s URL and an app token above, then test the connection.
         </p>
       ) : (
         <>
@@ -166,6 +174,86 @@ export function AiRouterCard({ router }: { router: RouterInfo }) {
           </label>
         </>
       )}
+    </div>
+  );
+}
+
+// Router address + app token. Saved values override the server's
+// VIBE_AI_ROUTER_URL / VIBE_AI_TOKEN; "Use server settings" clears them.
+function RouterConnectionForm({ router, save, saving }: {
+  router: RouterInfo;
+  save: (patch: UpdateAiConfigInput, done?: string) => void;
+  saving: boolean;
+}) {
+  const [url, setUrl] = useState(router.savedUrl ?? '');
+  const [token, setToken] = useState('');
+  const hasSaved = !!router.savedUrl;
+  const needsToken = !router.hasSavedToken;
+  const canSave = url.trim() !== '' && (!needsToken || token.trim() !== '')
+    && (url.trim() !== (router.savedUrl ?? '') || token.trim() !== '');
+
+  return (
+    <div className="mt-4 rounded-lg border border-gray-200 p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Connection</h3>
+        <span className="text-xs text-gray-500">
+          {router.connectionSource === 'settings' && <>Using the connection saved here: <code>{router.url}</code></>}
+          {router.connectionSource === 'env' && <>Using the server settings (<code>vibe enable</code>): <code>{router.url}</code></>}
+          {!router.connectionSource && 'Not connected'}
+        </span>
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <label className="block text-xs text-gray-700">
+          Router URL
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="http://192.168.1.50:8220"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+        <label className="block text-xs text-gray-700">
+          App token
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder={router.hasSavedToken ? 'Saved — type to replace' : 'From the router console → App tokens'}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+      </div>
+      <p className="mt-1 text-[11px] text-gray-500">
+        The router can run on another server on your network. Make sure its port is reachable from this server.
+        Plain <code>http://</code> is only appropriate on a trusted local network.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          disabled={!canSave || saving}
+          onClick={() => {
+            save(
+              { routerUrl: url.trim(), ...(token.trim() ? { routerToken: token.trim() } : {}) },
+              'Router connection saved.',
+            );
+            setToken('');
+          }}
+        >
+          Save connection
+        </Button>
+        {hasSaved && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={saving}
+            onClick={() => { save({ routerUrl: '', routerToken: null }, router.envConfigured ? 'Now using the server settings.' : 'Router connection removed.'); setUrl(''); setToken(''); }}
+          >
+            {router.envConfigured ? 'Use server settings' : 'Remove connection'}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

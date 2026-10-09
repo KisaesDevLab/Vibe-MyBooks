@@ -194,6 +194,9 @@ export interface UpdateAiConfigInput {
   routerEnabled?: boolean;
   routerFeatures?: Record<string, 'router' | 'direct'>;
   routerStatementsOnBox?: boolean;
+  /** Router connection from Admin -> AI; '' / null clears it (falls back to env). */
+  routerUrl?: string;
+  routerToken?: string | null;
   categorizationProvider?: AiProviderName | null;
   categorizationModel?: string | null;
   ocrProvider?: AiProviderName | null;
