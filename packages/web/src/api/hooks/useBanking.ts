@@ -360,6 +360,8 @@ export interface StatementGapInfo {
   accountId: string;
   accountName: string;
   missingMonths: string[];
+  /** Gap months a user dismissed (still uncovered; hidden from the warning). */
+  dismissedMonths?: string[];
 }
 
 export interface BankStatementsResponse {
@@ -377,6 +379,26 @@ export function useBankStatements(accountId?: string, opts?: { limit?: number; o
   return useQuery({
     queryKey: ['bank-statements', accountId ?? '', opts?.limit ?? 50, opts?.offset ?? 0],
     queryFn: () => apiClient<BankStatementsResponse>(`/banking/statements${qs ? `?${qs}` : ''}`),
+  });
+}
+
+// Dismiss / restore "no statement on file" gap months. Omitting `months` on
+// restore brings back every dismissed month of the account.
+export function useDismissStatementGaps() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { accountId: string; months: string[] }) =>
+      apiClient<{ dismissed: number }>('/banking/statements/gaps/dismiss', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-statements'] }),
+  });
+}
+
+export function useRestoreStatementGaps() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { accountId: string; months?: string[] }) =>
+      apiClient<{ restored: number }>('/banking/statements/gaps/restore', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-statements'] }),
   });
 }
 

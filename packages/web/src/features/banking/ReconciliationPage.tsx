@@ -11,6 +11,7 @@ import {
   useStartReconciliation, useReconciliation, useUpdateReconciliationLines, useCompleteReconciliation,
   useReconciliations, useUpdateReconciliation, useCancelReconciliation, useRefreshReconciliation,
   useBankStatements, useAutoClearStatement, type BankStatementRow,
+  useDismissStatementGaps, useRestoreStatementGaps, type StatementGapInfo,
   useMatchStatement, useStatementMatches, useConfirmStatementLine, useRejectStatementLine,
   useExcludeStatementLine, useCreateFromStatementLine,
   type StatementMatchResult, type StatementMatchCandidate, type StatementMatchSuggestion,
@@ -73,6 +74,81 @@ interface OfxImportSummary {
 type OfxImportResponse =
   | { needsAccount: true; summary: OfxImportSummary }
   | { needsAccount?: false; statementId: string; lineCount: number; periodEnd: string; closingBalance: string; accountId: string };
+
+// "No statement on file" warnings. Each month (or a whole account's list)
+// can be dismissed for the tenant — e.g. a statement the bank never issued —
+// and dismissed months can be brought back.
+function StatementGapsBanner({ gaps }: { gaps: StatementGapInfo[] }) {
+  const dismiss = useDismissStatementGaps();
+  const restore = useRestoreStatementGaps();
+  const toast = useToast();
+  const onError = (e: unknown) =>
+    toast.error(e instanceof Error ? e.message : 'Could not update the statement warning.');
+  const open = gaps.filter((g) => g.missingMonths.length > 0);
+  const hidden = gaps.filter((g) => (g.dismissedMonths?.length ?? 0) > 0);
+  const busy = dismiss.isPending || restore.isPending;
+  if (open.length === 0 && hidden.length === 0) return null;
+  return (
+    <div className="mb-3 space-y-1">
+      {open.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 space-y-1">
+          {open.map((g) => (
+            <p key={g.accountId} className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <span className="flex flex-wrap items-center gap-x-1 gap-y-1">
+                <span className="font-medium">{g.accountName}:</span>
+                <span>no statement on file for</span>
+                {g.missingMonths.map((m) => (
+                  <span key={m} className="inline-flex items-center gap-0.5 rounded bg-amber-100 pl-1.5 pr-0.5">
+                    {m}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => dismiss.mutate({ accountId: g.accountId, months: [m] }, { onError })}
+                      className="rounded p-0.5 text-amber-700 hover:bg-amber-200 disabled:opacity-50"
+                      aria-label={`Dismiss ${m} for ${g.accountName}`}
+                      title="Dismiss this month"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                {g.missingMonths.length > 1 && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => dismiss.mutate({ accountId: g.accountId, months: g.missingMonths }, { onError })}
+                    className="ml-1 text-xs text-amber-700 underline hover:text-amber-900 disabled:opacity-50"
+                  >
+                    Dismiss all
+                  </button>
+                )}
+              </span>
+            </p>
+          ))}
+        </div>
+      )}
+      {hidden.length > 0 && (
+        <p className="text-xs text-gray-500 flex flex-wrap gap-x-3">
+          {hidden.map((g) => (
+            <span key={g.accountId}>
+              {g.accountName}: {g.dismissedMonths!.length} dismissed month{g.dismissedMonths!.length === 1 ? '' : 's'}{' '}
+              <span className="text-gray-400">({g.dismissedMonths!.join(', ')})</span>{' '}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => restore.mutate({ accountId: g.accountId }, { onError })}
+                className="text-primary-600 hover:underline disabled:opacity-50"
+              >
+                Restore
+              </button>
+            </span>
+          ))}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }) {
   const navigate = useNavigate();
@@ -211,19 +287,7 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
       ) : (
         <>
           {/* Statement coverage gaps per account */}
-          {data.gaps.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 text-sm text-amber-800 space-y-1">
-              {data.gaps.map((g) => (
-                <p key={g.accountId} className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <span>
-                    <span className="font-medium">{g.accountName}:</span>{' '}
-                    no statement on file for {g.missingMonths.join(', ')}
-                  </span>
-                </p>
-              ))}
-            </div>
-          )}
+          <StatementGapsBanner gaps={data.gaps} />
 
           {visibleStatements.length === 0 ? (
             <div className="bg-white rounded-lg border p-6 text-sm text-gray-500">

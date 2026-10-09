@@ -113,9 +113,11 @@ describe('ReconciliationPage statements table', () => {
     expect(screen.getAllByText('Not reconciled', { selector: 'span' }).length).toBe(2);
   });
 
-  it('shows the coverage gap callout', () => {
+  it('shows the coverage gap callout with a per-month dismiss', () => {
     renderRoute(<ReconciliationPage />);
-    expect(screen.getByText(/no statement on file for 2026-02/)).toBeTruthy();
+    expect(screen.getByText(/no statement on file for/)).toBeTruthy();
+    expect(screen.getByText('2026-02')).toBeTruthy();
+    expect(screen.getByLabelText('Dismiss 2026-02 for Operating Checking')).toBeTruthy();
   });
 
   it('flags a golden-rule discrepancy with a tooltip carrying the delta', () => {

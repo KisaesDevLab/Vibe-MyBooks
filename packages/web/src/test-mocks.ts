@@ -156,6 +156,8 @@ export const bankingMocks = () => ({
   // Statement-driven reconciliation
   useBankStatements: passthroughQuery({ statements: [], total: 0, gaps: [] }),
   useAutoClearStatement: passthroughMutation,
+  useDismissStatementGaps: passthroughMutation,
+  useRestoreStatementGaps: passthroughMutation,
   // Statement Match Engine (wave 1)
   useMatchStatement: passthroughMutation,
   useStatementMatches: passthroughQuery({
