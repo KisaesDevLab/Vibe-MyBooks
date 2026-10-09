@@ -3,6 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { AiRouterCard, type RouterInfo } from './AiRouterCard';
+import { ClaudeModelUpdatesCard } from './ClaudeModelUpdatesCard';
 import { useState, useEffect, useId } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
@@ -49,7 +50,7 @@ const PROVIDER_FIELD_DEPS: Array<{ fields: ReadonlyArray<string>; providers: Rea
 const OLLAMA_MODEL_SUGGESTIONS = ['minicpm-v4.5:latest', 'qwen3.5:35b-a3b', 'llama3.2'];
 
 const PROVIDERS = [
-  { key: 'anthropic', label: 'Anthropic (Claude)', models: ['claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001'] },
+  { key: 'anthropic', label: 'Anthropic (Claude)', models: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'] },
   { key: 'openai', label: 'OpenAI (GPT)', models: ['gpt-4o', 'gpt-4o-mini'] },
   { key: 'gemini', label: 'Google (Gemini)', models: ['gemini-2.5-flash', 'gemini-2.5-pro'] },
   { key: 'ollama', label: 'Ollama (Self-Hosted)', models: OLLAMA_MODEL_SUGGESTIONS },
@@ -883,6 +884,8 @@ export function AiConfigPage() {
             </div>
           </div>
         </div>
+
+        <ClaudeModelUpdatesCard />
 
         {/* Task Assignment */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
