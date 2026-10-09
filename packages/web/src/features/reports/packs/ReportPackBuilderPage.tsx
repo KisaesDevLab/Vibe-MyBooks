@@ -28,6 +28,9 @@ import {
   resolvePreset,
   resolveReportDates,
   TXN_TYPE_LABELS,
+  PACK_FILENAME_DEFAULT,
+  PACK_FILENAME_PLACEHOLDERS,
+  renderPackFilename,
   type ReportDef,
   type PeriodPreset,
   type ReportPackItemOptions,
@@ -42,6 +45,7 @@ import {
   type ReportPackInput,
 } from '../../../api/hooks/useReportPacks';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
+import { useMe } from '../../../api/hooks/useAuth';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
@@ -280,7 +284,7 @@ export function ReportPackBuilderPage() {
   const [toc, setToc] = useState(true);
   const [pageNumbers, setPageNumbers] = useState(true);
   const [pageFooter, setPageFooter] = useState('');
-  const [filenameTemplate, setFilenameTemplate] = useState('{pack}-{date}');
+  const [filenameTemplate, setFilenameTemplate] = useState(PACK_FILENAME_DEFAULT);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // Per-report options keyed by reportId (a report id is unique within a pack).
   const [itemOptions, setItemOptions] = useState<Record<string, ReportPackItemOptions>>({});
@@ -331,6 +335,17 @@ export function ReportPackBuilderPage() {
 
   const asOfOverride = asOfMode === 'custom' ? asOfCustom || undefined : undefined;
   const range = useMemo(() => ({ start: rangeStart, end: rangeEnd }), [rangeStart, rangeEnd]);
+
+  // Live preview of the download name — same renderer the server uses.
+  const { data: me } = useMe();
+  const tenantName = me?.accessibleTenants?.find((t) => t.tenantId === me.activeTenantId)?.tenantName ?? null;
+  const filenamePreview = useMemo(() => renderPackFilename(filenameTemplate, {
+    pack: name.trim() || 'Report Pack',
+    tenant: tenantName,
+    company: activeCompanyName,
+    rangeStart,
+    rangeEnd,
+  }), [filenameTemplate, name, tenantName, activeCompanyName, rangeStart, rangeEnd]);
 
   const atCap = selectedIds.length >= PACK_MAX_COUNT;
 
@@ -389,7 +404,7 @@ export function ReportPackBuilderPage() {
     toc,
     pageNumbers,
     pageFooter: pageFooter.trim() || null,
-    filenameTemplate: filenameTemplate.trim() || '{pack}-{date}',
+    filenameTemplate: filenameTemplate.trim() || PACK_FILENAME_DEFAULT,
     onError: 'skip',
     letterId: letterId || null,
     items: selectedIds.map((reportId) => {
@@ -730,10 +745,27 @@ export function ReportPackBuilderPage() {
               value={filenameTemplate}
               onChange={(e) => setFilenameTemplate(e.target.value)}
               maxLength={255}
-              placeholder="{pack}-{date}"
+              placeholder={PACK_FILENAME_DEFAULT}
             />
+            <div className="flex flex-wrap gap-1.5" aria-label="Filename placeholders">
+              {PACK_FILENAME_PLACEHOLDERS.filter((p) => p.token !== '{date}').map((p) => (
+                <button
+                  key={p.token}
+                  type="button"
+                  title={p.label}
+                  onClick={() => setFilenameTemplate((t) => {
+                    const base = t.trim();
+                    return base ? `${base}-${p.token}` : p.token;
+                  })}
+                  className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-700 hover:bg-gray-100"
+                >
+                  {p.token}
+                </button>
+              ))}
+            </div>
             <p className="text-xs text-gray-500">
-              Use <code>{'{pack}'}</code> and <code>{'{date}'}</code> as placeholders.
+              Click a placeholder to add it. Example for this period:{' '}
+              <code className="break-all">{filenamePreview}</code>
             </p>
           </div>
         </section>

@@ -255,6 +255,17 @@ export function useReportPackRun(runId: string | undefined) {
  * sends, then triggers an anchor-click download — mirroring ReportShell's
  * `downloadReport`.
  */
+/** Pull the filename out of a Content-Disposition header (filename* first). */
+export function filenameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (star?.[1]) {
+    try { return decodeURIComponent(star[1].trim()); } catch { /* fall through */ }
+  }
+  const plain = /filename="([^"]+)"/i.exec(header) ?? /filename=([^;]+)/i.exec(header);
+  return plain?.[1]?.trim() || null;
+}
+
 export async function downloadPackPdf(runId: string, filename: string): Promise<void> {
   const token = localStorage.getItem('accessToken');
   const companyId = localStorage.getItem('activeCompanyId');
@@ -270,7 +281,9 @@ export async function downloadPackPdf(runId: string, filename: string): Promise<
   const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = blobUrl;
-  a.download = filename;
+  // The server renders the pack's filename template ({tenant}, {range}, …);
+  // `filename` is only the fallback when the header is missing.
+  a.download = filenameFromDisposition(res.headers.get('Content-Disposition')) ?? filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

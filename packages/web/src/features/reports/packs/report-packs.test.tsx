@@ -22,6 +22,15 @@ vi.mock('../../../providers/CompanyProvider', () => ({
   }),
 }));
 
+// The builder previews the download name with the active tenant's name.
+vi.mock('../../../api/hooks/useAuth', async () => {
+  const actual = await vi.importActual<typeof import('../../../api/hooks/useAuth')>('../../../api/hooks/useAuth');
+  return {
+    ...actual,
+    useMe: () => ({ data: { activeTenantId: 't1', accessibleTenants: [{ tenantId: 't1', tenantName: 'TimberStone LLC' }] } }),
+  };
+});
+
 // company settings hook (DateRangePicker reads fiscalYearStartMonth).
 vi.mock('../../../api/hooks/useCompany', () => ({
   useCompanySettings: () => ({ data: { settings: { fiscalYearStartMonth: 1 } } }),
@@ -154,6 +163,16 @@ describe('ReportPackBuilderPage', () => {
     expect(screen.getByLabelText(/Transaction Report include voided/i)).toBeTruthy();
     // Attachments start on for the Transaction Report.
     expect((screen.getByLabelText(/Transaction Report include attachments/i) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('builds the filename from placeholder chips and previews it with the tenant name and range', () => {
+    renderRoute(<ReportPackBuilderPage />, { route: '/reports/packs/new', path: '/reports/packs/new' });
+    const input = screen.getByLabelText('Filename template') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: '{tenant}' }));
+    fireEvent.click(screen.getByRole('button', { name: '{range}' }));
+    expect(input.value).toBe('{tenant}-{range}');
+    expect(screen.getByText(/^TimberStone_LLC-\d{4}-\d{2}-\d{2}(_to_\d{4}-\d{2}-\d{2})?\.pdf$/)).toBeTruthy();
   });
 
   it('disables adding more reports once the cap is reached', () => {
