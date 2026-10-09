@@ -3064,7 +3064,7 @@ Nothing lands there on its own. Only two paths post to suspense:
 
 - **Not posted** \u2014 bank lines still off the ledger. Give one a real category, or park it in suspense.
 - **In suspense** \u2014 amounts on the ledger awaiting a category. Tick rows, pick an account, click **Set category**, or pick a contact and click **Set payee** to name them all at once.
-- **Client suggested** \u2014 what your clients answered from the portal. Each row's **Suggested** category and **Payee** are pickers prefilled with the client's pick; change either in place (the client's own words stay visible underneath), then press that row's **Approve** to post it. The bulk **Approve** uses every ticked row's edits; the toolbar override pickers, when set, win over them. **Dismiss** (per row, or for the ticked rows) removes answers you already recorded yourself \u2014 nothing is posted and the client is not told. A row marked **Already handled** can only be dismissed.
+- **Client suggested** \u2014 what your clients answered from the portal. Each row's **Suggested** category and **Payee** are pickers prefilled with the client's pick; change either in place (the client's own words stay visible underneath), then press that row's **Approve** to post it. The bulk **Approve** uses every ticked row's edits; the toolbar override pickers, when set, win over them. **Dismiss** (per row, or for the ticked rows) removes answers you already recorded yourself \u2014 nothing is posted and the client is not told. An answer whose transaction was already categorized another way closes itself and drops off the list \u2014 the client is not told it was declined.
 
 A row moves from the first tab to the second when you post it to suspense; it leaves the second when you give it a real category. Nothing disappears.
 
@@ -3198,7 +3198,7 @@ Answers arrive on **Practice \u2192 Uncategorized \u2192 Client suggested**, and
 - **Send back** \u2014 with a reason, which the client sees in the portal.
 - **Mark all read** \u2014 clears the unread badge without approving anything.
 
-An answer whose amount or date has **changed** since the client gave it is flagged **Changed** and is excluded from bulk approval; you have to look at it and use **Approve anyway**. This matters because bank feeds rewrite amounts as a transaction settles, so an answer given against $42.50 must not be swept through once the row reads $58.10. An answer for something already handled by someone else is marked **Already handled** rather than blamed on the client.
+An answer whose amount or date has **changed** since the client gave it is flagged **Changed** and is excluded from bulk approval; you have to look at it and use **Approve anyway**. This matters because bank feeds rewrite amounts as a transaction settles, so an answer given against $42.50 must not be swept through once the row reads $58.10. An answer for something already handled by someone else closes itself rather than being blamed on the client.
 
 ## Asking the client to come and look
 
