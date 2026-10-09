@@ -37,6 +37,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/Toaster';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw, ChevronUp, ChevronDown, FileUp, Ban } from 'lucide-react';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 const money = (v: string | number | null | undefined) =>
   v == null || v === '' ? '—' : `$${parseFloat(String(v)).toFixed(2)}`;
@@ -1549,7 +1550,7 @@ export function ReconciliationPage() {
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh transactions
           </Button>
         )}
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search description / type / amount…"
+        <CommitInput value={search} onCommit={setSearch} placeholder="Search description / type / amount…"
           className="ml-auto rounded-md border-gray-300 text-sm px-3 py-1.5 min-w-[14rem]" />
       </div>
 

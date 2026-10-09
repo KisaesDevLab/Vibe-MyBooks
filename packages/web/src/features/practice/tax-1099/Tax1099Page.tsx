@@ -10,6 +10,7 @@ import { useSessionState } from '../../../hooks/useSessionState';
 import { SortableTh } from '../../../components/ui/SortableTh';
 import { useColumnView } from '../../../hooks/useColumnView';
 import { selectRows } from '../../../utils/columnView';
+import { CommitInput } from '../../../components/forms/CommitInput';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 14 + 15 — bookkeeper UI.
 // Replaces the prior Tax1099Placeholder. Drives the full lifecycle:
@@ -427,10 +428,10 @@ export function Tax1099Page() {
       )}
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <input
+        <CommitInput
           type="search"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onCommit={setSearch}
           placeholder="Search vendors…"
           className="flex-1 min-w-[200px] text-sm border border-gray-300 rounded-md px-3 py-2"
         />

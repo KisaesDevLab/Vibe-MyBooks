@@ -55,6 +55,7 @@ import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { Pagination } from '../../../components/ui/Pagination';
 import { apiClient } from '../../../api/client';
 import { PortalContactDocumentsPanel } from '../reminders/PortalContactDocumentsPanel';
+import { CommitInput } from '../../../components/forms/CommitInput';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 8 — bookkeeper-side
 // portal contact admin page. Replaces the prior placeholder.
@@ -145,9 +146,9 @@ function ContactsTab() {
       <div className="flex items-center gap-3 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
+          <CommitInput
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onCommit={setSearch}
             placeholder="Search by name or email"
             className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />

@@ -29,6 +29,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 const ACCOUNT_TYPES = [
   'asset', 'liability', 'equity',
@@ -274,10 +275,10 @@ export function CoaTemplatesPage() {
           <div className="p-3 border-b border-gray-200">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
+              <CommitInput
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onCommit={setSearch}
                 placeholder="Search templates…"
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
               />

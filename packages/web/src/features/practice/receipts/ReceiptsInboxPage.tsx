@@ -10,6 +10,7 @@ import { useCompanyContext } from '../../../providers/CompanyProvider';
 import { SortableTh } from '../../../components/ui/SortableTh';
 import { useColumnView } from '../../../hooks/useColumnView';
 import { bankConnectionLabel, type BankConnectionOption } from '../bankConnectionLabel';
+import { CommitInput } from '../../../components/forms/CommitInput';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 18.8 — bookkeeper Receipts Inbox.
 // Replaces the prior placeholder. Talks to /api/v1/practice/receipts.
@@ -185,9 +186,9 @@ export function ReceiptsInboxPage() {
       <div className="flex items-center gap-3 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
+          <CommitInput
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onCommit={setSearch}
             placeholder="Search by file, vendor, or company"
             className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />

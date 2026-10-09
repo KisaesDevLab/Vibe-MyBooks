@@ -14,6 +14,7 @@ import { apiClient } from '../../api/client';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Pagination } from '../../components/ui/Pagination';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 interface SeedVersion {
   id: string;
@@ -373,7 +374,7 @@ export function TaxCodeAdminPage() {
             <option value="">All activities</option>
             {tbActivityTypes.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
-          <input type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+          <CommitInput type="search" value={search} onCommit={(v) => { setSearch(v); setPage(0); }}
             placeholder="Search code or description…" className="grow max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={m1Only} onChange={(e) => { setM1Only(e.target.checked); setPage(0); }} />

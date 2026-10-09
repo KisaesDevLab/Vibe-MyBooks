@@ -12,6 +12,7 @@ import { Play, Pause, Archive, ArchiveRestore, Pencil } from 'lucide-react';
 import { RecurringScheduleModal, type EditableSchedule } from './RecurringScheduleModal';
 import { SortableTh } from '../../components/ui/SortableTh';
 import { useColumnView } from '../../hooks/useColumnView';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 interface RecurringSchedule {
   id: string; templateTransactionId: string; name: string | null; frequency: string;
@@ -125,7 +126,7 @@ export function RecurringListPage() {
             {label} ({counts[key]})
           </button>
         ))}
-        <input value={search} onChange={(e) => { setSearch(e.target.value); setOffset(0); }} placeholder="Search name / frequency / mode…"
+        <CommitInput value={search} onCommit={(v) => { setSearch(v); setOffset(0); }} placeholder="Search name / frequency / mode…"
           className="ml-auto rounded-md border-gray-300 text-sm px-3 py-1.5 min-w-[14rem]" />
       </div>
 

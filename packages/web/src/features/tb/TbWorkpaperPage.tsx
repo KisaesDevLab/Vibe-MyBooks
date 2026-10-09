@@ -27,6 +27,7 @@ import {
   activeCompanyId, fiscalYearEndFor, openTbPopout, useTbDiagnostics,
   useTbYearOverride, useWorkpaper,
 } from './workpaperShared';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 // Per-user prefs (6.7) ride users.displayPreferences.tb via the
 // merge-patch preferences endpoint.
@@ -275,7 +276,7 @@ export function TbWorkpaperPage() {
 
       {/* ── Controls ───────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3 mb-4 text-sm">
-        <input type="search" value={search} onChange={(e) => setSearch(e.target.value)}
+        <CommitInput type="search" value={search} onCommit={setSearch}
           placeholder="Search accounts…" className="rounded-lg border border-gray-300 px-3 py-1.5 w-52" />
         <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Category filter"
           className="rounded-lg border border-gray-300 px-2 py-1.5">

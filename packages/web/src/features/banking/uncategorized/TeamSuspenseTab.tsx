@@ -28,6 +28,7 @@ import {
   useInSuspense, useTeamCategories, useSubmitTeamSuggestions, useWithdrawTeamSuggestion,
   type SuspenseRow, type UncategorizedMode,
 } from '../../../api/hooks/useUncategorized';
+import { CommitInput } from '../../../components/forms/CommitInput';
 
 const PAGE_SIZE = 50;
 
@@ -121,10 +122,10 @@ export function TeamSuspenseTab({ mode }: { mode: UncategorizedMode }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <input
+        <CommitInput
           type="search"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
+          onCommit={(v) => { setSearch(v); setOffset(0); }}
           placeholder="Search memo, payee, or check #"
           className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
         />

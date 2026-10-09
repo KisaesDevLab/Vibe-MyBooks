@@ -35,6 +35,7 @@ import { useTbYearOverride,
 } from './workpaperShared';
 import { TbCopyMappingsDialog } from './TbCopyMappingsDialog';
 import clsx from 'clsx';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 interface AiSuggestion {
   accountId: string;
@@ -362,7 +363,7 @@ export function TbMappingPage() {
           <input type="number" value={taxYear} aria-label="Tax year"
             onChange={(e) => { const v = Number(e.target.value); if (v >= 2000 && v <= 2100) setYearOverride(v); }}
             className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
-          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)}
+          <CommitInput type="search" value={search} onCommit={setSearch}
             placeholder="Search accounts…" className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm w-52" />
         </div>
       </div>

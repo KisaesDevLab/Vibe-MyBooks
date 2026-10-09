@@ -26,6 +26,7 @@ import {
   type UnpostedRow, type UnpostedSortKey, type SortDir,
 } from '../../../api/hooks/useUncategorized';
 import { useBulkCategorize } from '../../../api/hooks/useBanking';
+import { CommitInput } from '../../../components/forms/CommitInput';
 
 const PAGE_SIZE = 50;
 
@@ -218,10 +219,10 @@ export function NotPostedTab() {
 
   return (
     <div className="space-y-3">
-      <input
+      <CommitInput
         type="search"
         value={search}
-        onChange={(e) => { setSearch(e.target.value); setOffset(0); setSelected(new Set()); }}
+        onCommit={(v) => { setSearch(v); setOffset(0); setSelected(new Set()); }}
         placeholder="Search description, payee, or check #"
         className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
       />

@@ -13,6 +13,7 @@ import { Input } from '../../components/ui/Input';
 import { articles as staticArticles, categories as staticCategories } from './articles';
 import { useShareCapabilities } from '../share/useShare';
 import { openShareModal } from '../share/shareLauncher';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 interface KBArticle {
   id: string;
@@ -103,10 +104,10 @@ export function KnowledgeBasePage() {
 
       <div className="relative max-w-md mb-8">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <input
+        <CommitInput
           type="text"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onCommit={setSearch}
           placeholder="Search articles..."
           className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
         />

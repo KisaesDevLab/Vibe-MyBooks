@@ -29,6 +29,7 @@ import {
   useInSuspense, useClearSuspense, useSetSuspensePayee,
   type SuspenseRow as SuspenseRowView, type SuspenseSortKey, type SortDir,
 } from '../../../api/hooks/useUncategorized';
+import { CommitInput } from '../../../components/forms/CommitInput';
 
 const PAGE_SIZE = 50;
 
@@ -216,10 +217,10 @@ export function InSuspenseTab() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <input
+        <CommitInput
           type="search"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setOffset(0); setSelected(new Set()); }}
+          onCommit={(v) => { setSearch(v); setOffset(0); setSelected(new Set()); }}
           placeholder="Search memo, payee, or check #"
           className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
         />

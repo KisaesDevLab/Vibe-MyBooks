@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Search, Download, ChevronDown, ChevronRight } from 'lucide-react';
+import { CommitInput } from '../../components/forms/CommitInput';
 
 interface AuditLogEntry {
   id: string;
@@ -274,10 +275,10 @@ export function AuditLogPage() {
           <label className="block text-xs text-gray-500 mb-1">Search</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <CommitInput
               placeholder="Search entity IDs, data..."
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              onCommit={(v) => { setSearch(v); setPage(1); }}
               className="block w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm"
             />
           </div>
