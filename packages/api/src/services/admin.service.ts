@@ -23,6 +23,7 @@ import { AppError } from '../utils/errors.js';
 import { auditLog } from '../middleware/audit.js';
 import { escapeLike } from '../utils/sql-like.js';
 // Shared with the consolidation tool so "safe to move" has one definition.
+import { releaseOrphanedPayrollSessions } from './payroll-orphans.service.js';
 import { blockedLineReason, moveAllLinesBetweenAccounts } from './system-accounts.service.js';
 
 // ─── Tenant Management ───────────────────────────────────────────
@@ -760,6 +761,9 @@ export async function deleteAllTransactions(
     `);
     await tx.execute(sql`DELETE FROM journal_lines WHERE tenant_id = ${tenantId}`);
     await tx.execute(sql`DELETE FROM transactions WHERE tenant_id = ${tenantId}`);
+    // Payroll imports that posted the deleted entries → 'cancelled', so the
+    // duplicate-file guard doesn't block re-importing them.
+    await releaseOrphanedPayrollSessions(tenantId, tx);
     // No posted lines remain → every account's running balance is zero.
     await tx.execute(sql`UPDATE accounts SET balance = 0, updated_at = now() WHERE tenant_id = ${tenantId}`);
   });
@@ -939,6 +943,9 @@ export async function deleteTransactionsInDateRange(
     // 13. journal_lines then 14. transactions.
     await tx.execute(sql`DELETE FROM journal_lines WHERE tenant_id = ${tenantId} AND transaction_id IN (${targetTxns})`);
     await tx.execute(sql`DELETE FROM transactions WHERE tenant_id = ${tenantId} AND txn_date BETWEEN ${startDate}::date AND ${endDate}::date`);
+    // Payroll imports whose entries were all in range → 'cancelled', so
+    // the duplicate-file guard doesn't block re-importing them.
+    await releaseOrphanedPayrollSessions(tenantId, tx);
 
     // 15. Recompute every account's denormalized balance from the
     // surviving journal lines. The ledger service maintains
