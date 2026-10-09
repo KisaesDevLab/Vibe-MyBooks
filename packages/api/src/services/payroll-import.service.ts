@@ -28,6 +28,7 @@ import {
   tags,
 } from '../db/schema/index.js';
 import { assertTagsInTenant } from './tags.service.js';
+import { releaseOrphanedPayrollSessions } from './payroll-orphans.service.js';
 import { AppError } from '../utils/errors.js';
 import { auditLog } from '../middleware/audit.js';
 import {
@@ -376,6 +377,9 @@ function sessionOrderExpr(key: NonNullable<PayrollSessionFilters['sortBy']>) {
 }
 
 export async function listSessions(tenantId: string, filters: PayrollSessionFilters) {
+  // Sessions whose entries were purged by an admin delete must not keep
+  // showing as "Posted" with a Reverse action that has nothing to void.
+  await releaseOrphanedPayrollSessions(tenantId);
   const { limit = 50, offset = 0 } = filters;
   const conditions = [eq(payrollImportSessions.tenantId, tenantId)];
 
@@ -769,6 +773,10 @@ export async function autoMapAccounts(tenantId: string, companyId: string) {
 // ── Duplicate File Guard (shared by Mode A + Mode B posting) ──
 
 export async function checkDuplicateFileHash(tenantId: string, session: typeof payrollImportSessions.$inferSelect) {
+  // A prior import whose transactions were all purged is no longer on the
+  // books — release it so it doesn't block re-posting the same file.
+  await releaseOrphanedPayrollSessions(tenantId);
+
   // Check idempotency key first (provider-specific composite key)
   if (session.idempotencyKey && session.detectedProvider) {
     const conditions = [
