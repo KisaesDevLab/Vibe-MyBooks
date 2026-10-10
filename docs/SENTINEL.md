@@ -82,14 +82,40 @@ The sentinel is valid but `system_settings.installation_id` is missing.
 - `DATABASE_URL` is pointing at the wrong (empty) database.
 
 **Recovery options:**
-1. Restore from a `.vmb` backup file into the current database.
-2. Fix `DATABASE_URL` in `/data/config/.env` and restart.
+1. **Restore from a backup (recommended, no shell needed).** The database is
+   empty, so no account can authenticate; the diagnostic page instead asks
+   for the installation's **recovery key** (it must decrypt
+   `/data/.env.recovery`) plus a typed `RESTORE`. `POST
+   /api/diagnostic/prepare-restore` then sets `/data/.sentinel` and
+   `/data/config/.initialized` aside as timestamped copies, **keeps
+   `/data/.host-id`** (so the restore is recognised as same-host: credentials
+   stay readable and the recovery key stays valid) and writes
+   `/data/.restore-intent`. Restart the api; preflight treats "host-id, no
+   sentinel, empty DB **+ intent**" as a sanctioned fresh install instead of
+   `ORPHANED_DATA`, and the setup wizard offers *Restore from backup*
+   (upload, local backup folder / mounted drive, or Backblaze B2). The intent
+   file is removed when setup or the restore completes.
+2. Fix `DATABASE_URL` / `POSTGRES_PASSWORD` in the install `.env` and restart
+   (when the api was simply pointed at the wrong or an empty database).
 3. Regenerate the sentinel in place from the diagnostic page (requires valid
-   super-admin credentials).
-4. Accept the reset: `docker compose exec api npx tsx scripts/reset-sentinel.ts`
-   — this removes only the sentinel. You must also `rm /data/config/.initialized`
-   and `/data/config/.env` to actually re-run setup. The two-step design
-   prevents a single command from dropping a new admin onto existing data.
+   super-admin credentials — only possible when the database still holds
+   accounts).
+4. Without a recovery key, file-system access is the proof of ownership:
+   ```
+   docker compose exec api sh -c 'mv /data/.sentinel /data/.sentinel.pre-restore-$(date +%s); \
+     mv /data/config/.initialized /data/config/.initialized.pre-restore-$(date +%s) 2>/dev/null; \
+     echo "{\"requestedAt\":\"$(date -u +%FT%TZ)\",\"source\":\"manual\"}" > /data/.restore-intent'
+   docker compose restart api
+   ```
+   or interactively `docker compose exec api npx tsx scripts/reset-sentinel.ts`.
+
+**Why the marker is not enough on its own.** `/data/config/.initialized` is a
+strong signal, not an oracle: `getSetupStatus` always cross-checks it against
+the database. A marker over a database with **no users** (volume carried to a
+new server, Postgres wiped) re-opens setup — there is no account to protect
+and nothing to log in with — and is logged as
+`installation.stale_marker_detected`. A marker over a database with users
+keeps the lock; an unreachable database fails closed.
 
 ### `SENTINEL_DECRYPT_FAILED`
 
@@ -128,8 +154,11 @@ by side to help triage.
 the database. Means `/data` contains leftover state from a previous
 installation.
 
-**Recovery:** if the old data is junk, delete `/data/.host-id` and restart.
-If the old data matters, restore from a backup.
+**Recovery:** if the old data is junk, delete `/data/.host-id` (and any
+`/data/config/.initialized`) and restart. If the old data matters, keep
+`.host-id`, write `/data/.restore-intent` (see DATABASE_RESET_DETECTED option
+4) and restart — the wizard then offers *Restore from backup* as a same-host
+restore.
 
 ## CLI scripts
 
@@ -191,9 +220,19 @@ minimal diagnostic server that:
 
 1. Reads the sentinel header (works without env vars)
 2. If the header is present, offers a recovery-key input
-3. On valid key: decrypts `/data/.env.recovery`, writes a fresh
-   `/data/config/.env` with the recovered values and sensible defaults,
-   and prompts for a container restart
+3. On valid key: decrypts `/data/.env.recovery` and writes
+   `/data/config/.env` containing **only the recovered secrets**
+   (`DATABASE_URL`, `JWT_SECRET`, `ENCRYPTION_KEY`, and
+   `PLAID_ENCRYPTION_KEY` from a v2 file). `docker-entrypoint.sh` uses that
+   file to *fill in* variables the compose environment leaves unset or
+   empty — a value compose already supplies always wins, so the recovered
+   file can never shadow a rotated `POSTGRES_PASSWORD` or a changed
+   `CORS_ORIGIN`. A v1 file carries no `PLAID_ENCRYPTION_KEY`; if the
+   environment lacks it too the endpoint answers `409
+   MISSING_AFTER_RECOVERY` and the page lets the operator either add the
+   original value to the install `.env` or knowingly generate a new key
+   (existing Plaid/SMS/AI/TOTP ciphertext becomes unreadable).
+4. Prompts for a container restart
 
 The env-missing app is rate-limited to 10 POSTs per minute per IP. The
 headless equivalent is `scripts/recover-env.ts`.
@@ -232,14 +271,49 @@ divergence even though preflight wouldn't have blocked.
 key. On restore, `/restore/execute` compares the backup's `hostId` to the
 current `/data/.host-id`:
 
-- **Same host** → restore is treated as in-place recovery, generates a
-  fresh sentinel + new recovery key, and the response says
-  `crossHostRestore: false`
-- **Different host (or no host-id in backup)** → treated as a cross-host
-  handoff, audit-logged as `installation.host_id_changed`, and the
-  response carries `crossHostRestore: true`. The new recovery key is
-  returned in the `/restore/execute` response body for the operator to
-  save.
+- **Same host, same secrets** → the bundle's `.env.recovery` is written
+  back verbatim and the operator's original recovery key stays valid
+  (`recoveryKeyPreserved: true`). "Same secrets" is *proven*, not assumed:
+  the bundle's own sentinel must decrypt with the current `ENCRYPTION_KEY`
+  and carry the current `JWT_SECRET` hash, and the restored credentials
+  (including every user's TOTP secret) must decrypt with the current
+  `PLAID_ENCRYPTION_KEY`.
+- **Same host, rotated keys** (`keysRotatedSinceBackup: true`) → treated
+  like a cross-host restore for key purposes: the bundle's recovery file is
+  parked at `/data/.env.recovery.source`, a new recovery key is issued, and
+  credential re-encryption runs if the operator supplied the original key.
+- **Different host (or no host-id in backup)** → audit-logged as
+  `installation.host_id_changed`, `crossHostRestore: true`, new recovery
+  key returned in the run result.
+
+Two more restore outcomes are first-class:
+
+- **Bundles with no user accounts** (every tenant-scoped `.vmx`/`.vmb`, or a
+  system bundle exported before any user existed) restore their data but
+  do **not** write the sentinel or the `.initialized` marker — that used to
+  lock the setup router with nobody able to sign in. The run result says
+  `needsAdminUser: true`, `/api/setup/status` reports `needsAdminUser`, and
+  the wizard continues to the admin step; `/initialize` with
+  `adoptExistingTenants: true` creates the admin inside the restored data
+  (owner access to every restored tenant, no new tenant, no COA seed) and
+  then writes sentinel + marker.
+- **Locked-out 2FA users.** `users.tfa_totp_secret_encrypted` is keyed by
+  `PLAID_ENCRYPTION_KEY`. The checklist's `tfa` item (status `error`) and
+  the run's `tfaLockedUsers` list name every user — super admins first —
+  whose authenticator secret cannot be decrypted on this server. The wizard
+  shows the list with a recovery-key field that calls `POST
+  /api/setup/restore/runs/:runId/recover-credentials` (the unguessable
+  runId is the bearer credential, as for polling) to re-encrypt all
+  restored credentials and TOTP secrets *before* the login page. At login,
+  an unreadable TOTP secret now answers `409 TFA_SECRET_UNREADABLE` with
+  instructions instead of an endless "Invalid code".
+
+If the sentinel cannot be written **after** the database restore has
+committed (typically `/data` not writable by UID 1001), the run still
+completes: `finalization: { ok: false, error }` plus a warning explain that
+the data is restored, no recovery key was issued, and the sentinel is
+regenerated at the next boot once permissions are fixed. Retrying the
+restore would only 409 — the data is already there.
 
 ### `scripts/verify-installation.ts`
 
@@ -256,6 +330,11 @@ docker compose exec api npx tsx scripts/verify-installation.ts
 
 | Script | Purpose |
 |---|---|
+> The published api image ships `scripts/` (`COPY scripts/ ./scripts/` in
+> `packages/api/Dockerfile`), so `docker compose exec api npx tsx
+> scripts/<name>.ts` works as written. Earlier images omitted the directory
+> and every command below failed with "Cannot find module".
+
 | `scripts/reset-sentinel.ts` | Delete the sentinel to allow intentional re-initialization |
 | `scripts/recover-env.ts` | Headless recovery of `/data/config/.env` from a recovery key |
 | `scripts/verify-installation.ts` | Full-state integrity diagnostic |

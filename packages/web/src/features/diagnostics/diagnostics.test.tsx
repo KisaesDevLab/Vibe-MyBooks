@@ -59,4 +59,24 @@ describe('diagnostic pages', () => {
     );
     expect(screen.getByText(/database reset/i)).toBeInTheDocument();
   });
+
+  it('DatabaseResetPage offers the recovery-key unlock form when a recovery file exists', () => {
+    renderRoute(<DatabaseResetPage header={null} details="db empty" recoveryFilePresent />);
+    expect(screen.getByRole('heading', { name: /database reset detected/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('RKVMB-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /unlock the setup wizard for restore/i })).toBeInTheDocument();
+    // The old page pointed at a script that does not exist in the image.
+    expect(screen.queryByText(/dist\/scripts\/restore\.js/)).not.toBeInTheDocument();
+  });
+
+  it('DatabaseResetPage falls back to shell instructions without a recovery file', () => {
+    renderRoute(<DatabaseResetPage header={null} details="db empty" recoveryFilePresent={false} />);
+    expect(screen.getByText(/no recovery file on this server/i)).toBeInTheDocument();
+    expect(screen.getByText(/\.restore-intent/)).toBeInTheDocument();
+  });
+
+  it('DatabaseResetPage shows the restart-only state once a restore is prepared', () => {
+    renderRoute(<DatabaseResetPage header={null} details="db empty" recoveryFilePresent restoreIntent />);
+    expect(screen.getByText(/already prepared for a restore/i)).toBeInTheDocument();
+  });
 });

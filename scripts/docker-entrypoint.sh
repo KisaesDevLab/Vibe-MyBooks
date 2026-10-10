@@ -13,11 +13,15 @@
 #      inside the container without this step, surfacing as an EACCES
 #      mkdir during route module init on first request.
 #
-#   2. If an on-disk config file exists at /data/config/.env (the
-#      recovery path — env-missing UI writes this after the operator
-#      pastes their recovery key), source it before exec'ing bootstrap.
-#      On the install.sh happy path, compose supplies env via env_file:
-#      .env and this branch is a no-op.
+#   2. If an on-disk config file exists at /data/config/.env (written by
+#      the setup wizard, or by the env-missing recovery page after the
+#      operator pastes their recovery key), use it to FILL IN variables
+#      that the compose environment leaves unset or empty. A value compose
+#      already supplies always wins: docker-compose.yml / the install .env
+#      is the operator-facing source of truth, and letting a 0600 file
+#      inside the volume silently override a rotated POSTGRES_PASSWORD or
+#      a changed CORS_ORIGIN was a long-lived footgun. On the install.sh
+#      happy path everything is already set and this branch is a no-op.
 #
 # Both branches end with `exec "$@"` running bootstrap.ts/bootstrap.js
 # as the `app` user.
@@ -47,8 +51,9 @@ fi
 
 # --- Step 2: optional /data/config/.env loader ------------------------
 # Runs as `app` (either from su-exec above or from `USER app` in a
-# legacy dev image). Reads env vars from the recovery config file if
-# present, otherwise just exec's whatever CMD compose supplied.
+# legacy dev image). Fills in env vars from the on-disk config file if
+# present (never overriding a non-empty value compose already set),
+# otherwise just exec's whatever CMD compose supplied.
 CONFIG_FILE="/data/config/.env"
 
 if [ -f "$CONFIG_FILE" ]; then
@@ -68,15 +73,22 @@ if [ -f "$CONFIG_FILE" ]; then
     key=${line%%=*}
     val=${line#*=}
     # Identifier-only keys: A-Z, 0-9, underscore, not starting with a digit.
+    # (A glob like `[A-Za-z_][A-Za-z0-9_]*` would accept `FOO-BAR` because
+    # the trailing `*` matches anything, and the export below would then
+    # abort the whole entrypoint under `set -e`. Reject explicitly.)
     case "$key" in
-      [A-Za-z_][A-Za-z0-9_]*) ;;
-      *) echo "  (skipping malformed line: $key)" >&2; continue ;;
+      ''|[0-9]*|*[!A-Za-z0-9_]*) echo "  (skipping malformed line: $key)" >&2; continue ;;
     esac
     # Strip paired surrounding quotes from the value (common in .env)
     case "$val" in
       \"*\") val=$(printf '%s' "$val" | sed 's/^"//;s/"$//') ;;
       \'*\') val=$(printf '%s' "$val" | sed "s/^'//;s/'$//") ;;
     esac
+    # Compose wins: only fill a variable that is currently unset or empty.
+    eval "cur=\${$key:-}"
+    if [ -n "$cur" ]; then
+      continue
+    fi
     export "$key=$val"
   done < "$CONFIG_FILE"
 fi

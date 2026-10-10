@@ -16,8 +16,11 @@
  * Interactive flow:
  *   1. Reads the recovery key from stdin (no echo)
  *   2. Decrypts /data/.env.recovery
- *   3. Writes the recovered ENCRYPTION_KEY, JWT_SECRET, DATABASE_URL and a
- *      set of sensible defaults to /data/config/.env
+ *   3. Writes ONLY the recovered secrets (ENCRYPTION_KEY, JWT_SECRET,
+ *      DATABASE_URL, PLAID_ENCRYPTION_KEY when the file carries it) to
+ *      /data/config/.env. docker-entrypoint.sh uses that file to fill in
+ *      variables the compose environment leaves blank — writing ports or
+ *      Redis/CORS defaults here would shadow the real configuration.
  *   4. Prints restart instructions and exits
  *
  * Refuses to run if /data/config/.env already exists and is non-empty —
@@ -89,23 +92,23 @@ async function main() {
 
   if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
 
-  const envBody = `# KIS Books Configuration — recovered by scripts/recover-env.ts
-# ${new Date().toISOString()}
-# Only the three recovered secrets are written here. SMTP, Plaid, AI, and
-# any other optional credentials must be re-entered through admin settings
-# after the container restarts.
-
-DATABASE_URL=${contents.databaseUrl}
-JWT_SECRET=${contents.jwtSecret}
-ENCRYPTION_KEY=${contents.encryptionKey}
-
-NODE_ENV=production
-PORT=3001
-REDIS_URL=redis://redis:6379
-CORS_ORIGIN=http://localhost:5173
-UPLOAD_DIR=/data/uploads
-BACKUP_DIR=/data/backups
-`;
+  const { renderRecoveredEnv } = await import('../packages/api/src/startup/env-missing-app.js');
+  if (!contents.plaidEncryptionKey && !(process.env['PLAID_ENCRYPTION_KEY'] || '').trim()) {
+    console.log('\n  WARNING: this recovery file predates v2 and carries no PLAID_ENCRYPTION_KEY,');
+    console.log('  and the environment does not supply one. The api will not start until it is set.');
+    console.log('  Add the original value to the install .env if you still have it. If it is lost,');
+    console.log('  generate a replacement (existing Plaid/SMS/AI/TOTP ciphertext becomes unreadable):');
+    console.log('    openssl rand -hex 32\n');
+  }
+  const envBody = renderRecoveredEnv(
+    {
+      databaseUrl: contents.databaseUrl,
+      jwtSecret: contents.jwtSecret,
+      encryptionKey: contents.encryptionKey,
+      ...(contents.plaidEncryptionKey ? { plaidEncryptionKey: contents.plaidEncryptionKey } : {}),
+    },
+    'scripts/recover-env.ts',
+  );
 
   fs.writeFileSync(envPath, envBody, { mode: 0o600 });
 

@@ -174,6 +174,17 @@ See [SENTINEL.md](SENTINEL.md) for details on the installation integrity system.
 ```bash
 # Headless env recovery
 docker compose exec api npx tsx scripts/recover-env.ts
+```
+
+Before trying to log in after a restore onto a **new server**, enter your
+original recovery key in the wizard's restore-result card (or pass it with
+the restore). It re-encrypts every restored credential — including users'
+authenticator (TOTP) secrets, without which every 2FA user is locked out at
+the code step. A backup that contains **no user accounts** leaves setup open
+and the wizard asks you to create an admin account that adopts the restored
+companies.
+
+```
 
 # Full installation integrity check
 docker compose exec api npx tsx scripts/verify-installation.ts

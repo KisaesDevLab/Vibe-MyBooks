@@ -92,14 +92,21 @@ export function DiagnosticRouter({ children }: { children: ReactNode }) {
     return <EnvMissingPage />;
   }
 
-  const { result, sentinelHeader, hostId } = state.data;
+  const { result, sentinelHeader, hostId, recoveryFilePresent, restoreIntent } = state.data;
   if (result.status !== 'blocked') {
     return <>{children}</>;
   }
 
   switch (result.code) {
     case 'DATABASE_RESET_DETECTED':
-      return <DatabaseResetPage header={sentinelHeader} details={result.details} />;
+      return (
+        <DatabaseResetPage
+          header={sentinelHeader}
+          details={result.details}
+          recoveryFilePresent={recoveryFilePresent === true}
+          restoreIntent={restoreIntent === true}
+        />
+      );
 
     case 'SENTINEL_DECRYPT_FAILED':
       return <EncryptionKeyErrorPage header={sentinelHeader} details={result.details} />;
@@ -127,9 +134,19 @@ export function DiagnosticRouter({ children }: { children: ReactNode }) {
               database installation record nor a sentinel. Refusing to re-initialize.
             </p>
             <p className="mt-3 text-sm text-slate-300">
+              If this volume belonged to an installation you want to <strong>restore from a backup</strong>,
+              keep <code className="bg-slate-800 px-1 rounded">/data/.host-id</code> (so the restore is
+              recognised as same-server) and record the intent instead, then restart:
+            </p>
+            <pre className="mt-2 bg-slate-950 p-3 rounded text-xs text-slate-300 overflow-x-auto">
+{`docker compose exec api sh -c 'echo "{\"requestedAt\":\"$(date -u +%FT%TZ)\",\"source\":\"manual\"}" > /data/.restore-intent'
+docker compose restart api`}
+            </pre>
+            <p className="mt-3 text-sm text-slate-300">
               If you intended to start fresh on this volume, delete{' '}
-              <code className="bg-slate-800 px-1 rounded">/data/.host-id</code> and any other files
-              you don't need, then restart the container.
+              <code className="bg-slate-800 px-1 rounded">/data/.host-id</code>, any{' '}
+              <code className="bg-slate-800 px-1 rounded">/data/config/.initialized</code> marker and any other
+              files you don't need, then restart the container.
             </p>
             <p className="mt-3 text-xs text-slate-500 font-mono">{result.details}</p>
           </div>

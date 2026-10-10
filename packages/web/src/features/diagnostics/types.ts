@@ -28,6 +28,8 @@ export type DiagnosticStatus =
         | 'SENTINEL_DECRYPT_FAILED'
         | 'SENTINEL_CORRUPT'
         | 'ORPHANED_DATA'
+        | 'MIGRATIONS_PENDING'
+        | 'DATABASE_AHEAD'
         | 'UNKNOWN';
       header?: SentinelHeaderDTO;
       details: string;
@@ -37,4 +39,8 @@ export interface DiagnosticStatusResponse {
   result: DiagnosticStatus;
   sentinelHeader: SentinelHeaderDTO | null;
   hostId: string | null;
+  /** /data/.env.recovery exists (older api builds omit this). */
+  recoveryFilePresent?: boolean;
+  /** The operator already ran prepare-restore; only a restart is pending. */
+  restoreIntent?: boolean;
 }

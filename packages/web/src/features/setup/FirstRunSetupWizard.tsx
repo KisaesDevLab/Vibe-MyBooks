@@ -197,9 +197,9 @@ function RestoreChecklist({ items }: { items: Record<string, { status: string; m
           {item.status === 'ok' ? (
             <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
           ) : (
-            <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+            <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${item.status === 'error' ? 'text-red-600' : 'text-amber-500'}`} />
           )}
-          <span className={item.status === 'ok' ? 'text-green-700' : 'text-amber-700'}>
+          <span className={item.status === 'ok' ? 'text-green-700' : item.status === 'error' ? 'text-red-700 font-medium' : 'text-amber-700'}>
             {item.message}
           </span>
         </div>
@@ -222,6 +222,15 @@ export function FirstRunSetupWizard() {
   >('checking');
   const [bootstrapError, setBootstrapError] = useState('');
   const [pendingInstallationId, setPendingInstallationId] = useState<string | null>(null);
+  // Adopt mode: the database already holds restored company data but no user
+  // account (a tenant-scoped restore, or a system bundle without users). The
+  // wizard skips the company section and /initialize links the new admin to
+  // the restored companies instead of creating a fresh tenant.
+  const [adoptMode, setAdoptMode] = useState(false);
+  const [adoptTenantCount, setAdoptTenantCount] = useState(0);
+  // /data/config/.initialized was found but the database is empty — the
+  // server re-opened setup; tell the operator why they are seeing the wizard.
+  const [staleMarker, setStaleMarker] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -277,6 +286,15 @@ export function FirstRunSetupWizard() {
           setBootstrapState('db-unavailable');
           return;
         }
+        setStaleMarker(status.staleMarker === true);
+        if (status.needsAdminUser === true && !sessionStorage.getItem(RESTORE_RUN_STORAGE_KEY)) {
+          // Restored data is waiting for its admin account — go straight to
+          // the admin step in adopt mode. (If a restore from THIS browser is
+          // still being polled, the result card leads here instead.)
+          setAdoptMode(true);
+          setAdoptTenantCount(typeof status.tenantCount === 'number' ? status.tenantCount : 0);
+          setStep(1);
+        }
         setBootstrapState('ready');
       } catch (err) {
         if (cancelled) return;
@@ -321,6 +339,13 @@ export function FirstRunSetupWizard() {
   const [restoreResult, setRestoreResult] = useState<Record<string, unknown> | null>(null);
   const [restoreError, setRestoreError] = useState('');
   const restoreFileRef = useRef<HTMLInputElement>(null);
+  // The completed run's id doubles as the bearer credential for
+  // POST /restore/runs/:runId/recover-credentials — the only pre-login way to
+  // re-encrypt restored credentials and authenticator (TOTP) secrets.
+  const [restoreRunId, setRestoreRunId] = useState<string | null>(null);
+  const [postRestoreKey, setPostRestoreKey] = useState('');
+  const [postRestoreRecovering, setPostRestoreRecovering] = useState(false);
+  const [postRestoreError, setPostRestoreError] = useState('');
 
   // Restore source selector. "upload" is the original flow and stays the
   // default; the two alternatives (a backup already sitting on the server /
@@ -478,6 +503,7 @@ export function FirstRunSetupWizard() {
       if (run.status === 'complete') {
         sessionStorage.removeItem(RESTORE_RUN_STORAGE_KEY);
         setRestoreExecuting(false);
+        setRestoreRunId(runId);
         const result = run.result ?? {};
         // F22: keep the claim token so a reload can re-fetch/acknowledge the
         // pending recovery key surfaced by this restore.
@@ -943,6 +969,12 @@ export function FirstRunSetupWizard() {
     { label: 'Seeding chart of accounts', status: 'pending' as 'pending' | 'active' | 'done' | 'error' },
     { label: 'Done', status: 'pending' as 'pending' | 'active' | 'done' | 'error' },
   ]);
+  useEffect(() => {
+    // Adopt mode links the admin to restored companies instead of seeding.
+    setFinalizeSteps((prev) =>
+      prev.map((s, i) => (i === 3 ? { ...s, label: adoptMode ? 'Linking admin to restored companies' : 'Seeding chart of accounts' } : s)),
+    );
+  }, [adoptMode]);
 
   const set = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -1190,11 +1222,12 @@ export function FirstRunSetupWizard() {
             password: form.adminPassword,
           },
           company: {
-            name: form.businessName,
+            name: adoptMode ? '' : form.businessName,
             entityType: form.entityType,
             businessType: form.businessType,
           },
-          createDemoCompany: form.createDemoCompany,
+          createDemoCompany: adoptMode ? false : form.createDemoCompany,
+          adoptExistingTenants: adoptMode,
         }),
       });
 
@@ -1307,7 +1340,7 @@ export function FirstRunSetupWizard() {
           form.adminPassword &&
           form.adminPassword.length >= 12 &&
           form.adminPassword === form.adminPasswordConfirm &&
-          form.businessName
+          (adoptMode || form.businessName)
         );
       case 2:
         // Email is optional — either skipped or fully configured.
@@ -1584,12 +1617,37 @@ export function FirstRunSetupWizard() {
         <div className="w-full max-w-2xl">
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
             {/* Step 0: Welcome */}
-            {step === 0 && !restoreMode && !restoreResult && (
+            {step === 0 && adoptMode && !restoreResult && (
+              <div className="text-center py-8 space-y-6">
+                <ShieldCheck className="h-10 w-10 text-primary-600 mx-auto" />
+                <h2 className="text-2xl font-bold text-gray-900">Restored data is waiting for an admin account</h2>
+                <p className="text-sm text-gray-600 max-w-lg mx-auto">
+                  This server already holds {adoptTenantCount > 0 ? `${adoptTenantCount} restored compan${adoptTenantCount === 1 ? 'y' : 'ies'}` : 'restored company data'} but
+                  no user accounts, so nobody can sign in yet. Create the admin account and it will be
+                  given owner access to the restored data — nothing is re-created or overwritten.
+                </p>
+                <Button onClick={() => setStep(1)}>
+                  Create the admin account <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
+
+            {step === 0 && !adoptMode && !restoreMode && !restoreResult && (
               <div className="text-center py-8 space-y-6">
                 <h2 className="text-3xl font-bold text-gray-900">Welcome to Vibe MyBooks</h2>
                 <p className="text-lg text-gray-600 max-w-md mx-auto">
                   Your self-hosted bookkeeping solution. Choose how you&apos;d like to get started.
                 </p>
+                {staleMarker && (
+                  <div className="max-w-xl mx-auto text-left bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-amber-900">
+                      A setup marker from a previous installation was found on this server&apos;s data volume, but the
+                      database is empty. Setup has been re-opened; if you are rebuilding after a disaster, choose{' '}
+                      <strong>Restore from backup</strong>.
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto pt-2">
                   <button
@@ -2193,15 +2251,145 @@ export function FirstRunSetupWizard() {
                   return null;
                 })()}
 
+                {/* The database restore committed but the sentinel/marker could
+                    not be written (typically /data not writable). Data is safe;
+                    say exactly that instead of implying the restore failed. */}
+                {(() => {
+                  const fin = restoreResult['finalization'] as { ok: boolean; error: string | null } | undefined;
+                  if (!fin || fin.ok) return null;
+                  return (
+                    <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="text-sm text-amber-900 space-y-1">
+                        <p className="font-semibold">Your data is restored, but the installation sentinel could not be written.</p>
+                        <p>
+                          Fix the permissions on the <code>/data</code> volume (the container runs as UID 1001) and restart the
+                          api container — the sentinel is regenerated automatically at boot. No recovery key was issued; create
+                          one afterwards in <strong>Admin → Installation Security</strong>.
+                        </p>
+                        {fin.error && <p className="font-mono text-xs break-all">{fin.error}</p>}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {restoreResult['keysRotatedSinceBackup'] === true && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                    <p className="text-sm text-amber-900">
+                      This is the same server, but its encryption keys differ from the ones the backup was taken under
+                      (a key rotation happened after the backup). The old recovery key no longer matches this server; a
+                      new one was issued above.
+                    </p>
+                  </div>
+                )}
+
+                {/* Users whose authenticator (TOTP) secrets cannot be decrypted
+                    here are locked out at the 2FA step — including, usually, the
+                    super admin. Offer the fix NOW, before the login page. */}
+                {(() => {
+                  const locked = (restoreResult['tfaLockedUsers'] as { email: string; isSuperAdmin: boolean }[] | undefined) ?? [];
+                  if (locked.length === 0) return null;
+                  const runId = restoreRunId ?? sessionStorage.getItem(RESTORE_RUN_STORAGE_KEY);
+                  return (
+                    <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <span className="font-semibold text-red-900">
+                          {locked.length} account{locked.length === 1 ? '' : 's'} with authenticator 2FA cannot sign in yet
+                        </span>
+                      </div>
+                      <p className="text-sm text-red-900/80">
+                        Their authenticator secrets were encrypted under the backup server&apos;s key and cannot be read on
+                        this server. The password step would succeed and every code would then be rejected. Enter the{' '}
+                        <strong>recovery key from the original server</strong> to re-encrypt them (and all other restored
+                        credentials) before going to the login page.
+                      </p>
+                      <ul className="text-sm text-red-900 list-disc pl-5">
+                        {locked.map((u) => (
+                          <li key={u.email}>
+                            {u.email}{u.isSuperAdmin ? ' (super admin)' : ''}
+                          </li>
+                        ))}
+                      </ul>
+                      {runId ? (
+                        <div className="space-y-2">
+                          <Input
+                            label="Original recovery key"
+                            value={postRestoreKey}
+                            onChange={(e) => setPostRestoreKey(e.target.value)}
+                            placeholder="RKVMB-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+                            autoComplete="off"
+                            spellCheck={false}
+                          />
+                          {postRestoreError && <p className="text-sm text-red-700">{postRestoreError}</p>}
+                          <Button
+                            loading={postRestoreRecovering}
+                            disabled={!postRestoreKey.trim()}
+                            onClick={async () => {
+                              setPostRestoreRecovering(true);
+                              setPostRestoreError('');
+                              try {
+                                const view = await setupFetch<RestoreRunView>(
+                                  `/restore/runs/${encodeURIComponent(runId)}/recover-credentials`,
+                                  { method: 'POST', body: JSON.stringify({ recoveryKey: postRestoreKey.trim() }) },
+                                );
+                                if (view.result) setRestoreResult(view.result);
+                                setPostRestoreKey('');
+                              } catch (err) {
+                                setPostRestoreError(err instanceof Error ? err.message : 'Credential recovery failed');
+                              } finally {
+                                setPostRestoreRecovering(false);
+                              }
+                            }}
+                          >
+                            Re-encrypt credentials and 2FA secrets
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-red-900">
+                          Fix this from a shell: <code>docker compose exec api npx tsx scripts/disable-2fa.ts</code> for the
+                          affected accounts, or run credential recovery in Admin → Installation Security after signing in
+                          with an account that has no authenticator 2FA.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Checklist */}
                 {restoreResult['checklist'] != null && (
                   <RestoreChecklist items={restoreResult['checklist'] as Record<string, { status: string; message: string }>} />
                 )}
 
                 <div className="pt-4 border-t border-gray-100">
-                  <Button onClick={() => navigate('/login')}>
-                    Go to Login <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
+                  {restoreResult['needsAdminUser'] === true ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">
+                        This backup contained no user accounts. Create the admin account next — it will be given owner
+                        access to the restored data.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setAdoptMode(true);
+                          setAdoptTenantCount(Number(restoreResult['tenants_restored'] ?? 0) || 0);
+                          setRestoreResult(null);
+                          setRestoreMode(false);
+                          setStep(1);
+                        }}
+                      >
+                        Create the admin account <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant={((restoreResult['tfaLockedUsers'] as unknown[] | undefined)?.length ?? 0) > 0 ? 'secondary' : 'primary'}
+                      onClick={() => navigate('/login')}
+                    >
+                      {((restoreResult['tfaLockedUsers'] as unknown[] | undefined)?.length ?? 0) > 0 ? 'Go to Login anyway' : 'Go to Login'}
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
@@ -2212,6 +2400,15 @@ export function FirstRunSetupWizard() {
                 step and are pre-populated from install.sh defaults. */}
             {step === 1 && (
               <div className="space-y-6">
+                {adoptMode && (
+                  <div className="bg-primary-50 border border-primary-200 rounded-lg p-3 flex items-start gap-2">
+                    <ShieldCheck className="h-5 w-5 text-primary-600 mt-0.5 shrink-0" />
+                    <p className="text-sm text-primary-900">
+                      Restored company data was found on this server. This admin account will be given owner
+                      access to it; the restored chart of accounts and settings are kept as they are.
+                    </p>
+                  </div>
+                )}
                 {/* Admin section */}
                 <div className="space-y-4">
                   <h2 className="text-lg font-semibold text-gray-800">Your admin account</h2>
@@ -2316,7 +2513,9 @@ export function FirstRunSetupWizard() {
                   </Button>
                 </div>
 
-                {/* Company section */}
+                {/* Company section (not shown when adopting restored data —
+                    the restored companies already exist) */}
+                {!adoptMode && (
                 <div className="pt-4 border-t border-gray-200 space-y-4">
                   <h2 className="text-lg font-semibold text-gray-800">Your company</h2>
                   <p className="text-sm text-gray-500">
@@ -2410,6 +2609,7 @@ export function FirstRunSetupWizard() {
                     </label>
                   </div>
                 </div>
+                )}
               </div>
             )}
 
@@ -2518,10 +2718,20 @@ export function FirstRunSetupWizard() {
                 {/* Company */}
                 <div className="border border-gray-200 rounded-lg p-4 space-y-1">
                   <h3 className="text-sm font-semibold text-gray-700">Company</h3>
-                  <p className="text-sm text-gray-600">{form.businessName || '(not set)'}</p>
-                  <p className="text-sm text-gray-500">
-                    {entityTypeLabels[form.entityType] || form.entityType}
-                  </p>
+                  {adoptMode ? (
+                    <p className="text-sm text-gray-600">
+                      Restored data — the admin account will be linked to the{' '}
+                      {adoptTenantCount > 0 ? `${adoptTenantCount} existing compan${adoptTenantCount === 1 ? 'y' : 'ies'}` : 'existing companies'}.
+                      No new company or chart of accounts is created.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-600">{form.businessName || '(not set)'}</p>
+                      <p className="text-sm text-gray-500">
+                        {entityTypeLabels[form.entityType] || form.entityType}
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {/* Email */}

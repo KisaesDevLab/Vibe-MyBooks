@@ -42,6 +42,10 @@ export function EnvMissingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // 409 MISSING_AFTER_RECOVERY: the (v1) recovery file carries no
+  // PLAID_ENCRYPTION_KEY and the environment has none either. Writing the
+  // file would just loop back to this page, so the server asks first.
+  const [missingAfterRecovery, setMissingAfterRecovery] = useState<string[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,26 +66,35 @@ export function EnvMissingPage() {
     };
   }, []);
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function submitRecovery(generateMissingKeys: boolean) {
     setSubmitting(true);
     setFormError(null);
     try {
       const res = await fetch(`${import.meta.env.BASE_URL}api/diagnostic/env-recovery`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recoveryKey: key }),
+        body: JSON.stringify({ recoveryKey: key, ...(generateMissingKeys ? { generateMissingKeys: true } : {}) }),
       });
       const body = await res.json();
+      if (res.status === 409 && body?.error?.code === 'MISSING_AFTER_RECOVERY') {
+        setMissingAfterRecovery(Array.isArray(body.error.missingAfterRecovery) ? body.error.missingAfterRecovery : ['PLAID_ENCRYPTION_KEY']);
+        return;
+      }
       if (!res.ok) {
         throw new Error(body?.error?.message ?? 'recovery failed');
       }
+      setMissingAfterRecovery(null);
       setSuccess(body.message ?? 'Configuration recovered. Restart the API container.');
     } catch (err) {
       setFormError((err as Error).message);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    await submitRecovery(false);
   }
 
   if (loading) {
@@ -150,6 +163,33 @@ export function EnvMissingPage() {
               <pre className="mt-3 bg-slate-950 p-3 rounded text-xs text-slate-300 overflow-x-auto">
 docker compose restart api
               </pre>
+            </div>
+          ) : missingAfterRecovery ? (
+            <div className="rounded-md border border-yellow-800 bg-yellow-950 p-4 text-yellow-100 text-sm space-y-3">
+              <p className="font-semibold">Your recovery key is correct, but one value is still missing.</p>
+              <p>
+                This recovery file predates version 2 and does not include{' '}
+                <code className="bg-yellow-900/60 px-1 rounded">{missingAfterRecovery.join(', ')}</code>, and the
+                container environment does not supply it either. Without it the api cannot start.
+              </p>
+              <p>
+                <strong>Best option:</strong> add the original value to the install{' '}
+                <code className="bg-yellow-900/60 px-1 rounded">.env</code> (it is in any copy of your old
+                configuration) and restart — then come back here and recover again.
+              </p>
+              <p>
+                <strong>If it is lost:</strong> generate a new key. The app will start, but Plaid, SMTP, SMS and AI
+                credentials and every authenticator-app (TOTP) secret encrypted under the old key become unreadable
+                and must be re-entered / re-enrolled.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" onClick={() => setMissingAfterRecovery(null)} disabled={submitting}>
+                  Back
+                </Button>
+                <Button type="button" onClick={() => void submitRecovery(true)} disabled={submitting}>
+                  {submitting ? 'Writing…' : 'Generate a new key and recover anyway'}
+                </Button>
+              </div>
             </div>
           ) : (
             <form onSubmit={onSubmit} className="rounded-md border border-slate-700 bg-slate-900 p-4 space-y-3">
