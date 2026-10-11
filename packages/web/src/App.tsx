@@ -273,6 +273,7 @@ const FirmTenantsPage = lazyNamed(() => import('./features/firm/FirmTenantsPage'
 const FirmRulesPage = lazyNamed(() => import('./features/firm/FirmRulesPage'), 'FirmRulesPage');
 const FirmSettingsPage = lazyNamed(() => import('./features/firm/FirmSettingsPage'), 'FirmSettingsPage');
 const TaxCodeAdminPage = lazyNamed(() => import('./features/admin/TaxCodeAdminPage'), 'TaxCodeAdminPage');
+const TaxParametersPage = lazyNamed(() => import('./features/tax-estimator/admin/TaxParametersPage'), 'TaxParametersPage');
 const TbLayout = lazyNamed(() => import('./features/tb/TbLayout'), 'TbLayout');
 const TbSettingsPage = lazyNamed(() => import('./features/tb/TbSettingsPage'), 'TbSettingsPage');
 const AjeListPage = lazyNamed(() => import('./features/tb/AjeListPage'), 'AjeListPage');
@@ -646,6 +647,7 @@ export function App() {
             <Route path="/firm/:firmId/rules" element={<FirmRulesPage />} />
             <Route path="/firm/:firmId/settings" element={<FirmSettingsPage />} />
             <Route path="/admin/tax-codes" element={<AdminRoute><TaxCodeAdminPage /></AdminRoute>} />
+            <Route path="/admin/tax-parameters" element={<AdminRoute><TaxParametersPage /></AdminRoute>} />
             {/* Trial Balance module (docs/tb/BUILD_PLAN.md) — TbLayout
                 guards on TRIAL_BALANCE_V1 + staff role. */}
             <Route path="/tb" element={<TbLayout />}>

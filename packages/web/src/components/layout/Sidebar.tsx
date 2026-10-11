@@ -133,6 +133,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/tunnel', label: 'Cloudflare Tunnel', icon: Cloud },
   { to: '/admin/ip-allowlist', label: 'Staff IP Allowlist', icon: ShieldAlert },
   { to: '/admin/tax-codes', label: 'Tax Codes', icon: Percent },
+  { to: '/admin/tax-parameters', label: 'Tax Parameters', icon: Percent },
   { to: '/admin/system', label: 'System Settings', icon: Wrench },
 ];
 

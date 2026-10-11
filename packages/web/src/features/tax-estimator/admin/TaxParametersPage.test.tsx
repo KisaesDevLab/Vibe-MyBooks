@@ -1,0 +1,150 @@
+// Copyright 2026 Kisaes LLC
+// Licensed under the PolyForm Small Business License 1.0.0.
+// Free for small businesses; see LICENSE for terms.
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderRoute } from '../../../test-utils';
+import type { TaxParametersDTO } from '@kis-books/shared';
+
+interface QState<T> { data: T | undefined; isLoading: boolean; isError: boolean; refetch: ReturnType<typeof vi.fn> }
+
+const h = vi.hoisted(() => ({
+  years: { data: { years: [2025, 2026], shippedYears: [2025, 2026] }, isLoading: false, isError: false, refetch: vi.fn() } as QState<unknown>,
+  params: { data: undefined, isLoading: false, isError: false, refetch: vi.fn() } as QState<unknown>,
+  mutate: vi.fn(),
+  revert: vi.fn(),
+  create: vi.fn(),
+}));
+
+vi.mock('../../../api/hooks/useTaxParameters', () => ({
+  useTaxParameterYears: () => h.years,
+  useTaxParameters: () => h.params,
+  useTaxParameterDiff: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useTaxParameterChanges: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useSetTaxParameterOverride: () => ({ mutate: h.mutate, isPending: false, isError: false, reset: vi.fn() }),
+  useRevertTaxParameter: () => ({ mutate: h.revert, isPending: false }),
+  useCreateTaxYearFromPrior: () => ({ mutate: h.create, isPending: false }),
+  useAdoptShippedParameters: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+import { TaxParametersPage } from './TaxParametersPage';
+
+const fixture = (over: Partial<TaxParametersDTO> = {}): TaxParametersDTO => ({
+  year: 2026, isFallback: false, fallbackYear: null,
+  completeness: { total: 3, present: 2, missing: ['se.min_nese'] },
+  parameters: [
+    { key: 'se.ss_wage_base', label: 'Social Security wage base', group: 'Self-employment', type: 'money', unit: 'usd', value: 184500, status: 'verified', source: 'seed', citation: 'SSA 2026 fact sheet' },
+    { key: 'se.nese_factor', label: 'Net earnings from SE factor', group: 'Self-employment', type: 'rate', unit: 'rate', value: 0.9235, status: 'unverified', source: 'override', citation: 'IRC 1402', reason: 'testing', shippedValue: 0.92 },
+    { key: 'brackets.mfj', label: 'Ordinary income brackets', group: 'Brackets and capital gains', type: 'bracket_table', unit: 'table', value: [[24800, 0.1], [null, 0.37]], status: 'provisional', source: 'provisional', citation: 'Rev. Proc.' },
+  ],
+  ...over,
+});
+
+const render = () => renderRoute(<TaxParametersPage />);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  h.years.data = { years: [2025, 2026], shippedYears: [2025, 2026] };
+  h.years.isLoading = false; h.years.isError = false;
+  h.params = { data: fixture(), isLoading: false, isError: false, refetch: vi.fn() };
+});
+
+describe('TaxParametersPage', () => {
+  it('renders groups, formatted values and badges', async () => {
+    render();
+    expect(await screen.findByText('Self-employment')).toBeInTheDocument();
+    expect(screen.getByText('Brackets and capital gains')).toBeInTheDocument();
+    expect(screen.getByText('$184,500')).toBeInTheDocument();
+    expect(screen.getByText('92.35%')).toBeInTheDocument();
+    expect(screen.getByText('verified')).toBeInTheDocument();
+    expect(screen.getByText('unverified')).toBeInTheDocument();
+    expect(screen.getAllByText('provisional').length).toBeGreaterThan(0);
+    expect(screen.getByText('override')).toBeInTheDocument();
+    expect(screen.getByText('2/3 complete')).toBeInTheDocument();
+    expect(screen.getByText('Shipped:')).toBeInTheDocument();
+  });
+
+  it('lists missing keys when the completeness chip is clicked', async () => {
+    render();
+    fireEvent.click(await screen.findByText('2/3 complete'));
+    expect(screen.getByLabelText('Missing keys')).toHaveTextContent('se.min_nese');
+  });
+
+  it('shows the fallback banner', async () => {
+    h.params = { ...h.params, data: fixture({ isFallback: true, fallbackYear: 2025 }) };
+    render();
+    expect(await screen.findByText(/No 2026 parameters shipped — showing 2025 as provisional/)).toBeInTheDocument();
+  });
+
+  it('override modal validates by type and requires a reason', async () => {
+    render();
+    fireEvent.click(await screen.findByLabelText('Override se.ss_wage_base'));
+    const value = screen.getByLabelText(/Value \(money\)/);
+    fireEvent.change(value, { target: { value: '-5' } });
+    fireEvent.click(screen.getByText('Save override'));
+    expect(screen.getByText('expected a non-negative number')).toBeInTheDocument();
+    expect(screen.getByText(/reason of at least 3/)).toBeInTheDocument();
+    expect(h.mutate).not.toHaveBeenCalled();
+
+    fireEvent.change(value, { target: { value: '190000' } });
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'new SSA notice' } });
+    fireEvent.click(screen.getByText('Save override'));
+    expect(h.mutate).toHaveBeenCalledWith({ key: 'se.ss_wage_base', value: 190000, reason: 'new SSA notice' }, expect.anything());
+  });
+
+  it('validates JSON bracket tables', async () => {
+    render();
+    fireEvent.click(await screen.findByLabelText('Override brackets.mfj'));
+    fireEvent.change(screen.getByLabelText(/Value \(bracket_table\)/), { target: { value: '[[100, 0.1]]' } });
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'because' } });
+    fireEvent.click(screen.getByText('Save override'));
+    expect(screen.getByText('last bracket must have a null upper bound')).toBeInTheDocument();
+    expect(h.mutate).not.toHaveBeenCalled();
+  });
+
+  it('revert asks for confirmation', async () => {
+    render();
+    fireEvent.click(await screen.findByLabelText('Revert se.nese_factor'));
+    expect(screen.getByText('Revert parameter')).toBeInTheDocument();
+    expect(h.revert).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Revert' }));
+    await waitFor(() => expect(h.revert).toHaveBeenCalledWith('se.nese_factor', expect.anything()));
+  });
+
+  it('offers to create the next year only when it has no rows', async () => {
+    render();
+    expect(await screen.findByText('Create 2027 from 2026')).toBeInTheDocument();
+  });
+
+  it('hides create-year when the next year exists', async () => {
+    h.years.data = { years: [2025, 2026, 2027], shippedYears: [2025, 2026] };
+    render();
+    await screen.findByText('Self-employment');
+    expect(screen.queryByText(/^Create 2028/)).toBeInTheDocument();
+    expect(screen.queryByText('Create 2027 from 2026')).not.toBeInTheDocument();
+  });
+
+  it('States switch shows the Phase 2 empty state', async () => {
+    render();
+    fireEvent.click(await screen.findByText('States'));
+    expect(screen.getByText('State rules arrive in Phase 2')).toBeInTheDocument();
+  });
+
+  it('shows error with retry and loading and empty states', async () => {
+    h.params = { data: undefined, isLoading: false, isError: true, refetch: vi.fn() };
+    const r = render();
+    fireEvent.click(await screen.findByText('Try again'));
+    expect(h.params.refetch).toHaveBeenCalled();
+    r.unmount();
+
+    h.params = { data: undefined, isLoading: true, isError: false, refetch: vi.fn() };
+    const r2 = render();
+    expect(await screen.findByLabelText('Loading tax parameters')).toBeInTheDocument();
+    r2.unmount();
+
+    h.params = { data: fixture({ parameters: [], completeness: { total: 0, present: 0, missing: [] } }), isLoading: false, isError: false, refetch: vi.fn() };
+    render();
+    expect(await screen.findByText(/No parameters for 2026/)).toBeInTheDocument();
+  });
+});
