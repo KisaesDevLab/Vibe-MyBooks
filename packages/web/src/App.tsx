@@ -274,6 +274,10 @@ const FirmRulesPage = lazyNamed(() => import('./features/firm/FirmRulesPage'), '
 const FirmSettingsPage = lazyNamed(() => import('./features/firm/FirmSettingsPage'), 'FirmSettingsPage');
 const TaxCodeAdminPage = lazyNamed(() => import('./features/admin/TaxCodeAdminPage'), 'TaxCodeAdminPage');
 const TaxParametersPage = lazyNamed(() => import('./features/tax-estimator/admin/TaxParametersPage'), 'TaxParametersPage');
+const TaxEstimatorLayout = lazyNamed(() => import('./features/tax-estimator/TaxEstimatorLayout'), 'TaxEstimatorLayout');
+const TaxpayerListPage = lazyNamed(() => import('./features/tax-estimator/taxpayers/TaxpayerListPage'), 'TaxpayerListPage');
+const TaxpayerDetailPage = lazyNamed(() => import('./features/tax-estimator/taxpayers/TaxpayerDetailPage'), 'TaxpayerDetailPage');
+const AnnualSettingsPage = lazyNamed(() => import('./features/tax-estimator/years/AnnualSettingsPage'), 'AnnualSettingsPage');
 const TbLayout = lazyNamed(() => import('./features/tb/TbLayout'), 'TbLayout');
 const TbSettingsPage = lazyNamed(() => import('./features/tb/TbSettingsPage'), 'TbSettingsPage');
 const AjeListPage = lazyNamed(() => import('./features/tb/AjeListPage'), 'AjeListPage');
@@ -648,6 +652,14 @@ export function App() {
             <Route path="/firm/:firmId/settings" element={<FirmSettingsPage />} />
             <Route path="/admin/tax-codes" element={<AdminRoute><TaxCodeAdminPage /></AdminRoute>} />
             <Route path="/admin/tax-parameters" element={<AdminRoute><TaxParametersPage /></AdminRoute>} />
+            {/* Tax Estimator (features/tax-estimator) — TaxEstimatorLayout guards on
+                TAX_ESTIMATOR_V1 + firm staff + tax_estimator read. */}
+            <Route path="/tax-estimator" element={<TaxEstimatorLayout />}>
+              <Route index element={<Navigate to="taxpayers" replace />} />
+              <Route path="taxpayers" element={<TaxpayerListPage />} />
+              <Route path="taxpayers/:id" element={<TaxpayerDetailPage />} />
+              <Route path="taxpayers/:id/annual-settings" element={<AnnualSettingsPage />} />
+            </Route>
             {/* Trial Balance module (docs/tb/BUILD_PLAN.md) — TbLayout
                 guards on TRIAL_BALANCE_V1 + staff role. */}
             <Route path="/tb" element={<TbLayout />}>

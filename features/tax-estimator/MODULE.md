@@ -73,7 +73,7 @@ Included in all license tiers (module manifest `taxEstimator: 'base'` in `shared
   - `tax_method` override of `companies.accounting_method` (`cash` | `accrual`). The estimator always pulls the P&L on the effective basis.
   - `is_sstb`, `large_corporation`, `farmer_override`, `rental_qbi_trade_or_business` (Rev. Proc. 2019-38 safe harbor or §162 determination), `state_sourcing` (default state for nonresident sourcing).
   - Per tax year: `w2_wages_override`, `ubia` (D8).
-- **Taxpayer** (`tax_est_taxpayers`, `firm_id`): filing status, resident state. Each **person** (`tax_est_persons`) carries role, name, date of birth (65 test, catch-ups), blind flag, monthly **SEHI eligibility** (12 booleans).
+- **Taxpayer** (`tax_est_taxpayers`, `firm_id`): filing status, resident state. Each **person** (`tax_est_persons`) carries role, name, date of birth (65 test, catch-ups), blind flag, monthly **SEHI eligibility** (`sehi_eligible_months`, 12 booleans). **Polarity as built (Phase 3): `true` = no employer-subsidized plan was available that month, so SEHI IS deductible for it; default all true. The original kit prose said the opposite ("eligible for an employer plan"); the engine must read `true` as "deduction allowed".**
 - **taxpayer_entity_links** (`tax_est_links`, per person, per company, per tax year): `profit_pct`, `loss_pct`, `capital_pct` (informational); `partner_se_status` (`general` | `limited` | `llc_member_manager`) + memo; `is_officer`; `activity_type` (`active` | `passive` | `rental` | `investment`); `active_participation` (rental, for §469(i), D10); `qbi_eligible` (+ override reason); `allowed_loss_override` (amount + reason).
 - Estimates **roll up per Taxpayer across all linked entities** (across tenants, D1). C corps are entity-level only.
 

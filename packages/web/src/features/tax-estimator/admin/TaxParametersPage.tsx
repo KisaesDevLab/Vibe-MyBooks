@@ -17,6 +17,7 @@ import { OverrideModal } from './OverrideModal';
 import { ParameterValue } from './ParameterValue';
 import { DiffPanel, ChangesPanel } from './ParameterPanels';
 import { shortCitation } from './format';
+import { StatesView } from './StatesView';
 
 const STATUS_STYLE: Record<ParameterStatus, string> = {
   verified: 'bg-green-100 text-green-800', unverified: 'bg-amber-100 text-amber-800', provisional: 'bg-blue-100 text-blue-800',
@@ -106,7 +107,7 @@ export function TaxParametersPage() {
               {y}
             </button>
           ))}
-          {canCreateNext && (
+          {scope === 'federal' && canCreateNext && (
             <Button size="sm" variant="secondary" onClick={doCreate} loading={createYear.isPending}>
               Create {nextYear} from {latest}
             </Button>
@@ -115,10 +116,7 @@ export function TaxParametersPage() {
       )}
 
       {scope === 'states' ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
-          <p className="font-medium text-gray-900">State rules arrive in Phase 2</p>
-          <p className="text-sm text-gray-500 mt-1">Federal parameters are managed on the Federal tab. State thresholds, safe harbors and installment patterns will appear here.</p>
-        </div>
+        <StatesView year={selected} years={years} />
       ) : selected != null && (
         paramsQ.isLoading ? <Skeleton /> : paramsQ.isError ? (
           <ErrorMessage message={`Could not load ${selected} parameters`} onRetry={() => paramsQ.refetch()} />

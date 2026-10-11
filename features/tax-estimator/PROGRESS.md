@@ -3,7 +3,7 @@
 (Was STATE.md; renamed because the repo git-ignores that filename. This file IS committed.)
 
 ## Status
-- Current phase: **Phase 0 — complete; Phase 1 next**
+- Current phase: **Phases 0, 1, 3, 4 (backend), 5 built; Phase 2 state research in progress; engine phases 6-10 BLOCKED on Kurt's sign-offs (D12)**
 - Plan version: v2.2 (2026-10-11 — repo adaptation + owner decisions D1–D16 folded in; v2 = Oct 8 CPA review)
 - Branch: `feat/tax-estimator` (from main @ `ecac490a`, v0.9.218)
 - Engine version: 0.0.0
@@ -21,10 +21,10 @@
 |---|---|---|---|---|
 | 0 Discovery & scaffolding | ✅ 2026-10-11 | orchestrator (direct; repo already surveyed by an Explore agent) | see git log | flag/resource/manifest registered, router + firm-scope service + 10 isolation tests, migration 0201 (flag seed), oracle npm script |
 | 1 Federal tax parameters | ✅ built 2026-10-11, ⏳ awaiting Kurt's sign-off | tax-law-researcher (opus) + schema/api/ui-builder (sonnet) | see git log | registry 149 keys/yr; 2025: 136 verified/13 unverified; 2026: 144/5; admin screen + API + 41 tests |
-| 2 State estimate rules (41 + DC) | ⬜ | state-rules-researcher (sonnet) + audit (opus) | | Parallel-safe; MO+AR batch 1, Kurt's sign-off |
-| 3 Taxpayers, persons, links (firm-scoped) | ⬜ | schema/api-builder (sonnet) | | |
-| 4 Entity tax setup, treatments, readiness | ⬜ | books-integration-engineer (opus) | | |
-| 5 Settings, scenarios, adjustments | ⬜ | schema/api-builder (sonnet) | | |
+| 2 State estimate rules (41 + DC) | 🔶 infra built; MO/AR (48/52 rows verified) + batches 2-3 seeded; batches 4-6 + no-tax states + opus audit + R5 pending | state-rules-researcher (sonnet), MO/AR researcher (opus) | see git log | awaiting Kurt's MO/AR sign-off (D12) |
+| 3 Taxpayers, persons, links (firm-scoped) | ✅ built 2026-10-11 | schema/api/ui-builder (sonnet) | see git log | 22 route+service tests incl. cross-tenant isolation; web pages + sidebar group |
+| 4 Entity tax setup, treatments, readiness | ✅ backend built 2026-10-11; Entity tax setup SCREEN (06) still to build; R1 review pending | books-integration-engineer (opus) | see git log | Rivera 115,400 → 128,000 reproduced; 31 tests |
+| 5 Settings, scenarios, adjustments | ✅ built 2026-10-11 | schema/api/ui-builder (sonnet) | see git log | allocation module, encrypted prior-year data, firm settings; 27 api + 12 web tests |
 | 6 Engine core (federal income tax) | ⬜ | tax-engine-architect (fable) | | blocked on both sign-offs |
 | 7 QBI / Medicare / NIIT / losses / §469(i) | ⬜ | tax-engine-architect (fable) | | |
 | 8 State engine | ⬜ | tax-engine-architect (fable) | | |
@@ -415,3 +415,13 @@ _(Phase 2 batch 1 writes one row per rule key per state per year.)_
 
 ## Manual QA checklist
 _(Phase 11.)_
+
+
+## Notes for the engine author (Phase 6) — collected from the Phase 1-5 builders
+**Parameters:** read only through the registry/`getParameters(year)`; values are JSON (money/counts exact numbers, rates fractions, dates `YYYY-MM-DD`). Override rows report status `unverified`.
+**Taxpayer data:** `sehi_eligible_months[m] === true` means SEHI is deductible that month (polarity inverted from the original kit prose). Links carry `tenant_id` + `company_id`; always go through the `FirmScope`.
+**Books → tax basis (`getTaxBasisPl`):** money is a 4-decimal string; character totals and account amounts are profit-positive (income +, expense −); owner amounts, payments, add-backs, W-2 wages and farming gross income are positive magnitudes. Character mapping: rental/farm_rental activity → `rental`; "capital gain" code → long term unless it says short term; 1231/4797 → `section_1231`; interest/dividend codes keep that character only on income accounts; unassigned accounts are ordinary + warning. TB RJEs are shown per account but NOT applied (avoids double counting with estimator adjustments). Depreciation flagged `tax_depreciation_differs` keeps the BOOK amount in profit; the adjustment 'Depreciation (tax vs book)' carries the FULL TAX amount and the engine replaces book with tax (so the engine must net book vs tax itself; the provider reports the book amount). Suspense balances are tenant-wide. Cache key = (tenant, company, year, basis, GL stamp, config hash), no Redis invalidation needed.
+**Readiness:** an account is closed through a month only if its completed reconciliation's statement date is that month's last day (a statement ending Sep 15 counts as closed through August).
+**Adjustments:** `kind` ∈ income|deduction|addback with positive `amount`; meals is an addback with `default_pct` 50, the adjustment's `pct` overrides; month index 0 = January; `allocateAdjustment` / `splitActualsAndRemaining` in shared are the allocators; GL-linked adjustment with `amount = NULL` means run-rate; `sourced_manual = false` means derive sourced income (entity `state_sourcing` × share). Year-level inputs are shared across scenarios (only adjustments and state rows are cloned). Safe-harbor precedence: year → taxpayer → firm default (`lesser_of`). Prior-year tax/AGI are decrypted only in `years.service.ts`; the engine takes them through a service call.
+**Known gaps for later phases:** estimated-tax payments are read only within the calendar year window — **Phase 10 must also include January payments of the following year toward the Q4 installment** (and the prior-year overpayment on the original due date); the Annual-settings UI has no GL-account picker for GL-linked adjustments (API only) and no state-rule verification badge; the Entity tax setup screen (UI-SPEC §06) is not built yet.
+**State rules:** `resolveStateRulesForEngine(state, year)` → `{rules, usesFederalFallback, verifyBadge}`; a complete provisional-from-prior set is usable with the verify badge; incomplete or missing sets fall back to the federal pattern. Idaho, Arizona and Georgia estimate tests are not expressible with `required_threshold` (gross-income tests / unverified mappings): see the batch reports before relying on them.

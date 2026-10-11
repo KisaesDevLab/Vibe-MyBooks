@@ -68,6 +68,7 @@ import { SidebarDisplayControls } from './SidebarDisplayControls';
 import { CompanySwitcher } from './CompanySwitcher';
 import { PracticeGroup } from './PracticeGroup';
 import { TrialBalanceGroup } from './TrialBalanceGroup';
+import { TaxEstimatorGroup } from './TaxEstimatorGroup';
 import { FirmGroup } from './FirmGroup';
 import { dispatchSidebarCollapseAll, useSidebarCollapseAll } from './sidebarEvents';
 import type { LucideIcon } from 'lucide-react';
@@ -606,6 +607,9 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
                   pattern as Practice: flag + staff role, DOM-absent
                   otherwise. Sits between Practice and Firm. */}
               {group.label === 'Reporting' && !collapsed && <TrialBalanceGroup onNavigate={onNavigate} />}
+              {/* Tax Estimator group — flag + firm staff + tax_estimator read;
+                  DOM-absent otherwise. */}
+              {group.label === 'Reporting' && !collapsed && <TaxEstimatorGroup onNavigate={onNavigate} />}
               {/* 3-tier rules plan, Phase 1 — Firm sidebar entry.
                   Self-gates on `useFirms()` returning a non-empty
                   list, so non-firm users never see the link. Sits

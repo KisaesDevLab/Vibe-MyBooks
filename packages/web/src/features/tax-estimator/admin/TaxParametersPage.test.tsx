@@ -28,6 +28,17 @@ vi.mock('../../../api/hooks/useTaxParameters', () => ({
   useAdoptShippedParameters: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
+vi.mock('../../../api/hooks/useTaxStateRules', () => ({
+  useStateRuleSummaries: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useStateRules: () => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() }),
+  useStateRuleDiff: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useStateRuleChanges: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useSetStateRuleOverride: () => ({ mutate: vi.fn(), isPending: false, isError: false, reset: vi.fn() }),
+  useRevertStateRule: () => ({ mutate: vi.fn(), isPending: false }),
+  useCreateStateYearFromPrior: () => ({ mutate: vi.fn(), isPending: false }),
+  useAdoptShippedStateRules: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
 import { TaxParametersPage } from './TaxParametersPage';
 
 const fixture = (over: Partial<TaxParametersDTO> = {}): TaxParametersDTO => ({
@@ -125,10 +136,11 @@ describe('TaxParametersPage', () => {
     expect(screen.queryByText('Create 2027 from 2026')).not.toBeInTheDocument();
   });
 
-  it('States switch shows the Phase 2 empty state', async () => {
+  it('States switch shows the States view and hides the federal create-year button', async () => {
     render();
     fireEvent.click(await screen.findByText('States'));
-    expect(screen.getByText('State rules arrive in Phase 2')).toBeInTheDocument();
+    expect(screen.getByText('No jurisdictions are available.')).toBeInTheDocument();
+    expect(screen.queryByText('Create 2027 from 2026')).not.toBeInTheDocument();
   });
 
   it('shows error with retry and loading and empty states', async () => {
