@@ -21,9 +21,9 @@
 |---|---|---|---|---|
 | 0 Discovery & scaffolding | ✅ 2026-10-11 | orchestrator (direct; repo already surveyed by an Explore agent) | see git log | flag/resource/manifest registered, router + firm-scope service + 10 isolation tests, migration 0201 (flag seed), oracle npm script |
 | 1 Federal tax parameters | ✅ built 2026-10-11, ⏳ awaiting Kurt's sign-off | tax-law-researcher (opus) + schema/api/ui-builder (sonnet) | see git log | registry 149 keys/yr; 2025: 136 verified/13 unverified; 2026: 144/5; admin screen + API + 41 tests |
-| 2 State estimate rules (41 + DC) | 🔶 infra built; MO/AR (48/52 rows verified) + batches 2-3 seeded; batches 4-6 + no-tax states + opus audit + R5 pending | state-rules-researcher (sonnet), MO/AR researcher (opus) | see git log | awaiting Kurt's MO/AR sign-off (D12) |
+| 2 State estimate rules (41 + DC) | ✅ built 2026-10-11: all 51 jurisdictions seeded and opus-audited (1,050/1,110 rows verified); ⏳ Kurt's MO/AR sign-off (D12); R5 Fable review in progress | state-rules-researcher (sonnet), MO/AR researcher (opus) | see git log | awaiting Kurt's MO/AR sign-off (D12) |
 | 3 Taxpayers, persons, links (firm-scoped) | ✅ built 2026-10-11 | schema/api/ui-builder (sonnet) | see git log | 22 route+service tests incl. cross-tenant isolation; web pages + sidebar group |
-| 4 Entity tax setup, treatments, readiness | ✅ backend built 2026-10-11; Entity tax setup SCREEN (06) still to build; R1 review pending | books-integration-engineer (opus) | see git log | Rivera 115,400 → 128,000 reproduced; 31 tests |
+| 4 Entity tax setup, treatments, readiness | ✅ backend + Entity tax setup screen built 2026-10-11; R1 review pending | books-integration-engineer (opus) | see git log | Rivera 115,400 → 128,000 reproduced; 31 tests |
 | 5 Settings, scenarios, adjustments | ✅ built 2026-10-11 | schema/api/ui-builder (sonnet) | see git log | allocation module, encrypted prior-year data, firm settings; 27 api + 12 web tests |
 | 6 Engine core (federal income tax) | ⬜ | tax-engine-architect (fable) | | blocked on both sign-offs |
 | 7 QBI / Medicare / NIIT / losses / §469(i) | ⬜ | tax-engine-architect (fable) | | |
@@ -411,7 +411,80 @@ _(Phase 0, 2026-10-11. Paths relative to repo root.)_
 
 
 ## Phase 2 sign-off checklist (MO, AR)
-_(Phase 2 batch 1 writes one row per rule key per state per year.)_
+**For Kurt:** these four state-years are the owner's filing states. Read OPEN-QUESTIONS Q25 first (AR rate cut to 3.7% from 2026 per Act 1 of the 2026 First Extraordinary Session; MO penalty rate; AR at exactly $1,000; rules the key set cannot hold). Sign off in "Hard gates" when satisfied. Agents may not.
+
+### MO 2025: 13 keys, 13 verified by the researcher
+
+| ☐ | Key | Value | Status | Citation |
+|---|---|---|---|---|
+| ☐ | `has_income_tax` | true | verified | RSMo §143.011.1 ("A tax is hereby imposed for every taxable year on the Missouri taxable income of every resident"); RSMo §143.041.1 (nonresidents) |
+| ☐ | `required_threshold` | 100 | verified | RSMo §143.521.1 (declaration required "if the Missouri estimated tax can reasonably be expected to be at least one hundred dollars"); §143.521.3 ("Missouri estimated tax" = estimated Chapter 143 tax less estimated cre… |
+| ☐ | `safe_harbor.current_pct` | 0.9 | verified | RSMo §143.761.2(1) and .4(2)-(3) ("ninety percent ... of the tax shown on the return"); 2025 Form MO-1040ES General Instruction 8(b) ("90% ... of the total amount due for the current year"); Form MO-2210 (2025) Part I… |
+| ☐ | `safe_harbor.prior_pct` | 1 | verified | RSMo §143.761.4(1) (no addition if payments equal "The tax shown on the return ... for the preceding taxable year, if a return showing a liability for tax was filed for the preceding year and such preceding year was a… |
+| ☐ | `safe_harbor.high_agi_rule` | null | verified | No high-AGI rule: RSMo §143.761.4(1) uses 100% of the preceding year's tax with no income test (no analogue of IRC §6654(d)(1)(C) 110%); Form MO-2210 (2025) line 21 Exception No. 1 = 100% of 2024 tax for all taxpayers |
+| ☐ | `installments.due_dates` | ["2025-04-15","2025-06-16","2025-09-15","2026-01-15"] | verified | RSMo §143.541.1(1) (April 15, June 15, September 15, January 15 of the succeeding year); 2025 Form MO-1040ES Instruction 5 table + note "If the due date falls on a Saturday, Sunday, or legal holiday, the voucher will … |
+| ☐ | `installments.pcts` | [0.25,0.25,0.25,0.25] | verified | RSMo §143.541.1(1) ("the estimated tax shall be paid in four equal installments"); Form MO-2210 (2025) line 21 cumulative 25%/50%/75%/100% |
+| ☐ | `farmer.rule` | {"ratio":0.6666666666,"current_pct":0.6666666667,"due_date":"2026-0… | verified | RSMo §143.531.2 (farming gross income at least two-thirds of total Missouri gross income; declaration on or before January 15 of the succeeding year); §143.761.2(1)/.4(2) ("sixty-six and two-thirds percent in the case… |
+| ☐ | `penalty.rate_source` | "state" | verified | RSMo §143.761.1 (addition to tax "at the rate determined by section 32.065"); RSMo §32.065 (director sets annual adjusted rate from the September prime rate) |
+| ☐ | `penalty.rate` | 0.08 | verified | 12 CSR 10-41.010(1) table (2025 = 8%, 2026 = 7%); Form MO-2210 (2025) lines 28a/28b (8% for days in 2025, 7% for days from Jan 1, 2026 to the payment date or April 15, 2026). CAUTION: single-rate key; underpayment day… |
+| ☐ | `credit_for_other_state` | true | verified | RSMo §143.081.1-.2 (resident credit for income tax imposed by another state or DC on income derived there, limited to the ratio of other-state-source Missouri AGI to total Missouri AGI times Missouri tax) |
+| ☐ | `nonresident_method` | "ratio" | verified | RSMo §143.041.1 (nonresident tax = resident-basis tax x Missouri-source AGI / Missouri AGI from all sources); 2025 Form MO-1040ES General Instruction 5 and worksheet Line 10 "Nonresident" (Missouri income percentage x… |
+| ☐ | `holidays` | ["2025-01-01","2025-01-20","2025-02-12","2025-02-17","2025-05-08","… | verified | RSMo §9.010 public holidays (Jan 1; 3rd Mon Jan; Feb 12; 3rd Mon Feb; May 8; last Mon May; June 19; July 4; 1st Mon Sep; 2nd Mon Oct; Nov 11; 4th Thu Nov; Dec 25; a Sunday holiday moves to the following Monday, a Satu… |
+
+### MO 2026: 13 keys, 13 verified by the researcher
+
+| ☐ | Key | Value | Status | Citation |
+|---|---|---|---|---|
+| ☐ | `has_income_tax` | true | verified | RSMo §143.011.1 (tax on Missouri taxable income of every resident); RSMo §143.041.1 (nonresidents); 2026 Form MO-1040ES tax rate chart |
+| ☐ | `required_threshold` | 100 | verified | RSMo §143.521.1 ("at least one hundred dollars"); §143.521.3 (net of credits incl. withholding); 2026 Form MO-1040ES (Rev. 12-2025) General Instructions 1-2 ("$100.00 or more (Section 143.521.1, RSMo)") |
+| ☐ | `safe_harbor.current_pct` | 0.9 | verified | RSMo §143.761.2(1) and .4(2)-(3) (ninety percent); 2026 Form MO-1040ES General Instruction 8(b) ("90% ... of the total amount due for the current year") |
+| ☐ | `safe_harbor.prior_pct` | 1 | verified | RSMo §143.761.4(1) (100% of the tax shown on the preceding 12-month return showing a liability); 2026 Form MO-1040ES General Instruction 8(a). §143.761.4(4) (prior-year facts at current rates) is an additional excepti… |
+| ☐ | `safe_harbor.high_agi_rule` | null | verified | No high-AGI rule: RSMo §143.761.4(1) has no income test; 2026 Form MO-1040ES Instruction 8(a) ("the tax shown on the preceding year's return") with no AGI-based percentage |
+| ☐ | `installments.due_dates` | ["2026-04-15","2026-06-15","2026-09-15","2027-01-15"] | verified | RSMo §143.541.1(1); 2026 Form MO-1040ES Instruction 5 table (April 15, June 15, September 15, January 15) + weekend/holiday note; RSMo §143.851. None of these dates is a weekend or RSMo §9.010 holiday (Wed/Mon/Tue/Fri). |
+| ☐ | `installments.pcts` | [0.25,0.25,0.25,0.25] | verified | RSMo §143.541.1(1) ("four equal installments"); 2026 Form MO-1040ES General Instruction 4 ("in equal installments on or before April 15, June 15, September 15, and January 15") |
+| ☐ | `farmer.rule` | {"ratio":0.6666666666,"current_pct":0.6666666667,"due_date":"2027-0… | verified | RSMo §143.531.2 (two-thirds farming gross income; declaration by January 15); §143.761.2(1)/.4(2) (66 2/3%); §143.521.6 (return and full payment by March 1); 2026 Form MO-1040ES General Instructions 3 and 8(b). Jan 15… |
+| ☐ | `penalty.rate_source` | "state" | verified | RSMo §143.761.1 (rate determined by §32.065); RSMo §32.065 |
+| ☐ | `penalty.rate` | 0.07 | verified | 12 CSR 10-41.010(1) emergency amendment filed Oct. 2025, effective Jan. 1, 2026 (calendar 2026 = 7%); Form MO-2210 (2025) line 28b (7% for 2026 days). CAUTION: the calendar-2027 rate (days Jan 1-Apr 15, 2027 of a TY20… |
+| ☐ | `credit_for_other_state` | true | verified | RSMo §143.081.1-.2 (resident credit for other-state/DC income tax, ratio-limited); 2026 Form MO-1040ES worksheet Line 11 ("credit for income tax to be paid to another state") |
+| ☐ | `nonresident_method` | "ratio" | verified | RSMo §143.041.1 (ratio of Missouri-source AGI to all-source AGI applied to resident-basis tax); 2026 Form MO-1040ES General Instruction 5 and worksheet Line 10 "Nonresident" |
+| ☐ | `holidays` | ["2026-01-01","2026-01-19","2026-02-12","2026-02-16","2026-05-08","… | verified | RSMo §9.010 public holidays (statutory dates; Sunday -> following Monday, e.g. July 4, 2027 -> July 5, 2027; Saturday holidays not moved) used by RSMo §143.851. Calendar years 2026-2027 (all installment and farmer dat… |
+
+### AR 2025: 13 keys, 11 verified by the researcher
+
+| ☐ | Key | Value | Status | Citation |
+|---|---|---|---|---|
+| ☐ | `has_income_tax` | true | verified | DFA AR1000ES 2025 tax rate schedule (2.0%-3.9%); AR1000F/AR1000NR Instructions 2025 (resident and nonresident returns) |
+| ☐ | `required_threshold` | 1000 | verified | DFA AR1000ES 2025 worksheet line 8 (estimated tax = total tax - credits - AR withholding; "If $1,000 or more, file the Declaration Voucher. If less than $1,000 no Declaration Voucher is required"); AR2210 Instructions… |
+| ☐ | `safe_harbor.current_pct` | 0.9 | verified | AR2210 (2025) Part II line 2 ("Enter 90% (.90) of the amount shown on line 1" = 2025 net tax) and line 6 (smaller of line 2 or line 5); AR1000ES 2025 "Underestimate of Tax" ("not less than ninety percent (90%) of the … |
+| ☐ | `safe_harbor.prior_pct` | 1 | verified | AR2210 (2025) Part II line 5 ("2024 net tax") and line 6 ("Required annual payment. Enter the smaller of line 2 or line 5"); AR1000ES 2025 ("computed on the lesser of the current year's tax liability or the previous y… |
+| ☐ | `safe_harbor.high_agi_rule` | null | verified | No high-AGI rule: AR2210 (2025) Part II lines 5-6 use 100% of 2024 net tax with no AGI test; DFA Subject 105 states only 90% current / 100% prior |
+| ☐ | `installments.due_dates` | ["2025-04-15","2025-06-16","2025-09-15","2026-01-15"] | verified | AR2210 (2025) Part III column dates 4-15-2025, 6-15-2025, 9-15-2025, 1-15-2026; AR2210 Instructions 1(c) (15th day of the 4th, 6th, 9th months and 1st month after year end); AR1000ES 2025 "Important Notice" (Saturday,… |
+| ☐ | `installments.pcts` | [0.25,0.25,0.25,0.25] | verified | AR2210 (2025) line 7 ("Enter 1/4 (.25) of line 6 ... in each column"); AR1000ES 2025 worksheet ("Enter on voucher one-fourth (1/4) of line 8. (Make four (4) installments.)") |
+| ☐ | `farmer.rule` | {"ratio":0.6666666666,"current_pct":0.9,"due_date":"2026-02-17","fi… | unverified | Ratio and dates VERIFIED: AR1000ES 2025 "Exception" and AR2210 Instructions exception 1 (farming income at least two-thirds of total gross income; declare and pay by the 15th day of the 2nd month after year end, or fi… |
+| ☐ | `penalty.rate_source` | "state" | verified | AR1000ES 2025 "Underestimate of Tax" ("a penalty of ten percent (10%) per annum shall be added to the amount of the underestimate"); AR2210 Instructions 2(b); AR2210 (2025) line 16 (x .10) - a fixed state rate, not th… |
+| ☐ | `penalty.rate` | 0.1 | verified | AR2210 (2025) line 16 ("Underpayment from line 13 x Number of days from line 15 / 365 x .10"), line 15 (days to payment date or 4-15-2026, whichever is earlier); AR1000ES 2025 (10% per annum, assessed quarterly) |
+| ☐ | `credit_for_other_state` | true | verified | AR1000F/AR1000NR Instructions 2025, Line 36 (Form AR1000TC credits include "Other State Tax Credit") |
+| ☐ | `nonresident_method` | "ratio" | verified | AR1000F/AR1000NR Instructions 2025, Lines 38A-38D (AR1000NR: Arkansas AGI (col. C) / total AGI (cols. A+B) = Arkansas percentage of income, x net tax computed on all income = "Arkansas apportioned tax liability") |
+| ☐ | `holidays` | ["2025-01-01","2025-01-20","2025-02-17","2025-05-26","2025-07-04","… | unverified | UNVERIFIED: Ark. Code §1-5-101 (state holidays) could not be read in a primary source (Justia/arkleg returned 403); list built from secondary summaries of that section (New Year's Day; MLK Day 3rd Mon Jan; George Wash… |
+
+### AR 2026: 13 keys, 11 verified by the researcher
+
+| ☐ | Key | Value | Status | Citation |
+|---|---|---|---|---|
+| ☐ | `has_income_tax` | true | verified | Act 1 of 2026 (1st Extraordinary Session, HB1001, approved 5/6/26) §1 amending Ark. Code §26-51-201(a)(4) (individual rates for tax years beginning on or after Jan. 1, 2026); DFA AR1000ES 2026 |
+| ☐ | `required_threshold` | 1000 | verified | DFA AR1000ES 2026 (Instr. R 10/14/2025) worksheet line 8 ("If $1,000 or more, file the Declaration Voucher. If less than $1,000 no Declaration Voucher is required"; estimated tax = tax - credits - AR withholding). CAU… |
+| ☐ | `safe_harbor.current_pct` | 0.9 | verified | DFA AR1000ES 2026 "Underestimate of Tax" ("not less than ninety percent (90%) of the amount actually due"; penalty if quarterly payments are not "at least ninety percent (90%) of the amount actually due"). 2026 AR2210… |
+| ☐ | `safe_harbor.prior_pct` | 1 | verified | DFA AR1000ES 2026 "Underestimate of Tax" ("The Underestimate Penalty is computed on the lesser of the current year's tax liability or the previous year's tax liability"); DFA Subject 105 (100% of last year's tax if a … |
+| ☐ | `safe_harbor.high_agi_rule` | null | verified | No high-AGI rule: DFA AR1000ES 2026 refers only to "the previous year's tax liability" with no AGI test; DFA Subject 105; AR2210 (2025) lines 5-6 |
+| ☐ | `installments.due_dates` | ["2026-04-15","2026-06-15","2026-09-15","2027-01-15"] | verified | DFA AR1000ES 2026 worksheet (declaration dates April 15, June 15, September 15, 2026 and January 15, 2027) and holiday/weekend note; AR2210 Instructions 1(c). None of these dates is a weekend or AR holiday (Wed/Mon/Tu… |
+| ☐ | `installments.pcts` | [0.25,0.25,0.25,0.25] | verified | DFA AR1000ES 2026 worksheet ("If you first become liable to file a declaration on April 15, 2026: Enter on voucher one-fourth (1/4) of line 8. (Make four (4) installments.)") |
+| ☐ | `farmer.rule` | {"ratio":0.6666666666,"current_pct":0.9,"due_date":"2027-02-16","fi… | unverified | Ratio and dates VERIFIED: DFA AR1000ES 2026 "Exception" (farming income at least two-thirds; pay by the 15th day of the 2nd month after year end, or file and pay in full by the 15th day of the 3rd month). Feb 15, 2027… |
+| ☐ | `penalty.rate_source` | "state" | verified | DFA AR1000ES 2026 "Underestimate of Tax" (penalty of ten percent (10%) per annum, assessed on a quarterly basis) - fixed state rate |
+| ☐ | `penalty.rate` | 0.1 | verified | DFA AR1000ES 2026 "Underestimate of Tax" ("a penalty of ten percent (10%) per annum shall be added to the amount of the underestimate"); AR2210 Instructions (R 6/27/2025) Part II (days / 365 x 10%) |
+| ☐ | `credit_for_other_state` | true | verified | AR1000F/AR1000NR Instructions 2025, Line 36 (AR1000TC "Other State Tax Credit"); no 2026 change found. 2026 return instructions not yet published at research time. |
+| ☐ | `nonresident_method` | "ratio" | verified | AR1000F/AR1000NR Instructions 2025, Lines 38A-38D (Arkansas percentage of income x net tax on all income). 2026 instructions not yet published at research time; method unchanged by Act 1 of 2026 (rates only). |
+| ☐ | `holidays` | ["2026-01-01","2026-01-19","2026-02-16","2026-05-25","2026-07-03","… | unverified | UNVERIFIED: Ark. Code §1-5-101 could not be read in a primary source (403); list built from secondary summaries (see TY2025 row). Calendar years 2026-2027; Dec 25, 2027 (Saturday) observance overlaps Christmas Eve Fri… |
+
 
 ## Manual QA checklist
 _(Phase 11.)_
@@ -423,5 +496,7 @@ _(Phase 11.)_
 **Books → tax basis (`getTaxBasisPl`):** money is a 4-decimal string; character totals and account amounts are profit-positive (income +, expense −); owner amounts, payments, add-backs, W-2 wages and farming gross income are positive magnitudes. Character mapping: rental/farm_rental activity → `rental`; "capital gain" code → long term unless it says short term; 1231/4797 → `section_1231`; interest/dividend codes keep that character only on income accounts; unassigned accounts are ordinary + warning. TB RJEs are shown per account but NOT applied (avoids double counting with estimator adjustments). Depreciation flagged `tax_depreciation_differs` keeps the BOOK amount in profit; the adjustment 'Depreciation (tax vs book)' carries the FULL TAX amount and the engine replaces book with tax (so the engine must net book vs tax itself; the provider reports the book amount). Suspense balances are tenant-wide. Cache key = (tenant, company, year, basis, GL stamp, config hash), no Redis invalidation needed.
 **Readiness:** an account is closed through a month only if its completed reconciliation's statement date is that month's last day (a statement ending Sep 15 counts as closed through August).
 **Adjustments:** `kind` ∈ income|deduction|addback with positive `amount`; meals is an addback with `default_pct` 50, the adjustment's `pct` overrides; month index 0 = January; `allocateAdjustment` / `splitActualsAndRemaining` in shared are the allocators; GL-linked adjustment with `amount = NULL` means run-rate; `sourced_manual = false` means derive sourced income (entity `state_sourcing` × share). Year-level inputs are shared across scenarios (only adjustments and state rows are cloned). Safe-harbor precedence: year → taxpayer → firm default (`lesser_of`). Prior-year tax/AGI are decrypted only in `years.service.ts`; the engine takes them through a service call.
-**Known gaps for later phases:** estimated-tax payments are read only within the calendar year window — **Phase 10 must also include January payments of the following year toward the Q4 installment** (and the prior-year overpayment on the original due date); the Annual-settings UI has no GL-account picker for GL-linked adjustments (API only) and no state-rule verification badge; the Entity tax setup screen (UI-SPEC §06) is not built yet.
+**Known gaps for later phases:** estimated-tax payments are read only within the calendar year window — **Phase 10 must also include January payments of the following year toward the Q4 installment** (and the prior-year overpayment on the original due date); the Annual-settings UI has no GL-account picker for GL-linked adjustments (API only) and no state-rule verification badge; (the Entity tax setup screen has since been built).
 **State rules:** `resolveStateRulesForEngine(state, year)` → `{rules, usesFederalFallback, verifyBadge}`; a complete provisional-from-prior set is usable with the verify badge; incomplete or missing sets fall back to the federal pattern. Idaho, Arizona and Georgia estimate tests are not expressible with `required_threshold` (gross-income tests / unverified mappings): see the batch reports before relying on them.
+
+**State rules the engine must special-case (from the Phase 2 audits, see OPEN-QUESTIONS Q26):** Idaho and Utah have no quarterly individual regime (never schedule four vouchers or compute an installment penalty; Utah has a single prepayment test); `farmer.rule` null OR `current_pct: 0` in OK/OR/MT/VT means exempt (no installments, no penalty); AZ threshold is 1000 with an unexpressible gross-income test; GA threshold 0; IL/IN/MI/VT/CT/DE/HI/DC penalties are not annual rates; AL 2026 penalty source is 'federal' with a null rate (no engine code reads penalty source yet).
