@@ -277,6 +277,7 @@ const TaxParametersPage = lazyNamed(() => import('./features/tax-estimator/admin
 const TaxEstimatorLayout = lazyNamed(() => import('./features/tax-estimator/TaxEstimatorLayout'), 'TaxEstimatorLayout');
 const TaxpayerListPage = lazyNamed(() => import('./features/tax-estimator/taxpayers/TaxpayerListPage'), 'TaxpayerListPage');
 const TaxpayerDetailPage = lazyNamed(() => import('./features/tax-estimator/taxpayers/TaxpayerDetailPage'), 'TaxpayerDetailPage');
+const EntityTaxSetupPage = lazyNamed(() => import('./features/tax-estimator/entities/EntityTaxSetupPage'), 'EntityTaxSetupPage');
 const AnnualSettingsPage = lazyNamed(() => import('./features/tax-estimator/years/AnnualSettingsPage'), 'AnnualSettingsPage');
 const TbLayout = lazyNamed(() => import('./features/tb/TbLayout'), 'TbLayout');
 const TbSettingsPage = lazyNamed(() => import('./features/tb/TbSettingsPage'), 'TbSettingsPage');
@@ -659,6 +660,7 @@ export function App() {
               <Route path="taxpayers" element={<TaxpayerListPage />} />
               <Route path="taxpayers/:id" element={<TaxpayerDetailPage />} />
               <Route path="taxpayers/:id/annual-settings" element={<AnnualSettingsPage />} />
+              <Route path="entities/:tenantId/:companyId" element={<EntityTaxSetupPage />} />
             </Route>
             {/* Trial Balance module (docs/tb/BUILD_PLAN.md) — TbLayout
                 guards on TRIAL_BALANCE_V1 + staff role. */}

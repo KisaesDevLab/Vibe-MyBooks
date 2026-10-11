@@ -3,6 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { LinkDTO, PersonDTO } from '@kis-books/shared';
 import { useTaxpayerLinks, useUpsertLink, useRemoveLink } from '../../../api/hooks/useTaxEstimatorTaxpayers';
 import { Button } from '../../../components/ui/Button';
@@ -84,6 +85,7 @@ export function LinksSection({ taxpayerId, persons, canWrite }: { taxpayerId: st
                       {[l.partnerSeStatus && SE_STATUS_LABELS[l.partnerSeStatus], l.isOfficer && 'Officer', l.allowedLossOverride != null && 'Loss override'].filter(Boolean).join(', ')}
                     </td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
+                      {!l.outOfScope && <Link className="text-sm text-primary-600 hover:underline mr-2" to={`/tax-estimator/entities/${l.tenantId}/${l.companyId}?year=${taxYear}`}>Entity tax setup</Link>}
                       {canWrite && !l.outOfScope && <Button variant="ghost" size="sm" onClick={() => setEditing(l)}>Edit</Button>}
                       {canWrite && <Button variant="ghost" size="sm" disabled={remove.isPending} onClick={() => remove.mutate(l.id)}>Remove</Button>}
                     </td>
