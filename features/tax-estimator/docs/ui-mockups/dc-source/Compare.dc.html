@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scenario Compare</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{color:#0E5A61}a:hover{color:#083A3F}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16191D; background: #F6F5F1; min-height: 100vh; font-variant-numeric: tabular-nums">
+
+  <header style="background: #16191D; color: #F6F5F1; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 52px">
+    <div style="font-weight: 700; font-size: 17px; letter-spacing: 0.2px">MyBooks</div>
+    <div style="font-size: 13px; color: #B9BEC4">Sample CPA Firm</div>
+    <nav style="display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; font-size: 13px">
+      <a href="Entity.dc.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Clients</a>
+      <a href="#" style="color: #F6F5F1; text-decoration: none; padding: 8px 10px; background: #2A2F35; border-radius: 6px">Taxpayers</a>
+      <a href="#" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Reports</a>
+      <a href="Parameters.dc.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Admin</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 20px">
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 13px; color: #5A6169">Taxpayers › Daniel &amp; Maria Rivera › Tax Estimator</div>
+      <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.3px">Compare scenarios · 2026 projected</h1>
+    </div>
+
+    <nav aria-label="Estimator sections" style="display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #E2E0D8">
+      <a href="Main.dc.html" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Summary</a>
+      <a href="Settings.dc.html" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Annual settings</a>
+      <a href="Compare.dc.html" style="text-decoration: none; color: #16191D; font-weight: 600; font-size: 14px; padding: 12px 14px; border-bottom: 2px solid #0E5A61">Scenarios</a>
+      <a href="Main.dc.html#vouchers" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Payments</a>
+    </nav>
+
+    <section aria-label="Scenarios being compared" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px">
+      <sc-for list="{{cards}}" as="c" hint-placeholder-count="3">
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">{{c.slot}}
+            <select style="font: inherit; font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>{{c.name}}</option></select>
+          </label>
+          <div style="font-size: 13px; color: #3F474F; min-height: 36px">{{c.desc}}</div>
+          <div style="display: flex; align-items: baseline; gap: 10px">
+            <span style="font-size: 28px; font-weight: 600; letter-spacing: -0.5px">{{c.total}}</span>
+            <span style="font-size: 13px; font-weight: 600; color: {{c.deltaColor}}">{{c.delta}}</span>
+          </div>
+          <div style="height: 10px; background: #EEECE6; border-radius: 5px; overflow: hidden">
+            <div style="height: 10px; border-radius: 5px; background: {{c.barColor}}; width: {{c.bar}}"></div>
+          </div>
+          <div style="font-size: 12px; color: #5A6169">Total estimated tax · next federal payment {{c.q4}}</div>
+        </div>
+      </sc-for>
+    </section>
+
+    <section aria-label="Line comparison" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #E2E0D8">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Line by line</h2>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; margin-left: auto; min-height: 36px"><input type="checkbox" checked> Show change vs. Base</label>
+        <button style="font: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Export PDF</button>
+      </div>
+      <div style="overflow-x: auto">
+        <div style="min-width: 760px">
+          <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+            <div>Line</div><div style="text-align: right">Base</div><div style="text-align: right">Buy truck in Dec</div><div style="text-align: right">Raise Maria's wages</div>
+          </div>
+          <sc-for list="{{lines}}" as="l" hint-placeholder-count="14">
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; {{l.rowStyle}}">
+              <div>{{l.label}}</div>
+              <div style="text-align: right">{{l.a}}</div>
+              <div style="text-align: right">{{l.b}}<span style="display: block; font-size: 12px; font-weight: 600; color: {{l.bColor}}">{{l.bd}}</span></div>
+              <div style="text-align: right">{{l.c}}<span style="display: block; font-size: 12px; font-weight: 600; color: {{l.cColor}}">{{l.cd}}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="padding: 12px 18px; font-size: 12px; color: #5A6169; border-top: 1px solid #E2E0D8">Calculated with 2026 brackets, so marginal effects are exact. Raise Maria's wages cuts the bakery's income by the extra wages plus 7.65% employer FICA; employee FICA withheld is not shown. Tax rows: a minus sign means lower tax, a plus sign means higher tax.</div>
+    </section>
+
+    <footer style="font-size: 12px; color: #5A6169; display: flex; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid #E2E0D8; padding-top: 14px">
+      <span style="font-weight: 600; color: #16191D">Projection based on bookkeeping records and the assumptions listed. Not a tax return.</span>
+      <span>Up to 3 scenarios · Sample data</span>
+    </footer>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":1260}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var down = '#1E5C34';
+    var up = '#8A4B08';
+    var flat = '#5A6169';
+    function col(d, isTax) {
+      if (!isTax) return flat;
+      return d.charAt(0) === '−' ? down : d.charAt(0) === '+' ? up : flat;
+    }
+    function row(label, a, b, bd, c, cd, strong, isTax) {
+      return { label: label, a: a, b: b, bd: bd, c: c, cd: cd, bColor: col(bd, isTax), cColor: col(cd, isTax), rowStyle: strong ? 'font-weight: 600; background: #FAFAF7' : '' };
+    }
+    return {
+      cards: [
+        { slot: 'Scenario A', name: 'Base', desc: 'Books through Sep (closed), run-rate on recurring items to December.', total: '$43,732', delta: '', deltaColor: flat, bar: '94%', barColor: '#5A6169', q4: '$7,046' },
+        { slot: 'Scenario B', name: 'Buy truck in December', desc: '§179 on a $60,000 work truck placed in service Dec 2026 · SEP reduced to its $12,639 limit.', total: '$24,199', delta: '−19,533', deltaColor: down, bar: '52%', barColor: '#0E5A61', q4: '$0 (overpaid $8,610)' },
+        { slot: 'Scenario C', name: "Raise Maria's wages", desc: 'Officer wages $4,500 → $6,000 a month from January · Ozark Hearth.', total: '$46,319', delta: '+2,587', deltaColor: up, bar: '100%', barColor: '#B4690E', q4: '$9,076' }
+      ],
+      lines: [
+        row('Total income', '232,400', '172,400', '−60,000', '240,712', '+8,312', false, false),
+        row('Self-employment tax', '18,086', '9,608', '−8,478', '18,086', '0', false, true),
+        row('SEP-IRA deducted', '15,000', '12,639', 'capped at limit', '15,000', '0', false, false),
+        row('Adjusted gross income', '197,557', '144,157', '−53,400', '205,869', '+8,312', false, false),
+        row('QBI deduction', '(26,631)', '(15,951)', '10,680 smaller', '(24,694)', '1,937 smaller', false, false),
+        row('Taxable income', '138,726', '96,005', '−42,721', '148,975', '+10,249', false, false),
+        row('Regular tax (brackets)', '19,944', '11,025', '−8,919', '22,198', '+2,254', false, true),
+        row('Marginal federal rate', '22%', '12%', 'drops a bracket', '22%', 'same', false, false),
+        row('Additional Medicare + NIIT', '0', '0', '0', '0', '0', false, true),
+        row('Nonrefundable credits', '(2,200)', '(2,200)', '0', '(2,200)', '0', false, true),
+        row('Federal total', '35,829', '18,433', '−17,396', '38,084', '+2,255', true, true),
+        row('State total (MO resident + AR)', '7,902', '5,766', '−2,136', '8,235', '+333', true, true),
+        row('Total estimated tax', '43,732', '24,199', '−19,533', '46,319', '+2,587', true, true),
+        row('Federal safe-harbor required', '32,246', '16,590', '−15,656', '34,276', '+2,030', false, true)
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

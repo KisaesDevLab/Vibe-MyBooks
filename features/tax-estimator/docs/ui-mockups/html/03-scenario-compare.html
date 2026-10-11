@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenario Compare — MyBooks Tax Estimator mockup (v2)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{color:#0E5A61}a:hover{color:#083A3F}
+</style>
+
+</head>
+<body>
+
+
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16191D; background: #F6F5F1; min-height: 100vh; font-variant-numeric: tabular-nums">
+
+  <header style="background: #16191D; color: #F6F5F1; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 52px">
+    <div style="font-weight: 700; font-size: 17px; letter-spacing: 0.2px">MyBooks</div>
+    <div style="font-size: 13px; color: #B9BEC4">Sample CPA Firm</div>
+    <nav style="display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; font-size: 13px">
+      <a href="06-entity-tax-setup.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Clients</a>
+      <a href="#" style="color: #F6F5F1; text-decoration: none; padding: 8px 10px; background: #2A2F35; border-radius: 6px">Taxpayers</a>
+      <a href="#" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Reports</a>
+      <a href="04-tax-parameters-admin.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Admin</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 20px">
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 13px; color: #5A6169">Taxpayers › Daniel &amp; Maria Rivera › Tax Estimator</div>
+      <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.3px">Compare scenarios · 2026 projected</h1>
+    </div>
+
+    <nav aria-label="Estimator sections" style="display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #E2E0D8">
+      <a href="01-estimate-summary.html" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Summary</a>
+      <a href="02-annual-settings.html" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Annual settings</a>
+      <a href="03-scenario-compare.html" style="text-decoration: none; color: #16191D; font-weight: 600; font-size: 14px; padding: 12px 14px; border-bottom: 2px solid #0E5A61">Scenarios</a>
+      <a href="01-estimate-summary.html#vouchers" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Payments</a>
+    </nav>
+
+    <section aria-label="Scenarios being compared" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px">
+      
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">Scenario A
+            <select style="font: inherit; font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Base</option></select>
+          </label>
+          <div style="font-size: 13px; color: #3F474F; min-height: 36px">Books through Sep (closed), run-rate on recurring items to December.</div>
+          <div style="display: flex; align-items: baseline; gap: 10px">
+            <span style="font-size: 28px; font-weight: 600; letter-spacing: -0.5px">$43,732</span>
+            <span style="font-size: 13px; font-weight: 600; color: #5A6169"></span>
+          </div>
+          <div style="height: 10px; background: #EEECE6; border-radius: 5px; overflow: hidden">
+            <div style="height: 10px; border-radius: 5px; background: #5A6169; width: 94%"></div>
+          </div>
+          <div style="font-size: 12px; color: #5A6169">Total estimated tax · next federal payment $7,046</div>
+        </div>
+      
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">Scenario B
+            <select style="font: inherit; font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Buy truck in December</option></select>
+          </label>
+          <div style="font-size: 13px; color: #3F474F; min-height: 36px">§179 on a $60,000 work truck placed in service Dec 2026 · SEP reduced to its $12,639 limit.</div>
+          <div style="display: flex; align-items: baseline; gap: 10px">
+            <span style="font-size: 28px; font-weight: 600; letter-spacing: -0.5px">$24,199</span>
+            <span style="font-size: 13px; font-weight: 600; color: #1E5C34">−19,533</span>
+          </div>
+          <div style="height: 10px; background: #EEECE6; border-radius: 5px; overflow: hidden">
+            <div style="height: 10px; border-radius: 5px; background: #0E5A61; width: 52%"></div>
+          </div>
+          <div style="font-size: 12px; color: #5A6169">Total estimated tax · next federal payment $0 (overpaid $8,610)</div>
+        </div>
+      
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">Scenario C
+            <select style="font: inherit; font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Raise Maria's wages</option></select>
+          </label>
+          <div style="font-size: 13px; color: #3F474F; min-height: 36px">Officer wages $4,500 → $6,000 a month from January · Ozark Hearth.</div>
+          <div style="display: flex; align-items: baseline; gap: 10px">
+            <span style="font-size: 28px; font-weight: 600; letter-spacing: -0.5px">$46,319</span>
+            <span style="font-size: 13px; font-weight: 600; color: #8A4B08">+2,587</span>
+          </div>
+          <div style="height: 10px; background: #EEECE6; border-radius: 5px; overflow: hidden">
+            <div style="height: 10px; border-radius: 5px; background: #B4690E; width: 100%"></div>
+          </div>
+          <div style="font-size: 12px; color: #5A6169">Total estimated tax · next federal payment $9,076</div>
+        </div>
+      
+    </section>
+
+    <section aria-label="Line comparison" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #E2E0D8">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Line by line</h2>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; margin-left: auto; min-height: 36px"><input type="checkbox" checked=""> Show change vs. Base</label>
+        <button style="font: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Export PDF</button>
+      </div>
+      <div style="overflow-x: auto">
+        <div style="min-width: 760px">
+          <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+            <div>Line</div><div style="text-align: right">Base</div><div style="text-align: right">Buy truck in Dec</div><div style="text-align: right">Raise Maria's wages</div>
+          </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>Total income</div>
+              <div style="text-align: right">232,400</div>
+              <div style="text-align: right">172,400<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">−60,000</span></div>
+              <div style="text-align: right">240,712<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">+8,312</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>Self-employment tax</div>
+              <div style="text-align: right">18,086</div>
+              <div style="text-align: right">9,608<span style="display: block; font-size: 12px; font-weight: 600; color: #1E5C34">−8,478</span></div>
+              <div style="text-align: right">18,086<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">0</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>SEP-IRA deducted</div>
+              <div style="text-align: right">15,000</div>
+              <div style="text-align: right">12,639<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">capped at limit</span></div>
+              <div style="text-align: right">15,000<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">0</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>Adjusted gross income</div>
+              <div style="text-align: right">197,557</div>
+              <div style="text-align: right">144,157<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">−53,400</span></div>
+              <div style="text-align: right">205,869<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">+8,312</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>QBI deduction</div>
+              <div style="text-align: right">(26,631)</div>
+              <div style="text-align: right">(15,951)<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">10,680 smaller</span></div>
+              <div style="text-align: right">(24,694)<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">1,937 smaller</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>Taxable income</div>
+              <div style="text-align: right">138,726</div>
+              <div style="text-align: right">96,005<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">−42,721</span></div>
+              <div style="text-align: right">148,975<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">+10,249</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>Regular tax (brackets)</div>
+              <div style="text-align: right">19,944</div>
+              <div style="text-align: right">11,025<span style="display: block; font-size: 12px; font-weight: 600; color: #1E5C34">−8,919</span></div>
+              <div style="text-align: right">22,198<span style="display: block; font-size: 12px; font-weight: 600; color: #8A4B08">+2,254</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>Marginal federal rate</div>
+              <div style="text-align: right">22%</div>
+              <div style="text-align: right">12%<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">drops a bracket</span></div>
+              <div style="text-align: right">22%<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">same</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>Additional Medicare + NIIT</div>
+              <div style="text-align: right">0</div>
+              <div style="text-align: right">0<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">0</span></div>
+              <div style="text-align: right">0<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">0</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>Nonrefundable credits</div>
+              <div style="text-align: right">(2,200)</div>
+              <div style="text-align: right">(2,200)<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">0</span></div>
+              <div style="text-align: right">(2,200)<span style="display: block; font-size: 12px; font-weight: 600; color: #5A6169">0</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; font-weight: 600; background: #FAFAF7">
+              <div>Federal total</div>
+              <div style="text-align: right">35,829</div>
+              <div style="text-align: right">18,433<span style="display: block; font-size: 12px; font-weight: 600; color: #1E5C34">−17,396</span></div>
+              <div style="text-align: right">38,084<span style="display: block; font-size: 12px; font-weight: 600; color: #8A4B08">+2,255</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; font-weight: 600; background: #FAFAF7">
+              <div>State total (MO resident + AR)</div>
+              <div style="text-align: right">7,902</div>
+              <div style="text-align: right">5,766<span style="display: block; font-size: 12px; font-weight: 600; color: #1E5C34">−2,136</span></div>
+              <div style="text-align: right">8,235<span style="display: block; font-size: 12px; font-weight: 600; color: #8A4B08">+333</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; font-weight: 600; background: #FAFAF7">
+              <div>Total estimated tax</div>
+              <div style="text-align: right">43,732</div>
+              <div style="text-align: right">24,199<span style="display: block; font-size: 12px; font-weight: 600; color: #1E5C34">−19,533</span></div>
+              <div style="text-align: right">46,319<span style="display: block; font-size: 12px; font-weight: 600; color: #8A4B08">+2,587</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: baseline; ">
+              <div>Federal safe-harbor required</div>
+              <div style="text-align: right">32,246</div>
+              <div style="text-align: right">16,590<span style="display: block; font-size: 12px; font-weight: 600; color: #1E5C34">−15,656</span></div>
+              <div style="text-align: right">34,276<span style="display: block; font-size: 12px; font-weight: 600; color: #8A4B08">+2,030</span></div>
+            </div>
+          
+        </div>
+      </div>
+      <div style="padding: 12px 18px; font-size: 12px; color: #5A6169; border-top: 1px solid #E2E0D8">Calculated with 2026 brackets, so marginal effects are exact. Raise Maria's wages cuts the bakery's income by the extra wages plus 7.65% employer FICA; employee FICA withheld is not shown. Tax rows: a minus sign means lower tax, a plus sign means higher tax.</div>
+    </section>
+
+    <footer style="font-size: 12px; color: #5A6169; display: flex; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid #E2E0D8; padding-top: 14px">
+      <span style="font-weight: 600; color: #16191D">Projection based on bookkeeping records and the assumptions listed. Not a tax return.</span>
+      <span>Up to 3 scenarios · Sample data</span>
+    </footer>
+  </main>
+</div>
+
+</body>
+</html>

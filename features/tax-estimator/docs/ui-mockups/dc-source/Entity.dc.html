@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Entity Tax Setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{color:#0E5A61}a:hover{color:#083A3F}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16191D; background: #F6F5F1; min-height: 100vh; font-variant-numeric: tabular-nums">
+
+  <header style="background: #16191D; color: #F6F5F1; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 52px">
+    <div style="font-weight: 700; font-size: 17px; letter-spacing: 0.2px">MyBooks</div>
+    <div style="font-size: 13px; color: #B9BEC4">Sample CPA Firm</div>
+    <nav style="display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; font-size: 13px">
+      <a href="Entity.dc.html" style="color: #F6F5F1; text-decoration: none; padding: 8px 10px; background: #2A2F35; border-radius: 6px">Clients</a>
+      <a href="Main.dc.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Taxpayers</a>
+      <a href="#" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Reports</a>
+      <a href="Parameters.dc.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Admin</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 20px">
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 13px; color: #5A6169">Clients › Rivera Plumbing LLC › Settings</div>
+      <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.3px">Entity tax setup</h1>
+      <div style="font-size: 14px; color: #3F474F; max-width: 760px">How this entity's books turn into tax-basis income for the Tax Estimator. Owner items and estimated tax payments are moved out of business profit automatically.</div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px">
+
+      <section aria-label="Tax profile" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Tax profile</h2>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Tax return type
+          <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Schedule C · single-member LLC</option></select>
+        </label>
+        <fieldset style="border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px">
+          <legend style="font-size: 13px; font-weight: 500; color: #3F474F; padding: 0; margin-bottom: 6px">Tax accounting method</legend>
+          <div style="display: flex; gap: 4px; background: #F6F5F1; border-radius: 8px; padding: 3px">
+            <button aria-pressed="true" style="flex: 1; font: inherit; font-size: 13px; font-weight: 600; min-height: 38px; border: 0; border-radius: 6px; background: #FFFFFF; color: #16191D; cursor: pointer">Cash</button>
+            <button aria-pressed="false" style="flex: 1; font: inherit; font-size: 13px; font-weight: 600; min-height: 38px; border: 0; border-radius: 6px; background: transparent; color: #5A6169; cursor: pointer">Accrual</button>
+          </div>
+          <div style="font-size: 12px; color: #5A6169">Books report on accrual; the estimator pulls cash basis.</div>
+        </fieldset>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="checkbox"> Specified service trade or business (SSTB)</label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Income sourced to
+          <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Missouri</option></select>
+        </label>
+      </section>
+
+      <section aria-label="Owners and activity" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Owners &amp; activity · 2026</h2>
+          <button style="margin-left: auto; font: inherit; font-size: 13px; font-weight: 600; min-height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">+ Link owner</button>
+        </div>
+        <div style="border: 1px solid #E2E0D8; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; gap: 8px; align-items: baseline"><span style="font-weight: 600; font-size: 15px">Daniel Rivera</span><span style="font-size: 12px; color: #5A6169">Rivera household</span></div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 13px">
+            <span style="color: #5A6169">Profit share</span><span>100%</span>
+            <span style="color: #5A6169">Loss share</span><span>100%</span>
+            <span style="color: #5A6169">Activity</span><span>Active</span>
+            <span style="color: #5A6169">QBI</span><span>Eligible</span>
+            <span style="color: #5A6169">Loss allowed override</span><span>—</span>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #5A6169">Partnerships also show SE status (general, limited, LLC member-manager). Rental activity sets passive treatment, NII and the QBI trade-or-business default.</div>
+      </section>
+
+      <section aria-label="Books readiness" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Books readiness</h2>
+        <sc-for list="{{ready}}" as="rd" hint-placeholder-count="4">
+          <div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px">
+            <span style="flex: none; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; {{rd.dot}}">{{rd.mark}}</span>
+            <span style="flex: 1">{{rd.text}}<span style="display: block; font-size: 12px; color: #5A6169">{{rd.sub}}</span></span>
+          </div>
+        </sc-for>
+      </section>
+    </div>
+
+    <section aria-label="GL tax-treatment map" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid #E2E0D8">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">GL tax-treatment map</h2>
+        <div style="display: flex; gap: 4px; background: #F6F5F1; border-radius: 8px; padding: 3px; margin-left: 8px">
+          <sc-for list="{{filters}}" as="fl" hint-placeholder-count="3">
+            <button onClick="{{fl.pick}}" aria-pressed="{{fl.pressed}}" style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 12px; border: 0; border-radius: 6px; cursor: pointer; {{fl.style}}">{{fl.label}}</button>
+          </sc-for>
+        </div>
+        <button style="margin-left: auto; font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #0E5A61; background: #0E5A61; color: #FFFFFF; cursor: pointer">Review 2 suggestions</button>
+      </div>
+      <div style="overflow-x: auto">
+        <div style="min-width: 940px">
+          <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.4fr) 70px minmax(0, 1.3fr) 110px 110px 110px; gap: 12px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+            <div>Account</div><div>Tax treatment</div><div style="text-align: right">%</div><div>Routes to</div><div>Non-recurring</div><div style="text-align: right">YTD books</div><div style="text-align: right">Tax effect</div>
+          </div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+            <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.4fr) 70px minmax(0, 1.3fr) 110px 110px 110px; gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center; {{r.rowStyle}}">
+              <div><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">{{r.num}}</span> {{r.name}}</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+                <span style="font-size: 12px; font-weight: 600; border-radius: 4px; padding: 3px 8px; {{r.badge}}">{{r.treat}}</span>
+                <sc-if value="{{r.suggested}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-weight: 600; color: #6B3A06">Suggested · confirm</span></sc-if>
+              </div>
+              <div style="text-align: right">{{r.pct}}</div>
+              <div style="font-size: 13px; color: #3F474F">{{r.route}}</div>
+              <div><button aria-pressed="{{r.nrPressed}}" style="font: inherit; font-size: 13px; font-weight: 600; min-height: 32px; padding: 0 10px; border-radius: 6px; cursor: pointer; {{r.nrStyle}}">{{r.nrLabel}}</button></div>
+              <div style="text-align: right">{{r.ytd}}</div>
+              <div style="text-align: right; font-weight: 600">{{r.effect}}</div>
+            </div>
+          </sc-for>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 12px; padding: 12px 18px; border-top: 1px solid #E2E0D8; font-size: 14px">
+            <div>Book net income, Jan–Sep (cash basis)</div><div style="text-align: right">86,550</div>
+            <div>Reclassified and added back by the map</div><div style="text-align: right">+9,450</div>
+            <div style="font-weight: 700">Schedule C tax-basis profit, Jan–Sep</div><div style="text-align: right; font-weight: 700">96,000</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding: 12px 18px; font-size: 12px; color: #5A6169; border-top: 1px solid #E2E0D8">Suggestions come from account names and types and are never applied without confirmation. Unmapped accounts with activity are treated as ordinary and flagged. Individual transactions can also be marked non-recurring from the register.</div>
+    </section>
+
+    <footer style="font-size: 12px; color: #5A6169; display: flex; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid #E2E0D8; padding-top: 14px">
+      <span>Map changes are audit-logged and recalculate open estimates · Sample data</span>
+    </footer>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":1400}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: 'all' };
+  }
+  renderVals() {
+    var self = this;
+    var fil = this.state.filter;
+    var O = 'background: #EEF1F3; color: #2F363D';
+    var W = 'background: #E3EFEF; color: #0B4A50';
+    var N = 'background: #FBF0DC; color: #6B3A06';
+    var all = [
+      { num: '4000', name: 'Service revenue', treat: 'Ordinary', badge: O, pct: '', route: 'Sch C income', nr: false, nrLabel: 'No', ytd: '182,400', effect: '—', mapped: false, rowStyle: '' },
+      { num: '5000', name: 'Materials', treat: 'Ordinary', badge: O, pct: '', route: 'Sch C expense', nr: false, nrLabel: 'No', ytd: '(61,200)', effect: '—', mapped: false, rowStyle: '' },
+      { num: '6200', name: 'Owner health insurance', treat: 'Owner · SEHI', badge: W, pct: '100%', route: 'Daniel · SEHI (above the line)', nr: false, nrLabel: 'No', ytd: '(8,100)', effect: '+8,100', mapped: true, rowStyle: '' },
+      { num: '6420', name: 'Meals', treat: 'Nondeductible %', badge: N, pct: '50%', route: 'Added back to Sch C', nr: false, nrLabel: 'No', ytd: '(2,700)', effect: '+1,350', mapped: true, rowStyle: '' },
+      { num: '6150', name: 'Depreciation (book)', treat: 'Tax depreciation differs', badge: N, pct: '', route: 'Tax amount via adjustment', nr: false, nrLabel: 'No', ytd: '(4,500)', effect: 'adj. = book', mapped: true, rowStyle: '' },
+      { num: '3020', name: 'Owner draws · estimated taxes', treat: 'Estimated tax payment', badge: W, pct: '', route: 'Daniel · Federal · payment ledger', nr: false, nrLabel: 'No', ytd: '13,200', effect: 'payments only', mapped: true, suggested: true, rowStyle: 'background: #FFFBF2' },
+      { num: '7100', name: 'Gain on sale of equipment', treat: '§1231 gain', badge: N, pct: '', route: 'Owner · §1231 / NII test', nr: true, nrLabel: 'Yes', ytd: '0', effect: '—', mapped: true, suggested: true, rowStyle: 'background: #FFFBF2' },
+      { num: '6000', name: 'Other operating expenses', treat: 'Ordinary', badge: O, pct: '', route: 'Sch C expense', nr: false, nrLabel: 'No', ytd: '(19,350)', effect: '—', mapped: false, rowStyle: '' }
+    ];
+    all.forEach(function (x) { x.nrPressed = x.nr ? 'true' : 'false'; x.nrStyle = x.nr ? 'border: 1px solid #6B3A06; background: #FBF0DC; color: #6B3A06' : 'border: 1px solid #C9C6BC; background: #FFFFFF; color: #5A6169'; });
+    var rows = fil === 'mapped' ? all.filter(function (x) { return x.mapped; }) : all;
+    var filters = [['all', 'All accounts'], ['mapped', 'Non-ordinary']].map(function (p) {
+      var on = p[0] === fil;
+      return { label: p[1], pressed: on ? 'true' : 'false', style: on ? 'background: #FFFFFF; color: #16191D' : 'background: transparent; color: #5A6169', pick: function () { self.setState({ filter: p[0] }); } };
+    });
+    return {
+      rows: rows,
+      filters: filters,
+      ready: [
+        { mark: '✓', dot: 'background: #E4F1E7; color: #1E5C34', text: 'Closed through Sep 2026', sub: 'Operating checking and Business Visa reconciled' },
+        { mark: '✓', dot: 'background: #E4F1E7; color: #1E5C34', text: 'No suspense or uncategorized balances', sub: 'Ask My Accountant: $0' },
+        { mark: '!', dot: 'background: #FBF0DC; color: #6B3A06', text: '2 account mappings to confirm', sub: '3020 and 7100 have suggested treatments' },
+        { mark: '·', dot: 'background: #EEF1F3; color: #2F363D', text: 'October in progress', sub: 'Excluded from the run-rate until closed' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

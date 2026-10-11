@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annual Settings — MyBooks Tax Estimator mockup (v2)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{color:#0E5A61}a:hover{color:#083A3F}
+</style>
+
+</head>
+<body>
+
+
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16191D; background: #F6F5F1; min-height: 100vh; font-variant-numeric: tabular-nums">
+
+  <header style="background: #16191D; color: #F6F5F1; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 52px">
+    <div style="font-weight: 700; font-size: 17px; letter-spacing: 0.2px">MyBooks</div>
+    <div style="font-size: 13px; color: #B9BEC4">Sample CPA Firm</div>
+    <nav style="display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; font-size: 13px">
+      <a href="06-entity-tax-setup.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Clients</a>
+      <a href="#" style="color: #F6F5F1; text-decoration: none; padding: 8px 10px; background: #2A2F35; border-radius: 6px">Taxpayers</a>
+      <a href="#" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Reports</a>
+      <a href="04-tax-parameters-admin.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Admin</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 20px">
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 13px; color: #5A6169">Taxpayers › Daniel &amp; Maria Rivera › Tax Estimator</div>
+      <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.3px">Annual settings · 2026</h1>
+    </div>
+
+    <nav aria-label="Estimator sections" style="display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #E2E0D8">
+      <a href="01-estimate-summary.html" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Summary</a>
+      <a href="02-annual-settings.html" style="text-decoration: none; color: #16191D; font-weight: 600; font-size: 14px; padding: 12px 14px; border-bottom: 2px solid #0E5A61">Annual settings</a>
+      <a href="03-scenario-compare.html" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Scenarios</a>
+      <a href="01-estimate-summary.html#vouchers" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Payments</a>
+    </nav>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 12px 16px">
+      <span style="font-size: 13px; font-weight: 600; color: #5A6169; margin-right: 4px">Scenario</span>
+      <button aria-pressed="true" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #0E5A61; background: #0E5A61; color: #FFFFFF; cursor: pointer">Base</button>
+      <button aria-pressed="false" style="font: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Buy truck in December</button>
+      <button aria-pressed="false" style="font: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Raise Maria's wages</button>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto">
+        <button style="font: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Clone as new scenario</button>
+        <button style="font: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Rename</button>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px">
+
+      <section aria-label="Tax calculation" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Tax calculation</h2>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Filing status
+          <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Married filing jointly</option></select>
+        </label>
+        <fieldset style="border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px">
+          <legend style="font-size: 13px; font-weight: 500; color: #3F474F; padding: 0; margin-bottom: 6px">Federal tax method</legend>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="radio" name="rm" checked=""> 2026 brackets + capital gain rates <span style="font-size: 12px; color: #5A6169">default</span></label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="radio" name="rm"> Effective-rate override</label>
+        </fieldset>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Nonrefundable credits
+            <input value="$2,200" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; box-sizing: border-box; width: 100%">
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Refundable credits
+            <input value="$0" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; box-sizing: border-box; width: 100%">
+          </label>
+        </div>
+        <div style="font-size: 12px; color: #5A6169">Nonrefundable credits are capped at regular tax and never offset SE tax or NIIT.</div>
+        <fieldset style="border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px">
+          <legend style="font-size: 13px; font-weight: 500; color: #3F474F; padding: 0; margin-bottom: 6px">People</legend>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 12px; font-size: 14px; align-items: center">
+            <span>Daniel · born 1979</span><label style="display: flex; gap: 6px; align-items: center; min-height: 32px"><input type="checkbox"> Blind</label><span style="font-size: 12px; color: #5A6169">Under 65</span>
+            <span>Maria · born 1982</span><label style="display: flex; gap: 6px; align-items: center; min-height: 32px"><input type="checkbox"> Blind</label><span style="font-size: 12px; color: #5A6169">Under 65</span>
+          </div>
+        </fieldset>
+      </section>
+
+      <section aria-label="Deductions" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Deductions</h2>
+          <span style="margin-left: auto; font-size: 12px; font-weight: 600; background: #E3EFEF; color: #0E5A61; border-radius: 999px; padding: 3px 9px">Auto: standard wins</span>
+        </div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 6px 12px; font-size: 14px; align-items: center">
+          <span>State &amp; local taxes</span><input aria-label="State and local taxes" value="$11,000" style="font: inherit; font-size: 14px; padding: 7px 8px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 36px; box-sizing: border-box; width: 100%; text-align: right">
+          <span style="font-size: 12px; color: #5A6169; grid-column: 1 / -1; margin-top: -4px">SALT cap and MAGI phase-down applied from parameters</span>
+          <span>Mortgage interest</span><input aria-label="Mortgage interest" value="$8,350" style="font: inherit; font-size: 14px; padding: 7px 8px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 36px; box-sizing: border-box; width: 100%; text-align: right">
+          <span>Charitable</span><input aria-label="Charitable" value="$2,000" style="font: inherit; font-size: 14px; padding: 7px 8px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 36px; box-sizing: border-box; width: 100%; text-align: right">
+          <span style="font-weight: 600; padding-top: 6px; border-top: 1px solid #EEECE6">Itemized total</span><span style="font-weight: 600; text-align: right; padding-top: 6px; border-top: 1px solid #EEECE6">$21,350</span>
+          <span style="font-weight: 600">Standard (MFJ)</span><span style="font-weight: 600; text-align: right; color: #0E5A61">$32,200</span>
+        </div>
+        <div style="padding-top: 10px; border-top: 1px solid #E2E0D8; display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 13px; font-weight: 600; color: #3F474F">Schedule 1-A (in addition to either)</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px">
+            <span style="background: #F6F5F1; border-radius: 4px; padding: 3px 8px">Senior · none 65+</span>
+            <span style="background: #F6F5F1; border-radius: 4px; padding: 3px 8px">Tips · $0</span>
+            <span style="background: #F6F5F1; border-radius: 4px; padding: 3px 8px">Overtime · $0</span>
+            <span style="background: #F6F5F1; border-radius: 4px; padding: 3px 8px">Car-loan interest · $0</span>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="Prior year and safe harbor" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Prior year · safe harbor</h2>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">2025 federal tax
+            <input value="$31,500" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; box-sizing: border-box; width: 100%">
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">2025 AGI
+            <input value="$182,000" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; box-sizing: border-box; width: 100%">
+          </label>
+        </div>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="checkbox" checked=""> 2025 was a full 12-month year with a return filed</label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Recommended rule
+          <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Lesser of (override)</option><option>Firm default · prior year</option></select>
+        </label>
+        <div style="background: #E3EFEF; color: #0B4A50; border-radius: 8px; padding: 10px 12px; font-size: 13px"><strong>110% rule applies</strong> — prior AGI over $150,000. Both amounts always show on the summary.</div>
+        <div style="font-size: 12px; color: #5A6169">Prior-year return data is tax return information and is audit-logged.</div>
+      </section>
+
+      <section aria-label="States" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">States</h2>
+          <button style="margin-left: auto; font: inherit; font-size: 13px; font-weight: 600; min-height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">+ Add state</button>
+        </div>
+        <div style="border: 1px solid #E2E0D8; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px">
+          <div style="display: flex; gap: 8px; align-items: baseline"><span style="font-weight: 600; font-size: 15px">Missouri</span><span style="font-size: 12px; font-weight: 600; background: #E3EFEF; color: #0E5A61; border-radius: 999px; padding: 2px 8px">Resident</span><span style="margin-left: auto; font-size: 14px">4.00%</span></div>
+          <div style="font-size: 13px; color: #3F474F">Base: federal AGI · credit for tax paid to other states</div>
+          <div style="font-size: 12px; color: #1E5C34; font-weight: 600">Estimate rules verified</div>
+        </div>
+        <div style="border: 1px solid #E2E0D8; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px">
+          <div style="display: flex; gap: 8px; align-items: baseline"><span style="font-weight: 600; font-size: 15px">Arkansas</span><span style="font-size: 12px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 999px; padding: 2px 8px">Nonresident</span><span style="margin-left: auto; font-size: 14px">3.90%</span></div>
+          <div style="font-size: 13px; color: #3F474F">Sourced income $8,000 · from Riverbend Rentals LP (20%)</div>
+          <div style="font-size: 12px; color: #6B3A06; font-weight: 600">Estimate rules unverified · federal pattern</div>
+        </div>
+      </section>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+      <section aria-label="Adjustments" style="flex: 999 1 680px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 18px; border-bottom: 1px solid #E2E0D8">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Adjustments</h2>
+          <div style="display: flex; gap: 4px; background: #F6F5F1; border-radius: 8px; padding: 3px; margin-left: 8px">
+            <button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 12px; border: 0; border-radius: 6px; background: #FFFFFF; color: #16191D; cursor: pointer">All 7</button>
+            <button style="font: inherit; font-size: 13px; font-weight: 500; min-height: 34px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: #5A6169; cursor: pointer">Entity 1</button>
+            <button style="font: inherit; font-size: 13px; font-weight: 500; min-height: 34px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: #5A6169; cursor: pointer">Owner 6</button>
+          </div>
+          <button style="margin-left: auto; font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #0E5A61; background: #0E5A61; color: #FFFFFF; cursor: pointer">+ Add adjustment</button>
+        </div>
+        <div style="overflow-x: auto">
+          <div style="min-width: 860px">
+            <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) 92px 96px 110px minmax(0, 1.2fr) 88px 88px; gap: 10px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+              <div>Type</div><div>Applies to</div><div>Frequency</div><div style="text-align: right">Amount</div><div>GL link</div><div>Flags</div><div style="text-align: right">Jan–Sep</div><div style="text-align: right">2026</div>
+            </div>
+            
+              <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) 92px 96px 110px minmax(0, 1.2fr) 88px 88px; gap: 10px; padding: 11px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center; ">
+                <div style="font-weight: 500">Officer wages</div>
+                <div>Maria · Ozark Hearth<span style="display: block; font-size: 12px; color: #5A6169">Owner · S corp officer</span></div>
+                <div>Monthly</div>
+                <div style="text-align: right">4,500</div>
+                <div style="font-size: 13px; color: #3F474F">6010 Officer salaries</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px">
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">W-2 wages</span>
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">QBI W-2</span>
+                  
+                </div>
+                <div style="text-align: right">40,500</div>
+                <div style="text-align: right">54,000</div>
+              </div>
+            
+              <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) 92px 96px 110px minmax(0, 1.2fr) 88px 88px; gap: 10px; padding: 11px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center; ">
+                <div style="font-weight: 500">QBI W-2 wages</div>
+                <div>Ozark Hearth Bakery<span style="display: block; font-size: 12px; color: #5A6169">Entity</span></div>
+                <div>From GL</div>
+                <div style="text-align: right">100%</div>
+                <div style="font-size: 13px; color: #3F474F">6000 Wages</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px">
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">QBI W-2</span>
+                  
+                </div>
+                <div style="text-align: right">72,000</div>
+                <div style="text-align: right">96,000</div>
+              </div>
+            
+              <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) 92px 96px 110px minmax(0, 1.2fr) 88px 88px; gap: 10px; padding: 11px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center; ">
+                <div style="font-weight: 500">SE health insurance</div>
+                <div>Daniel<span style="display: block; font-size: 12px; color: #5A6169">Owner · from GL map</span></div>
+                <div>From GL</div>
+                <div style="text-align: right">100%</div>
+                <div style="font-size: 13px; color: #3F474F">6200 Owner health ins.</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px">
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">SEHI</span>
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">Not eligible Jan–Dec</span>
+                  
+                </div>
+                <div style="text-align: right">(8,100)</div>
+                <div style="text-align: right">(10,800)</div>
+              </div>
+            
+              <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) 92px 96px 110px minmax(0, 1.2fr) 88px 88px; gap: 10px; padding: 11px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center; ">
+                <div style="font-weight: 500">SEP-IRA</div>
+                <div>Daniel<span style="display: block; font-size: 12px; color: #5A6169">Owner</span></div>
+                <div>Annual</div>
+                <div style="text-align: right">15,000</div>
+                <div style="font-size: 13px; color: #3F474F">—</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px">
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">Retirement</span>
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">Limit 23,791</span>
+                  
+                </div>
+                <div style="text-align: right">(11,250)</div>
+                <div style="text-align: right">(15,000)</div>
+              </div>
+            
+              <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) 92px 96px 110px minmax(0, 1.2fr) 88px 88px; gap: 10px; padding: 11px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center; background: #F3F8F8">
+                <div style="font-weight: 500">Interest income</div>
+                <div>Household<span style="display: block; font-size: 12px; color: #5A6169">Owner</span></div>
+                <div>Quarterly</div>
+                <div style="text-align: right">600</div>
+                <div style="font-size: 13px; color: #3F474F">—</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px">
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">NII</span>
+                  
+                </div>
+                <div style="text-align: right">1,800</div>
+                <div style="text-align: right">2,400</div>
+              </div>
+            
+              <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) 92px 96px 110px minmax(0, 1.2fr) 88px 88px; gap: 10px; padding: 11px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center; ">
+                <div style="font-weight: 500">Federal withholding</div>
+                <div>Maria<span style="display: block; font-size: 12px; color: #5A6169">Owner · W-2</span></div>
+                <div>Monthly</div>
+                <div style="text-align: right">500</div>
+                <div style="font-size: 13px; color: #3F474F">—</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px">
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">Withholding</span>
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">Federal</span>
+                  
+                </div>
+                <div style="text-align: right">4,500</div>
+                <div style="text-align: right">6,000</div>
+              </div>
+            
+              <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) 92px 96px 110px minmax(0, 1.2fr) 88px 88px; gap: 10px; padding: 11px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center; ">
+                <div style="font-weight: 500">MO withholding</div>
+                <div>Maria<span style="display: block; font-size: 12px; color: #5A6169">Owner · W-2</span></div>
+                <div>Annual</div>
+                <div style="text-align: right">2,000</div>
+                <div style="font-size: 13px; color: #3F474F">—</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px">
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">Withholding</span>
+                  
+                    <span style="font-size: 11px; font-weight: 600; background: #EEF1F3; color: #2F363D; border-radius: 4px; padding: 2px 6px">MO</span>
+                  
+                </div>
+                <div style="text-align: right">1,500</div>
+                <div style="text-align: right">2,000</div>
+              </div>
+            
+          </div>
+        </div>
+      </section>
+
+      <aside aria-label="Edit adjustment" style="flex: 1 1 360px; min-width: 0; background: #FFFFFF; border: 2px solid #0E5A61; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Edit adjustment</h2>
+          <span style="margin-left: auto; font-size: 12px; color: #5A6169">Interest income</span>
+        </div>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Type
+          <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Interest income</option></select>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Applies to
+          <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Household (owner level)</option></select>
+        </label>
+        <fieldset style="border: 0; padding: 0; margin: 0">
+          <legend style="font-size: 13px; font-weight: 500; color: #3F474F; padding: 0; margin-bottom: 6px">Frequency</legend>
+          <div style="display: flex; gap: 4px; background: #F6F5F1; border-radius: 8px; padding: 3px">
+            
+              <button aria-pressed="false" style="flex: 1; font: inherit; font-size: 13px; font-weight: 600; min-height: 38px; border: 0; border-radius: 6px; cursor: pointer; background: transparent; color: #5A6169">Monthly</button>
+            
+              <button aria-pressed="true" style="flex: 1; font: inherit; font-size: 13px; font-weight: 600; min-height: 38px; border: 0; border-radius: 6px; cursor: pointer; background: #FFFFFF; color: #16191D">Quarterly</button>
+            
+              <button aria-pressed="false" style="flex: 1; font: inherit; font-size: 13px; font-weight: 600; min-height: 38px; border: 0; border-radius: 6px; cursor: pointer; background: transparent; color: #5A6169">Annual</button>
+            
+          </div>
+        </fieldset>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Amount
+            <input value="$600" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; box-sizing: border-box; width: 100%">
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Active from
+            <select style="font: inherit; font-size: 14px; padding: 9px 6px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Jan</option></select>
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Through
+            <select style="font: inherit; font-size: 14px; padding: 9px 6px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>Dec</option></select>
+          </label>
+        </div>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">GL link (optional)
+          <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>None — manual amount</option></select>
+        </label>
+        <fieldset style="border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px">
+          <legend style="font-size: 13px; font-weight: 500; color: #3F474F; padding: 0; margin-bottom: 6px">Tax effect</legend>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="checkbox"> Affects SE income</label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="checkbox" checked=""> Investment income (NII)</label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="checkbox"> Above the line</label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="checkbox"> QBI income</label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="checkbox"> W-2 wages</label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="checkbox"> Withholding</label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="checkbox"> Non-recurring</label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px"><input type="checkbox"> Qualified dividend / LTCG</label>
+        </fieldset>
+        <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid #E2E0D8">
+          <div style="font-size: 13px; font-weight: 600; color: #3F474F">Monthly allocation · <span style="color: #0E5A61">Jan–Sep in range</span></div>
+          <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px">
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #E3EFEF; color: #0B4A50">
+                <div style="font-size: 11px; font-weight: 600">Jan</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #E3EFEF; color: #0B4A50">
+                <div style="font-size: 11px; font-weight: 600">Feb</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #E3EFEF; color: #0B4A50">
+                <div style="font-size: 11px; font-weight: 600">Mar</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #E3EFEF; color: #0B4A50">
+                <div style="font-size: 11px; font-weight: 600">Apr</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #E3EFEF; color: #0B4A50">
+                <div style="font-size: 11px; font-weight: 600">May</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #E3EFEF; color: #0B4A50">
+                <div style="font-size: 11px; font-weight: 600">Jun</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #E3EFEF; color: #0B4A50">
+                <div style="font-size: 11px; font-weight: 600">Jul</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #E3EFEF; color: #0B4A50">
+                <div style="font-size: 11px; font-weight: 600">Aug</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #E3EFEF; color: #0B4A50">
+                <div style="font-size: 11px; font-weight: 600">Sep</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #F6F5F1; color: #5A6169">
+                <div style="font-size: 11px; font-weight: 600">Oct</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #F6F5F1; color: #5A6169">
+                <div style="font-size: 11px; font-weight: 600">Nov</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+              <div style="border-radius: 6px; padding: 6px 4px; text-align: center; background: #F6F5F1; color: #5A6169">
+                <div style="font-size: 11px; font-weight: 600">Dec</div>
+                <div style="font-size: 13px">200</div>
+              </div>
+            
+          </div>
+          <div style="display: flex; gap: 16px; font-size: 14px">
+            <span>Jan–Sep <strong>$1,800</strong></span>
+            <span>2026 <strong>$2,400</strong></span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <button style="flex: 1; font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; border-radius: 6px; border: 1px solid #0E5A61; background: #0E5A61; color: #FFFFFF; cursor: pointer">Save</button>
+          <button style="flex: 1; font: inherit; font-size: 14px; font-weight: 500; min-height: 44px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Cancel</button>
+        </div>
+      </aside>
+    </div>
+
+    <footer style="font-size: 12px; color: #5A6169; display: flex; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid #E2E0D8; padding-top: 14px">
+      <span style="font-weight: 600; color: #16191D">Projection based on bookkeeping records and the assumptions listed. Not a tax return.</span>
+      <span>Meals and owner health insurance now come from the GL tax-treatment map on Entity tax setup · Changes are audit-logged · Sample data</span>
+    </footer>
+  </main>
+</div>
+
+</body>
+</html>

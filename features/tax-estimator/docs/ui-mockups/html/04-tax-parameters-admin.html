@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tax Parameters Admin — MyBooks Tax Estimator mockup (v2)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{color:#0E5A61}a:hover{color:#083A3F}
+</style>
+
+</head>
+<body>
+
+
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16191D; background: #F6F5F1; min-height: 100vh; font-variant-numeric: tabular-nums">
+
+  <header style="background: #16191D; color: #F6F5F1; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 52px">
+    <div style="font-weight: 700; font-size: 17px; letter-spacing: 0.2px">MyBooks</div>
+    <div style="font-size: 13px; color: #B9BEC4">Sample CPA Firm</div>
+    <nav style="display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; font-size: 13px">
+      <a href="06-entity-tax-setup.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Clients</a>
+      <a href="01-estimate-summary.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Taxpayers</a>
+      <a href="#" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Reports</a>
+      <a href="04-tax-parameters-admin.html" style="color: #F6F5F1; text-decoration: none; padding: 8px 10px; background: #2A2F35; border-radius: 6px">Admin</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 20px">
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 13px; color: #5A6169">Admin › Tax Estimator</div>
+      <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.3px">Tax parameters</h1>
+      <div style="font-size: 14px; color: #3F474F; max-width: 760px">Every rate, threshold and date the estimator uses. Values ship with each release; your firm can override any value with a reason, and every change is audit-logged.</div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+      <div role="tablist" aria-label="Tax year" style="display: flex; gap: 4px; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 4px">
+        <button role="tab" aria-selected="false" style="font: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 16px; border: 0; border-radius: 7px; background: transparent; color: #5A6169; cursor: pointer">2025</button>
+        
+          <button role="tab" aria-selected="true" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 16px; border: 0; border-radius: 7px; cursor: pointer; background: #16191D; color: #FFFFFF">2026</button>
+        
+          <button role="tab" aria-selected="false" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 16px; border: 0; border-radius: 7px; cursor: pointer; background: transparent; color: #2C3E73">2027 · Provisional</button>
+        
+      </div>
+      <div style="font-size: 13px; color: #5A6169; margin-left: 8px">Shipped with release · 3 values unverified</div>
+      <div role="tablist" aria-label="Jurisdiction" style="display: flex; gap: 4px; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 4px; margin-left: auto">
+        
+          <button role="tab" aria-selected="true" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 16px; border: 0; border-radius: 7px; cursor: pointer; background: #16191D; color: #FFFFFF">Federal</button>
+        
+          <button role="tab" aria-selected="false" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 16px; border: 0; border-radius: 7px; cursor: pointer; background: transparent; color: #5A6169">States (41)</button>
+        
+      </div>
+    </div>
+
+    
+
+    
+    
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+      <section aria-label="Parameter values" style="flex: 999 1 700px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid #E2E0D8">
+          <label style="flex: 1 1 260px; display: flex"><span style="position: absolute; left: -9999px">Search parameters</span>
+            <input placeholder="Search keys or descriptions" style="font: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; width: 100%; box-sizing: border-box">
+          </label>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; font-weight: 600">
+            <span style="background: #E4F1E7; color: #1E5C34; border-radius: 999px; padding: 4px 10px">16 verified</span>
+            <span style="background: #FBF0DC; color: #6B3A06; border-radius: 999px; padding: 4px 10px">3 unverified</span>
+          </div>
+        </div>
+        <div style="overflow-x: auto">
+          <div style="min-width: 820px">
+            <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+              <div>Key</div><div>Description</div><div style="text-align: right">Value</div><div>Status</div><div>Source</div><div></div>
+            </div>
+            
+              <div style="padding: 12px 18px 4px; font-size: 13px; font-weight: 600; color: #0E5A61">Self-employment</div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">se.nese_factor</div>
+                  <div style="color: #3F474F">Net earnings factor</div>
+                  <div style="text-align: right; font-weight: 500">0.9235</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">IRC §1402(a)(12)</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">se.min_nese</div>
+                  <div style="color: #3F474F">Minimum net earnings</div>
+                  <div style="text-align: right; font-weight: 500">$400</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">IRC §1402(b)</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">se.ss_rate</div>
+                  <div style="color: #3F474F">Social Security rate</div>
+                  <div style="text-align: right; font-weight: 500">12.4%</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">IRC §1401(a)</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">se.ss_wage_base</div>
+                  <div style="color: #3F474F">Social Security wage base</div>
+                  <div style="text-align: right; font-weight: 500">$184,500</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">SSA, Oct 2025</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+            
+              <div style="padding: 12px 18px 4px; font-size: 13px; font-weight: 600; color: #0E5A61">Brackets & capital gains</div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">brackets.mfj</div>
+                  <div style="color: #3F474F">Ordinary brackets (7 bands)</div>
+                  <div style="text-align: right; font-weight: 500">10%–37%</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">Rev. Proc. 2025-32</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">ltcg.breakpoints.mfj</div>
+                  <div style="color: #3F474F">0% / 15% upper bounds</div>
+                  <div style="text-align: right; font-weight: 500">$98,900 / [VERIFY]</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #FBF0DC; color: #6B3A06">Unverified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">Rev. Proc. 2025-32</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+            
+              <div style="padding: 12px 18px 4px; font-size: 13px; font-weight: 600; color: #0E5A61">Deductions, QBI & losses</div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">std_deduction.mfj</div>
+                  <div style="color: #3F474F">Standard deduction</div>
+                  <div style="text-align: right; font-weight: 500">$32,200</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">Rev. Proc. 2025-32</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">sch1a.senior.amount</div>
+                  <div style="color: #3F474F">Senior deduction (per person)</div>
+                  <div style="text-align: right; font-weight: 500">$6,000</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">OBBBA §70103</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">qbi.threshold.mfj</div>
+                  <div style="color: #3F474F">QBI threshold</div>
+                  <div style="text-align: right; font-weight: 500">$403,500</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">Rev. Proc. 2025-32</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">qbi.phase_in_range.mfj</div>
+                  <div style="color: #3F474F">QBI phase-in range</div>
+                  <div style="text-align: right; font-weight: 500">$150,000</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">OBBBA</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">ebl.threshold.mfj</div>
+                  <div style="color: #3F474F">Excess business loss</div>
+                  <div style="text-align: right; font-weight: 500">$512,000</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">Rev. Proc. 2025-32</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+            
+              <div style="padding: 12px 18px 4px; font-size: 13px; font-weight: 600; color: #0E5A61">Retirement, HSA & penalty</div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">retirement.sep.pct_of_comp</div>
+                  <div style="color: #3F474F">SEP contribution rate</div>
+                  <div style="text-align: right; font-weight: 500">25%</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">IRC §402(h)</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">retirement.401k.deferral</div>
+                  <div style="color: #3F474F">401(k) elective deferral</div>
+                  <div style="text-align: right; font-weight: 500">[VERIFY]</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #FBF0DC; color: #6B3A06">Unverified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">IRS notice (Nov)</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">penalty.underpayment_rate</div>
+                  <div style="color: #3F474F">Underpayment rate · Q4 2026</div>
+                  <div style="text-align: right; font-weight: 500">7%</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #FBF0DC; color: #6B3A06">Unverified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">IRS news release</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+            
+              <div style="padding: 12px 18px 4px; font-size: 13px; font-weight: 600; color: #0E5A61">Safe harbor, installments & Sch AI</div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">safe_harbor.current_pct</div>
+                  <div style="color: #3F474F">Current-year percentage</div>
+                  <div style="text-align: right; font-weight: 500">90%</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">IRC §6654(d)</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">safe_harbor.prior_pct_high_agi</div>
+                  <div style="color: #3F474F">Prior-year %, high AGI</div>
+                  <div style="text-align: right; font-weight: 500">110%</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">IRC §6654(d)(1)(C)</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">sch_ai.applicable_pcts</div>
+                  <div style="color: #3F474F">Annualized applicable %</div>
+                  <div style="text-align: right; font-weight: 500">22.5 / 45 / 67.5 / 90</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">IRC §6654(d)(2)</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">installments.due_dates</div>
+                  <div style="color: #3F474F">Q1 individual due date</div>
+                  <div style="text-align: right; font-weight: 500">Apr 15, 2026</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">Form 1040-ES</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">farmer.single_due_date</div>
+                  <div style="color: #3F474F">Farmer payment date</div>
+                  <div style="text-align: right; font-weight: 500">Jan 15, 2027</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; background: #E4F1E7; color: #1E5C34">Verified</span></div>
+                  <div style="font-size: 12px; color: #5A6169">Pub. 505</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Override</button></div>
+                </div>
+              
+            
+            <div style="padding: 12px 18px; font-size: 12px; color: #5A6169; border-top: 1px solid #E2E0D8">Showing MFJ variants. Filing-status values exist for single, MFJ, MFS, HOH and QSS.</div>
+          </div>
+        </div>
+      </section>
+
+      <aside style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <section aria-label="Create year from prior year" style="background: #FFFFFF; border: 2px solid #0E5A61; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Create year from prior year</h2>
+          <div style="font-size: 14px; color: #3F474F">Start next year's estimates before a release ships its values.</div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Copy from
+              <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>2026</option></select>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">New year
+              <input value="2027" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; box-sizing: border-box; width: 100%">
+            </label>
+          </div>
+          <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #3F474F">
+            <li>Every 2026 value, including your overrides, is copied and marked <strong>Provisional</strong>.</li>
+            <li>Due dates and holidays shift to 2027 and are flagged <strong>Verify</strong>.</li>
+            <li>Estimates for 2027 show a provisional banner until values are verified.</li>
+            <li>When a release ships 2027 values, you review the differences before anything changes.</li>
+          </ol>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Reason
+            <input value="Begin 2027 planning for Q4 client meetings" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; box-sizing: border-box; width: 100%">
+          </label>
+          <button style="font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; border-radius: 6px; border: 1px solid #0E5A61; background: #0E5A61; color: #FFFFFF; cursor: pointer">Create 2027 as provisional</button>
+        </section>
+
+        <section aria-label="Recent changes" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Recent changes</h2>
+          
+            <div style="display: flex; flex-direction: column; gap: 2px; font-size: 13px; padding-top: 8px; border-top: 1px solid #EEECE6">
+              <span style="font-weight: 600">Override on safe_harbor.min_balance_due reverted</span>
+              <span style="color: #5A6169">Firm admin · Oct 6, 2026 · "Entered in error"</span>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; gap: 2px; font-size: 13px; padding-top: 8px; border-top: 1px solid #EEECE6">
+              <span style="font-weight: 600">Release seeded 2026 federal parameters and 41 state rule sets</span>
+              <span style="color: #5A6169">System · Sep 30, 2026</span>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; gap: 2px; font-size: 13px; padding-top: 8px; border-top: 1px solid #EEECE6">
+              <span style="font-weight: 600">Override on safe_harbor.min_balance_due</span>
+              <span style="color: #5A6169">Firm admin · Sep 12, 2026</span>
+            </div>
+          
+        </section>
+      </aside>
+    </div>
+
+    
+
+    <footer style="font-size: 12px; color: #5A6169; display: flex; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid #E2E0D8; padding-top: 14px">
+      <span>Finalized snapshots keep the parameter values they were calculated with.</span>
+      <span>Sample data</span>
+    </footer>
+  </main>
+</div>
+
+</body>
+</html>

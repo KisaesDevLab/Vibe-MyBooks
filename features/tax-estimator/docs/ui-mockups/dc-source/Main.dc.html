@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tax Estimate Summary</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{color:#0E5A61}a:hover{color:#083A3F}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16191D; background: #F6F5F1; min-height: 100vh; font-variant-numeric: tabular-nums">
+
+  <header style="background: #16191D; color: #F6F5F1; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 52px">
+    <div style="font-weight: 700; font-size: 17px; letter-spacing: 0.2px">MyBooks</div>
+    <div style="font-size: 13px; color: #B9BEC4">Sample CPA Firm</div>
+    <nav style="display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; font-size: 13px">
+      <a href="Entity.dc.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Clients</a>
+      <a href="Main.dc.html" style="color: #F6F5F1; text-decoration: none; padding: 8px 10px; background: #2A2F35; border-radius: 6px">Taxpayers</a>
+      <a href="#" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Reports</a>
+      <a href="Parameters.dc.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Admin</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 20px">
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 13px; color: #5A6169">Taxpayers › Daniel &amp; Maria Rivera › Tax Estimator</div>
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.3px">2026 Tax Estimate</h1>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; font-weight: 500">
+          <span style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 999px; padding: 4px 10px">Married filing jointly · MO resident</span>
+          <span style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 999px; padding: 4px 10px">3 linked entities</span>
+          <span style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 999px; padding: 4px 10px">2026 brackets</span>
+          <span style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 999px; padding: 4px 10px">Last snapshot Oct 1, 2026</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 14px 16px">
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5A6169; font-weight: 500">Actuals through
+        <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-width: 200px; min-height: 40px"><option>Sep 2026 · last closed month</option></select>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5A6169; font-weight: 500">Scenario
+        <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-width: 180px; min-height: 40px"><option>Base</option><option>Buy truck in December</option><option>Raise Maria's wages</option></select>
+      </label>
+      <div style="font-size: 12px; color: #5A6169; padding-bottom: 10px">9 closed months · run-rate on recurring items · non-recurring counted once</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto">
+        <button style="font: inherit; font-size: 14px; font-weight: 500; min-height: 44px; padding: 0 16px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Snapshots (3)</button>
+        <button style="font: inherit; font-size: 14px; font-weight: 500; min-height: 44px; padding: 0 16px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Add to Report Pack</button>
+        <button style="font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 6px; border: 1px solid #0E5A61; background: #0E5A61; color: #FFFFFF; cursor: pointer">Finalize &amp; issue vouchers</button>
+      </div>
+    </div>
+
+    <nav aria-label="Estimator sections" style="display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #E2E0D8">
+      <a href="Main.dc.html" style="text-decoration: none; color: #16191D; font-weight: 600; font-size: 14px; padding: 12px 14px; border-bottom: 2px solid #0E5A61">Summary</a>
+      <a href="Settings.dc.html" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Annual settings</a>
+      <a href="Compare.dc.html" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Scenarios</a>
+      <a href="#vouchers" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Payments</a>
+    </nav>
+
+    <div role="status" style="background: #FBF0DC; border: 1px solid #E9CF9E; border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #5C3205">
+      <div style="font-weight: 600">Books readiness · 3 items</div>
+      <div>Ozark Hearth Bakery: <strong>Business Visa</strong> not reconciled for Sep 2026. <a href="Entity.dc.html" style="color: #5C3205">Open entity tax setup</a></div>
+      <div>Riverbend Rentals LP: linked ownership totals 20% — other partners aren't Taxpayers in this firm.</div>
+      <div>Arkansas estimate rules are <strong>unverified</strong>; the federal pattern is used. <a href="Parameters.dc.html" style="color: #5C3205">Review state rules</a></div>
+    </div>
+
+    <section aria-label="Key figures" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 13px; color: #5A6169; font-weight: 500">{{k.label}}</div>
+          <div style="font-size: 30px; font-weight: 600; letter-spacing: -0.5px">{{k.value}}</div>
+          <div style="font-size: 13px; color: #5A6169">{{k.sub}}</div>
+        </div>
+      </sc-for>
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+      <section aria-label="Calculation" style="flex: 999 1 640px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 16px 18px; border-bottom: 1px solid #E2E0D8">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Calculation</h2>
+          <div style="font-size: 13px; color: #5A6169; margin-left: auto">Select a line to see its trace</div>
+        </div>
+        <div style="overflow-x: auto">
+          <div style="min-width: 600px">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+              <div>Line</div>
+              <div style="text-align: right">YTD tax basis</div>
+              <div style="text-align: right">2026 projected</div>
+            </div>
+            <sc-for list="{{sections}}" as="s" hint-placeholder-count="5">
+              <div style="padding: 14px 18px 6px; font-size: 13px; font-weight: 600; color: #0E5A61">{{s.title}}</div>
+              <sc-for list="{{s.lines}}" as="line" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>{{line.label}}</span>
+                    <span style="font-size: 12px; color: #5A6169">{{line.note}}</span>
+                    <sc-if value="{{line.warn}}" hint-placeholder-val="{{false}}">
+                      <span style="font-size: 11px; font-weight: 600; background: #FBF0DC; color: #6B3A06; border-radius: 4px; padding: 2px 6px">{{line.warn}}</span>
+                    </sc-if>
+                    <sc-if value="{{line.hasTrace}}" hint-placeholder-val="{{false}}">
+                      <button onClick="{{line.toggle}}" style="font: inherit; font-size: 12px; font-weight: 600; color: #0E5A61; background: #E3EFEF; border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer">{{line.traceLabel}}</button>
+                    </sc-if>
+                  </div>
+                  <div style="text-align: right; color: #3F474F">{{line.ytd}}</div>
+                  <div style="text-align: right">{{line.proj}}</div>
+                </div>
+                <sc-if value="{{line.traceOpen}}" hint-placeholder-val="{{false}}">
+                  <div style="margin: 2px 18px 10px; border: 1px solid #C7DCDD; background: #F3F8F8; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px">
+                    <div style="font-size: 12px; font-weight: 600; color: #0E5A61; text-transform: uppercase; letter-spacing: 0.4px">{{line.traceTitle}}</div>
+                    <sc-for list="{{line.trace}}" as="t" hint-placeholder-count="6">
+                      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto 110px; gap: 12px; font-size: 13px; align-items: baseline">
+                        <span>{{t.label}}</span>
+                        <span style="font-size: 11px; font-weight: 600; color: #3F474F; background: #FFFFFF; border: 1px solid #D5D9DC; border-radius: 4px; padding: 1px 6px">{{t.source}}</span>
+                        <span style="text-align: right">{{t.value}}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </sc-for>
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; margin: 4px 18px 6px; padding: 9px 0; border-top: 1px solid #E2E0D8; font-size: 14px; font-weight: 600">
+                <div>{{s.totalLabel}}</div>
+                <div style="text-align: right; color: #3F474F">{{s.totalYtd}}</div>
+                <div style="text-align: right">{{s.totalProj}}</div>
+              </div>
+            </sc-for>
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 16px 18px; background: #16191D; color: #FFFFFF; font-size: 16px; font-weight: 700">
+              <div>Total estimated tax</div>
+              <div></div>
+              <div style="text-align: right">$43,732</div>
+            </div>
+          </div>
+        </div>
+        <div style="padding: 12px 18px; font-size: 12px; color: #5A6169; border-top: 1px solid #E2E0D8">YTD column shows tax-basis amounts after the GL tax-treatment map. Tax is computed on the full-year projection; installment timing uses the lesser of the regular and annualized (Schedule AI) methods.</div>
+      </section>
+
+      <aside style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+        <section aria-label="Safe harbor" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+            <h2 style="margin: 0; font-size: 17px; font-weight: 600">Federal safe harbor</h2>
+            <span style="margin-left: auto; font-size: 12px; font-weight: 600; background: #E3EFEF; color: #0E5A61; border-radius: 999px; padding: 3px 9px">Rule: lesser of · Taxpayer override</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+            <div style="border: 2px solid #0E5A61; border-radius: 8px; padding: 10px 12px">
+              <div style="font-size: 12px; color: #3F474F; font-weight: 600">90% of 2026 (projected)</div>
+              <div style="font-size: 20px; font-weight: 600">$32,246</div>
+              <div style="font-size: 12px; color: #0E5A61; font-weight: 600">Recommended</div>
+            </div>
+            <div style="border: 1px solid #E2E0D8; border-radius: 8px; padding: 10px 12px">
+              <div style="font-size: 12px; color: #3F474F; font-weight: 600">110% of 2025 (guaranteed)</div>
+              <div style="font-size: 20px; font-weight: 600">$34,650</div>
+              <div style="font-size: 12px; color: #5A6169">Prior AGI $182,000 &gt; $150,000</div>
+            </div>
+          </div>
+          <sc-for list="{{harbor}}" as="h" hint-placeholder-count="5">
+            <div style="display: flex; gap: 12px; font-size: 14px; align-items: baseline">
+              <span style="flex: 1; min-width: 0">{{h.label}}<span style="display: block; font-size: 12px; color: #5A6169">{{h.note}}</span></span>
+              <span>{{h.value}}</span>
+            </div>
+          </sc-for>
+          <div style="display: flex; gap: 12px; font-size: 15px; font-weight: 700; padding-top: 10px; border-top: 1px solid #E2E0D8">
+            <span style="flex: 1">Remaining to pay</span><span>$7,046</span>
+          </div>
+          <div style="font-size: 12px; color: #5A6169">Using the guaranteed 110% rule instead, Q4 would be $9,450.</div>
+        </section>
+
+        <section aria-label="Income by source" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Projected income by source</h2>
+          <sc-for list="{{entities}}" as="e" hint-placeholder-count="4">
+            <div style="display: flex; flex-direction: column; gap: 5px">
+              <div style="display: flex; gap: 8px; font-size: 14px; align-items: baseline">
+                <span style="flex: 1; min-width: 0; font-weight: 500">{{e.name}}</span><span>{{e.amount}}</span>
+              </div>
+              <div style="font-size: 12px; color: #5A6169">{{e.detail}}</div>
+              <div style="height: 8px; background: #EEECE6; border-radius: 4px; overflow: hidden">
+                <div style="height: 8px; background: #0E5A61; border-radius: 4px; width: {{e.pct}}"></div>
+              </div>
+            </div>
+          </sc-for>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-top: 12px; border-top: 1px solid #E2E0D8">
+            <div style="background: #F6F5F1; border-radius: 8px; padding: 10px 12px"><div style="font-size: 12px; color: #5A6169">Daniel · SE tax</div><div style="font-size: 18px; font-weight: 600">$18,086</div></div>
+            <div style="background: #F6F5F1; border-radius: 8px; padding: 10px 12px"><div style="font-size: 12px; color: #5A6169">Maria · SE tax</div><div style="font-size: 18px; font-weight: 600">$0</div><div style="font-size: 12px; color: #5A6169">S corp wages</div></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <section id="vouchers" aria-label="Voucher schedule" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #E2E0D8">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Voucher schedule</h2>
+        <div role="tablist" aria-label="Jurisdiction" style="display: flex; gap: 4px; background: #F6F5F1; border-radius: 8px; padding: 3px">
+          <button role="tab" aria-selected="true" style="font: inherit; font-size: 13px; font-weight: 600; min-height: 36px; padding: 0 14px; border: 0; border-radius: 6px; background: #FFFFFF; color: #16191D; cursor: pointer">Federal</button>
+          <button role="tab" aria-selected="false" style="font: inherit; font-size: 13px; font-weight: 500; min-height: 36px; padding: 0 14px; border: 0; border-radius: 6px; background: transparent; color: #5A6169; cursor: pointer">Missouri · $1,208/qtr</button>
+          <button role="tab" aria-selected="false" style="font: inherit; font-size: 13px; font-weight: 500; min-height: 36px; padding: 0 14px; border: 0; border-radius: 6px; background: transparent; color: #5A6169; cursor: pointer">Arkansas · none required</button>
+        </div>
+        <button style="margin-left: auto; font: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Record payment</button>
+      </div>
+      <div style="overflow-x: auto">
+        <div style="min-width: 1000px">
+          <div style="display: grid; grid-template-columns: 56px 120px repeat(6, minmax(0, 1fr)) 90px 150px; gap: 10px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+            <div>Qtr</div><div>Due</div><div style="text-align: right">Regular</div><div style="text-align: right">Sch AI</div><div style="text-align: right">W-2 credit</div><div style="text-align: right">From estimates</div><div style="text-align: right">Paid</div><div style="text-align: right">Remaining</div><div style="text-align: right">Penalty est.</div><div>Status</div>
+          </div>
+          <sc-for list="{{vouchers}}" as="v" hint-placeholder-count="4">
+            <div style="display: grid; grid-template-columns: 56px 120px repeat(6, minmax(0, 1fr)) 90px 150px; gap: 10px; padding: 12px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+              <div style="font-weight: 600">{{v.q}}</div>
+              <div>{{v.due}}</div>
+              <div style="text-align: right">{{v.reg}}</div>
+              <div style="text-align: right; color: #5A6169">{{v.ai}}</div>
+              <div style="text-align: right">{{v.wh}}</div>
+              <div style="text-align: right">{{v.est}}</div>
+              <div style="text-align: right">{{v.paid}}<span style="display: block; font-size: 12px; color: #5A6169">{{v.paidNote}}</span></div>
+              <div style="text-align: right; font-weight: 600">{{v.rem}}</div>
+              <div style="text-align: right">{{v.pen}}</div>
+              <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 4px 10px; {{v.badge}}">{{v.status}}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="padding: 12px 18px; font-size: 12px; color: #5A6169; border-top: 1px solid #E2E0D8">Payments apply to the earliest unpaid installment. Sch AI equals the regular amount here because income is level month to month. Penalty is an estimate at the IRS underpayment rate to the next projected payment. No Q4 penalty if the 2026 return is filed and paid by Feb 1, 2027.</div>
+    </section>
+
+    <footer style="font-size: 12px; color: #5A6169; display: flex; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid #E2E0D8; padding-top: 14px">
+      <span style="font-weight: 600; color: #16191D">Projection based on bookkeeping records and the assumptions listed. Not a tax return.</span>
+      <span>Federal parameters 2026 (3 unverified) · State rules: MO verified, AR unverified · Engine 2.0.0 · Sample data</span>
+    </footer>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":1960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { open: 'tax' };
+  }
+  renderVals() {
+    var self = this;
+    var open = this.state.open;
+    function tog(id) { return function () { self.setState({ open: self.state.open === id ? '' : id }); }; }
+    var taxTrace = [
+      { label: 'Taxable income', source: 'result', value: '138,726' },
+      { label: '10% × 24,800', source: 'brackets.mfj', value: '2,480' },
+      { label: '12% × 76,000 (24,800–100,800)', source: 'brackets.mfj', value: '9,120' },
+      { label: '22% × 37,926 (100,800–138,726)', source: 'brackets.mfj', value: '8,344' },
+      { label: 'No qualified dividends or LTCG', source: 'gl_map', value: '0' },
+      { label: 'Regular tax · marginal rate 22%', source: 'result', value: '19,944' }
+    ];
+    var schcTrace = [
+      { label: 'Book net income (cash basis)', source: 'gl', value: '115,400' },
+      { label: '6200 Owner health insurance → owner SEHI', source: 'gl_map', value: '+10,800' },
+      { label: '6420 Meals · 50% nondeductible', source: 'gl_map', value: '+1,800' },
+      { label: '3020 Owner draws · estimated taxes → payment ledger', source: 'gl_map', value: 'no profit effect' },
+      { label: 'Sch C tax-basis profit', source: 'result', value: '128,000' }
+    ];
+    return {
+      kpis: [
+        { label: 'Projected 2026 total tax', value: '$43,732', sub: 'Federal $35,829 · State $7,902' },
+        { label: 'Paid & withheld to date', value: '$23,700', sub: 'Estimates $19,200 · W-2 withholding $4,500' },
+        { label: 'Next federal payment', value: '$7,046', sub: 'Due Jan 15, 2027 · in 99 days' },
+        { label: 'Marginal federal rate', value: '22%', sub: 'Overall effective 18.8% of $232,400' }
+      ],
+      sections: [
+        { title: 'Income', totalLabel: 'Total income', totalYtd: '174,300', totalProj: '232,400', lines: [
+          { label: 'Rivera Plumbing LLC', note: 'Sch C · Daniel 100% · active', ytd: '96,000', proj: '128,000', hasTrace: true, traceOpen: open === 'schc', traceLabel: open === 'schc' ? 'Hide trace' : 'Trace', traceTitle: 'Trace · GL tax-treatment map · projected', trace: schcTrace, toggle: tog('schc') },
+          { label: 'Ozark Hearth Bakery', note: 'S corp K-1 · Maria 50% · active', ytd: '30,000', proj: '40,000' },
+          { label: 'Ozark Hearth officer wages', note: 'Maria W-2', ytd: '40,500', proj: '54,000' },
+          { label: 'Riverbend Rentals LP', note: 'K-1 · Daniel 20% limited · passive rental · NII · no QBI · AR-source', ytd: '6,000', proj: '8,000' },
+          { label: 'Interest income', note: 'Household · NII', ytd: '1,800', proj: '2,400' }
+        ]},
+        { title: 'Adjustments to income', totalLabel: 'Adjusted gross income', totalYtd: '148,168', totalProj: '197,557', lines: [
+          { label: '½ self-employment tax', note: 'Daniel', ytd: '(6,782)', proj: '(9,043)' },
+          { label: 'SEP-IRA', note: 'Daniel · limit $23,791', ytd: '(11,250)', proj: '(15,000)' },
+          { label: 'Self-employed health insurance', note: 'Daniel · not eligible for employer plan Jan–Dec', ytd: '(8,100)', proj: '(10,800)' }
+        ]},
+        { title: 'Deductions', totalLabel: 'Taxable income', totalYtd: '', totalProj: '138,726', lines: [
+          { label: 'Standard deduction', note: 'MFJ · exceeds itemized $21,350', ytd: '', proj: '(32,200)' },
+          { label: 'Schedule 1-A deductions', note: 'None qualify', ytd: '', proj: '0' },
+          { label: 'QBI deduction §199A', note: '2 businesses · below $403,500 threshold', ytd: '', proj: '(26,631)' }
+        ]},
+        { title: 'Federal tax', totalLabel: 'Federal total', totalYtd: '', totalProj: '35,829', lines: [
+          { label: 'Regular tax', note: '2026 MFJ brackets', ytd: '', proj: '19,944', hasTrace: true, traceOpen: open === 'tax', traceLabel: open === 'tax' ? 'Hide trace' : 'Trace', traceTitle: 'Trace · regular tax · projected', trace: taxTrace, toggle: tog('tax') },
+          { label: 'Nonrefundable credits', note: 'Capped at regular tax', ytd: '', proj: '(2,200)' },
+          { label: 'Self-employment tax', note: 'Daniel', ytd: '', proj: '18,086' },
+          { label: 'Additional Medicare 0.9%', note: 'Wages + NESE $172,208 < $250,000', ytd: '', proj: '0' },
+          { label: 'Net investment income tax 3.8%', note: 'NII $10,400 · MAGI under $250,000', ytd: '', proj: '0' },
+          { label: 'Refundable credits', note: '', ytd: '', proj: '0' }
+        ]},
+        { title: 'State tax', totalLabel: 'State total', totalYtd: '', totalProj: '7,902', lines: [
+          { label: 'Missouri · resident', note: '4.00% × AGI $197,557 = 7,902 less credit for AR tax 312', ytd: '', proj: '7,590' },
+          { label: 'Arkansas · nonresident', note: '3.90% × AR-source $8,000', ytd: '', proj: '312', warn: 'Rules unverified' }
+        ]}
+      ],
+      harbor: [
+        { label: 'Required annual payment', note: 'Lesser of the two', value: '$32,246' },
+        { label: 'Less W-2 withholding', note: 'Treated as paid evenly', value: '($6,000)' },
+        { label: 'Required from estimates', note: '', value: '$26,246' },
+        { label: 'Paid to date', note: '3 payments', value: '($19,200)' }
+      ],
+      entities: [
+        { name: 'Rivera Plumbing LLC', detail: 'Sch C · cash basis · SE income', amount: '$128,000', pct: '55%' },
+        { name: 'Ozark Hearth Bakery', detail: 'S corp · wages $54,000 + K-1 $40,000', amount: '$94,000', pct: '40%' },
+        { name: 'Riverbend Rentals LP', detail: 'Limited partner · passive rental · no SE, no QBI', amount: '$8,000', pct: '3.4%' },
+        { name: 'Household interest', detail: 'Owner-level · NII', amount: '$2,400', pct: '1%' }
+      ],
+      vouchers: [
+        { q: 'Q1', due: 'Apr 15, 2026', reg: '8,062', ai: '8,062', wh: '(1,500)', est: '6,562', paid: '6,600', paidNote: 'Apr 10 · GL', rem: '0', pen: '—', status: 'Paid · +38 carried', badge: 'background: #E4F1E7; color: #1E5C34' },
+        { q: 'Q2', due: 'Jun 15, 2026', reg: '8,062', ai: '8,062', wh: '(1,500)', est: '6,523', paid: '6,600', paidNote: 'Jun 12 · GL', rem: '0', pen: '—', status: 'Paid · +77 carried', badge: 'background: #E4F1E7; color: #1E5C34' },
+        { q: 'Q3', due: 'Sep 15, 2026', reg: '8,062', ai: '8,062', wh: '(1,500)', est: '6,485', paid: '6,000', paidNote: 'Sep 14 · manual', rem: '485', pen: '≈ $11', status: 'Short · rolls to Q4', badge: 'background: #F8E4E0; color: #8A2619' },
+        { q: 'Q4', due: 'Jan 15, 2027', reg: '8,062', ai: '8,062', wh: '(1,500)', est: '7,046', paid: '—', paidNote: '', rem: '7,046', pen: '—', status: 'Due in 99 days', badge: 'background: #FBF0DC; color: #6B3A06' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tax Parameters Admin</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{color:#0E5A61}a:hover{color:#083A3F}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16191D; background: #F6F5F1; min-height: 100vh; font-variant-numeric: tabular-nums">
+
+  <header style="background: #16191D; color: #F6F5F1; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 52px">
+    <div style="font-weight: 700; font-size: 17px; letter-spacing: 0.2px">MyBooks</div>
+    <div style="font-size: 13px; color: #B9BEC4">Sample CPA Firm</div>
+    <nav style="display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; font-size: 13px">
+      <a href="Entity.dc.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Clients</a>
+      <a href="Main.dc.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Taxpayers</a>
+      <a href="#" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Reports</a>
+      <a href="Parameters.dc.html" style="color: #F6F5F1; text-decoration: none; padding: 8px 10px; background: #2A2F35; border-radius: 6px">Admin</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 20px">
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 13px; color: #5A6169">Admin › Tax Estimator</div>
+      <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.3px">Tax parameters</h1>
+      <div style="font-size: 14px; color: #3F474F; max-width: 760px">Every rate, threshold and date the estimator uses. Values ship with each release; your firm can override any value with a reason, and every change is audit-logged.</div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+      <div role="tablist" aria-label="Tax year" style="display: flex; gap: 4px; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 4px">
+        <button role="tab" aria-selected="false" style="font: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 16px; border: 0; border-radius: 7px; background: transparent; color: #5A6169; cursor: pointer">2025</button>
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+          <button role="tab" aria-selected="{{t.selected}}" onClick="{{t.pick}}" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 16px; border: 0; border-radius: 7px; cursor: pointer; {{t.style}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+      <div style="font-size: 13px; color: #5A6169; margin-left: 8px">{{yearNote}}</div>
+      <div role="tablist" aria-label="Jurisdiction" style="display: flex; gap: 4px; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 4px; margin-left: auto">
+        <sc-for list="{{views}}" as="vw" hint-placeholder-count="2">
+          <button role="tab" aria-selected="{{vw.selected}}" onClick="{{vw.pick}}" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 16px; border: 0; border-radius: 7px; cursor: pointer; {{vw.style}}">{{vw.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <sc-if value="{{isStates}}" hint-placeholder-val="{{false}}">
+      <section aria-label="State estimate rules" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid #E2E0D8">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">State estimate rules · 2026</h2>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; font-weight: 600; margin-left: auto">
+            <span style="background: #E4F1E7; color: #1E5C34; border-radius: 999px; padding: 4px 10px">2 verified</span>
+            <span style="background: #FBF0DC; color: #6B3A06; border-radius: 999px; padding: 4px 10px">39 unverified</span>
+            <span style="background: #EEF1F3; color: #2F363D; border-radius: 999px; padding: 4px 10px">9 no wage tax</span>
+          </div>
+        </div>
+        <div style="overflow-x: auto">
+          <div style="min-width: 860px">
+            <div style="display: grid; grid-template-columns: 150px 110px minmax(0, 1fr) minmax(0, 1.2fr) 120px minmax(0, 1fr) 96px; gap: 12px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+              <div>State</div><div style="text-align: right">Required if</div><div>Safe harbor</div><div>Installments</div><div>Status</div><div>Source</div><div></div>
+            </div>
+            <sc-for list="{{states}}" as="st" hint-placeholder-count="6">
+              <div style="display: grid; grid-template-columns: 150px 110px minmax(0, 1fr) minmax(0, 1.2fr) 120px minmax(0, 1fr) 96px; gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                <div style="font-weight: 600">{{st.name}}</div>
+                <div style="text-align: right">{{st.threshold}}</div>
+                <div>{{st.harbor}}</div>
+                <div style="font-size: 13px">{{st.inst}}</div>
+                <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; {{st.badge}}">{{st.status}}</span></div>
+                <div style="font-size: 12px; color: #5A6169">{{st.source}}</div>
+                <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">{{st.action}}</button></div>
+              </div>
+            </sc-for>
+            <div style="padding: 12px 18px; font-size: 12px; color: #5A6169; border-top: 1px solid #E2E0D8">Showing 6 of 41 income-tax states. A state without verified rules uses the federal pattern and shows a Verify badge on vouchers.</div>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{isFederal}}" hint-placeholder-val="{{true}}">
+    <sc-if value="{{is2027}}" hint-placeholder-val="{{false}}">
+      <section aria-label="Shipped values differ" style="background: #FFFFFF; border: 2px solid #B4690E; border-radius: 10px; overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 18px; background: #FBF0DC">
+          <div style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 420px">
+            <h2 style="margin: 0; font-size: 16px; font-weight: 600; color: #5C3205">A release shipped official 2027 values</h2>
+            <div style="font-size: 13px; color: #5C3205">3 values differ from the provisional values your firm created on Nov 18, 2026. Nothing changes until you adopt.</div>
+          </div>
+          <button style="font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 16px; border-radius: 6px; border: 1px solid #0E5A61; background: #0E5A61; color: #FFFFFF; cursor: pointer">Adopt all 3 shipped</button>
+        </div>
+        <div style="overflow-x: auto">
+          <div style="min-width: 760px">
+            <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 150px; gap: 12px; padding: 10px 18px; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px; border-top: 1px solid #E9CF9E">
+              <div>Key</div><div style="text-align: right">Your provisional</div><div style="text-align: right">Shipped</div><div></div>
+            </div>
+            <sc-for list="{{diffs}}" as="d" hint-placeholder-count="3">
+              <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 150px; gap: 12px; padding: 10px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                <div><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">{{d.key}}</span><span style="display: block; font-size: 12px; color: #5A6169">{{d.desc}}</span></div>
+                <div style="text-align: right; text-decoration: line-through; color: #5A6169">{{d.mine}}</div>
+                <div style="text-align: right; font-weight: 600">{{d.shipped}}</div>
+                <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">Adopt shipped</button></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+      <section aria-label="Parameter values" style="flex: 999 1 700px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid #E2E0D8">
+          <label style="flex: 1 1 260px; display: flex"><span style="position: absolute; left: -9999px">Search parameters</span>
+            <input placeholder="Search keys or descriptions" style="font: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; width: 100%; box-sizing: border-box">
+          </label>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; font-weight: 600">
+            <span style="background: #E4F1E7; color: #1E5C34; border-radius: 999px; padding: 4px 10px">{{countVerified}}</span>
+            <span style="background: #FBF0DC; color: #6B3A06; border-radius: 999px; padding: 4px 10px">{{countFlag}}</span>
+          </div>
+        </div>
+        <div style="overflow-x: auto">
+          <div style="min-width: 820px">
+            <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+              <div>Key</div><div>Description</div><div style="text-align: right">Value</div><div>Status</div><div>Source</div><div></div>
+            </div>
+            <sc-for list="{{sections}}" as="s" hint-placeholder-count="5">
+              <div style="padding: 12px 18px 4px; font-size: 13px; font-weight: 600; color: #0E5A61">{{s.title}}</div>
+              <sc-for list="{{s.rows}}" as="r" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 130px 120px minmax(0, 1fr) 96px; gap: 12px; padding: 9px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">{{r.key}}</div>
+                  <div style="color: #3F474F">{{r.desc}}</div>
+                  <div style="text-align: right; font-weight: 500">{{r.value}}</div>
+                  <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; {{r.badge}}">{{r.status}}</span></div>
+                  <div style="font-size: 12px; color: #5A6169">{{r.source}}</div>
+                  <div style="text-align: right"><button style="font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #0E5A61; cursor: pointer">{{r.action}}</button></div>
+                </div>
+              </sc-for>
+            </sc-for>
+            <div style="padding: 12px 18px; font-size: 12px; color: #5A6169; border-top: 1px solid #E2E0D8">Showing MFJ variants. Filing-status values exist for single, MFJ, MFS, HOH and QSS.</div>
+          </div>
+        </div>
+      </section>
+
+      <aside style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <section aria-label="Create year from prior year" style="background: #FFFFFF; border: 2px solid #0E5A61; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Create year from prior year</h2>
+          <div style="font-size: 14px; color: #3F474F">Start next year's estimates before a release ships its values.</div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Copy from
+              <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-height: 42px"><option>2026</option></select>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">New year
+              <input value="2027" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; box-sizing: border-box; width: 100%">
+            </label>
+          </div>
+          <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #3F474F">
+            <li>Every 2026 value, including your overrides, is copied and marked <strong>Provisional</strong>.</li>
+            <li>Due dates and holidays shift to 2027 and are flagged <strong>Verify</strong>.</li>
+            <li>Estimates for 2027 show a provisional banner until values are verified.</li>
+            <li>When a release ships 2027 values, you review the differences before anything changes.</li>
+          </ol>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: #3F474F">Reason
+            <input value="Begin 2027 planning for Q4 client meetings" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; min-height: 42px; box-sizing: border-box; width: 100%">
+          </label>
+          <button onClick="{{create}}" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; border-radius: 6px; border: 1px solid #0E5A61; background: #0E5A61; color: #FFFFFF; cursor: pointer">Create 2027 as provisional</button>
+        </section>
+
+        <section aria-label="Recent changes" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Recent changes</h2>
+          <sc-for list="{{audit}}" as="a" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 2px; font-size: 13px; padding-top: 8px; border-top: 1px solid #EEECE6">
+              <span style="font-weight: 600">{{a.what}}</span>
+              <span style="color: #5A6169">{{a.who}}</span>
+            </div>
+          </sc-for>
+        </section>
+      </aside>
+    </div>
+
+    </sc-if>
+
+    <footer style="font-size: 12px; color: #5A6169; display: flex; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid #E2E0D8; padding-top: 14px">
+      <span>Finalized snapshots keep the parameter values they were calculated with.</span>
+      <span>Sample data</span>
+    </footer>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":1640}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { year: '2026', view: 'federal' };
+  }
+  renderVals() {
+    var self = this;
+    var y = this.state.year;
+    var is27 = y === '2027';
+    var V = 'background: #E4F1E7; color: #1E5C34';
+    var U = 'background: #FBF0DC; color: #6B3A06';
+    var P = 'background: #E8ECF7; color: #2C3E73';
+    function r(key, desc, value, status, source, shifted) {
+      if (is27) {
+        return { key: key, desc: desc, value: shifted || value, status: shifted ? 'Verify' : 'Provisional', badge: shifted ? U : P, source: 'Copied from 2026', action: 'Edit' };
+      }
+      return { key: key, desc: desc, value: value, status: status, badge: status === 'Verified' ? V : U, source: source, action: 'Override' };
+    }
+    var sections = [
+      { title: 'Self-employment', rows: [
+        r('se.nese_factor', 'Net earnings factor', '0.9235', 'Verified', 'IRC §1402(a)(12)'),
+        r('se.min_nese', 'Minimum net earnings', '$400', 'Verified', 'IRC §1402(b)'),
+        r('se.ss_rate', 'Social Security rate', '12.4%', 'Verified', 'IRC §1401(a)'),
+        r('se.ss_wage_base', 'Social Security wage base', '$184,500', 'Verified', 'SSA, Oct 2025')
+      ]},
+      { title: 'Brackets & capital gains', rows: [
+        r('brackets.mfj', 'Ordinary brackets (7 bands)', '10%–37%', 'Verified', 'Rev. Proc. 2025-32'),
+        r('ltcg.breakpoints.mfj', '0% / 15% upper bounds', '$98,900 / [VERIFY]', 'Unverified', 'Rev. Proc. 2025-32')
+      ]},
+      { title: 'Deductions, QBI & losses', rows: [
+        r('std_deduction.mfj', 'Standard deduction', '$32,200', 'Verified', 'Rev. Proc. 2025-32'),
+        r('sch1a.senior.amount', 'Senior deduction (per person)', '$6,000', 'Verified', 'OBBBA §70103'),
+        r('qbi.threshold.mfj', 'QBI threshold', '$403,500', 'Verified', 'Rev. Proc. 2025-32'),
+        r('qbi.phase_in_range.mfj', 'QBI phase-in range', '$150,000', 'Verified', 'OBBBA'),
+        r('ebl.threshold.mfj', 'Excess business loss', '$512,000', 'Verified', 'Rev. Proc. 2025-32')
+      ]},
+      { title: 'Retirement, HSA & penalty', rows: [
+        r('retirement.sep.pct_of_comp', 'SEP contribution rate', '25%', 'Verified', 'IRC §402(h)'),
+        r('retirement.401k.deferral', '401(k) elective deferral', '[VERIFY]', 'Unverified', 'IRS notice (Nov)'),
+        r('penalty.underpayment_rate', 'Underpayment rate · Q4 2026', '7%', 'Unverified', 'IRS news release')
+      ]},
+      { title: 'Safe harbor, installments & Sch AI', rows: [
+        r('safe_harbor.current_pct', 'Current-year percentage', '90%', 'Verified', 'IRC §6654(d)'),
+        r('safe_harbor.prior_pct_high_agi', 'Prior-year %, high AGI', '110%', 'Verified', 'IRC §6654(d)(1)(C)'),
+        r('sch_ai.applicable_pcts', 'Annualized applicable %', '22.5 / 45 / 67.5 / 90', 'Verified', 'IRC §6654(d)(2)'),
+        r('installments.due_dates', 'Q1 individual due date', 'Apr 15, 2026', 'Verified', 'Form 1040-ES', 'Apr 15, 2027'),
+        r('farmer.single_due_date', 'Farmer payment date', 'Jan 15, 2027', 'Verified', 'Pub. 505', 'Jan 18, 2028')
+      ]}
+    ];
+    var v = this.state.view || 'federal';
+    return {
+      is2027: is27,
+      isStates: v === 'states',
+      isFederal: v === 'federal',
+      views: [
+        { label: 'Federal', selected: v === 'federal' ? 'true' : 'false', style: v === 'federal' ? 'background: #16191D; color: #FFFFFF' : 'background: transparent; color: #5A6169', pick: function () { self.setState({ view: 'federal' }); } },
+        { label: 'States (41)', selected: v === 'states' ? 'true' : 'false', style: v === 'states' ? 'background: #16191D; color: #FFFFFF' : 'background: transparent; color: #5A6169', pick: function () { self.setState({ view: 'states' }); } }
+      ],
+      states: [
+        { name: 'Missouri', threshold: '$100', harbor: '90% current / 100% prior', inst: 'Apr 15 · Jun 15 · Sep 15 · Jan 15 · 25% each', status: 'Verified', badge: V, source: 'MO-1040ES instr.', action: 'Override' },
+        { name: 'Arkansas', threshold: '[VERIFY]', harbor: 'Federal pattern', inst: 'Federal pattern', status: 'Unverified', badge: U, source: 'AR1000ES instr.', action: 'Verify' },
+        { name: 'California', threshold: '[VERIFY]', harbor: '[VERIFY]', inst: '30% · 40% · 0% · 30% [VERIFY]', status: 'Unverified', badge: U, source: 'Form 540-ES instr.', action: 'Verify' },
+        { name: 'Illinois', threshold: '[VERIFY]', harbor: 'Federal pattern', inst: 'Federal pattern', status: 'Unverified', badge: U, source: 'IL-1040-ES instr.', action: 'Verify' },
+        { name: 'Kansas', threshold: '[VERIFY]', harbor: 'Federal pattern', inst: 'Federal pattern', status: 'Unverified', badge: U, source: 'K-40ES instr.', action: 'Verify' },
+        { name: 'Texas', threshold: '—', harbor: 'No wage income tax', inst: '—', status: 'No tax', badge: 'background: #EEF1F3; color: #2F363D', source: '—', action: 'View' }
+      ],
+      tabs: [
+        { label: '2026', selected: y === '2026' ? 'true' : 'false', style: y === '2026' ? 'background: #16191D; color: #FFFFFF' : 'background: transparent; color: #5A6169', pick: function () { self.setState({ year: '2026' }); } },
+        { label: '2027 · Provisional', selected: is27 ? 'true' : 'false', style: is27 ? 'background: #2C3E73; color: #FFFFFF' : 'background: transparent; color: #2C3E73', pick: function () { self.setState({ year: '2027' }); } }
+      ],
+      yearNote: is27 ? 'Created from 2026 on Nov 18, 2026 · firm values, not shipped' : 'Shipped with release · 3 values unverified',
+      countVerified: is27 ? '0 verified' : '16 verified',
+      countFlag: is27 ? '2 dates to verify' : '3 unverified',
+      sections: sections,
+      diffs: [
+        { key: 'se.ss_wage_base', desc: 'Social Security wage base', mine: '$184,500', shipped: '[2027 wage base]' },
+        { key: 'std_deduction.mfj', desc: 'Standard deduction', mine: '$32,200', shipped: '[2027 amount]' },
+        { key: 'qbi.threshold.mfj', desc: 'QBI threshold', mine: '$403,500', shipped: '[2027 amount]' }
+      ],
+      audit: [
+        { what: 'Override on safe_harbor.min_balance_due reverted', who: 'Firm admin · Oct 6, 2026 · "Entered in error"' },
+        { what: 'Release seeded 2026 federal parameters and 41 state rule sets', who: 'System · Sep 30, 2026' },
+        { what: 'Override on safe_harbor.min_balance_due', who: 'Firm admin · Sep 12, 2026' }
+      ],
+      create: function () { self.setState({ year: '2027' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

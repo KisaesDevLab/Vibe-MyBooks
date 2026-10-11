@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Client Portal Estimate</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0E5A61}a:hover{color:#083A3F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow-y: auto; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16191D; background: #F6F5F1; font-variant-numeric: tabular-nums; display: flex; flex-direction: column">
+
+  <header style="background: #16191D; color: #F6F5F1; padding: 16px 20px; display: flex; align-items: center; gap: 10px">
+    <div style="display: flex; flex-direction: column">
+      <span style="font-weight: 700; font-size: 16px">Rivera Family</span>
+      <span style="font-size: 12px; color: #B9BEC4">Sample CPA Firm · client portal</span>
+    </div>
+    <button aria-label="Menu" style="margin-left: auto; width: 44px; height: 44px; border: 0; border-radius: 8px; background: #2A2F35; color: #F6F5F1; cursor: pointer; display: flex; align-items: center; justify-content: center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+    </button>
+  </header>
+
+  <div style="padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 600">Your 2026 tax estimate</h1>
+      <div style="font-size: 13px; color: #5A6169">Based on your books through Sep 2026 · prepared Oct 1, 2026</div>
+    </div>
+
+    <section aria-label="Upcoming payments" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600">Next payments · due Jan 15, 2027</h2>
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid #EEECE6">
+        <span style="flex: 1; font-size: 15px">Federal (IRS)</span>
+        <span style="font-size: 26px; font-weight: 600; letter-spacing: -0.4px">$7,046</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid #EEECE6">
+        <span style="flex: 1; font-size: 15px">Missouri</span>
+        <span style="font-size: 20px; font-weight: 600">$1,208</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 8px">
+        <span style="flex: 1; font-size: 15px">Arkansas</span>
+        <span style="font-size: 14px; color: #5A6169">None required</span>
+      </div>
+      <a href="#" style="display: flex; align-items: center; justify-content: center; min-height: 46px; border-radius: 8px; background: #0E5A61; color: #FFFFFF; font-weight: 600; font-size: 15px; text-decoration: none">Download payment vouchers</a>
+    </section>
+
+    <section aria-label="Year total" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600">Projected 2026 total</h2>
+      <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.4px">$43,732</div>
+      <div style="display: flex; font-size: 14px"><span style="flex: 1; color: #3F474F">Federal</span><span>$35,829</span></div>
+      <div style="display: flex; font-size: 14px"><span style="flex: 1; color: #3F474F">State</span><span>$7,902</span></div>
+      <div style="display: flex; font-size: 14px; padding-top: 8px; border-top: 1px solid #EEECE6"><span style="flex: 1; color: #3F474F">Federal estimates paid so far</span><span>$19,200</span></div>
+      <div style="display: flex; font-size: 14px"><span style="flex: 1; color: #3F474F">Federal withheld from wages</span><span>$4,500</span></div>
+    </section>
+
+    <section aria-label="Payment history" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600">Federal payments</h2>
+      <sc-for list="{{pays}}" as="p" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 14px">
+          <span style="flex: 1">{{p.q}}<span style="display: block; font-size: 12px; color: #5A6169">{{p.date}}</span></span>
+          <span>{{p.amount}}</span>
+          <span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 9px; {{p.badge}}">{{p.status}}</span>
+        </div>
+      </sc-for>
+    </section>
+
+    <a href="#" style="display: flex; align-items: center; justify-content: center; min-height: 46px; border-radius: 8px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; font-weight: 600; font-size: 15px; text-decoration: none">Message your accountant</a>
+    <div style="font-size: 12px; color: #5A6169; text-align: center">Projection based on bookkeeping records and the assumptions listed. Not a tax return.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      pays: [
+        { q: 'Q1', date: 'Paid Apr 10', amount: '$6,600', status: 'Paid', badge: 'background: #E4F1E7; color: #1E5C34' },
+        { q: 'Q2', date: 'Paid Jun 12', amount: '$6,600', status: 'Paid', badge: 'background: #E4F1E7; color: #1E5C34' },
+        { q: 'Q3', date: 'Paid Sep 14', amount: '$6,000', status: '$485 short', badge: 'background: #F8E4E0; color: #8A2619' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

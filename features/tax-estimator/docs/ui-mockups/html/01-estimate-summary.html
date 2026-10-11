@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tax Estimate Summary — MyBooks Tax Estimator mockup (v2)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{color:#0E5A61}a:hover{color:#083A3F}
+</style>
+
+</head>
+<body>
+
+
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16191D; background: #F6F5F1; min-height: 100vh; font-variant-numeric: tabular-nums">
+
+  <header style="background: #16191D; color: #F6F5F1; padding: 0 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 52px">
+    <div style="font-weight: 700; font-size: 17px; letter-spacing: 0.2px">MyBooks</div>
+    <div style="font-size: 13px; color: #B9BEC4">Sample CPA Firm</div>
+    <nav style="display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; font-size: 13px">
+      <a href="06-entity-tax-setup.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Clients</a>
+      <a href="01-estimate-summary.html" style="color: #F6F5F1; text-decoration: none; padding: 8px 10px; background: #2A2F35; border-radius: 6px">Taxpayers</a>
+      <a href="#" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Reports</a>
+      <a href="04-tax-parameters-admin.html" style="color: #B9BEC4; text-decoration: none; padding: 8px 10px">Admin</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; display: flex; flex-direction: column; gap: 20px">
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 13px; color: #5A6169">Taxpayers › Daniel &amp; Maria Rivera › Tax Estimator</div>
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.3px">2026 Tax Estimate</h1>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; font-weight: 500">
+          <span style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 999px; padding: 4px 10px">Married filing jointly · MO resident</span>
+          <span style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 999px; padding: 4px 10px">3 linked entities</span>
+          <span style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 999px; padding: 4px 10px">2026 brackets</span>
+          <span style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 999px; padding: 4px 10px">Last snapshot Oct 1, 2026</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 14px 16px">
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5A6169; font-weight: 500">Actuals through
+        <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-width: 200px; min-height: 40px"><option>Sep 2026 · last closed month</option></select>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5A6169; font-weight: 500">Scenario
+        <select style="font: inherit; font-size: 14px; color: #16191D; padding: 9px 10px; border: 1px solid #C9C6BC; border-radius: 6px; background: #FFFFFF; min-width: 180px; min-height: 40px"><option>Base</option><option>Buy truck in December</option><option>Raise Maria's wages</option></select>
+      </label>
+      <div style="font-size: 12px; color: #5A6169; padding-bottom: 10px">9 closed months · run-rate on recurring items · non-recurring counted once</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto">
+        <button style="font: inherit; font-size: 14px; font-weight: 500; min-height: 44px; padding: 0 16px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Snapshots (3)</button>
+        <button style="font: inherit; font-size: 14px; font-weight: 500; min-height: 44px; padding: 0 16px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Add to Report Pack</button>
+        <button style="font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 6px; border: 1px solid #0E5A61; background: #0E5A61; color: #FFFFFF; cursor: pointer">Finalize &amp; issue vouchers</button>
+      </div>
+    </div>
+
+    <nav aria-label="Estimator sections" style="display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #E2E0D8">
+      <a href="01-estimate-summary.html" style="text-decoration: none; color: #16191D; font-weight: 600; font-size: 14px; padding: 12px 14px; border-bottom: 2px solid #0E5A61">Summary</a>
+      <a href="02-annual-settings.html" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Annual settings</a>
+      <a href="03-scenario-compare.html" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Scenarios</a>
+      <a href="#vouchers" style="text-decoration: none; color: #5A6169; font-weight: 500; font-size: 14px; padding: 12px 14px">Payments</a>
+    </nav>
+
+    <div role="status" style="background: #FBF0DC; border: 1px solid #E9CF9E; border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #5C3205">
+      <div style="font-weight: 600">Books readiness · 3 items</div>
+      <div>Ozark Hearth Bakery: <strong>Business Visa</strong> not reconciled for Sep 2026. <a href="06-entity-tax-setup.html" style="color: #5C3205">Open entity tax setup</a></div>
+      <div>Riverbend Rentals LP: linked ownership totals 20% — other partners aren't Taxpayers in this firm.</div>
+      <div>Arkansas estimate rules are <strong>unverified</strong>; the federal pattern is used. <a href="04-tax-parameters-admin.html" style="color: #5C3205">Review state rules</a></div>
+    </div>
+
+    <section aria-label="Key figures" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px">
+      
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 13px; color: #5A6169; font-weight: 500">Projected 2026 total tax</div>
+          <div style="font-size: 30px; font-weight: 600; letter-spacing: -0.5px">$43,732</div>
+          <div style="font-size: 13px; color: #5A6169">Federal $35,829 · State $7,902</div>
+        </div>
+      
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 13px; color: #5A6169; font-weight: 500">Paid & withheld to date</div>
+          <div style="font-size: 30px; font-weight: 600; letter-spacing: -0.5px">$23,700</div>
+          <div style="font-size: 13px; color: #5A6169">Estimates $19,200 · W-2 withholding $4,500</div>
+        </div>
+      
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 13px; color: #5A6169; font-weight: 500">Next federal payment</div>
+          <div style="font-size: 30px; font-weight: 600; letter-spacing: -0.5px">$7,046</div>
+          <div style="font-size: 13px; color: #5A6169">Due Jan 15, 2027 · in 99 days</div>
+        </div>
+      
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 13px; color: #5A6169; font-weight: 500">Marginal federal rate</div>
+          <div style="font-size: 30px; font-weight: 600; letter-spacing: -0.5px">22%</div>
+          <div style="font-size: 13px; color: #5A6169">Overall effective 18.8% of $232,400</div>
+        </div>
+      
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+      <section aria-label="Calculation" style="flex: 999 1 640px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 16px 18px; border-bottom: 1px solid #E2E0D8">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Calculation</h2>
+          <div style="font-size: 13px; color: #5A6169; margin-left: auto">Select a line to see its trace</div>
+        </div>
+        <div style="overflow-x: auto">
+          <div style="min-width: 600px">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+              <div>Line</div>
+              <div style="text-align: right">YTD tax basis</div>
+              <div style="text-align: right">2026 projected</div>
+            </div>
+            
+              <div style="padding: 14px 18px 6px; font-size: 13px; font-weight: 600; color: #0E5A61">Income</div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Rivera Plumbing LLC</span>
+                    <span style="font-size: 12px; color: #5A6169">Sch C · Daniel 100% · active</span>
+                    
+                    
+                      <button style="font: inherit; font-size: 12px; font-weight: 600; color: #0E5A61; background: #E3EFEF; border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer">Trace</button>
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F">96,000</div>
+                  <div style="text-align: right">128,000</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Ozark Hearth Bakery</span>
+                    <span style="font-size: 12px; color: #5A6169">S corp K-1 · Maria 50% · active</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F">30,000</div>
+                  <div style="text-align: right">40,000</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Ozark Hearth officer wages</span>
+                    <span style="font-size: 12px; color: #5A6169">Maria W-2</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F">40,500</div>
+                  <div style="text-align: right">54,000</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Riverbend Rentals LP</span>
+                    <span style="font-size: 12px; color: #5A6169">K-1 · Daniel 20% limited · passive rental · NII · no QBI · AR-source</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F">6,000</div>
+                  <div style="text-align: right">8,000</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Interest income</span>
+                    <span style="font-size: 12px; color: #5A6169">Household · NII</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F">1,800</div>
+                  <div style="text-align: right">2,400</div>
+                </div>
+                
+              
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; margin: 4px 18px 6px; padding: 9px 0; border-top: 1px solid #E2E0D8; font-size: 14px; font-weight: 600">
+                <div>Total income</div>
+                <div style="text-align: right; color: #3F474F">174,300</div>
+                <div style="text-align: right">232,400</div>
+              </div>
+            
+              <div style="padding: 14px 18px 6px; font-size: 13px; font-weight: 600; color: #0E5A61">Adjustments to income</div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>½ self-employment tax</span>
+                    <span style="font-size: 12px; color: #5A6169">Daniel</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F">(6,782)</div>
+                  <div style="text-align: right">(9,043)</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>SEP-IRA</span>
+                    <span style="font-size: 12px; color: #5A6169">Daniel · limit $23,791</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F">(11,250)</div>
+                  <div style="text-align: right">(15,000)</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Self-employed health insurance</span>
+                    <span style="font-size: 12px; color: #5A6169">Daniel · not eligible for employer plan Jan–Dec</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F">(8,100)</div>
+                  <div style="text-align: right">(10,800)</div>
+                </div>
+                
+              
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; margin: 4px 18px 6px; padding: 9px 0; border-top: 1px solid #E2E0D8; font-size: 14px; font-weight: 600">
+                <div>Adjusted gross income</div>
+                <div style="text-align: right; color: #3F474F">148,168</div>
+                <div style="text-align: right">197,557</div>
+              </div>
+            
+              <div style="padding: 14px 18px 6px; font-size: 13px; font-weight: 600; color: #0E5A61">Deductions</div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Standard deduction</span>
+                    <span style="font-size: 12px; color: #5A6169">MFJ · exceeds itemized $21,350</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">(32,200)</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Schedule 1-A deductions</span>
+                    <span style="font-size: 12px; color: #5A6169">None qualify</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">0</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>QBI deduction §199A</span>
+                    <span style="font-size: 12px; color: #5A6169">2 businesses · below $403,500 threshold</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">(26,631)</div>
+                </div>
+                
+              
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; margin: 4px 18px 6px; padding: 9px 0; border-top: 1px solid #E2E0D8; font-size: 14px; font-weight: 600">
+                <div>Taxable income</div>
+                <div style="text-align: right; color: #3F474F"></div>
+                <div style="text-align: right">138,726</div>
+              </div>
+            
+              <div style="padding: 14px 18px 6px; font-size: 13px; font-weight: 600; color: #0E5A61">Federal tax</div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Regular tax</span>
+                    <span style="font-size: 12px; color: #5A6169">2026 MFJ brackets</span>
+                    
+                    
+                      <button style="font: inherit; font-size: 12px; font-weight: 600; color: #0E5A61; background: #E3EFEF; border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer">Hide trace</button>
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">19,944</div>
+                </div>
+                
+                  <div style="margin: 2px 18px 10px; border: 1px solid #C7DCDD; background: #F3F8F8; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px">
+                    <div style="font-size: 12px; font-weight: 600; color: #0E5A61; text-transform: uppercase; letter-spacing: 0.4px">Trace · regular tax · projected</div>
+                    
+                      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto 110px; gap: 12px; font-size: 13px; align-items: baseline">
+                        <span>Taxable income</span>
+                        <span style="font-size: 11px; font-weight: 600; color: #3F474F; background: #FFFFFF; border: 1px solid #D5D9DC; border-radius: 4px; padding: 1px 6px">result</span>
+                        <span style="text-align: right">138,726</span>
+                      </div>
+                    
+                      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto 110px; gap: 12px; font-size: 13px; align-items: baseline">
+                        <span>10% × 24,800</span>
+                        <span style="font-size: 11px; font-weight: 600; color: #3F474F; background: #FFFFFF; border: 1px solid #D5D9DC; border-radius: 4px; padding: 1px 6px">brackets.mfj</span>
+                        <span style="text-align: right">2,480</span>
+                      </div>
+                    
+                      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto 110px; gap: 12px; font-size: 13px; align-items: baseline">
+                        <span>12% × 76,000 (24,800–100,800)</span>
+                        <span style="font-size: 11px; font-weight: 600; color: #3F474F; background: #FFFFFF; border: 1px solid #D5D9DC; border-radius: 4px; padding: 1px 6px">brackets.mfj</span>
+                        <span style="text-align: right">9,120</span>
+                      </div>
+                    
+                      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto 110px; gap: 12px; font-size: 13px; align-items: baseline">
+                        <span>22% × 37,926 (100,800–138,726)</span>
+                        <span style="font-size: 11px; font-weight: 600; color: #3F474F; background: #FFFFFF; border: 1px solid #D5D9DC; border-radius: 4px; padding: 1px 6px">brackets.mfj</span>
+                        <span style="text-align: right">8,344</span>
+                      </div>
+                    
+                      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto 110px; gap: 12px; font-size: 13px; align-items: baseline">
+                        <span>No qualified dividends or LTCG</span>
+                        <span style="font-size: 11px; font-weight: 600; color: #3F474F; background: #FFFFFF; border: 1px solid #D5D9DC; border-radius: 4px; padding: 1px 6px">gl_map</span>
+                        <span style="text-align: right">0</span>
+                      </div>
+                    
+                      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto 110px; gap: 12px; font-size: 13px; align-items: baseline">
+                        <span>Regular tax · marginal rate 22%</span>
+                        <span style="font-size: 11px; font-weight: 600; color: #3F474F; background: #FFFFFF; border: 1px solid #D5D9DC; border-radius: 4px; padding: 1px 6px">result</span>
+                        <span style="text-align: right">19,944</span>
+                      </div>
+                    
+                  </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Nonrefundable credits</span>
+                    <span style="font-size: 12px; color: #5A6169">Capped at regular tax</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">(2,200)</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Self-employment tax</span>
+                    <span style="font-size: 12px; color: #5A6169">Daniel</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">18,086</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Additional Medicare 0.9%</span>
+                    <span style="font-size: 12px; color: #5A6169">Wages + NESE $172,208 < $250,000</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">0</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Net investment income tax 3.8%</span>
+                    <span style="font-size: 12px; color: #5A6169">NII $10,400 · MAGI under $250,000</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">0</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Refundable credits</span>
+                    <span style="font-size: 12px; color: #5A6169"></span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">0</div>
+                </div>
+                
+              
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; margin: 4px 18px 6px; padding: 9px 0; border-top: 1px solid #E2E0D8; font-size: 14px; font-weight: 600">
+                <div>Federal total</div>
+                <div style="text-align: right; color: #3F474F"></div>
+                <div style="text-align: right">35,829</div>
+              </div>
+            
+              <div style="padding: 14px 18px 6px; font-size: 13px; font-weight: 600; color: #0E5A61">State tax</div>
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Missouri · resident</span>
+                    <span style="font-size: 12px; color: #5A6169">4.00% × AGI $197,557 = 7,902 less credit for AR tax 312</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">7,590</div>
+                </div>
+                
+              
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 7px 18px; font-size: 14px; align-items: baseline">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0">
+                    <span>Arkansas · nonresident</span>
+                    <span style="font-size: 12px; color: #5A6169">3.90% × AR-source $8,000</span>
+                    
+                      <span style="font-size: 11px; font-weight: 600; background: #FBF0DC; color: #6B3A06; border-radius: 4px; padding: 2px 6px">Rules unverified</span>
+                    
+                    
+                  </div>
+                  <div style="text-align: right; color: #3F474F"></div>
+                  <div style="text-align: right">312</div>
+                </div>
+                
+              
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; margin: 4px 18px 6px; padding: 9px 0; border-top: 1px solid #E2E0D8; font-size: 14px; font-weight: 600">
+                <div>State total</div>
+                <div style="text-align: right; color: #3F474F"></div>
+                <div style="text-align: right">7,902</div>
+              </div>
+            
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px 140px; gap: 0 12px; padding: 16px 18px; background: #16191D; color: #FFFFFF; font-size: 16px; font-weight: 700">
+              <div>Total estimated tax</div>
+              <div></div>
+              <div style="text-align: right">$43,732</div>
+            </div>
+          </div>
+        </div>
+        <div style="padding: 12px 18px; font-size: 12px; color: #5A6169; border-top: 1px solid #E2E0D8">YTD column shows tax-basis amounts after the GL tax-treatment map. Tax is computed on the full-year projection; installment timing uses the lesser of the regular and annualized (Schedule AI) methods.</div>
+      </section>
+
+      <aside style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+        <section aria-label="Safe harbor" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+            <h2 style="margin: 0; font-size: 17px; font-weight: 600">Federal safe harbor</h2>
+            <span style="margin-left: auto; font-size: 12px; font-weight: 600; background: #E3EFEF; color: #0E5A61; border-radius: 999px; padding: 3px 9px">Rule: lesser of · Taxpayer override</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+            <div style="border: 2px solid #0E5A61; border-radius: 8px; padding: 10px 12px">
+              <div style="font-size: 12px; color: #3F474F; font-weight: 600">90% of 2026 (projected)</div>
+              <div style="font-size: 20px; font-weight: 600">$32,246</div>
+              <div style="font-size: 12px; color: #0E5A61; font-weight: 600">Recommended</div>
+            </div>
+            <div style="border: 1px solid #E2E0D8; border-radius: 8px; padding: 10px 12px">
+              <div style="font-size: 12px; color: #3F474F; font-weight: 600">110% of 2025 (guaranteed)</div>
+              <div style="font-size: 20px; font-weight: 600">$34,650</div>
+              <div style="font-size: 12px; color: #5A6169">Prior AGI $182,000 &gt; $150,000</div>
+            </div>
+          </div>
+          
+            <div style="display: flex; gap: 12px; font-size: 14px; align-items: baseline">
+              <span style="flex: 1; min-width: 0">Required annual payment<span style="display: block; font-size: 12px; color: #5A6169">Lesser of the two</span></span>
+              <span>$32,246</span>
+            </div>
+          
+            <div style="display: flex; gap: 12px; font-size: 14px; align-items: baseline">
+              <span style="flex: 1; min-width: 0">Less W-2 withholding<span style="display: block; font-size: 12px; color: #5A6169">Treated as paid evenly</span></span>
+              <span>($6,000)</span>
+            </div>
+          
+            <div style="display: flex; gap: 12px; font-size: 14px; align-items: baseline">
+              <span style="flex: 1; min-width: 0">Required from estimates<span style="display: block; font-size: 12px; color: #5A6169"></span></span>
+              <span>$26,246</span>
+            </div>
+          
+            <div style="display: flex; gap: 12px; font-size: 14px; align-items: baseline">
+              <span style="flex: 1; min-width: 0">Paid to date<span style="display: block; font-size: 12px; color: #5A6169">3 payments</span></span>
+              <span>($19,200)</span>
+            </div>
+          
+          <div style="display: flex; gap: 12px; font-size: 15px; font-weight: 700; padding-top: 10px; border-top: 1px solid #E2E0D8">
+            <span style="flex: 1">Remaining to pay</span><span>$7,046</span>
+          </div>
+          <div style="font-size: 12px; color: #5A6169">Using the guaranteed 110% rule instead, Q4 would be $9,450.</div>
+        </section>
+
+        <section aria-label="Income by source" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600">Projected income by source</h2>
+          
+            <div style="display: flex; flex-direction: column; gap: 5px">
+              <div style="display: flex; gap: 8px; font-size: 14px; align-items: baseline">
+                <span style="flex: 1; min-width: 0; font-weight: 500">Rivera Plumbing LLC</span><span>$128,000</span>
+              </div>
+              <div style="font-size: 12px; color: #5A6169">Sch C · cash basis · SE income</div>
+              <div style="height: 8px; background: #EEECE6; border-radius: 4px; overflow: hidden">
+                <div style="height: 8px; background: #0E5A61; border-radius: 4px; width: 55%"></div>
+              </div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; gap: 5px">
+              <div style="display: flex; gap: 8px; font-size: 14px; align-items: baseline">
+                <span style="flex: 1; min-width: 0; font-weight: 500">Ozark Hearth Bakery</span><span>$94,000</span>
+              </div>
+              <div style="font-size: 12px; color: #5A6169">S corp · wages $54,000 + K-1 $40,000</div>
+              <div style="height: 8px; background: #EEECE6; border-radius: 4px; overflow: hidden">
+                <div style="height: 8px; background: #0E5A61; border-radius: 4px; width: 40%"></div>
+              </div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; gap: 5px">
+              <div style="display: flex; gap: 8px; font-size: 14px; align-items: baseline">
+                <span style="flex: 1; min-width: 0; font-weight: 500">Riverbend Rentals LP</span><span>$8,000</span>
+              </div>
+              <div style="font-size: 12px; color: #5A6169">Limited partner · passive rental · no SE, no QBI</div>
+              <div style="height: 8px; background: #EEECE6; border-radius: 4px; overflow: hidden">
+                <div style="height: 8px; background: #0E5A61; border-radius: 4px; width: 3.4%"></div>
+              </div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; gap: 5px">
+              <div style="display: flex; gap: 8px; font-size: 14px; align-items: baseline">
+                <span style="flex: 1; min-width: 0; font-weight: 500">Household interest</span><span>$2,400</span>
+              </div>
+              <div style="font-size: 12px; color: #5A6169">Owner-level · NII</div>
+              <div style="height: 8px; background: #EEECE6; border-radius: 4px; overflow: hidden">
+                <div style="height: 8px; background: #0E5A61; border-radius: 4px; width: 1%"></div>
+              </div>
+            </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-top: 12px; border-top: 1px solid #E2E0D8">
+            <div style="background: #F6F5F1; border-radius: 8px; padding: 10px 12px"><div style="font-size: 12px; color: #5A6169">Daniel · SE tax</div><div style="font-size: 18px; font-weight: 600">$18,086</div></div>
+            <div style="background: #F6F5F1; border-radius: 8px; padding: 10px 12px"><div style="font-size: 12px; color: #5A6169">Maria · SE tax</div><div style="font-size: 18px; font-weight: 600">$0</div><div style="font-size: 12px; color: #5A6169">S corp wages</div></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <section id="vouchers" aria-label="Voucher schedule" style="background: #FFFFFF; border: 1px solid #E2E0D8; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #E2E0D8">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Voucher schedule</h2>
+        <div role="tablist" aria-label="Jurisdiction" style="display: flex; gap: 4px; background: #F6F5F1; border-radius: 8px; padding: 3px">
+          <button role="tab" aria-selected="true" style="font: inherit; font-size: 13px; font-weight: 600; min-height: 36px; padding: 0 14px; border: 0; border-radius: 6px; background: #FFFFFF; color: #16191D; cursor: pointer">Federal</button>
+          <button role="tab" aria-selected="false" style="font: inherit; font-size: 13px; font-weight: 500; min-height: 36px; padding: 0 14px; border: 0; border-radius: 6px; background: transparent; color: #5A6169; cursor: pointer">Missouri · $1,208/qtr</button>
+          <button role="tab" aria-selected="false" style="font: inherit; font-size: 13px; font-weight: 500; min-height: 36px; padding: 0 14px; border: 0; border-radius: 6px; background: transparent; color: #5A6169; cursor: pointer">Arkansas · none required</button>
+        </div>
+        <button style="margin-left: auto; font: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #C9C6BC; background: #FFFFFF; color: #16191D; cursor: pointer">Record payment</button>
+      </div>
+      <div style="overflow-x: auto">
+        <div style="min-width: 1000px">
+          <div style="display: grid; grid-template-columns: 56px 120px repeat(6, minmax(0, 1fr)) 90px 150px; gap: 10px; padding: 10px 18px; background: #F6F5F1; font-size: 12px; font-weight: 600; color: #5A6169; text-transform: uppercase; letter-spacing: 0.4px">
+            <div>Qtr</div><div>Due</div><div style="text-align: right">Regular</div><div style="text-align: right">Sch AI</div><div style="text-align: right">W-2 credit</div><div style="text-align: right">From estimates</div><div style="text-align: right">Paid</div><div style="text-align: right">Remaining</div><div style="text-align: right">Penalty est.</div><div>Status</div>
+          </div>
+          
+            <div style="display: grid; grid-template-columns: 56px 120px repeat(6, minmax(0, 1fr)) 90px 150px; gap: 10px; padding: 12px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+              <div style="font-weight: 600">Q1</div>
+              <div>Apr 15, 2026</div>
+              <div style="text-align: right">8,062</div>
+              <div style="text-align: right; color: #5A6169">8,062</div>
+              <div style="text-align: right">(1,500)</div>
+              <div style="text-align: right">6,562</div>
+              <div style="text-align: right">6,600<span style="display: block; font-size: 12px; color: #5A6169">Apr 10 · GL</span></div>
+              <div style="text-align: right; font-weight: 600">0</div>
+              <div style="text-align: right">—</div>
+              <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 4px 10px; background: #E4F1E7; color: #1E5C34">Paid · +38 carried</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: 56px 120px repeat(6, minmax(0, 1fr)) 90px 150px; gap: 10px; padding: 12px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+              <div style="font-weight: 600">Q2</div>
+              <div>Jun 15, 2026</div>
+              <div style="text-align: right">8,062</div>
+              <div style="text-align: right; color: #5A6169">8,062</div>
+              <div style="text-align: right">(1,500)</div>
+              <div style="text-align: right">6,523</div>
+              <div style="text-align: right">6,600<span style="display: block; font-size: 12px; color: #5A6169">Jun 12 · GL</span></div>
+              <div style="text-align: right; font-weight: 600">0</div>
+              <div style="text-align: right">—</div>
+              <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 4px 10px; background: #E4F1E7; color: #1E5C34">Paid · +77 carried</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: 56px 120px repeat(6, minmax(0, 1fr)) 90px 150px; gap: 10px; padding: 12px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+              <div style="font-weight: 600">Q3</div>
+              <div>Sep 15, 2026</div>
+              <div style="text-align: right">8,062</div>
+              <div style="text-align: right; color: #5A6169">8,062</div>
+              <div style="text-align: right">(1,500)</div>
+              <div style="text-align: right">6,485</div>
+              <div style="text-align: right">6,000<span style="display: block; font-size: 12px; color: #5A6169">Sep 14 · manual</span></div>
+              <div style="text-align: right; font-weight: 600">485</div>
+              <div style="text-align: right">≈ $11</div>
+              <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 4px 10px; background: #F8E4E0; color: #8A2619">Short · rolls to Q4</span></div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: 56px 120px repeat(6, minmax(0, 1fr)) 90px 150px; gap: 10px; padding: 12px 18px; border-top: 1px solid #EEECE6; font-size: 14px; align-items: center">
+              <div style="font-weight: 600">Q4</div>
+              <div>Jan 15, 2027</div>
+              <div style="text-align: right">8,062</div>
+              <div style="text-align: right; color: #5A6169">8,062</div>
+              <div style="text-align: right">(1,500)</div>
+              <div style="text-align: right">7,046</div>
+              <div style="text-align: right">—<span style="display: block; font-size: 12px; color: #5A6169"></span></div>
+              <div style="text-align: right; font-weight: 600">7,046</div>
+              <div style="text-align: right">—</div>
+              <div><span style="font-size: 12px; font-weight: 600; border-radius: 999px; padding: 4px 10px; background: #FBF0DC; color: #6B3A06">Due in 99 days</span></div>
+            </div>
+          
+        </div>
+      </div>
+      <div style="padding: 12px 18px; font-size: 12px; color: #5A6169; border-top: 1px solid #E2E0D8">Payments apply to the earliest unpaid installment. Sch AI equals the regular amount here because income is level month to month. Penalty is an estimate at the IRS underpayment rate to the next projected payment. No Q4 penalty if the 2026 return is filed and paid by Feb 1, 2027.</div>
+    </section>
+
+    <footer style="font-size: 12px; color: #5A6169; display: flex; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid #E2E0D8; padding-top: 14px">
+      <span style="font-weight: 600; color: #16191D">Projection based on bookkeeping records and the assumptions listed. Not a tax return.</span>
+      <span>Federal parameters 2026 (3 unverified) · State rules: MO verified, AR unverified · Engine 2.0.0 · Sample data</span>
+    </footer>
+  </main>
+</div>
+
+</body>
+</html>
