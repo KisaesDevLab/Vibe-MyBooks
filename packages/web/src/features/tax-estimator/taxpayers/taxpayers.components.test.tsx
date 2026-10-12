@@ -150,10 +150,23 @@ describe('StateSelect (QA D3)', () => {
     const sel = screen.getByLabelText('Resident state') as HTMLSelectElement;
     expect(sel.tagName).toBe('SELECT');
     expect(sel.options).toHaveLength(52); // "Not set" + 50 states + DC
-    expect(screen.getByRole('option', { name: 'MO · Missouri' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'DC · District of Columbia' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Missouri (MO)' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'District of Columbia (DC)' })).toBeInTheDocument();
     fireEvent.change(sel, { target: { value: 'MO' } });
     expect(onChange).toHaveBeenCalledWith('MO');
+  });
+  it('QA2-08: keyboard type-ahead on the name lands on the right state (names first, A-Z)', () => {
+    render(<StateSelect id="s" label="Resident state" value="" onChange={vi.fn()} />);
+    const opts = Array.from((screen.getByLabelText('Resident state') as HTMLSelectElement).options).slice(1);
+    const names = opts.map((o) => o.text);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+    // A native select's type-ahead selects the first option whose text starts with what was typed.
+    const typeAhead = (typed: string) => opts.find((o) => o.text.toLowerCase().startsWith(typed.toLowerCase()))?.value;
+    expect(typeAhead('Missouri')).toBe('MO');
+    expect(typeAhead('Mi')).toBe('MI');
+    expect(typeAhead('Miss')).toBe('MS');
+    expect(typeAhead('New York')).toBe('NY');
+    expect(typeAhead('Arkansas')).toBe('AR');
   });
   it('keeps an unknown stored code visible (flagged) instead of silently dropping it', () => {
     render(<StateSelect id="s" label="Resident state" value="ZZ" onChange={vi.fn()} />);

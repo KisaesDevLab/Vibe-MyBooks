@@ -10,6 +10,13 @@ import { SELECT_CLASS } from './labels';
  * (50 states + DC). Never a free-text box: a two-character limit once turned
  * "Missouri" into "MI" and saved it silently.
  */
+/**
+ * QA2-08: options read "Missouri (MO)" in name order, so the browser's keyboard type-ahead
+ * (which matches the start of the option text) lands on Missouri when the name is typed,
+ * not on "MI · Michigan" after the first two letters.
+ */
+const BY_NAME: ReadonlyArray<StateCode> = [...STATE_CODES].sort((a, b) => STATE_NAMES[a].localeCompare(STATE_NAMES[b]));
+
 export function StateSelect({ id, label, value, onChange, disabled, emptyLabel = 'Not set', allowEmpty = true, ariaLabel }: {
   id: string; label?: string; value: string; onChange: (code: StateCode | '') => void;
   disabled?: boolean; emptyLabel?: string; allowEmpty?: boolean; ariaLabel?: string;
@@ -22,7 +29,7 @@ export function StateSelect({ id, label, value, onChange, disabled, emptyLabel =
         onChange={(e) => onChange(e.target.value as StateCode | '')}>
         {(allowEmpty || value === '') && <option value="">{allowEmpty ? emptyLabel : 'Choose a state'}</option>}
         {!known && <option value={value}>{value} (not a supported state)</option>}
-        {STATE_CODES.map((c) => <option key={c} value={c}>{c} · {STATE_NAMES[c]}</option>)}
+        {BY_NAME.map((c) => <option key={c} value={c}>{STATE_NAMES[c]} ({c})</option>)}
       </select>
     </div>
   );
