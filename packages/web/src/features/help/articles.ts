@@ -315,13 +315,13 @@ Use the **Show** dropdown next to the pager to display **50, 100, 250, 500, or A
 ### Exporting & Printing the List (CSV / PDF)
 The **CSV** and **Print / PDF** buttons at the top of the Transactions page export **everything that matches your current filters, search, date range, and sort** — every page, not just the rows on screen. One row per transaction, in the General Ledger's layout:
 
-**Date · Type · Ref # · Name · Description · Account / Category · Debit · Credit**, then a **Total** row (total debits and total credits).
+**Date · Type · Ref # · Name · Description · Account / Category · Tag · Debit · Credit**, then a **Total** row (total debits and total credits).
 
 - **Filtered by an Account** — Debit / Credit are that account's own debit and credit on each transaction, the same register view the list shows
 - **Not filtered by an account** — Debit / Credit are the amounts posted to the transaction's **category** (an expense shows as a debit, a deposit to income as a credit). Transactions with several categories show **Split**
 - Transactions with no category side (a **transfer** between two bank accounts, a bill or customer payment) show their full amount in both columns
 - **Void** transactions show 0.00 and add nothing to the totals
-- The **CSV** adds **Tag** and **Status** columns; money is plain numbers with 2 decimals, ready for a spreadsheet
+- **Tag** lists the tags on the transaction's lines (several are separated by semicolons, long names wrap in the PDF); blank when untagged. The **CSV** has Tag after Credit and adds **Status**; money is plain numbers with 2 decimals, ready for a spreadsheet
 - The **PDF** opens in a new tab (landscape) with the company name, the date range and filters applied, when it was printed, and page numbers — print it or save it
 - Exports are capped at **50,000** transactions (CSV) and **10,000** (PDF). A larger list is cut off with a clear "Export truncated" note — narrow the date range or filters to export the rest
 - Exports are recorded in the audit log (the filters used and the row count — not the data)
@@ -1059,6 +1059,9 @@ Navigate to **Reports** in the sidebar to see all available reports organized by
 
 ### General Ledger account filter
 The **General Ledger** has an account dropdown (it reads **All accounts** by default) listing every active account, grouped by type like the chart of accounts, with a search box. Tick one or more accounts, or tick a type heading to select every account of that type, to show only those accounts' sections. Each account still shows its full beginning balance, running balance and ending balance; the totals at the bottom then cover only the selected accounts. **Clear selection** goes back to all accounts. The CSV and PDF exports use the same selection, and the PDF header lists the selected accounts (or just how many when there are more than five). The selection is remembered until you close the browser tab. Report Packs always include the full General Ledger.
+
+### General Ledger Tag column
+The General Ledger shows a **Tag** column between Description and Debit — on screen, in the CSV and PDF exports, and in Report Packs. A line shows its own tag; a line with no tag of its own (usually the bank, A/P or A/R side of a tagged expense or invoice) shows its transaction's tags, in gray on screen, several separated by commas. Blank means neither the line nor its transaction is tagged. The **Tag** filter still works line by line: it keeps only lines that carry the tag themselves.
 
 ### Filtering Reports
 Most reports support:

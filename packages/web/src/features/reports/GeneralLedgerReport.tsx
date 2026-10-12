@@ -30,6 +30,11 @@ interface GLLine {
   description: string;
   debit: number;
   credit: number;
+  // Tag column: the line's own tag, else its transaction's tags
+  // ('transaction' — e.g. the bank side of a tagged expense). '' = none.
+  // Optional so an older API response still renders.
+  tagLabel?: string;
+  tagSource?: 'line' | 'transaction' | null;
   runningBalance: number;
 }
 
@@ -295,6 +300,7 @@ function AccountSection({ account, showAcctNums = true }: { account: GLAccount; 
             <th className="text-left py-1.5 font-medium w-[80px]">Ref #</th>
             <th className="text-left py-1.5 font-medium w-[160px]">Name</th>
             <th className="text-left py-1.5 font-medium">Description</th>
+            <th className="text-left py-1.5 font-medium w-[120px]">Tag</th>
             <th className="text-right py-1.5 font-medium w-[110px]">Debit</th>
             <th className="text-right py-1.5 font-medium w-[110px]">Credit</th>
             <th className="text-right py-1.5 font-medium w-[120px]">Balance</th>
@@ -303,7 +309,7 @@ function AccountSection({ account, showAcctNums = true }: { account: GLAccount; 
         <tbody className="font-mono">
           {/* Beginning balance row */}
           <tr className="border-b border-gray-100">
-            <td className="py-1.5 italic text-gray-500 font-sans" colSpan={5}>
+            <td className="py-1.5 italic text-gray-500 font-sans" colSpan={6}>
               Beginning balance
             </td>
             <td className="py-1.5"></td>
@@ -314,7 +320,7 @@ function AccountSection({ account, showAcctNums = true }: { account: GLAccount; 
           {/* Activity rows */}
           {account.lines.length === 0 ? (
             <tr>
-              <td colSpan={8} className="py-2 text-center italic text-gray-400 font-sans">
+              <td colSpan={9} className="py-2 text-center italic text-gray-400 font-sans">
                 No activity in period
               </td>
             </tr>
@@ -331,6 +337,16 @@ function AccountSection({ account, showAcctNums = true }: { account: GLAccount; 
                 <td className="py-1 text-gray-500">{line.txnNumber || ''}</td>
                 <td className="py-1 truncate max-w-[160px] font-sans text-gray-700">{line.contactName || ''}</td>
                 <td className="py-1 truncate max-w-[260px] font-sans text-gray-600">{line.description}</td>
+                <td className="py-1 max-w-[120px] break-words font-sans">
+                  {line.tagLabel ? (
+                    <span
+                      className={line.tagSource === 'transaction' ? 'text-gray-400' : 'text-gray-700'}
+                      title={line.tagSource === 'transaction' ? 'From the transaction (this line has no tag of its own)' : undefined}
+                    >
+                      {line.tagLabel}
+                    </span>
+                  ) : ''}
+                </td>
                 <td className="py-1 text-right">{line.debit > 0 ? fmtMoney(line.debit) : ''}</td>
                 <td className="py-1 text-right">{line.credit > 0 ? fmtMoney(line.credit) : ''}</td>
                 <td className="py-1 text-right font-semibold">{fmtMoney(line.runningBalance)}</td>
@@ -340,7 +356,7 @@ function AccountSection({ account, showAcctNums = true }: { account: GLAccount; 
 
           {/* Period totals row */}
           <tr className="border-t-2 border-gray-300 bg-gray-50">
-            <td className="py-1.5 font-sans font-semibold text-gray-700" colSpan={5}>
+            <td className="py-1.5 font-sans font-semibold text-gray-700" colSpan={6}>
               Total period activity
             </td>
             <td className="py-1.5 text-right font-semibold">{fmtMoney(account.periodDebits)}</td>
@@ -350,7 +366,7 @@ function AccountSection({ account, showAcctNums = true }: { account: GLAccount; 
 
           {/* Ending balance row */}
           <tr className="bg-gray-50">
-            <td className="py-1.5 italic text-gray-700 font-sans font-semibold" colSpan={5}>
+            <td className="py-1.5 italic text-gray-700 font-sans font-semibold" colSpan={6}>
               Ending balance
             </td>
             <td className="py-1.5"></td>

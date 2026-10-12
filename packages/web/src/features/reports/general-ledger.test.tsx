@@ -159,3 +159,38 @@ describe('GeneralLedgerReport account filter', () => {
     apiClientMock.mockImplementation(async () => glResponse);
   });
 });
+
+describe('GeneralLedgerReport Tag column', () => {
+  const line = (lineId: string, description: string, tagLabel: string, tagSource: 'line' | 'transaction' | null) => ({
+    lineId, transactionId: `t-${lineId}`, date: '2026-03-01', txnType: 'journal_entry', txnNumber: null, contactName: null,
+    description, debit: 10, credit: 0, tagId: null, tagName: tagSource === 'line' ? tagLabel : null, tagLabel, tagSource, runningBalance: 110,
+  });
+
+  it('shows a Tag column after Description and before Debit, with each line’s tag (empty when none)', async () => {
+    apiClientMock.mockImplementation(async () => ({
+      ...glResponse,
+      accounts: [{
+        ...glResponse.accounts[0]!,
+        lines: [
+          line('l1', 'Own tag line', 'East Region', 'line'),
+          line('l2', 'Inherited tag line', 'East Region, West', 'transaction'),
+          line('l3', 'Untagged line', '', null),
+        ],
+      }],
+    }) as unknown as typeof glResponse);
+    renderRoute(<GeneralLedgerReport />);
+    await waitFor(() => expect(screen.getByText('Own tag line')).toBeTruthy());
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent);
+    expect(headers.slice(headers.indexOf('Description'), headers.indexOf('Debit') + 1)).toEqual(['Description', 'Tag', 'Debit']);
+
+    const cellsOf = (desc: string) => Array.from(screen.getByText(desc).closest('tr')!.querySelectorAll('td')).map((td) => td.textContent);
+    expect(cellsOf('Own tag line').slice(4, 6)).toEqual(['Own tag line', 'East Region']);
+    expect(cellsOf('Inherited tag line').slice(4, 6)).toEqual(['Inherited tag line', 'East Region, West']);
+    expect(cellsOf('Untagged line').slice(4, 6)).toEqual(['Untagged line', '']);
+    // An inherited (transaction-level) tag says so on hover.
+    expect(screen.getByText('East Region, West').getAttribute('title')).toMatch(/transaction/i);
+    // Summary rows still span through the Tag column.
+    expect(screen.getByText('Beginning balance').closest('td')!.getAttribute('colspan')).toBe('6');
+    apiClientMock.mockImplementation(async () => glResponse);
+  });
+});
