@@ -3069,6 +3069,12 @@ Nothing lands there on its own. Only two paths post to suspense:
 
 A row moves from the first tab to the second when you post it to suspense; it leaves the second when you give it a real category. Nothing disappears.
 
+## Who gets emailed when a client categorizes
+
+Each client has its own list. On the **Client suggested** tab, click **Email notifications** and tick the staff who should get the "*Client*: *Contact* categorized N transactions" email — the same checklist as a document request's **Email staff when the client submits** (active staff users with access to this client; never client users). Everyone ticked gets one email per batch of answers, whether the answers came from the client portal or from a team member on Banking → Uncategorized (the team member who sent them is never emailed about their own answers). Anyone who loses access to the client is skipped automatically.
+
+**Nobody ticked means no email.** This is the default for every client, including clients that existed before the list was added (October 2026) — until then this email went to *every* firm reviewer with access to the client. The answers still appear on Client suggested, counted as unread, whether or not anyone is emailed. Only people who can review suggestions for this client can change the list; changes are recorded in the audit log.
+
 Every column but Category and Docs sorts: click a header to sort ascending, click again to flip. Sorting happens on the server, so it orders the whole list, not just the page you can see. Both table tabs also carry a **Ref** column (the check number, falling back to the entry number), a per-row **Payee** picker (the same contact search used on Write Check and Bank Feeds, with quick-add) and a per-row **Category** picker \u2014 the same account search used everywhere else in the app. Both pickers stretch to use whatever width the screen has. When a check image was read but no contact is linked yet, the name read off the check shows under the empty Payee picker as a hint; search for or add that contact to link it.
 
 ## Many rows at once
@@ -3110,7 +3116,7 @@ Any user of the company who is **not a member of an accounting firm**: owners, a
 
 The **Needs a category** tab lists every amount sitting in suspense: date, reference, payee, memo, amount and any attached documents. For each row pick **What was this?** from a short list of income and expense categories (no balance-sheet or system accounts), or choose **Personal / not business** or **Not sure**, and add a note. A note on its own is sent as *Not sure*; *Not sure* with no note is refused before it is sent.
 
-Click **Send N answers**. Nothing posts \u2014 the row stays, marked **Sent \u00b7 awaiting review**, and the reviewer gets one email for the batch. You can **Withdraw** your own answer while it is still waiting; you cannot overwrite a colleague's or a client's pending answer. Receipts attach the same way they do everywhere else.
+Click **Send N answers**. Nothing posts \u2014 the row stays, marked **Sent \u00b7 awaiting review**, and the people on this client's **Email notifications** list (Client suggested tab) get one email for the batch — nobody, if the list is empty. You can **Withdraw** your own answer while it is still waiting; you cannot overwrite a colleague's or a client's pending answer. Receipts attach the same way they do everywhere else.
 
 ## Who reviews
 

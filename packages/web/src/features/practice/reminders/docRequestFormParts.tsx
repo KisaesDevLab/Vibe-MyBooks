@@ -119,18 +119,27 @@ export function useStaffUserOptions(): StaffUserOption[] | null {
   return staffUsers;
 }
 
+const DEFAULT_NOTIFY_HELP =
+  'Each checked person gets an email the moment the contact uploads against this request. '
+  + 'The submission also shows as unread on the dashboard and the Clients screen until someone marks it reviewed.';
+
 export function StaffNotifyPicker({
   staffUsers,
   selected,
   onToggle,
+  legend = 'Email staff when the client submits',
+  help = DEFAULT_NOTIFY_HELP,
 }: {
   staffUsers: StaffUserOption[] | null;
   selected: string[];
   onToggle: (id: string) => void;
+  /** Also used by the client-suggestion notify list (Uncategorized). */
+  legend?: string;
+  help?: string;
 }) {
   return (
     <fieldset className="block text-sm">
-      <legend className="block text-gray-800 mb-1">Email staff when the client submits</legend>
+      <legend className="block text-gray-800 mb-1">{legend}</legend>
       {staffUsers === null ? (
         <p className="text-xs text-gray-500">Loading team…</p>
       ) : staffUsers.length === 0 ? (
@@ -151,10 +160,7 @@ export function StaffNotifyPicker({
           ))}
         </div>
       )}
-      <p className="text-xs text-gray-500 mt-1">
-        Each checked person gets an email the moment the contact uploads against this request.
-        The submission also shows as unread on the dashboard and the Clients screen until someone marks it reviewed.
-      </p>
+      <p className="text-xs text-gray-500 mt-1">{help}</p>
     </fieldset>
   );
 }

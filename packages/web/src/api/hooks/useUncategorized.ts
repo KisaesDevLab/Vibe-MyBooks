@@ -264,6 +264,27 @@ export function useSendHelpRequest() {
   });
 }
 
+// Who gets the "client categorized N transactions" email for this client.
+// Empty = nobody; the suggestions still show as unread on this screen.
+export function useSuggestionNotifySettings(enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: ['uncategorized', 'notify-settings'],
+    queryFn: () => apiClient<{ notifyUserIds: string[] }>(`${BASE}/notify-settings`),
+  });
+}
+
+export function useSaveSuggestionNotifySettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (notifyUserIds: string[]) =>
+      apiClient<{ notifyUserIds: string[] }>(`${BASE}/notify-settings`, {
+        method: 'PUT', body: JSON.stringify({ notifyUserIds }),
+      }),
+    onSuccess: (data) => { qc.setQueryData(['uncategorized', 'notify-settings'], data); },
+  });
+}
+
 export function useMarkSuggestionsReviewed() {
   return useLedgerMutation((ids?: string[]) =>
     apiClient<{ marked: number }>(

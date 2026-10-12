@@ -12,7 +12,7 @@
 // answer staff already recorded by hand — no posting, no message to the client.
 
 import { useState } from 'react';
-import { AlertTriangle, Ban, Check, CircleDot, Loader2, MessageSquare, X } from 'lucide-react';
+import { AlertTriangle, Ban, Check, CircleDot, Loader2, Mail, MessageSquare, X } from 'lucide-react';
 import { formatMoney } from '../../../utils/money';
 import { TableScroll } from '../../../components/ui/TableScroll';
 import { Pagination } from '../../../components/ui/Pagination';
@@ -22,6 +22,7 @@ import { useToast } from '../../../components/ui/Toaster';
 import { AccountSelector } from '../../../components/forms/AccountSelector';
 import { ContactSelector } from '../../../components/forms/ContactSelector';
 import { SelectionActionBar } from './SelectionActionBar';
+import { SuggestionNotifyModal } from './SuggestionNotifyModal';
 import {
   useSuggestions, useApproveSuggestions, useRejectSuggestions, useMarkSuggestionsReviewed,
   useDismissSuggestions,
@@ -57,6 +58,7 @@ export function ClientSuggestedTab() {
   // Per-row category + payee edits, keyed by suggestion id.
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+  const [notifyOpen, setNotifyOpen] = useState(false);
 
   const toast = useToast();
   const query = useSuggestions({
@@ -205,17 +207,23 @@ export function ClientSuggestedTab() {
           />
           Unread only
         </label>
-        <Button
-          variant="secondary"
-          disabled={busy || total === 0}
-          onClick={() => markReviewed.mutate(undefined, {
-            onSuccess: (res) => toast.success(`Marked ${res.marked} as read. Nothing was posted.`),
-            onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not mark reviewed.'),
-          })}
-        >
-          Mark all read
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setNotifyOpen(true)}>
+            <Mail className="h-4 w-4 mr-1" /> Email notifications
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={busy || total === 0}
+            onClick={() => markReviewed.mutate(undefined, {
+              onSuccess: (res) => toast.success(`Marked ${res.marked} as read. Nothing was posted.`),
+              onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not mark reviewed.'),
+            })}
+          >
+            Mark all read
+          </Button>
+        </div>
       </div>
+      {notifyOpen && <SuggestionNotifyModal open onClose={() => setNotifyOpen(false)} />}
 
       <SelectionActionBar
         selectedCount={selected.size}
