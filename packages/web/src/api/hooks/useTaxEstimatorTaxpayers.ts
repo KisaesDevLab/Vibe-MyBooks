@@ -36,6 +36,7 @@ export interface TaxpayerListParams {
   q?: string;
   status?: 'active' | 'archived' | 'all';
   filingStatus?: string[];
+  residentState?: string[];
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
   limit: number;
@@ -54,7 +55,7 @@ export function useTaxpayers(p: TaxpayerListParams) {
     queryKey: [KEY, 'list', p],
     placeholderData: keepPreviousData,
     queryFn: () => call<TaxpayerListDTO>(qs({
-      q: p.q, status: p.status, filingStatus: p.filingStatus?.join(','), sortBy: p.sortBy, sortDir: p.sortDir,
+      q: p.q, status: p.status, filingStatus: p.filingStatus?.join(','), residentState: p.residentState?.join(','), sortBy: p.sortBy, sortDir: p.sortDir,
       limit: p.limit, offset: p.offset,
     })),
   });

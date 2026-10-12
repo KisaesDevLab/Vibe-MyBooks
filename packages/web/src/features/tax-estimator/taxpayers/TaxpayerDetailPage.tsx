@@ -19,6 +19,7 @@ import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { PersonsEditor } from './PersonsEditor';
 import { LinksSection } from './LinksSection';
 import { ContactsPanel } from './ContactsPanel';
+import { StateSelect } from './StateSelect';
 import { FILING_STATUS_LABELS, SAFE_HARBOR_LABELS, SELECT_CLASS } from './labels';
 import { useYear } from '../../../api/hooks/useTaxEstimatorYears';
 import { downloadEstimatePdf } from '../../../api/hooks/useTaxEstimatorEstimate';
@@ -32,7 +33,6 @@ function CoreForm({ taxpayer, canWrite }: { taxpayer: TaxpayerDTO; canWrite: boo
   const [state, setState] = useState(taxpayer.residentState ?? '');
   const [harbor, setHarbor] = useState<SafeHarborOverride | ''>(taxpayer.safeHarborOverride ?? '');
   const [portal, setPortal] = useState<PortalShows | ''>(taxpayer.portalShows ?? '');
-  const stateInvalid = state !== '' && !/^[A-Za-z]{2}$/.test(state);
   return (
     <section className="rounded-lg border border-gray-200 bg-white p-4 space-y-3" aria-label="Taxpayer details">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -43,8 +43,7 @@ function CoreForm({ taxpayer, canWrite }: { taxpayer: TaxpayerDTO; canWrite: boo
             {FILING_STATUSES.map((f) => <option key={f} value={f}>{FILING_STATUS_LABELS[f]}</option>)}
           </select>
         </div>
-        <Input label="Resident state" maxLength={2} placeholder="MO" value={state} disabled={!canWrite}
-          error={stateInvalid ? 'Use a two-letter state code' : undefined} onChange={(e) => setState(e.target.value.toUpperCase())} />
+        <StateSelect id="tp-state" label="Resident state" value={state} disabled={!canWrite} onChange={setState} />
         <div>
           <label htmlFor="tp-harbor" className="block text-sm font-medium text-gray-700 mb-1">Safe-harbor rule</label>
           <select id="tp-harbor" className={SELECT_CLASS} value={harbor} disabled={!canWrite} onChange={(e) => setHarbor(e.target.value as SafeHarborOverride | '')}>
@@ -63,7 +62,7 @@ function CoreForm({ taxpayer, canWrite }: { taxpayer: TaxpayerDTO; canWrite: boo
       {update.isError && <p className="text-sm text-red-600" role="alert">{errMsg(update.error)}</p>}
       {update.isSuccess && <p className="text-sm text-green-700" role="status">Saved.</p>}
       {canWrite && (
-        <Button size="sm" disabled={!name.trim() || stateInvalid} loading={update.isPending}
+        <Button size="sm" disabled={!name.trim()} loading={update.isPending}
           onClick={() => update.mutate({
             displayName: name.trim(), filingStatus: filing, residentState: state === '' ? null : state,
             safeHarborOverride: harbor === '' ? null : harbor, portalShows: portal === '' ? null : portal,

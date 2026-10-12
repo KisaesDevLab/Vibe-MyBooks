@@ -4,10 +4,11 @@
 
 import { useState } from 'react';
 import type { StateBase, StateRowDTO, StateRowInput, ReplaceStateRowsInput } from '@kis-books/shared';
-import { STATE_BASES } from '@kis-books/shared';
+import { STATE_BASES, STATE_CODES } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { SELECT_CLASS } from '../taxpayers/labels';
+import { StateSelect } from '../taxpayers/StateSelect';
 import { STATE_BASE_LABELS } from './labels';
 
 export interface StateDraft {
@@ -42,7 +43,7 @@ export function validateDrafts(rows: StateDraft[]): string | null {
   if (residents.length !== 1) return 'Exactly one resident state is required.';
   const seen = new Set<string>();
   for (const r of rows) {
-    if (!/^[A-Za-z]{2}$/.test(r.state)) return 'Enter a two-letter state code for every row.';
+    if (!(STATE_CODES as readonly string[]).includes(r.state.toUpperCase())) return 'Choose a state for every row.';
     const code = r.state.toUpperCase();
     if (seen.has(code)) return r.residency === 'nonresident' && code === residents[0]!.state.toUpperCase()
       ? 'A nonresident state cannot be the resident state.' : `${code} appears more than once.`;
@@ -83,7 +84,10 @@ function RowCard({ d, canWrite, onChange, onRemove }: {
   d: StateDraft; canWrite: boolean; onChange: (patch: Partial<StateDraft>) => void; onRemove?: () => void;
 }) {
   const nonres = d.residency === 'nonresident';
-  const label = `${nonres ? 'Nonresident' : 'Resident'} ${d.state || 'state'}`;
+  const who = nonres ? 'Nonresident' : 'Resident';
+  const label = `${who} ${d.state || 'state'}`;
+  // QA D31: never "Nonresident state state code".
+  const stateLabel = d.state ? `${who} ${d.state} state` : `${who} state`;
   return (
     <section className="rounded-lg border border-gray-200 bg-white p-3 space-y-2" aria-label={label} data-testid={`state-row-${d.residency}`}>
       <div className="flex items-center justify-between">
@@ -92,8 +96,8 @@ function RowCard({ d, canWrite, onChange, onRemove }: {
         {nonres && canWrite && onRemove && <Button size="sm" variant="ghost" onClick={onRemove}>Remove</Button>}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Input label={`${label} state`} aria-label={`${label} state code`} maxLength={2} value={d.state} disabled={!canWrite}
-          onChange={(e) => onChange({ state: e.target.value.toUpperCase() })} />
+        <StateSelect id={`state-${d.key}`} label="State" ariaLabel={stateLabel} value={d.state} disabled={!canWrite}
+          allowEmpty={false} onChange={(code) => onChange({ state: code })} />
         <Input label={`${label} rate %`} inputMode="decimal" value={d.ratePct} disabled={!canWrite} onChange={(e) => onChange({ ratePct: e.target.value })} />
         <div>
           <label htmlFor={`base-${d.key}`} className="block text-sm font-medium text-gray-700 mb-1">Base</label>

@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FILING_STATUSES, type FilingStatus } from '@kis-books/shared';
+import { FILING_STATUSES, STATE_CODES, STATE_NAMES, type FilingStatus } from '@kis-books/shared';
 import {
   useTaxpayers, useCreateTaxpayer, useTaxEstimatorScope, setTaxEstimatorFirmId,
 } from '../../../api/hooks/useTaxEstimatorTaxpayers';
@@ -17,6 +17,7 @@ import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
 import { Pagination } from '../../../components/ui/Pagination';
 import { FILING_STATUS_LABELS, SELECT_CLASS } from './labels';
+import { StateSelect } from './StateSelect';
 
 type SortKey = 'displayName' | 'filingStatus' | 'residentState' | 'createdAt';
 const SORT_KEYS: readonly SortKey[] = ['displayName', 'filingStatus', 'residentState', 'createdAt'];
@@ -31,7 +32,6 @@ function NewTaxpayerForm({ onCancel }: { onCancel: () => void }) {
   const [name, setName] = useState('');
   const [filing, setFiling] = useState<FilingStatus>('single');
   const [state, setState] = useState('');
-  const stateInvalid = state !== '' && !/^[A-Za-z]{2}$/.test(state);
   return (
     <div className="rounded-lg border border-primary-200 bg-primary-50/30 p-4 mb-4 space-y-3" role="form" aria-label="New taxpayer">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -42,12 +42,11 @@ function NewTaxpayerForm({ onCancel }: { onCancel: () => void }) {
             {FILING_STATUSES.map((f) => <option key={f} value={f}>{FILING_STATUS_LABELS[f]}</option>)}
           </select>
         </div>
-        <Input label="Resident state" maxLength={2} placeholder="MO" value={state}
-          error={stateInvalid ? 'Use a two-letter state code' : undefined} onChange={(e) => setState(e.target.value.toUpperCase())} />
+        <StateSelect id="new-tp-state" label="Resident state" value={state} onChange={setState} />
       </div>
       {create.isError && <p className="text-sm text-red-600" role="alert">{create.error instanceof Error ? create.error.message : 'Could not create taxpayer'}</p>}
       <div className="flex gap-2">
-        <Button size="sm" disabled={!name.trim() || stateInvalid} loading={create.isPending}
+        <Button size="sm" disabled={!name.trim()} loading={create.isPending}
           onClick={() => create.mutate({ displayName: name.trim(), filingStatus: filing, residentState: state || null },
             { onSuccess: (tp) => navigate(`/tax-estimator/taxpayers/${tp.id}`) })}>Create taxpayer</Button>
         <Button size="sm" variant="secondary" onClick={onCancel}>Cancel</Button>
@@ -86,10 +85,12 @@ export function TaxpayerListPage() {
   useEffect(() => { const t = setTimeout(() => setQ(search.trim()), SEARCH_DEBOUNCE_MS); return () => clearTimeout(t); }, [search]);
   useEffect(() => setOffset(0), [view.signature, q, showArchived]);
   const filingFilter = view.filters.filingStatus;
+  const stateFilter = view.filters.residentState;
   const scope = useTaxEstimatorScope();
   const { data, isLoading, isError, error, refetch } = useTaxpayers({
     limit, offset, q: q || undefined, status: showArchived ? 'all' : 'active',
     ...(filingFilter && filingFilter.length > 0 ? { filingStatus: filingFilter } : {}),
+    ...(stateFilter && stateFilter.length > 0 ? { residentState: stateFilter } : {}),
     ...(view.sortCol ? { sortBy: view.sortCol, sortDir: view.sortDir } : {}),
   });
   const canWrite = scope.data ? scope.data.firmRole !== 'firm_readonly' : false;
@@ -126,7 +127,8 @@ export function TaxpayerListPage() {
                   <th className={`py-2 px-3 text-left ${TH}`}>Persons</th>
                   <SortableTh padding="py-2 px-3" className={TH} label="Filing status" {...view.thProps('filingStatus')}
                     filter={view.filterProps('filingStatus', FILING_STATUSES.map((f) => ({ value: f, label: FILING_STATUS_LABELS[f] })), { ariaLabel: 'Filter filing status' })} />
-                  <SortableTh padding="py-2 px-3" className={TH} label="State" {...view.thProps('residentState')} />
+                  <SortableTh padding="py-2 px-3" className={TH} label="State" {...view.thProps('residentState')}
+                    filter={view.filterProps('residentState', STATE_CODES.map((c) => ({ value: c, label: `${c} · ${STATE_NAMES[c]}` })), { ariaLabel: 'Filter state', searchable: true })} />
                   <th className={`py-2 px-3 text-right ${TH}`}>Links</th>
                 </tr>
               </thead>

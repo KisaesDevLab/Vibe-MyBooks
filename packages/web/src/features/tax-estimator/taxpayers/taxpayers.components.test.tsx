@@ -21,6 +21,7 @@ import { PctTotalsNotice } from './PctTotalsNotice';
 import { computePctTotals } from './pctTotals';
 import { PersonsEditor } from './PersonsEditor';
 import { LinkForm } from './LinkForm';
+import { StateSelect } from './StateSelect';
 
 const opt = (over: Partial<CompanyOptionDTO> = {}): CompanyOptionDTO => ({
   tenantId: 't2', tenantName: 'Rivera Plumbing', companyId: 'c2', companyName: 'Rivera Plumbing LLC',
@@ -130,5 +131,23 @@ describe('PersonsEditor', () => {
     render(<PersonsEditor persons={[person('primary', 'Daniel')]} canWrite={false} saving={false} onSave={vi.fn()} onRemove={vi.fn()} />);
     expect(screen.queryByRole('button', { name: /Save primary/ })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Primary taxpayer first name')).toBeDisabled();
+  });
+});
+
+describe('StateSelect (QA D3)', () => {
+  it('offers exactly the 51 jurisdictions as a select, never a free-text box that truncates "Missouri" to "MI"', () => {
+    const onChange = vi.fn();
+    render(<StateSelect id="s" label="Resident state" value="" onChange={onChange} />);
+    const sel = screen.getByLabelText('Resident state') as HTMLSelectElement;
+    expect(sel.tagName).toBe('SELECT');
+    expect(sel.options).toHaveLength(52); // "Not set" + 50 states + DC
+    expect(screen.getByRole('option', { name: 'MO · Missouri' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'DC · District of Columbia' })).toBeInTheDocument();
+    fireEvent.change(sel, { target: { value: 'MO' } });
+    expect(onChange).toHaveBeenCalledWith('MO');
+  });
+  it('keeps an unknown stored code visible (flagged) instead of silently dropping it', () => {
+    render(<StateSelect id="s" label="Resident state" value="ZZ" onChange={vi.fn()} />);
+    expect(screen.getByRole('option', { name: 'ZZ (not a supported state)' })).toBeInTheDocument();
   });
 });
