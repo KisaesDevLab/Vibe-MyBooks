@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent, render, within } from '@testing-library/react';
-import type { AdjustmentDTO, AdjustmentTypeDTO, PersonDTO, ScenarioDTO, StateRowDTO, YearDetailDTO, YearSettingsDTO } from '@kis-books/shared';
+import type { AdjustmentDTO, AdjustmentTypeDTO, LinkDTO, PersonDTO, ScenarioDTO, StateRowDTO, YearDetailDTO, YearSettingsDTO } from '@kis-books/shared';
 import { ScenarioTabs } from './ScenarioTabs';
 import { AllocationStrip } from './AllocationStrip';
 import { AdjustmentsSection, previewMonths } from './AdjustmentsSection';
@@ -85,7 +85,7 @@ describe('AllocationStrip and live preview', () => {
 
 describe('AdjustmentsSection', () => {
   const props = (over = {}) => ({
-    taxYear: 2026, adjustments: [adj()], total: 1, types: [type()], persons: [], canWrite: true,
+    taxYear: 2026, adjustments: [adj()], total: 1, types: [type()], persons: [] as PersonDTO[], links: [] as LinkDTO[], canWrite: true,
     onCreate: vi.fn(), onUpdate: vi.fn(), onDelete: vi.fn(), ...over,
   });
 
@@ -126,6 +126,37 @@ describe('AdjustmentsSection', () => {
     fireEvent.change(screen.getByLabelText('End month'), { target: { value: '3' } });
     expect(screen.getByRole('alert')).toHaveTextContent(/End month/);
     expect(screen.getByRole('button', { name: 'Save adjustment' })).toBeDisabled();
+  });
+
+  it('QA D1: a §179 vehicle needs an entity link; picking the link sends linkId and the link\'s person', () => {
+    const truck = type({ id: 'tv', code: 'vehicle_179', name: 'Vehicle purchase (§179)', affectsSe: true, affectsQbi: true, isAboveTheLine: false });
+    const carlos: PersonDTO = { id: 'p1', taxpayerId: 'tp', role: 'primary', firstName: 'Carlos', lastName: 'Rivera', dateOfBirth: null, isBlind: false, sehiEligibleMonths: Array(12).fill(true) };
+    const plumbing = {
+      id: 'l1', taxpayerId: 'tp', personId: 'p1', personRole: 'primary', taxYear: 2026, tenantId: 't2', companyId: 'c2',
+      tenantName: 'Rivera Plumbing', companyName: 'Rivera Plumbing LLC', entityKind: 'sole_prop', returnForm: 'Sch C', outOfScope: false,
+      profitPct: 100, lossPct: 100, capitalPct: null, partnerSeStatus: null, partnerSeMemo: null, isOfficer: false,
+      activityType: 'active', activeParticipation: false, qbiEligible: null, qbiOverrideReason: null, allowedLossOverride: null, allowedLossReason: null,
+    } as unknown as LinkDTO;
+    const p = props({ adjustments: [], total: 0, types: [truck, type()], persons: [carlos], links: [plumbing] });
+    render(<AdjustmentsSection {...p} />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add adjustment' }));
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '60000' } });
+    expect(screen.getByLabelText('Entity (required)')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/itemized deduction/);
+    expect(screen.getByRole('button', { name: 'Save adjustment' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Entity (required)'), { target: { value: 'l1' } });
+    expect(screen.getByLabelText('Person')).toHaveValue('p1');
+    expect(screen.getByLabelText('Person')).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save adjustment' }));
+    expect(p.onCreate).toHaveBeenCalledWith(expect.objectContaining({ adjustmentTypeId: 'tv', linkId: 'l1', personId: 'p1', amount: '60000' }));
+  });
+
+  it('QA D1: owner SEHI/retirement types offer no entity picker; an existing unlinked §179 row is flagged', () => {
+    const truck = type({ id: 'tv', code: 'vehicle_179', name: 'Vehicle purchase (§179)', affectsSe: true, affectsQbi: true, isAboveTheLine: false });
+    render(<AdjustmentsSection {...props({ types: [type(), truck], adjustments: [adj({ id: 'a2', adjustmentTypeId: 'tv', adjustmentTypeName: 'Vehicle purchase (§179)', label: 'Truck' })] })} />);
+    expect(screen.getByText(/No entity — treated as itemized/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '+ Add adjustment' }));
+    expect(screen.queryByLabelText(/^Entity/)).toBeNull(); // first type = SEP (person-level)
   });
 
   it('read-only users see no edit actions', () => {

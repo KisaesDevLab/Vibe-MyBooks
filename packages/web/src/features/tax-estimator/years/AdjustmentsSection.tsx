@@ -4,8 +4,8 @@
 
 import { useMemo, useState } from 'react';
 import {
-  ADJUSTMENT_CADENCES, allocateAdjustment, type AdjustmentCadenceDTO, type AdjustmentDTO, type AdjustmentTypeDTO,
-  type CreateAdjustmentInput, type PersonDTO,
+  ADJUSTMENT_CADENCES, allocateAdjustment, adjustmentLinkRule, ADJUSTMENT_LINK_REQUIRED_MESSAGE,
+  type AdjustmentCadenceDTO, type AdjustmentDTO, type AdjustmentTypeDTO, type CreateAdjustmentInput, type LinkDTO, type PersonDTO,
 } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -19,6 +19,8 @@ interface Props {
   total: number;
   types: AdjustmentTypeDTO[];
   persons: PersonDTO[];
+  /** The taxpayer's entity links for this tax year (QA D1: business deductions attach to one). */
+  links: LinkDTO[];
   canWrite: boolean;
   saving?: boolean;
   error?: string;
@@ -29,18 +31,18 @@ interface Props {
 
 interface Draft {
   adjustmentTypeId: string; label: string; amount: string; cadence: AdjustmentCadenceDTO; startMonth: number; endMonth: number;
-  personId: string; pct: string; nonRecurring: boolean; memo: string;
+  personId: string; linkId: string; pct: string; nonRecurring: boolean; memo: string;
 }
 
 const emptyDraft = (types: AdjustmentTypeDTO[]): Draft => ({
   adjustmentTypeId: types[0]?.id ?? '', label: '', amount: '', cadence: 'annual', startMonth: 1, endMonth: 12,
-  personId: '', pct: '', nonRecurring: false, memo: '',
+  personId: '', linkId: '', pct: '', nonRecurring: false, memo: '',
 });
 
 function draftOf(a: AdjustmentDTO): Draft {
   return {
     adjustmentTypeId: a.adjustmentTypeId, label: a.label, amount: a.amount ?? '', cadence: a.cadence, startMonth: a.startMonth,
-    endMonth: a.endMonth, personId: a.personId ?? '', pct: a.pct == null ? '' : String(a.pct), nonRecurring: a.nonRecurring, memo: a.memo ?? '',
+    endMonth: a.endMonth, personId: a.personId ?? '', linkId: a.linkId ?? '', pct: a.pct == null ? '' : String(a.pct), nonRecurring: a.nonRecurring, memo: a.memo ?? '',
   };
 }
 
@@ -52,8 +54,14 @@ export function previewMonths(d: Pick<Draft, 'amount' | 'cadence' | 'startMonth'
   return allocateAdjustment({ amount: AMOUNT_RE.test(d.amount) ? d.amount : 0, cadence: d.cadence, startMonth: d.startMonth, endMonth: end }, taxYear);
 }
 
-function AdjustmentEditor({ taxYear, initial, types, persons, glLinked, saving, onCancel, onSave }: {
-  taxYear: number; initial: Draft; types: AdjustmentTypeDTO[]; persons: PersonDTO[]; glLinked: boolean; saving?: boolean;
+/** "Carlos · Rivera Plumbing LLC (Sch C)" */
+export function linkLabel(l: LinkDTO, persons: PersonDTO[]): string {
+  const p = persons.find((x) => x.id === l.personId);
+  return `${p ? `${p.firstName} · ` : ''}${l.companyName ?? 'Company'}${l.returnForm ? ` (${l.returnForm})` : ''}${l.outOfScope ? ' — no longer managed' : ''}`;
+}
+
+function AdjustmentEditor({ taxYear, initial, types, persons, links, glLinked, saving, onCancel, onSave }: {
+  taxYear: number; initial: Draft; types: AdjustmentTypeDTO[]; persons: PersonDTO[]; links: LinkDTO[]; glLinked: boolean; saving?: boolean;
   onCancel: () => void; onSave: (d: Draft) => void;
 }) {
   const [d, setD] = useState(initial);
@@ -63,15 +71,19 @@ function AdjustmentEditor({ taxYear, initial, types, persons, glLinked, saving, 
   const amountOk = AMOUNT_RE.test(d.amount) || (glLinked && d.amount === '');
   const rangeOk = d.startMonth <= d.endMonth || d.cadence === 'one_time';
   const pctOk = d.pct === '' || (Number(d.pct) >= 0 && Number(d.pct) <= 100);
+  const linkRule = type ? adjustmentLinkRule(type) : 'optional';
+  const linkOk = linkRule === 'required' ? d.linkId !== '' : linkRule === 'not_allowed' ? d.linkId === '' : true;
+  const valid = amountOk && rangeOk && pctOk && linkOk && !!d.adjustmentTypeId;
   return (
     <form className="rounded-lg border border-primary-200 bg-primary-50/30 p-4 space-y-3" aria-label="Adjustment editor"
-      onSubmit={(e) => { e.preventDefault(); if (amountOk && rangeOk && pctOk && d.adjustmentTypeId) onSave(d); }}>
+      onSubmit={(e) => { e.preventDefault(); if (valid) onSave(d); }}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label htmlFor="adj-type" className="block text-sm font-medium text-gray-700 mb-1">Type</label>
           <select id="adj-type" className={SELECT_CLASS} value={d.adjustmentTypeId} onChange={(e) => {
             const t = types.find((x) => x.id === e.target.value);
-            set({ adjustmentTypeId: e.target.value, pct: t?.defaultPct != null ? String(t.defaultPct) : '', nonRecurring: t?.nonRecurring ?? d.nonRecurring });
+            const clearLink = t != null && adjustmentLinkRule(t) === 'not_allowed';
+            set({ adjustmentTypeId: e.target.value, pct: t?.defaultPct != null ? String(t.defaultPct) : '', nonRecurring: t?.nonRecurring ?? d.nonRecurring, ...(clearLink ? { linkId: '' } : {}) });
           }}>
             {types.map((t) => <option key={t.id} value={t.id}>{t.name}{t.isShipped ? '' : ' (custom)'}</option>)}
           </select>
@@ -99,9 +111,31 @@ function AdjustmentEditor({ taxYear, initial, types, persons, glLinked, saving, 
             </select>
           </div>
         )}
+        {linkRule !== 'not_allowed' && (
+          <div>
+            <label htmlFor="adj-link" className="block text-sm font-medium text-gray-700 mb-1">
+              Entity{linkRule === 'required' ? ' (required)' : ''}
+            </label>
+            <select id="adj-link" className={SELECT_CLASS} value={d.linkId} aria-invalid={!linkOk}
+              aria-describedby={!linkOk ? 'adj-link-error' : undefined}
+              onChange={(e) => {
+                const l = links.find((x) => x.id === e.target.value);
+                set({ linkId: e.target.value, ...(l ? { personId: l.personId } : {}) });
+              }}>
+              <option value="">{linkRule === 'required' ? 'Choose a business' : 'None (personal item)'}</option>
+              {links.map((l) => <option key={l.id} value={l.id}>{linkLabel(l, persons)}</option>)}
+            </select>
+            {!linkOk && (
+              <p id="adj-link-error" className="mt-1 text-sm text-red-600" role="alert">
+                {links.length === 0 ? 'Link a business to this taxpayer for this year first (taxpayer page > Entity links). ' : ''}{ADJUSTMENT_LINK_REQUIRED_MESSAGE}
+              </p>
+            )}
+          </div>
+        )}
         <div>
           <label htmlFor="adj-person" className="block text-sm font-medium text-gray-700 mb-1">Person</label>
-          <select id="adj-person" className={SELECT_CLASS} value={d.personId} onChange={(e) => set({ personId: e.target.value })}>
+          <select id="adj-person" className={SELECT_CLASS} value={d.personId} disabled={d.linkId !== ''}
+            title={d.linkId !== '' ? 'The person comes from the entity link' : undefined} onChange={(e) => set({ personId: e.target.value })}>
             <option value="">Taxpayer / household</option>
             {persons.map((p) => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
           </select>
@@ -117,7 +151,7 @@ function AdjustmentEditor({ taxYear, initial, types, persons, glLinked, saving, 
       {!rangeOk && <p className="text-sm text-red-600" role="alert">End month must not be before the start month.</p>}
       <AllocationStrip months={months} />
       <div className="flex gap-2">
-        <Button size="sm" type="submit" loading={saving} disabled={!amountOk || !rangeOk || !pctOk || !d.adjustmentTypeId}>Save adjustment</Button>
+        <Button size="sm" type="submit" loading={saving} disabled={!valid}>Save adjustment</Button>
         <Button size="sm" variant="ghost" type="button" onClick={onCancel}>Cancel</Button>
       </div>
     </form>
@@ -125,7 +159,7 @@ function AdjustmentEditor({ taxYear, initial, types, persons, glLinked, saving, 
 }
 
 /** Adjustments grid + editor with the live monthly allocation strip. */
-export function AdjustmentsSection({ taxYear, adjustments, total, types, persons, canWrite, saving, error, onCreate, onUpdate, onDelete }: Props) {
+export function AdjustmentsSection({ taxYear, adjustments, total, types, persons, links, canWrite, saving, error, onCreate, onUpdate, onDelete }: Props) {
   const [editing, setEditing] = useState<AdjustmentDTO | 'new' | null>(null);
   const typeOf = (id: string) => types.find((t) => t.id === id);
   const personName = (id: string | null) => {
@@ -134,7 +168,7 @@ export function AdjustmentsSection({ taxYear, adjustments, total, types, persons
   };
   const toInput = (d: Draft, gl: Pick<AdjustmentDTO, 'glLinked' | 'tenantId' | 'companyId' | 'accountId'> | null): CreateAdjustmentInput => ({
     adjustmentTypeId: d.adjustmentTypeId, label: d.label.trim(), amount: d.amount === '' ? null : d.amount, cadence: d.cadence,
-    startMonth: d.startMonth, endMonth: d.cadence === 'one_time' ? d.startMonth : d.endMonth, personId: d.personId || null,
+    startMonth: d.startMonth, endMonth: d.cadence === 'one_time' ? d.startMonth : d.endMonth, personId: d.personId || null, linkId: d.linkId || null,
     pct: d.pct === '' ? null : Number(d.pct), nonRecurring: d.nonRecurring, memo: d.memo.trim() === '' ? null : d.memo.trim(),
     glLinked: gl?.glLinked ?? false, tenantId: gl?.tenantId ?? null, companyId: gl?.companyId ?? null, accountId: gl?.accountId ?? null,
   });
@@ -149,7 +183,7 @@ export function AdjustmentsSection({ taxYear, adjustments, total, types, persons
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
-              <tr><th className="px-3 py-2">Adjustment</th><th className="px-3 py-2">Person</th><th className="px-3 py-2">Cadence</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2">Months</th><th className="px-3 py-2" /></tr>
+              <tr><th className="px-3 py-2">Adjustment</th><th className="px-3 py-2">Person / entity</th><th className="px-3 py-2">Cadence</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2">Months</th><th className="px-3 py-2" /></tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {adjustments.map((a) => (
@@ -163,7 +197,13 @@ export function AdjustmentsSection({ taxYear, adjustments, total, types, persons
                       {typeOf(a.adjustmentTypeId)?.isCapitalGainLt && <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5">LTCG</span>}
                     </div>
                   </td>
-                  <td className="px-3 py-2">{personName(a.personId)}</td>
+                  <td className="px-3 py-2">
+                    {personName(a.personId)}
+                    {a.linkId && <div className="text-xs text-gray-500">{links.find((l) => l.id === a.linkId)?.companyName ?? 'Entity link'}</div>}
+                    {!a.linkId && typeOf(a.adjustmentTypeId) && adjustmentLinkRule(typeOf(a.adjustmentTypeId)!) === 'required' && (
+                      <div className="text-xs text-amber-700">No entity — treated as itemized. Edit to choose the business.</div>
+                    )}
+                  </td>
                   <td className="px-3 py-2">{CADENCE_LABELS[a.cadence]}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{a.amount == null ? 'Run-rate' : fmtMoney(a.amount)}</td>
                   <td className="px-3 py-2">{FULL_MONTH_LABELS[a.startMonth - 1]}{a.endMonth !== a.startMonth ? `–${FULL_MONTH_LABELS[a.endMonth - 1]}` : ''}</td>
@@ -183,7 +223,7 @@ export function AdjustmentsSection({ taxYear, adjustments, total, types, persons
       {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
       {canWrite && editing === null && <Button size="sm" variant="secondary" onClick={() => setEditing('new')} disabled={types.length === 0}>+ Add adjustment</Button>}
       {editing !== null && (
-        <AdjustmentEditor key={editing === 'new' ? 'new' : editing.id} taxYear={taxYear} types={types} persons={persons}
+        <AdjustmentEditor key={editing === 'new' ? 'new' : editing.id} taxYear={taxYear} types={types} persons={persons} links={links}
           initial={editing === 'new' ? emptyDraft(types) : draftOf(editing)} glLinked={editing !== 'new' && editing.glLinked} saving={saving}
           onCancel={() => setEditing(null)}
           onSave={(d) => {

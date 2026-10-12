@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { useTaxpayer, useTaxEstimatorScope } from '../../../api/hooks/useTaxEstimatorTaxpayers';
+import { useTaxpayer, useTaxEstimatorScope, useTaxpayerLinks } from '../../../api/hooks/useTaxEstimatorTaxpayers';
 import {
   useYear, useYearList, useSaveYear, useCreateScenario, useCloneScenario, useRenameScenario, useDeleteScenario,
   useAdjustments, useCreateAdjustment, useUpdateAdjustment, useDeleteAdjustment, useAdjustmentTypes,
@@ -22,9 +22,10 @@ import { FirmSettingsDialog } from './FirmSettingsDialog';
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : 'Request failed');
 const THIS_YEAR = new Date().getFullYear();
 
-function ScenarioPanels({ scenarioId, taxYear, canWrite, persons, residentState }: {
-  scenarioId: string; taxYear: number; canWrite: boolean; persons: import('@kis-books/shared').PersonDTO[]; residentState: string | null;
+function ScenarioPanels({ taxpayerId, scenarioId, taxYear, canWrite, persons, residentState }: {
+  taxpayerId: string; scenarioId: string; taxYear: number; canWrite: boolean; persons: import('@kis-books/shared').PersonDTO[]; residentState: string | null;
 }) {
+  const links = useTaxpayerLinks(taxpayerId, taxYear);
   const adjustments = useAdjustments(scenarioId);
   const types = useAdjustmentTypes();
   const stateRows = useStateRows(scenarioId);
@@ -50,7 +51,7 @@ function ScenarioPanels({ scenarioId, taxYear, canWrite, persons, residentState 
           : adjustments.isError || types.isError ? <ErrorMessage message="Could not load adjustments." onRetry={() => { void adjustments.refetch(); void types.refetch(); }} />
           : (
             <AdjustmentsSection taxYear={taxYear} adjustments={adjustments.data?.data ?? []} total={adjustments.data?.total ?? 0}
-              types={types.data ?? []} persons={persons} canWrite={canWrite}
+              types={types.data ?? []} persons={persons} links={links.data?.data ?? []} canWrite={canWrite}
               saving={create.isPending || update.isPending}
               error={create.isError ? errMsg(create.error) : update.isError ? errMsg(update.error) : remove.isError ? errMsg(remove.error) : undefined}
               onCreate={(input) => create.mutate(input)} onUpdate={(id, input) => update.mutate({ id, input })} onDelete={(id) => remove.mutate(id)} />
@@ -137,7 +138,7 @@ export function AnnualSettingsPage() {
             onDelete={(sid) => del.mutate(sid, { onSuccess: () => setSelected(undefined) })} />
           <YearInputsForm key={detail.year.updatedAt} detail={detail} persons={persons} filingStatus={tp.filingStatus} canWrite={canWrite} saving={save.isPending}
             saved={save.isSuccess} error={save.isError ? errMsg(save.error) : undefined} onSave={(input) => save.mutate(input)} />
-          {selected && <ScenarioPanels scenarioId={selected} taxYear={taxYear} canWrite={canWrite} persons={persons} residentState={tp.residentState} />}
+          {selected && <ScenarioPanels taxpayerId={tp.id} scenarioId={selected} taxYear={taxYear} canWrite={canWrite} persons={persons} residentState={tp.residentState} />}
         </>
       )}
 
