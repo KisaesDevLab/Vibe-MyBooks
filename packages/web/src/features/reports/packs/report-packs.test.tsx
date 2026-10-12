@@ -47,7 +47,7 @@ const packsHolder: { data: { packs: ReportPackListItem[] }; isLoading: boolean; 
 };
 
 // Tax Estimate section choices (GET /reports/tax-estimate/taxpayers); 404 → isError.
-const taxHolder: { data?: { data: Array<{ id: string; displayName: string; years: number[] }>; total: number }; isLoading: boolean; isSuccess: boolean; isError: boolean } = {
+const taxHolder: { data?: { data: Array<{ id: string; displayName: string; years: number[]; scenarios?: Array<{ id: string; name: string; taxYear: number; isBase: boolean }> }>; total: number }; isLoading: boolean; isSuccess: boolean; isError: boolean } = {
   data: { data: [{ id: '11111111-1111-4111-8111-111111111111', displayName: 'Rivera Family', years: [2026] }], total: 1 },
   isLoading: false, isSuccess: true, isError: false,
 };
@@ -104,7 +104,10 @@ function samplePack(overrides: Partial<ReportPackListItem> = {}): ReportPackList
 describe('ReportPackBuilderPage', () => {
   beforeEach(() => {
     catalogHolder.data = { catalog: REPORT_CATALOG };
-    taxHolder.data = { data: [{ id: '11111111-1111-4111-8111-111111111111', displayName: 'Rivera Family', years: [2026] }], total: 1 };
+    taxHolder.data = { data: [{ id: '11111111-1111-4111-8111-111111111111', displayName: 'Rivera Family', years: [2026], scenarios: [
+      { id: '22222222-2222-4222-8222-222222222222', name: 'Base', taxYear: 2026, isBase: true },
+      { id: '33333333-3333-4333-8333-333333333333', name: 'Buy truck in December', taxYear: 2026, isBase: false },
+    ] }], total: 1 };
     taxHolder.isSuccess = true;
     taxHolder.isError = false;
   });
@@ -118,6 +121,11 @@ describe('ReportPackBuilderPage', () => {
     fireEvent.change(sel, { target: { value: '11111111-1111-4111-8111-111111111111' } });
     expect((screen.getByLabelText(/Tax Estimate taxpayer/i) as HTMLSelectElement).value).toBe('11111111-1111-4111-8111-111111111111');
     expect(screen.queryByText(/section is skipped without one/)).toBeNull();
+    // QA D10: optional scenario picker (Base by default).
+    const sc = screen.getByLabelText(/Tax Estimate scenario/i) as HTMLSelectElement;
+    expect(Array.from(sc.options).map((o) => o.textContent)).toEqual(['Base (default)', 'Buy truck in December (2026)']);
+    fireEvent.change(sc, { target: { value: '33333333-3333-4333-8333-333333333333' } });
+    expect((screen.getByLabelText(/Tax Estimate scenario/i) as HTMLSelectElement).value).toBe('33333333-3333-4333-8333-333333333333');
   });
 
   it('hides the Tax Estimate section when the taxpayer endpoint refuses the caller (404)', () => {

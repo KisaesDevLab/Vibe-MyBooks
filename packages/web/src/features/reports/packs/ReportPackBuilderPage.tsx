@@ -85,10 +85,15 @@ function describeReportDates(
   return 'Live balances';
 }
 
-/** Taxpayer picker for the Tax Estimate section (choices = taxpayers linked to this company). */
-function TaxpayerOption({ label, value, onChange }: { label: string; value: string; onChange: (v: string | undefined) => void }) {
+/** Taxpayer picker for the Tax Estimate section (choices = taxpayers linked to this company), plus the optional scenario (QA D10). */
+function TaxpayerOption({ label, value, onChange, scenarioId, onScenarioChange }: {
+  label: string; value: string; onChange: (v: string | undefined) => void;
+  scenarioId?: string; onScenarioChange?: (v: string | undefined) => void;
+}) {
   const query = useTaxEstimatePackTaxpayers();
   const choices = query.data?.data ?? [];
+  const scenarios = choices.find((t) => t.id === value)?.scenarios ?? [];
+  const nonBase = scenarios.filter((s) => !s.isBase);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <label className="flex items-center gap-1.5 text-xs text-gray-600">
@@ -106,6 +111,21 @@ function TaxpayerOption({ label, value, onChange }: { label: string; value: stri
           ))}
         </select>
       </label>
+      {value && onScenarioChange && (
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          Scenario
+          <select
+            value={scenarioId ?? ''}
+            onChange={(e) => onScenarioChange(e.target.value || undefined)}
+            className="rounded border border-gray-300 px-2 py-1 text-xs bg-white"
+            aria-label={`${label} scenario`}
+          >
+            <option value="">Base (default)</option>
+            {nonBase.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.taxYear})</option>)}
+            {scenarioId && !scenarios.some((s) => s.id === scenarioId) && <option value={scenarioId}>Saved scenario (not found)</option>}
+          </select>
+        </label>
+      )}
       {!value && (
         <span className="text-[11px] text-amber-700" role="note">
           {query.isSuccess && choices.length === 0
@@ -151,7 +171,8 @@ function ReportItemOptions({
   return (
     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-2">
       {spec.taxpayer && (
-        <TaxpayerOption label={def.label} value={options.taxpayerId ?? ''} onChange={(taxpayerId) => set({ taxpayerId })} />
+        <TaxpayerOption label={def.label} value={options.taxpayerId ?? ''} onChange={(taxpayerId) => set({ taxpayerId, scenarioId: undefined })}
+          scenarioId={options.scenarioId} onScenarioChange={(scenarioId) => set({ scenarioId })} />
       )}
       {spec.basis && (
         <label className="flex items-center gap-1.5 text-xs text-gray-600">
