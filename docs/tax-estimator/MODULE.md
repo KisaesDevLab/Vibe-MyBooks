@@ -129,6 +129,46 @@ they get the firm's full managed set.
   belongs to another firm is shown with `targetOtherFirm: true` and the foreign ids withheld, and cannot be
   changed (`TE_TREATMENT_OTHER_FIRM` 409).
 
+### 2.1 Taxpayer visibility (D17, migration 0202)
+
+On top of the firm scope, **which taxpayers** a member sees is decided by one predicate,
+`visibleTaxpayerFilter(scope)` in `firm-scope.service.ts` (SQL on `tax_est_taxpayers`, includes
+`firm_id`). `resolveScope` resolves the viewer with the scope: user id, **bypass** (`firm_admin` in
+the firm, or super admin) and the firm switch `tax_est_firm_settings.restrict_taxpayers_to_linked_tenants`
+(default ON; a firm with no settings row is ON).
+
+| Viewer | Sees a taxpayer when |
+|---|---|
+| bypass (firm admin, super admin) | always (any firm taxpayer) |
+| anyone else, switch ON | (no staff list, or they are on it) AND (a link of the taxpayer, any year, points into their `allowedTenantIds` OR the taxpayer has no **active** link — none into a tenant the firm still actively manages — and `created_by` is them) |
+| anyone else, switch OFF | no staff list, or they are on it |
+
+- The predicate is in the list query's WHERE (the `total` counts only visible rows; the lock flag
+  `staffRestricted` is a row-local EXISTS, no N+1) and in every by-id loader: `loadTaxpayerForFirm`,
+  `loadScenarioForFirm`, `loadAdjustmentForFirm` (`year-access.ts`), the taxpayers service loader, the
+  payment and snapshot loaders. A hidden taxpayer is indistinguishable from another firm's: 404
+  `TE_TAXPAYER_NOT_FOUND` (or `TE_SCENARIO_` / `TE_ADJUSTMENT_` / `TE_PAYMENT_` / `TE_SNAPSHOT_NOT_FOUND`
+  on routes keyed by those ids).
+- Visibility is about the taxpayer; the **data** from linked tenants outside the viewer's scope stays
+  hidden exactly as in section 2 (partial view: those links are `outOfScope`, their figures left out).
+- Report Pack: the `tax-estimate` choices and `renderPackSection` apply the requester's visibility;
+  the worker re-derives the scope from `requested_by` (`resolvePackScopeForUser`), so a staff list
+  set after the run was queued is honoured at render time. A hidden taxpayer is `TE_TAXPAYER_NOT_LINKED` 404 there.
+- The register non-recurring flag (`/register/*`): `linked` is firm-wide (the flag is entity data);
+  the `taxpayers` names it returns follow visibility.
+- Client portal: unchanged (`UNRESTRICTED_VIEWER`; the contact mapping governs it).
+- Account treatments (entity setup) stay firm-checked only (OPEN-QUESTIONS.md Q42 (d)).
+- **Staff list** (`tax_est_taxpayer_staff`): `GET /taxpayers/:id/staff` (anyone who sees the
+  taxpayer; `canEdit` for firm admins with `tax_estimator` update), `GET /taxpayers/:id/staff-candidates`
+  and `PUT /taxpayers/:id/staff` `{ userIds }` (firm admins / super admins only, else 403
+  `TE_FIRM_ADMIN_REQUIRED`; a caller who cannot see the taxpayer gets 404 first). Candidates: active
+  `firm_staff` / `firm_readonly` members, active staff users, holding `tax_estimator` read in the
+  admin's ACTIVE tenant. Additions outside that set: 422 `TE_STAFF_NOT_ELIGIBLE`; members already on
+  the list may stay. Changing the list writes one `tax_est_taxpayer_staff` audit row (user ids
+  before / after / added / removed); flipping the switch writes `tax_est_visibility_switch`.
+- Unlinked taxpayers created before D17 keep their `created_by` (every service-created taxpayer has
+  it); a row with NULL `created_by` is visible to firm admins only while unlinked.
+
 ---
 
 ## 3. Surfaces
@@ -143,12 +183,13 @@ Guard chain (pinned by `tax-estimator.routes.test.ts`), in order:
 4. `requireFeatureFlag('TAX_ESTIMATOR_V1')` on the **caller's active tenant**
 5. `requirePermission('tax_estimator', read | update)`, inferred from the method, except that `POST .../scenarios/:id/estimate` and `POST .../scenarios/:id/pdf` are treated as **reads** (a `firm_readonly` member may compute and print)
 6. `resolveTaxEstimatorScope` (firm and allowed tenants, sets `req.taxEstimatorScope`)
-7. Per route, mutations also pass `requireTaxEstimatorWrite` (`firm_admin` or `firm_staff` only; otherwise `TE_NOT_FIRM_STAFF` 403). Firm settings writes need `firm_admin` (`TE_FIRM_ADMIN_REQUIRED`).
+7. Per route, mutations also pass `requireTaxEstimatorWrite` (`firm_admin` or `firm_staff` only; otherwise `TE_NOT_FIRM_STAFF` 403). Firm settings writes and staff-list changes need `firm_admin` (`TE_FIRM_ADMIN_REQUIRED`).
+8. Every taxpayer read and write is limited to the taxpayers the caller may see (section 2.1, D17).
 
 | Area | Routes (relative to `/api/v1/tax-estimator`) |
 |---|---|
 | Scope, parameters | `GET /scope` (firm, firm role, managed-tenant count, `canWrite` — QA D2), `GET /parameters/:year` |
-| Taxpayers | `GET/POST /taxpayers`, `GET /taxpayers/company-options`, `GET/PATCH/DELETE /taxpayers/:id` (DELETE archives), `PUT/DELETE /taxpayers/:id/persons/:role`, `GET/PUT /taxpayers/:id/links`, `DELETE /taxpayers/:id/links/:linkId`, `GET/POST /taxpayers/:id/contacts`, `GET /taxpayers/:id/contact-candidates` (active contacts of the linked client companies in scope — QA D11), `DELETE /taxpayers/:id/contacts/:contactId` |
+| Taxpayers | `GET/POST /taxpayers`, `GET /taxpayers/company-options`, `GET/PATCH/DELETE /taxpayers/:id` (DELETE archives), `PUT/DELETE /taxpayers/:id/persons/:role`, `GET/PUT /taxpayers/:id/links`, `DELETE /taxpayers/:id/links/:linkId`, `GET/POST /taxpayers/:id/contacts`, `GET /taxpayers/:id/contact-candidates` (active contacts of the linked client companies in scope — QA D11), `DELETE /taxpayers/:id/contacts/:contactId`, D17 staff list `GET/PUT /taxpayers/:id/staff`, `GET /taxpayers/:id/staff-candidates` |
 | Entity setup | `/entities/:tenantId/:companyId/` + `settings` (GET/PUT), `year-inputs/:taxYear` (GET/PUT), `treatments` (GET/PUT), `treatment-suggestions`, `transaction-flags` (GET/PUT), `readiness`, `tax-basis-pl` |
 | Register flag | `GET /register/flags` (flagged transactions of the active company, max 500), `GET/PUT /register/transactions/:transactionId` (`{ nonRecurring }`). Mounted after guards 1-5 and **before** guard 6: the firm is the active tenant's managing firm and the tenant must be in the caller's D1 scope (`resolvePackScope`, else 404); the company is the active one (`X-Company-Id`); the transaction must belong to it (else 404 `TE_TRANSACTION_NOT_FOUND`); setting needs a company linked to an active firm taxpayer (409 `TE_COMPANY_NOT_LINKED`) and `firm_admin` / `firm_staff`. Writes go through the `transaction-flags` path (same audit rows). Used by the transaction detail card and the register `NR` badge |
 | Annual settings | `GET /taxpayers/:id/years`, `GET/PUT /taxpayers/:id/years/:taxYear`, scenarios (`GET/POST .../scenarios`, `PATCH/DELETE /scenarios/:id`, `POST /scenarios/:id/clone` with an optional `{ name }`; Base cannot be renamed or deleted), adjustments (`GET/POST /scenarios/:id/adjustments`, `PATCH/DELETE /adjustments/:id`), state rows (`GET/PUT /scenarios/:id/state-rows`), adjustment types (`/adjustment-types`), `GET/PUT /firm-settings` |
@@ -194,6 +235,7 @@ Migration `0201_tax_estimator.sql` creates **21 tables** (each with a matching `
 | Books-scoped (tenant_id) | `tax_est_entity_settings`, `tax_est_entity_year_inputs`, `tax_est_account_treatments`, `tax_est_transaction_flags` |
 | Per taxpayer and year | `tax_est_years`, `tax_est_scenarios`, `tax_est_adjustments`, `tax_est_state_rows`, `tax_est_payments`, `tax_est_sch_ai_snapshots` |
 | Frozen output | `tax_est_snapshots` (trigger `trg_tax_est_snapshots_immutable`) |
+| D17 visibility (migration `0202_tax_est_taxpayer_visibility`) | `tax_est_taxpayer_staff` (firm_id, taxpayer_id, user_id, created_by, created_at; unique per firm + taxpayer + user; cascades with the taxpayer) and the column `tax_est_firm_settings.restrict_taxpayers_to_linked_tenants` (default TRUE) |
 
 Columns added to existing tables: `portal_contact_companies.tax_estimates_access` (default false) and
 `report_pack_runs.requested_by`, `report_pack_runs.allow_tax_estimate` (default false). The flag is
@@ -405,7 +447,7 @@ Router `/api/portal/tax-estimates` (`portal-tax-estimates-public.routes.ts`, `po
 ## 13. Report Pack section
 
 - Report id `tax-estimate` (group "Tax", `options: { taxpayer: true }`, as-of temporal), registered in `shared/src/reports/registry.ts` (`TAX_ESTIMATOR_REPORT_IDS`). Endpoints `GET /api/v1/reports/tax-estimate` and `GET .../tax-estimate/taxpayers` (each taxpayer carries its linked years' `scenarios` for the builder's optional scenario picker — QA D10). The section is offered when TAX_ESTIMATOR_V1 is ON in the pack's tenant or in another tenant of the same firm inside the caller's scope (QA D9).
-- Gate (`taxEstimateReportScope`): session auth, not a client user, `tax_estimator` read on the caller's role, the pack tenant managed by a firm the caller belongs to (or a super admin), `TAX_ESTIMATOR_V1` on that tenant, and the tenant inside the caller's D1 scope. The taxpayer must belong to the firm and be linked to the pack's company for the year. A caller failing the gate sees the pack as 404 (not listed, readable, editable, copyable, deletable or runnable; the section cannot be added).
+- Gate (`taxEstimateReportScope`): session auth, not a client user, `tax_estimator` read on the caller's role, the pack tenant managed by a firm the caller belongs to (or a super admin), `TAX_ESTIMATOR_V1` on that tenant, and the tenant inside the caller's D1 scope. The taxpayer must belong to the firm, be visible to the requester (D17, section 2.1 — choices, request and worker) and be linked to the pack's company for the year. A caller failing the gate sees the pack as 404 (not listed, readable, editable, copyable, deletable or runnable; the section cannot be added).
 - The run records `requested_by` and `allow_tax_estimate`; the worker re-derives the scope at render time, so access removed in between drops the section, and a failed run loses its grant.
 - The section prints the **client** variant of the estimate PDF: no warnings, readiness codes, unverified-parameter dump, engine version or prior-year AGI notes. A run that rendered the section is readable only by its requester, and its artifact is stored AES-256-GCM encrypted (`.pdf.enc`) for 15 minutes.
 - Snapshot reason `report_pack`; same-day reuse applies (section 7). Standalone Print / Download on the Estimate screen produces the preparer variant (`pdf` snapshot).
@@ -419,7 +461,7 @@ Do not enable until: Kurt has completed the sign-off gates, `QA-CHECKLIST.md` se
 1. Merge and deploy per the repo release recipe. Confirm migration `0201_tax_estimator` applied (renumber to the next free journal idx on the day it merges if main took 0201, D6) and the boot log shows both `Synced ...` lines.
 2. Enable `TAX_ESTIMATOR_V1` on the **firm's practice tenant(s)** (the staff flag is evaluated on the caller's active tenant) through the Admin feature-flag toggle: `POST /api/v1/admin/feature-flags/:tenantId/TAX_ESTIMATOR_V1` with `{ "enabled": true }` (admin principal with `admin_tenant_ops`; a firm member's reach is limited to tenants their firm manages). A linked company in a tenant **without** the flag is still computed (data read) but has no UI there.
 3. Check the firm's users have a role that grants the `tax_estimator` resource (the permission matrix) and are `firm_staff` or `firm_admin` for write access. The sidebar group appears only for firm staff with the flag on and `tax_estimator` read.
-4. As a `firm_admin`, set firm settings (safe-harbor default `lesser_of` unless the firm prefers otherwise, disclaimer text, `portal_shows`).
+4. As a `firm_admin`, set firm settings (safe-harbor default `lesser_of` unless the firm prefers otherwise, disclaimer text, `portal_shows`, and the D17 switch "Staff see only taxpayers linked to clients they can access", ON by default). Staff who need a taxpayer must have access to at least one of its linked clients (or be the creator of an unlinked one); restrict sensitive taxpayers further with "Who can see this taxpayer".
 5. For client-portal access, additionally enable `CLIENT_PORTAL_V1` on the **client** tenant, `TAX_ESTIMATOR_V1` on that tenant, map the portal contact to the taxpayer and grant `tax_estimates_access`.
 6. Create a taxpayer, link its entities and set entity types / treatments; confirm the readiness list; save Annual settings; build an estimate and compare it with the firm's own working paper before relying on it.
 
@@ -433,6 +475,7 @@ To disable: turn the flag off per tenant; all data stays. Disabling hides the sc
 - `0201_tax_estimator.rollback.sql` is the DROP companion (children before parents; the Report Pack columns first, then snapshots and the trigger function, then estimate tables, years, entities, taxpayers, state rules, parameters, and the flag rows). By repo precedent rollback files are **not auto-applied**: run it by hand in a transaction, after turning the flag off and **taking a backup**, because it destroys taxpayers, scenarios, payments and snapshots. Snapshots are tax return information; consider an export before dropping.
 - Rolling the application back without the DB: the flag is the control (turn it off first). Older code was not tested against the 0201 tables; do not roll the DB back and leave newer code running.
 - Verification columns: the `verification.sql` part adds `verified_by`, `verified_at`, `verification_note` to the four parameter tables (additive; its rollback drops them). Rolling back drops the sign-off history (the audit rows stay in `audit_log`).
+- `0202_tax_est_taxpayer_visibility.sql` (D17; part `parts/taxpayer-visibility.sql`) is a SEPARATE migration because 0201 is applied in production and is never edited: it adds `tax_est_firm_settings.restrict_taxpayers_to_linked_tenants BOOLEAN NOT NULL DEFAULT TRUE` (every firm ON, existing rows included) and `tax_est_taxpayer_staff`. Additive. Its rollback drops the table and the column; after a rollback the code must also be rolled back (the predicate reads both).
 - `r6-lifecycle.sql` adds `tax_parameter_overrides.citation` (R6-06) and `sehi-w2-wages.sql` adds `tax_est_entity_year_inputs.include_sehi_in_w2_wages` (Q41); both additive with defaults, appended after the verification part, dropped first by the rollback.
 - Because the seeds re-sync on every boot, rolling back to an older build that ships fewer seed years leaves the extra rows alone (it only prunes keys of years it ships).
 - Backup and restore: every `*_encrypted` column follows the credential re-encryption sweep; after a key rotation or a cross-host restore, snapshots that fail with `TE_SNAPSHOT_UNREADABLE` indicate the sweep did not run or the key is wrong. Redis cache entries do not need migration.
