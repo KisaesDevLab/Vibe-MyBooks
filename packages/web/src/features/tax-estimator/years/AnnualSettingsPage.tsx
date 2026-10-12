@@ -2,7 +2,8 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useTaxpayer, useTaxEstimatorScope, useTaxpayerLinks } from '../../../api/hooks/useTaxEstimatorTaxpayers';
 import {
@@ -10,6 +11,7 @@ import {
   useAdjustments, useCreateAdjustment, useUpdateAdjustment, useDeleteAdjustment, useAdjustmentTypes,
   useStateRows, useReplaceStateRows, useFirmSettings, useSaveFirmSettings,
 } from '../../../api/hooks/useTaxEstimatorYears';
+import { useEstimate } from '../../../api/hooks/useTaxEstimatorEstimate';
 import { Button } from '../../../components/ui/Button';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
@@ -33,6 +35,16 @@ function ScenarioPanels({ taxpayerId, scenarioId, taxYear, canWrite, persons, re
   const update = useUpdateAdjustment();
   const remove = useDeleteAdjustment();
   const replace = useReplaceStateRows(scenarioId);
+  // QA2-04: a GL-linked adjustment's months are actuals + run-rate, which only the estimate
+  // computes; read them from the (cached) estimate, and only when the scenario has one.
+  const hasGl = (adjustments.data?.data ?? []).some((a) => a.glLinked);
+  const estimate = useEstimate(taxpayerId, taxYear, hasGl ? scenarioId : undefined);
+  const computed = useMemo(() => ({
+    loading: hasGl && estimate.isLoading,
+    byId: Object.fromEntries((estimate.data?.adjustments ?? []).map((a) => [a.id, { fullYearAmount: a.fullYearAmount, monthly: a.monthly }])),
+  }), [hasGl, estimate.isLoading, estimate.data]);
+  const qc = useQueryClient();
+  const recompute = { onSuccess: () => { void qc.invalidateQueries({ queryKey: ['tax-estimator-estimate'] }); } };
   return (
     <>
       <section className="space-y-2" aria-label="States">
@@ -54,7 +66,8 @@ function ScenarioPanels({ taxpayerId, scenarioId, taxYear, canWrite, persons, re
               types={types.data ?? []} persons={persons} links={links.data?.data ?? []} canWrite={canWrite}
               saving={create.isPending || update.isPending}
               error={create.isError ? errMsg(create.error) : update.isError ? errMsg(update.error) : remove.isError ? errMsg(remove.error) : undefined}
-              onCreate={(input) => create.mutate(input)} onUpdate={(id, input) => update.mutate({ id, input })} onDelete={(id) => remove.mutate(id)} />
+              computed={computed}
+              onCreate={(input) => create.mutate(input, recompute)} onUpdate={(id, input) => update.mutate({ id, input }, recompute)} onDelete={(id) => remove.mutate(id, recompute)} />
           )}
       </section>
     </>

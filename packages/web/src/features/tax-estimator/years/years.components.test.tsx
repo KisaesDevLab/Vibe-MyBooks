@@ -5,6 +5,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent, render, within } from '@testing-library/react';
 import type { AdjustmentDTO, AdjustmentTypeDTO, LinkDTO, PersonDTO, ScenarioDTO, StateRowDTO, YearDetailDTO, YearSettingsDTO } from '@kis-books/shared';
+// QA2-04: the GL source picker reads the linked company's P&L accounts.
+const plAccounts = vi.hoisted(() => ({ accounts: [
+  { accountId: 'acc-sup', accountNumber: '6100', name: 'Supplies', accountType: 'expense' },
+  { accountId: 'acc-rent', accountNumber: '6200', name: 'Rent', accountType: 'expense' },
+] }));
+vi.mock('../../../api/hooks/useTaxEstimatorEntities', () => ({
+  useTaxBasisPl: (t: string, c: string) => ({ isLoading: false, isError: false, data: t && c ? plAccounts : undefined }),
+}));
 import { ScenarioTabs } from './ScenarioTabs';
 import { AllocationStrip } from './AllocationStrip';
 import { AdjustmentsSection, previewMonths } from './AdjustmentsSection';
@@ -162,6 +170,58 @@ describe('AdjustmentsSection', () => {
     expect(screen.getByText(/No entity — treated as itemized/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '+ Add adjustment' }));
     expect(screen.queryByLabelText(/^Entity/)).toBeNull(); // first type = SEP (person-level)
+  });
+
+  it('QA2-02: Delete asks for confirmation; Cancel keeps the adjustment', () => {
+    const p = props();
+    render(<AdjustmentsSection {...p} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(p.onDelete).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent(/Delete this adjustment\?/);
+    expect(dialog).toHaveTextContent('SEP');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(p.onDelete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+    expect(p.onDelete).toHaveBeenCalledWith('a1');
+  });
+
+  it('QA2-04: a GL-linked (run-rate) row shows the allocation the estimate computed, not zeros', () => {
+    const gl = adj({ id: 'g1', glLinked: true, amount: null, cadence: 'monthly', label: 'Supplies run-rate', monthly: Array(12).fill(0), tenantId: 't2', companyId: 'c2', accountId: 'acc-sup' });
+    const computedMonths = [4183.33, 4183.33, 4183.33, 4183.33, 4183.33, 4183.33, 4183.33, 4183.33, 4183.36, 4183.33, 4183.33, 4183.33];
+    const { rerender } = render(<AdjustmentsSection {...props({ adjustments: [gl] })} computed={{ loading: true, byId: {} }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByText(/Computing the allocation from the books/)).toBeInTheDocument();
+    rerender(<AdjustmentsSection {...props({ adjustments: [gl] })} computed={{ loading: false, byId: { g1: { fullYearAmount: '50199.99', monthly: computedMonths } } }} />);
+    expect(screen.getByTestId('strip-Jan')).toHaveTextContent('4,183.33');
+    expect(screen.getByTestId('strip-total')).toHaveTextContent('$50,199.99');
+    expect(screen.getByText(/computed by the estimate from the books/)).toBeInTheDocument();
+    // A result cached before the monthly split was carried: the year total still shows, never $0.
+    rerender(<AdjustmentsSection {...props({ adjustments: [gl] })} computed={{ loading: false, byId: { g1: { fullYearAmount: '50199.99' } } }} />);
+    expect(screen.queryByTestId('allocation-strip')).toBeNull();
+    expect(screen.getByText(/Year total from the books \$50,199.99/)).toBeInTheDocument();
+  });
+
+  it('QA2-04: creates a GL-linked adjustment by picking a linked business and its account', () => {
+    const plumbing = {
+      id: 'l1', taxpayerId: 'tp', personId: 'p1', personRole: 'primary', taxYear: 2026, tenantId: 't2', companyId: 'c2',
+      tenantName: 'Rivera Plumbing', companyName: 'Rivera Plumbing LLC', entityKind: 'sole_prop', returnForm: 'Sch C', outOfScope: false,
+    } as unknown as LinkDTO;
+    const other = type({ id: 'od', code: 'other_deduction', name: 'Other deduction', isAboveTheLine: false });
+    const p = props({ adjustments: [], total: 0, types: [other], links: [plumbing] });
+    render(<AdjustmentsSection {...p} />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add adjustment' }));
+    fireEvent.click(screen.getByLabelText(/Read the amount from the books/));
+    expect(screen.getByRole('button', { name: 'Save adjustment' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Business (books)'), { target: { value: 't2|c2' } });
+    fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'acc-sup' } });
+    expect(screen.getByLabelText('Amount')).toHaveAttribute('placeholder', 'Run-rate from GL');
+    expect(screen.getByText(/computed from the books when the estimate runs/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save adjustment' }));
+    expect(p.onCreate).toHaveBeenCalledWith(expect.objectContaining({
+      adjustmentTypeId: 'od', glLinked: true, tenantId: 't2', companyId: 'c2', accountId: 'acc-sup', amount: null,
+    }));
   });
 
   it('read-only users see no edit actions', () => {

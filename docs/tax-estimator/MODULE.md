@@ -80,7 +80,7 @@ enforces this). Everything numeric comes from the parameter registry.
                                  |
                                  v
                     EstimateResultDTO (+ assumptions block, warnings, trace)
-              encrypted Redis cache: te:estimate:te-estimate-v2:<firm>:<taxpayer>:<scenario>:<hash>
+              encrypted Redis cache: te:estimate:te-estimate-v3:<firm>:<taxpayer>:<scenario>:<hash>
                                  |
      +---------------+-----------+-------------+-------------------+
      v               v                         v                   v
@@ -217,7 +217,7 @@ are whole-cents numbers (DATA-DICTIONARY.md "Money carried as JSON numbers").
 | Cache | Key | Value | TTL |
 |---|---|---|---|
 | Books P&L | `te:pl:v2:<tenant>:<company>:<taxYear>:<basis>:<throughMonth>:<glVersionStamp>:<configVersion>` | `TaxBasisPl` as **plain JSON** (books data, not return information) | 6 hours (garbage collection only) |
-| Estimate | `te:estimate:te-estimate-v2:<firmId>:<taxpayerId>:<scenarioId>:<inputsHash>` | `{ enc: <AES-256-GCM ciphertext> }` of the whole `EstimateResultDTO` | 6 hours |
+| Estimate | `te:estimate:te-estimate-v3:<firmId>:<taxpayerId>:<scenarioId>:<inputsHash>` | `{ enc: <AES-256-GCM ciphertext> }` of the whole `EstimateResultDTO` | 6 hours |
 
 Both go through the Trial Balance Redis helpers (`services/tb/tb-redis.ts`), which are Redis-optional:
 any failure computes fresh. Invalidation is exact by construction, not by TTL:
