@@ -65,6 +65,20 @@ describe('TreatmentTable', () => {
     expect(left[0]).toHaveTextContent('Misc');
   });
 
+  it('R3-17: a row mapped by another firm sharing the books is read-only', () => {
+    sessionStorage.clear(); // an earlier test leaves a saved Status filter
+    const foreign = {
+      id: 't1', accountId: 'a2', accountNumber: '6900', accountName: 'Misc', accountType: 'expense', treatment: 'estimated_tax_payment' as const,
+      pct: null, paymentTaxpayerId: null, paymentPersonId: null, paymentJurisdiction: 'federal' as const, nonRecurring: false,
+      updatedAt: '2026-10-01T00:00:00.000Z', targetOtherFirm: true,
+    };
+    renderRoute(<TreatmentTable rows={buildRows(lines, [foreign], [])} canWrite saving={false} onSave={vi.fn()} entityType="sch_c" />);
+    expect(screen.getByLabelText('Treatment for Misc')).toBeDisabled();
+    expect(screen.getByLabelText('Non-recurring Misc')).toBeDisabled();
+    expect(screen.getByText(/Mapped by another firm/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Treatment for Meals')).not.toBeDisabled();
+  });
+
   it('saves only edited rows', () => {
     const onSave = vi.fn();
     renderRoute(<TreatmentTable rows={buildRows(lines, [], [])} canWrite saving={false} onSave={onSave} />);

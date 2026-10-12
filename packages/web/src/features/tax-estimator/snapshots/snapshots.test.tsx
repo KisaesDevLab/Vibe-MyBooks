@@ -70,7 +70,7 @@ describe('SnapshotHistory', () => {
 });
 
 const cmp: SnapshotCompareDTO = {
-  snapshotId: 'snap-1', snapshotCreatedAt: '2026-10-01T15:00:00.000Z', liveComputedAt: '2026-10-12T15:00:00.000Z',
+  snapshotId: 'snap-1', snapshotCreatedAt: '2026-10-01T15:00:00.000Z', liveComputedAt: '2026-10-12T15:00:00.000Z', liveUnavailable: null,
   engineVersionChanged: true, inputsHashChanged: true,
   summary: { snapshot: summary, live: { ...summary, total: '44000' } },
   differences: [
@@ -92,6 +92,15 @@ describe('SnapshotCompare', () => {
     expect(screen.getByText(/se\.ss_wage_base/)).toBeTruthy();
     expect(screen.getByText('A new warning')).toBeTruthy();
     expect(screen.getByText(/calculation engine has changed/)).toBeTruthy();
+  });
+
+  it('R3-18: a deleted scenario shows the reason instead of a live column', () => {
+    renderRoute(<SnapshotCompare compare={{
+      ...cmp, liveComputedAt: null, liveUnavailable: { code: 'TE_SCENARIO_NOT_FOUND', message: 'The scenario "Base" no longer exists, so there is no live estimate to compare with.' },
+      summary: { snapshot: summary, live: null }, differences: [], parameterChanges: [], warningsAdded: [],
+    }} />);
+    expect(screen.getByRole('status').textContent).toMatch(/no longer exists/);
+    expect(screen.queryByText('Changed figures')).toBeNull();
   });
 });
 

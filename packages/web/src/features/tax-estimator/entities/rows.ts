@@ -22,6 +22,8 @@ export interface TreatmentRow {
   suggestion: TreatmentSuggestion | null;
   /** No TB code, no estimator treatment, and book activity: treated as ordinary and flagged. */
   unmappedWithActivity: boolean;
+  /** R3-17: the treatment's taxpayer / person belongs to another firm sharing these books (read-only here). */
+  otherFirm?: boolean;
 }
 
 const isZero = (v: string) => { try { return new Decimal(v).isZero(); } catch { return true; } };
@@ -42,6 +44,7 @@ export function buildRows(
       paymentJurisdiction: t?.paymentJurisdiction ?? null, nonRecurring: t?.nonRecurring ?? l.accountNonRecurring,
       bookAmount: l.bookAmount, taxAmount: l.taxAmount, suggestion: treatment ? null : sById.get(l.accountId) ?? null,
       unmappedWithActivity: !l.taxCode && !treatment && !isZero(l.bookAmount),
+      otherFirm: t?.targetOtherFirm === true,
     };
   });
   const seen = new Set(lines.map((l) => l.accountId));
@@ -51,7 +54,7 @@ export function buildRows(
       accountId: t.accountId, accountNumber: t.accountNumber, name: t.accountName, accountType: t.accountType,
       taxCode: null, treatment: t.treatment, pct: t.pct, paymentTaxpayerId: t.paymentTaxpayerId,
       paymentPersonId: t.paymentPersonId, paymentJurisdiction: t.paymentJurisdiction, nonRecurring: t.nonRecurring,
-      bookAmount: '0.0000', taxAmount: '0.0000', suggestion: null, unmappedWithActivity: false,
+      bookAmount: '0.0000', taxAmount: '0.0000', suggestion: null, unmappedWithActivity: false, otherFirm: t.targetOtherFirm === true,
     });
   }
   return rows;

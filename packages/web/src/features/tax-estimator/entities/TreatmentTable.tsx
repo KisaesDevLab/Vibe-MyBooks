@@ -103,6 +103,7 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
             {visible.map((r) => {
               const d = draftOf(r);
               const st = statusOf(r);
+              const rowWrite = canWrite && !r.otherFirm;
               return (
                 <tr key={r.accountId} className="border-b last:border-0 align-top" data-testid="treatment-row">
                   <td className="px-3 py-2">{r.accountNumber ? `${r.accountNumber} ` : ''}{r.name}</td>
@@ -112,33 +113,34 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
                       : <span className="text-xs text-gray-400">&mdash;</span>}
                   </td>
                   <td className="px-3 py-2 space-y-1">
-                    <select aria-label={`Treatment for ${r.name}`} className={SELECT_CLASS} disabled={!canWrite} value={d.treatment ?? ''}
+                    <select aria-label={`Treatment for ${r.name}`} className={SELECT_CLASS} disabled={!rowWrite} value={d.treatment ?? ''}
                       onChange={(e) => patch(r, { treatment: (e.target.value || null) as AccountTreatment | null })}>
                       <option value="">None</option>
                       {ACCOUNT_TREATMENTS.filter((t) => t === d.treatment || treatmentAllowedFor(t, r.accountType, entityType))
                         .map((t) => <option key={t} value={t}>{TREATMENT_LABELS[t]}</option>)}
                     </select>
                     {d.treatment === 'estimated_tax_payment' && (
-                      <PaymentTargetPicker disabled={!canWrite}
+                      <PaymentTargetPicker disabled={!rowWrite}
                         value={{ paymentTaxpayerId: d.paymentTaxpayerId, paymentPersonId: d.paymentPersonId, paymentJurisdiction: d.paymentJurisdiction }}
                         onChange={(v) => patch(r, v)} />
                     )}
                     {d.treatment !== 'estimated_tax_payment' && allowsPersonTarget(d.treatment) && (
-                      <PaymentTargetPicker personOnly disabled={!canWrite}
+                      <PaymentTargetPicker personOnly disabled={!rowWrite}
                         value={{ paymentTaxpayerId: d.paymentTaxpayerId, paymentPersonId: d.paymentPersonId, paymentJurisdiction: null }}
                         onChange={(v) => patch(r, { paymentTaxpayerId: v.paymentTaxpayerId, paymentPersonId: v.paymentPersonId })} />
                     )}
+                    {r.otherFirm && <div className="text-xs text-gray-600">Mapped by another firm that shares these books; read-only here.</div>}
                     {personBad(r.accountId) && <div className="text-xs text-red-600" role="alert">Pick the person this belongs to</div>}
                   </td>
                   <td className="px-3 py-2 w-24">
                     {d.treatment === 'nondeductible_pct' && (
-                      <input aria-label={`Nondeductible % for ${r.name}`} inputMode="decimal" disabled={!canWrite} value={d.pct}
+                      <input aria-label={`Nondeductible % for ${r.name}`} inputMode="decimal" disabled={!rowWrite} value={d.pct}
                         className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-50" onChange={(e) => patch(r, { pct: e.target.value })} />
                     )}
                     {pctBad(r.accountId) && <div className="text-xs text-red-600" role="alert">0-100</div>}
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <input type="checkbox" aria-label={`Non-recurring ${r.name}`} disabled={!canWrite} checked={d.nonRecurring}
+                    <input type="checkbox" aria-label={`Non-recurring ${r.name}`} disabled={!rowWrite} checked={d.nonRecurring}
                       onChange={(e) => patch(r, { nonRecurring: e.target.checked })} />
                   </td>
                   <td className="px-3 py-2 text-right font-mono">{formatMoney(r.bookAmount)}</td>

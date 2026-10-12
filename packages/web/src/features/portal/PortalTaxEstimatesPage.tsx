@@ -15,6 +15,7 @@ import { Download, MessageSquare, Receipt } from 'lucide-react';
 import type {
   PortalTaxEstimateDTO, PortalTaxEstimateListDTO, PortalTaxEstimateResponseDTO, PortalTaxInstallmentDTO, PortalTaxJurisdictionDTO,
 } from '@kis-books/shared';
+import { portalDefaultYear } from '@kis-books/shared';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { usePortal } from './PortalLayout';
 
@@ -206,7 +207,8 @@ export function PortalTaxEstimatesPage() {
   const taxpayers = list.kind === 'ready' ? list.list.taxpayers : [];
   const current = taxpayers.find((t) => t.id === taxpayerId);
   const years = current?.years ?? [];
-  const effectiveYear = year != null && years.includes(year) ? year : years[0];
+  // Same default as the server (portalDefaultYear): the newest year not after this one.
+  const effectiveYear = year != null && years.includes(year) ? year : portalDefaultYear(years);
 
   useEffect(() => {
     if (!activeCompanyId || !current) { setDetail({ kind: 'idle' }); return; }

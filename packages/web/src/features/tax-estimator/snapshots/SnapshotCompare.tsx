@@ -15,6 +15,15 @@ const shortValue = (v: unknown) => {
 
 /** Snapshot vs. a live recomputation of the same scenario and range. Display only. */
 export function SnapshotCompare({ compare: c }: { compare: SnapshotCompareDTO }) {
+  if (c.liveUnavailable || !c.liveComputedAt) {
+    return (
+      <div className="space-y-4" aria-label="Compare with live">
+        <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {c.liveUnavailable?.message ?? 'No live estimate is available to compare with.'} The snapshot taken {fmtTimestamp(c.snapshotCreatedAt)} is unchanged.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4" aria-label="Compare with live">
       <p className="text-sm text-gray-600">

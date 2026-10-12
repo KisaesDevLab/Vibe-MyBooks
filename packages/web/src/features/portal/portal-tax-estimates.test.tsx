@@ -109,6 +109,23 @@ describe('PortalTaxEstimatesPage', () => {
     expect(fetchMock).toHaveBeenCalledWith(`/mb/api/portal/tax-estimates/${TP}?companyId=co1&year=2026`, expect.anything());
   });
 
+  it('without a picked year it requests the same default year as the server (newest year not after this one)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-12T12:00:00Z'));
+    try {
+      route({
+        list: () => res(200, { featureEnabled: true, taxpayers: [{ id: TP, displayName: 'Rivera Family', years: [2027, 2026] }] }),
+        detail: () => res(200, { estimate, unavailableReason: null }),
+      });
+      render();
+      expect(await screen.findByRole('heading', { name: 'Your 2026 tax estimate' })).toBeTruthy();
+      expect(fetchMock).toHaveBeenCalledWith(`/mb/api/portal/tax-estimates/${TP}?companyId=co1&year=2026`, expect.anything());
+      expect(fetchMock).not.toHaveBeenCalledWith(`/mb/api/portal/tax-estimates/${TP}?companyId=co1&year=2027`, expect.anything());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('never shows staff-only concepts (rates, adjustments, other owners, traces)', async () => {
     route({ list: listOk, detail: () => res(200, { estimate, unavailableReason: null }) });
     const { container } = render();
