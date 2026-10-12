@@ -33,7 +33,7 @@ export function makeEstimate(over: Record<string, unknown> = {}): EstimateResult
     entities: [{ tenantId: 't', companyId: 'c1', companyName: 'Rivera Plumbing LLC', entityType: 's_corp', path: 'individual', skippedReason: null, throughMonth: '2026-09', throughMonthSource: 'last_closed', monthsElapsed: 9, monthsRemaining: 3, glVersionStamp: 1, providerCached: false }],
     federal: {
       engineVersion: 'te-1', taxYear: 2026, filingStatus: 'mfj',
-      persons: [{ personId: 'p1', displayName: 'Daniel Rivera', seTax: '18086', retirement: { capped: true }, sehi: { capped: false }, hsa: { capped: false } }],
+      persons: [{ personId: 'p1', displayName: 'Daniel Rivera', seIncome: '128000', halfSeTax: '9043', totalWages: '0', seTax: '18086', retirement: { capped: true }, sehi: { capped: false }, hsa: { capped: false } }],
       entities: [{ companyId: 'c1', companyName: 'Rivera Plumbing LLC', entityType: 'sole_prop', ytd: { ordinary: '150000' }, projectedProfit: '200000', shares: [{ activityType: 'active' }] }],
       lossLimitations: { suspendedPassiveLoss: '1200', excessBusinessLoss: '0' },
       income: { wages: '32400', interest: '0', dividends: '0', capitalGainNet: '0', section1231: '0', otherIncome: '0', totalIncome: '232400' },
