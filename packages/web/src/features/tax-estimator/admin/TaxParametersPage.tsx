@@ -194,7 +194,11 @@ export function TaxParametersPage() {
                                   {r.status !== 'verified' && r.source !== 'fallback' && (
                                     <Button size="sm" variant="ghost" onClick={() => setVerifyRow(r)} aria-label={`Mark ${r.key} verified`}>Mark verified</Button>
                                   )}
-                                  <Button size="sm" variant="ghost" onClick={() => setOverrideRow(r)} aria-label={`Override ${r.key}`}>Override</Button>
+                                  {r.source === 'fallback' ? (
+                                    <span className="text-xs text-gray-500">Create {data.year} from prior to edit</span>
+                                  ) : (
+                                    <Button size="sm" variant="ghost" onClick={() => setOverrideRow(r)} aria-label={`Override ${r.key}`}>Override</Button>
+                                  )}
                                   {(r.source === 'override' || r.source === 'provisional') && (
                                     <Button size="sm" variant="ghost" onClick={() => setRevertRow(r)} aria-label={`Revert ${r.key}`}>Revert</Button>
                                   )}
@@ -255,7 +259,9 @@ export function TaxParametersPage() {
       <ConfirmDialog
         open={!!revertRow}
         title="Revert parameter"
-        message={revertRow ? `Revert ${revertRow.key} to the shipped value? The override is removed and the change is audited.` : undefined}
+        message={revertRow ? (revertRow.hasShipped === false
+          ? `Remove ${revertRow.key} from ${selected}? There is no shipped value underneath: the key would be missing for the year, so the server allows this only when it is the year's last row (edit the value instead). The change is audited.`
+          : `Revert ${revertRow.key} to the shipped value? The override is removed and the change is audited.`) : undefined}
         confirmLabel="Revert"
         variant="danger"
         onCancel={() => setRevertRow(null)}

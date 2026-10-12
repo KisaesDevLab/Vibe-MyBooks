@@ -30,7 +30,7 @@ export function StateDiffPanel({ year }: { year: number }) {
         {rows.length > 0 && <Button size="sm" onClick={() => run()} loading={adopt.isPending}>Adopt all shipped</Button>}
       </div>
       {q.isLoading ? <Skeleton /> : q.isError ? <ErrorMessage message="Could not load the diff" onRetry={() => q.refetch()} /> :
-        rows.length === 0 ? <p className="text-sm text-gray-500">No differences — provisional values match the shipped seed.</p> : (
+        rows.length === 0 ? <p className="text-sm text-gray-500">Nothing to adopt — no provisional row has a shipped counterpart for this year yet.</p> : (
           <table className="w-full text-sm">
             <thead><tr className="text-left text-gray-500"><th className="py-1">Rule</th><th>Shipped</th><th>Provisional</th><th /></tr></thead>
             <tbody>
@@ -38,7 +38,7 @@ export function StateDiffPanel({ year }: { year: number }) {
                 <tr key={stateRuleRef(r.state, r.key)} className="border-t border-gray-100">
                   <td className="py-1.5"><span className="font-medium">{r.state}</span> {r.label}<div className="text-xs font-mono text-gray-500">{r.key}</div></td>
                   <td className="font-mono text-xs">{json(r.shippedValue)} <span className="text-gray-500">({r.shippedStatus})</span></td>
-                  <td className="font-mono text-xs">{json(r.provisionalValue)}</td>
+                  <td className="font-mono text-xs">{json(r.provisionalValue)}{r.same && <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700 font-sans" title="Identical value: adopting only lets the shipped status and citation take effect">same value</span>}</td>
                   <td className="text-right"><Button size="sm" variant="secondary" onClick={() => run([stateRuleRef(r.state, r.key)])} disabled={adopt.isPending}>Adopt shipped</Button></td>
                 </tr>
               ))}

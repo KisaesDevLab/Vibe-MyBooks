@@ -86,6 +86,15 @@ describe('TaxParametersPage', () => {
     expect(screen.getByLabelText('Missing keys')).toHaveTextContent('se.min_nese');
   });
 
+  it('R6-02: fallback rows show no Override button, only the create hint', async () => {
+    h.params = { data: fixture({ isFallback: true, fallbackYear: 2025, parameters: fixture().parameters.map((p) => ({ ...p, source: 'fallback' as const, status: 'provisional' as const, fallbackYear: 2025 })) }), isLoading: false, isError: false, refetch: vi.fn() };
+    render();
+    await screen.findByText(/No 2026 parameters shipped/);
+    expect(screen.queryByLabelText(/^Override /)).toBeNull();
+    expect(screen.getAllByText('Create 2026 from prior to edit')).toHaveLength(3);
+    expect(screen.queryByLabelText(/Mark .* verified/)).toBeNull();
+  });
+
   it('shows the fallback banner', async () => {
     h.params = { ...h.params, data: fixture({ isFallback: true, fallbackYear: 2025 }) };
     render();

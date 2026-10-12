@@ -26,7 +26,7 @@ const SOURCE_STYLE: Record<ParameterSource, string> = {
   seed: 'bg-gray-100 text-gray-700', override: 'bg-purple-100 text-purple-800', provisional: 'bg-blue-100 text-blue-800', fallback: 'bg-orange-100 text-orange-800',
 };
 const SET_STYLE: Record<StateRuleSetStatus, string> = {
-  complete: 'bg-green-100 text-green-800', partial: 'bg-amber-100 text-amber-800', missing: 'bg-red-100 text-red-800',
+  complete: 'bg-green-100 text-green-800', partial: 'bg-amber-100 text-amber-800', missing: 'bg-red-100 text-red-800', fallback: 'bg-orange-100 text-orange-800',
 };
 const Badge = ({ cls, children }: { cls: string; children: string }) => (
   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{children}</span>
@@ -108,7 +108,11 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
                         {r.status !== 'verified' && r.source !== 'fallback' && (
                           <Button size="sm" variant="ghost" onClick={() => setVerifyRow(r)} aria-label={`Mark ${r.key} verified`}>Mark verified</Button>
                         )}
-                        <Button size="sm" variant="ghost" onClick={() => setOverrideRow(r)} aria-label={`Override ${r.key}`}>Override</Button>
+                        {r.source === 'fallback' ? (
+                          <span className="text-xs text-gray-500">Create {year} from prior to edit</span>
+                        ) : (
+                          <Button size="sm" variant="ghost" onClick={() => setOverrideRow(r)} aria-label={`Override ${r.key}`}>Override</Button>
+                        )}
                         {(r.source === 'override' || r.source === 'provisional') && (
                           <Button size="sm" variant="ghost" onClick={() => setRevertRow(r)} aria-label={`Revert ${r.key}`}>Revert</Button>
                         )}
@@ -161,7 +165,9 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
       <ConfirmDialog
         open={!!revertRow}
         title="Revert state rule"
-        message={revertRow ? `Revert ${state.state} ${revertRow.key} to the shipped value? The override is removed and the change is audited.` : undefined}
+        message={revertRow ? (revertRow.hasShipped === false
+          ? `Remove ${state.state} ${revertRow.key} from ${year}? There is no shipped value underneath: the rule would be missing, so the server allows this only when it is the state-year's last row (edit the value instead). The change is audited.`
+          : `Revert ${state.state} ${revertRow.key} to the shipped value? The override is removed and the change is audited.`) : undefined}
         confirmLabel="Revert"
         variant="danger"
         onCancel={() => setRevertRow(null)}
@@ -196,16 +202,18 @@ export function StatesView({ year, years }: { year: number | null; years: number
     complete: list.filter((r) => r.status === 'complete').length,
     partial: list.filter((r) => r.status === 'partial').length,
     missing: list.filter((r) => r.status === 'missing').length,
+    fallback: list.filter((r) => r.status === 'fallback').length,
   }), [list]);
   const priorYear = year == null ? null : Math.max(-1, ...years.filter((y) => y < year));
-  const canCreate = year != null && priorYear != null && priorYear > 0 && list.length > 0 && totals.missing === list.length;
+  // R6-02: create is per state — offered while any jurisdiction is still served from an earlier year.
+  const canCreate = year != null && priorYear != null && priorYear > 0 && totals.fallback > 0;
 
   if (year == null) return <p className="text-sm text-gray-500">Select a tax year.</p>;
   const current = selected ? list.find((s) => s.state === selected) : undefined;
   if (current) return <StateDetail year={year} state={current} onBack={() => setSelected(null)} />;
 
   const doCreate = () => createYear.mutate(year, {
-    onSuccess: (r) => toast.success(`Created ${r.year} from ${r.fromYear}: ${r.created} rows across ${r.states} state(s); verify ${r.rolledDates.length} rolled date rule(s)`),
+    onSuccess: (r) => toast.success(`Created ${r.year} from ${r.fromYear}: ${r.created} rows across ${r.states} state(s)${r.skipped.length ? `; ${r.skipped.length} already had ${r.year} rows (${r.skipped.join(', ')})` : ''}; verify ${r.rolledDates.length} rolled date rule(s)`),
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not create the year'),
   });
 
@@ -218,13 +226,13 @@ export function StatesView({ year, years }: { year: number | null; years: number
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm text-gray-700">{totals.complete} complete · {totals.partial} partial · {totals.missing} missing</span>
+            <span className="text-sm text-gray-700">{totals.complete} complete · {totals.partial} partial · {totals.fallback} fallback · {totals.missing} missing</span>
             <input aria-label="Search states" placeholder="Search state" value={search} onChange={(e) => setSearch(e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
             <select aria-label="Filter by status" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}
               className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
               <option value="all">All statuses</option><option value="complete">Complete</option>
-              <option value="partial">Partial</option><option value="missing">Missing</option>
+              <option value="partial">Partial</option><option value="fallback">Fallback</option><option value="missing">Missing</option>
             </select>
             {canCreate && (
               <Button size="sm" variant="secondary" onClick={doCreate} loading={createYear.isPending}>
@@ -251,6 +259,7 @@ export function StatesView({ year, years }: { year: number | null; years: number
                       <td className="py-2"><CountsText c={s.counts} /></td>
                       <td className="py-2 space-x-1">
                         {!s.hasIncomeTax && <Badge cls="bg-gray-100 text-gray-700">No income tax</Badge>}
+                        {s.status === 'fallback' && <Badge cls="bg-orange-100 text-orange-800">{`Using ${s.fallbackYear} rules · verify`}</Badge>}
                         {s.usesFederalFallback && <Badge cls="bg-orange-100 text-orange-800">Federal fallback · verify</Badge>}
                       </td>
                     </tr>
