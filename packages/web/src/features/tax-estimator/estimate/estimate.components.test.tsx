@@ -161,6 +161,21 @@ describe('KeyFigures', () => {
   });
 });
 
+describe('KeyFigures — QA2-05 the "Paid & withheld" breakdown adds up to the tile', () => {
+  it('federal estimates (as of today) + federal withholding + state = the headline; the dated-later amount is listed apart', () => {
+    const base = makeEstimate();
+    const fed = base.federalEstimates;
+    const mo = { ...fed, jurisdiction: 'MO', totals: { ...fed.totals, estimatesPaid: '0', withholding: '2000' } };
+    const e = { ...base, federalEstimates: { ...fed, totals: { ...fed.totals, estimatesPaid: '26246', withholding: '6000' } }, stateEstimates: [mo],
+      payments: [{ id: 'gl:9', stored: false, jurisdiction: 'federal', date: '2027-01-15', amount: '7046', source: 'gl', memo: null }] } as never;
+    wrap(<KeyFigures estimate={e} today={TODAY} />);
+    const tile = screen.getByText('Paid & withheld to date').parentElement!;
+    // 19,200 + 6,000 + 2,000 = 27,200
+    expect(tile).toHaveTextContent('$27,200');
+    expect(tile).toHaveTextContent('Federal estimates $19,200 · federal withholding $6,000 · state $2,000 · $7,046 dated after today not included');
+  });
+});
+
 describe('ReadinessBanner', () => {
   const readiness = {
     taxpayerId: 'tp1', taxYear: 2026, outOfScopeLinks: 0, schAiPeriods: [], ready: false, warnings: [],
