@@ -31,6 +31,11 @@ vi.mock('../attachments/AttachmentPanel', () => ({
   AttachmentPanel: ({ attachableType }: { attachableType: string }) => <div data-testid="attachments">{attachableType}</div>,
 }));
 
+// The Tax Estimator card has its own tests (features/tax-estimator/register); here only its placement.
+vi.mock('../tax-estimator/register/NonRecurringFlagCard', () => ({
+  NonRecurringFlagCard: ({ transactionId }: { transactionId: string }) => <div data-testid="te-nonrecurring">{transactionId}</div>,
+}));
+
 import { TransactionDetail } from './TransactionDetail';
 
 const base: Partial<Transaction> = {
@@ -48,6 +53,12 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('TransactionDetail', () => {
+  it('hosts the Tax Estimator non-recurring card for the transaction', () => {
+    state.txn = { ...base, txnType: 'journal_entry', total: '10.00' };
+    render();
+    expect(screen.getByTestId('te-nonrecurring')).toHaveTextContent(base.id!);
+  });
+
   it('shows a bill with its vendor, vendor invoice number and bill status', () => {
     state.txn = {
       ...base, txnType: 'bill', txnNumber: 'BILL-00012', contactName: 'Spire', vendorInvoiceNumber: '4394722222',

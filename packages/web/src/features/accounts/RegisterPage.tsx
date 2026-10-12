@@ -19,6 +19,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useLocalState } from '../../hooks/useLocalState';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { useRegisterNonRecurringIds } from '../tax-estimator/register/useRegisterNonRecurring';
 
 // Server caps per_page at 200.
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '200'];
@@ -43,6 +44,8 @@ const datePresets = [
 export function RegisterPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // Tax Estimator non-recurring flags (empty unless TAX_ESTIMATOR_V1 + firm access + linked company).
+  const nonRecurringIds = useRegisterNonRecurringIds();
 
   const today = todayLocalISO();
   const ninetyAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]!;
@@ -320,6 +323,9 @@ export function RegisterPage() {
                   <span className="text-gray-500 font-mono">{txnTypeLabels[line.txnType] || line.txnType}</span>
                   {line.txnNumber && <span className="text-gray-400 ml-1">#{line.txnNumber}</span>}
                   {line.status === 'void' && <span className="ml-1 text-xs text-red-500 font-medium">VOID</span>}
+                  {nonRecurringIds.has(line.transactionId) && (
+                    <span className="ml-1 rounded bg-amber-100 px-1 text-xs font-medium text-amber-900" title="Non-recurring for the Tax Estimator (counted once, not run-rated)">NR</span>
+                  )}
                 </td>
                 <td className="px-2 py-1 text-gray-700 font-mono">{line.checkNumber ?? ''}</td>
                 <td className="px-2 py-1 text-gray-700 truncate max-w-[220px]" title={line.payeeName || ''}>{line.payeeName || ''}</td>
