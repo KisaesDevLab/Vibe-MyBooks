@@ -235,6 +235,7 @@ export function TaxParametersPage() {
         <VerifyDialog
           title={`Mark ${verifyRow.key} verified`}
           message={`Records that you checked the current ${selected} value of ${verifyRow.label} against its source. Only the status changes; the value can still be overridden with a reason later.`}
+          value={<ParameterValue type={verifyRow.type} value={verifyRow.value} />}
           confirmLabel="Mark verified"
           saving={verify.isPending}
           serverError={verify.isError ? errText(verify.error, 'Verify failed') : null}

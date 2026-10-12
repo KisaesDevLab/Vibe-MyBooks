@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { renderRoute } from '../../../test-utils';
 import type { TaxParametersDTO } from '@kis-books/shared';
 
@@ -44,6 +44,7 @@ vi.mock('../../../api/hooks/useTaxStateRules', () => ({
 }));
 
 import { TaxParametersPage } from './TaxParametersPage';
+import { formatValue } from './format';
 
 const fixture = (over: Partial<TaxParametersDTO> = {}): TaxParametersDTO => ({
   year: 2026, isFallback: false, fallbackYear: null,
@@ -181,6 +182,8 @@ describe('TaxParametersPage — R7 in-app Verify', () => {
     expect(screen.getByLabelText('Mark brackets.mfj verified')).toBeInTheDocument();
     expect(screen.queryByLabelText('Mark se.ss_wage_base verified')).toBeNull();
     fireEvent.click(screen.getByLabelText('Mark se.nese_factor verified'));
+    // QA2-06: the dialog shows the value being signed, not only the key.
+    expect(within(screen.getByRole('dialog')).getByTestId('verify-value')).toHaveTextContent(formatValue('rate', 0.9235));
     fireEvent.change(screen.getByLabelText(/Note/), { target: { value: 'IRC 1402(a)(12)' } });
     fireEvent.click(screen.getByRole('button', { name: 'Mark verified' }));
     // R6-04: the dialog signs the value it showed, so a concurrent override is refused by the server.

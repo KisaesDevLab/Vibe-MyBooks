@@ -146,6 +146,7 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
         <VerifyDialog
           title={`Mark ${state.state} ${verifyRow.key} verified`}
           message={`Records that you checked the current ${year} ${state.name} value of ${verifyRow.label} against its source. Only the status changes; the rule can still be overridden with a reason later.`}
+          value={<StateRuleValue type={verifyRow.type} value={verifyRow.value} />}
           confirmLabel="Mark verified"
           saving={verify.isPending}
           serverError={verify.isError ? errText(verify.error, 'Verify failed') : null}

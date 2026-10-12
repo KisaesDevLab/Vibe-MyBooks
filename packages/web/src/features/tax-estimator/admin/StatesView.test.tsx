@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { getStateRuleDef } from '@kis-books/shared';
 import type { StateRuleSummaryDTO, StateRulesDTO } from '@kis-books/shared';
 import { renderRoute } from '../../../test-utils';
@@ -269,6 +269,8 @@ describe('StatesView detail — R7 in-app Verify', () => {
     expect(await screen.findByLabelText('Mark safe_harbor.current_pct verified')).toBeInTheDocument();
     expect(screen.queryByLabelText('Mark required_threshold verified')).toBeNull();
     fireEvent.click(screen.getByLabelText('Mark penalty.rate_source verified'));
+    // QA2-06: the value being signed is shown in the dialog.
+    expect(within(screen.getByRole('dialog')).getByTestId('verify-value').textContent).toMatch(/federal/i);
     fireEvent.click(screen.getByRole('button', { name: 'Mark verified' }));
     expect(h.verify).toHaveBeenCalledWith({ state: 'AR', key: 'penalty.rate_source', note: undefined, expectedValue: 'federal' }, expect.anything());
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
