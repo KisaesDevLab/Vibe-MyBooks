@@ -10,10 +10,18 @@ import type { CompanyOptionDTO, LinkDTO, PersonDTO } from '@kis-books/shared';
 const h = vi.hoisted(() => ({
   options: { data: undefined as unknown, isLoading: false, isError: false, refetch: vi.fn() },
   lastQ: '' as string,
+  contacts: { data: { data: [] as unknown[], total: 0 }, isLoading: false, isError: false, refetch: vi.fn() },
+  candidates: { data: { data: [] as unknown[], total: 0 }, isLoading: false, isError: false },
+  link: { mutate: vi.fn(), isPending: false, isError: false, error: null },
+  unlink: { mutate: vi.fn(), isPending: false, isError: false, error: null },
 }));
 
 vi.mock('../../../api/hooks/useTaxEstimatorTaxpayers', () => ({
   useCompanyOptions: (q: string) => { h.lastQ = q; return h.options; },
+  useTaxpayerContacts: () => h.contacts,
+  useTaxpayerContactCandidates: () => h.candidates,
+  useLinkContact: () => h.link,
+  useUnlinkContact: () => h.unlink,
 }));
 
 import { CompanyPicker } from './CompanyPicker';
@@ -22,6 +30,7 @@ import { computePctTotals } from './pctTotals';
 import { PersonsEditor } from './PersonsEditor';
 import { LinkForm } from './LinkForm';
 import { StateSelect } from './StateSelect';
+import { ContactsPanel } from './ContactsPanel';
 
 const opt = (over: Partial<CompanyOptionDTO> = {}): CompanyOptionDTO => ({
   tenantId: 't2', tenantName: 'Rivera Plumbing', companyId: 'c2', companyName: 'Rivera Plumbing LLC',
@@ -149,5 +158,24 @@ describe('StateSelect (QA D3)', () => {
   it('keeps an unknown stored code visible (flagged) instead of silently dropping it', () => {
     render(<StateSelect id="s" label="Resident state" value="ZZ" onChange={vi.fn()} />);
     expect(screen.getByRole('option', { name: 'ZZ (not a supported state)' })).toBeInTheDocument();
+  });
+});
+
+describe('ContactsPanel (QA D11 / D30)', () => {
+  it('offers the linked client companies\' contacts (works from the practice tenant) and confirms Remove', () => {
+    h.contacts.data = { data: [{ portalContactId: 'pc1', tenantId: 't2', email: 'maria@x.test', firstName: 'Maria', lastName: 'Rivera', outOfScope: false, taxEstimatesAccess: true, createdAt: '' }], total: 1 };
+    h.candidates.data = { data: [
+      { portalContactId: 'pc1', tenantId: 't2', email: 'maria@x.test', firstName: 'Maria', lastName: 'Rivera', companyNames: ['Maria Designs'] },
+      { portalContactId: 'pc2', tenantId: 't3', email: 'carlos@x.test', firstName: 'Carlos', lastName: null, companyNames: ['Rivera Plumbing LLC'] },
+    ], total: 2 };
+    h.unlink.mutate.mockReset();
+    render(<ContactsPanel taxpayerId="tp" canWrite />);
+    const pick = screen.getByLabelText('Add portal contact') as HTMLSelectElement;
+    expect(Array.from(pick.options).map((o) => o.textContent)).toEqual(['Select a contact', 'Carlos — Rivera Plumbing LLC']);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(h.unlink.mutate).not.toHaveBeenCalled();
+    expect(screen.getByText(/will no longer see this taxpayer/)).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove' }).at(-1)!);
+    expect(h.unlink.mutate).toHaveBeenCalledWith({ portalContactId: 'pc1', revokeAccess: true });
   });
 });

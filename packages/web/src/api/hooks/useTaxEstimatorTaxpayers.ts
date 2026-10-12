@@ -8,7 +8,7 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import type {
   TaxpayerListDTO, TaxpayerDetailDTO, TaxpayerDTO, PersonDTO, LinkListDTO, LinkUpsertResultDTO,
-  CompanyOptionListDTO, TaxpayerContactListDTO, LinkContactResultDTO, UnlinkContactResultDTO,
+  CompanyOptionListDTO, TaxpayerContactListDTO, TaxpayerContactCandidateListDTO, LinkContactResultDTO, UnlinkContactResultDTO,
   CreateTaxpayerInput, UpdateTaxpayerInput, UpsertPersonInput, UpsertLinkInput, PersonRole,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
@@ -157,6 +157,15 @@ export function useTaxpayerContacts(taxpayerId: string | undefined) {
     queryKey: [KEY, 'contacts', taxpayerId],
     enabled: !!taxpayerId,
     queryFn: () => call<TaxpayerContactListDTO>(`/${taxpayerId}/contacts`),
+  });
+}
+
+/** QA D11: contacts of the taxpayer's linked client companies (works from the practice tenant). */
+export function useTaxpayerContactCandidates(taxpayerId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: [KEY, 'contact-candidates', taxpayerId],
+    enabled: !!taxpayerId && enabled,
+    queryFn: () => call<TaxpayerContactCandidateListDTO>(`/${taxpayerId}/contact-candidates`),
   });
 }
 
