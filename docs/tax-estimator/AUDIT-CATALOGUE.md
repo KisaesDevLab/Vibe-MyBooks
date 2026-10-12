@@ -63,21 +63,21 @@ classification in [DATA-DICTIONARY.md](./DATA-DICTIONARY.md).
 
 | Entity type | Actions | entity_id | What the data holds |
 |---|---|---|---|
-| `tax_est_taxpayer_staff` | `update` | **taxpayer id** | One row per effective change of a taxpayer's staff allow-list (an unchanged PUT writes nothing): before `{ userIds: [...] }`, after `{ userIds: [...], added: [...], removed: [...] }` (+ `firmId`). User ids only — no names, emails or taxpayer data. Tenant = the admin's active tenant. Firm admins / super admins only |
+| `tax_est_taxpayer_staff` | `update` | **taxpayer id** | One row per effective change of a taxpayer's staff allow-list (an unchanged PUT writes nothing; since D18 a non-empty list REPLACES the firm rule and grants its members that taxpayer's full data): before `{ userIds: [...] }`, after `{ userIds: [...], added: [...], removed: [...] }` (+ `firmId`). User ids only — no names, emails or taxpayer data. Tenant = the admin's active tenant. Firm admins / super admins only |
 
 ### Payments and Schedule AI (`payments`, `sch-ai-snapshots`)
 
 | Entity type | Actions | entity_id | What the data holds |
 |---|---|---|---|
 | `tax_est_payment` | `create`, `update`, `delete` | payment id | stored payment DTO (jurisdiction, date, amount, source `manual` / `gl` / `prior_year_overpayment`, tenant + transaction reference, memo). Amounts and dates are bookkeeping data, not return information |
-| `tax_est_sch_ai_snapshots` | `update` | **taxpayer id** | `{ taxYear, periods: [indexes], written: n, replace }`, written only when at least one row was written |
+| `tax_est_sch_ai_snapshots` | `update` | **taxpayer id** | `{ taxYear, periods: [indexes], written: n, replace }`, written only when at least one row was written; D18: `elevated: true` when the capturer is on the taxpayer's staff list and captured companies outside their own client access |
 
 ### Snapshots and issued PDFs (`estimate-snapshots`, `estimate-documents`)
 
 | Entity type | Actions | entity_id | What the data holds |
 |---|---|---|---|
-| `tax_est_snapshot` | `create` | snapshot id | metadata only: `taxpayerId, taxYear, scenarioId, scenarioName, reason, note, engineVersion, inputsHash, payloadSha256, payloadBytes` (+ `firmId`). `reason` is `finalize`, `vouchers`, `pdf` or `report_pack`. Created by Finalize, by the standalone PDF, and by the Report Pack section; a same-day identical `pdf` / `report_pack` issue reuses the existing snapshot and writes no new `create` row |
-| `tax_est_snapshot` | `download` | snapshot id | `{ firmId, taxpayerId, taxYear, scenarioId, snapshotReason, format: 'pdf', issued, payloadSha256 }` (before_data is null). `issued: true` = the PDF was generated and a snapshot was frozen or reused for it (standalone Print, Report Pack section); `issued: false` = an existing snapshot's PDF was re-downloaded. Written **after** rendering and outside the snapshot transaction. Never contains figures |
+| `tax_est_snapshot` | `create` | snapshot id | metadata only: `taxpayerId, taxYear, scenarioId, scenarioName, reason, note, engineVersion, inputsHash, payloadSha256, payloadBytes` (+ `firmId`; D18: `elevated: true` when the creator read the taxpayer through its staff list with tenants outside their own client access). `reason` is `finalize`, `vouchers`, `pdf` or `report_pack`. Created by Finalize, by the standalone PDF, and by the Report Pack section; a same-day identical `pdf` / `report_pack` issue reuses the existing snapshot and writes no new `create` row |
+| `tax_est_snapshot` | `download` | snapshot id | `{ firmId, taxpayerId, taxYear, scenarioId, snapshotReason, format: 'pdf', issued, payloadSha256 }` (before_data is null; D18: plus `elevated: true` when the requester is on the taxpayer's staff list and it includes linked tenants outside their own client access — absent otherwise). `issued: true` = the PDF was generated and a snapshot was frozen or reused for it (standalone Print, Report Pack section); `issued: false` = an existing snapshot's PDF was re-downloaded. Written **after** rendering and outside the snapshot transaction. Never contains figures |
 
 ### Entity setup (books-scoped; `entity-settings`, `treatments`)
 
