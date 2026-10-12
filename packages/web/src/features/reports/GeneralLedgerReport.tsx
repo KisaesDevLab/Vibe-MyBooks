@@ -2,6 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, API_BASE } from '../../api/client';
@@ -14,6 +15,8 @@ import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
 import { BasisSelector } from './BasisSelector';
+import { ReportAccountMultiSelect } from './ReportAccountMultiSelect';
+import { useAccounts } from '../../api/hooks/useAccounts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 // ─── Types matching the buildGeneralLedger response shape ────────
@@ -51,6 +54,8 @@ interface GLReportData {
   accounts: GLAccount[];
   totalDebits: number;
   totalCredits: number;
+  // Present only when the report was filtered by account_ids.
+  accountFilter?: { accounts: Array<{ id: string; accountNumber: string | null; name: string }> };
 }
 
 // ─── Formatting helpers ──────────────────────────────────────────
@@ -91,6 +96,14 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   other_expense: 'Other Expenses',
 };
 
+// Mirrors the API's printed-header note (glAccountFilterNote): a few
+// accounts are listed, a long selection collapses to a count.
+function accountFilterNote(accounts: Array<{ accountNumber: string | null; name: string }>, showAcctNums: boolean): string {
+  if (accounts.length === 0) return 'Accounts: none of the selected accounts were found';
+  if (accounts.length > 5) return `Accounts: ${accounts.length} accounts selected`;
+  return `Accounts: ${accounts.map((a) => (showAcctNums && a.accountNumber ? `${a.accountNumber} ${a.name}` : a.name)).join(', ')}`;
+}
+
 // ─── Main component ──────────────────────────────────────────────
 
 export function GeneralLedgerReport() {
@@ -102,17 +115,32 @@ export function GeneralLedgerReport() {
   const [tagId, setTagId] = useSessionState('vibe:report-gl:tagId', '');
   useClearTagOnCompanyChange(setTagId);
   const [basis, setBasis] = useSessionState<'cash' | 'accrual'>('vibe:report-gl:basis', 'accrual');
+  // Account filter (empty = all accounts) — same session persistence as
+  // Expenses by Category's multi-select.
+  const [accountIds, setAccountIds] = useSessionState<string[]>('vibe:report-gl:accountIds', []);
   const [showAcctNums, setShowAcctNums] = useLocalState(SHOW_ACCT_NUMBERS_KEY, true);
   const { activeCompanyId } = useCompanyContext();
+
+  // Every active account of every type for the filter dropdown.
+  const accountsQuery = useAccounts({ limit: 500 });
+  const activeAccounts = useMemo(
+    () => (accountsQuery.data?.data ?? []).filter((a) => a.isActive !== false),
+    [accountsQuery.data],
+  );
 
   // Only query once typed dates are complete and stable.
   const debStartDate = startDate;
   const debEndDate = endDate;
 
-  const queryParams = `start_date=${debStartDate}&end_date=${debEndDate}${scope === 'consolidated' ? '&scope=consolidated' : ''}${tagId ? `&tag_id=${tagId}` : ''}&basis=${basis}`;
+  const params = new URLSearchParams({ start_date: debStartDate, end_date: debEndDate });
+  if (scope === 'consolidated') params.set('scope', 'consolidated');
+  if (tagId) params.set('tag_id', tagId);
+  params.set('basis', basis);
+  if (accountIds.length > 0) params.set('account_ids', accountIds.join(','));
+  const queryParams = params.toString();
 
   const { data, isLoading, error } = useQuery<GLReportData>({
-    queryKey: ['reports', 'general-ledger', debStartDate, debEndDate, activeCompanyId, scope, tagId, basis],
+    queryKey: ['reports', 'general-ledger', debStartDate, debEndDate, activeCompanyId, scope, tagId, basis, accountIds],
     queryFn: () => apiClient<GLReportData>(`/reports/general-ledger?${queryParams}`),
   });
 
@@ -130,6 +158,16 @@ export function GeneralLedgerReport() {
               setStartDate(s);
               setEndDate(e);
             }}
+          />
+          <ReportAccountMultiSelect
+            accounts={activeAccounts}
+            selected={accountIds}
+            onChange={setAccountIds}
+            allLabel="All accounts"
+            emptyLabel="No accounts"
+            showNumbers={showAcctNums}
+            searchable
+            groupLabels={ACCOUNT_TYPE_LABELS}
           />
           <BasisSelector value={basis} onChange={setBasis} />
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
@@ -155,10 +193,13 @@ export function GeneralLedgerReport() {
 // ─── Body view ───────────────────────────────────────────────────
 
 function GeneralLedgerView({ data, showAcctNums = true }: { data: GLReportData; showAcctNums?: boolean }) {
+  const filtered = !!data.accountFilter;
   if (data.accounts.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-12 text-center">
-        <p className="text-gray-500">No accounts have activity in the selected period.</p>
+        <p className="text-gray-500">
+          {filtered ? 'None of the selected accounts were found.' : 'No accounts have activity in the selected period.'}
+        </p>
       </div>
     );
   }
@@ -166,7 +207,10 @@ function GeneralLedgerView({ data, showAcctNums = true }: { data: GLReportData; 
   // Group accounts by accountType for visual section breaks. The backend
   // already sorts by type then account number, so we just need to detect
   // type transitions while iterating.
-  const trialBalanceOk = Math.abs(data.totalDebits - data.totalCredits) < 0.01;
+  // A filtered subset needn't balance, so the warning only applies to the
+  // full ledger.
+  const trialBalanceOk = filtered || Math.abs(data.totalDebits - data.totalCredits) < 0.01;
+  const filterNote = filtered ? accountFilterNote(data.accountFilter!.accounts, showAcctNums) : '';
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
@@ -178,6 +222,7 @@ function GeneralLedgerView({ data, showAcctNums = true }: { data: GLReportData; 
             <> &nbsp;·&nbsp; Fiscal year start: {data.fiscalYearStart}</>
           )}
         </p>
+        {filterNote && <p className="text-xs text-gray-500 mt-0.5">{filterNote}</p>}
       </div>
 
       <div className="divide-y divide-gray-200">
@@ -200,7 +245,9 @@ function GeneralLedgerView({ data, showAcctNums = true }: { data: GLReportData; 
       {/* Report grand totals — sanity check that the books balance */}
       <div className="bg-gray-50 px-6 py-4 border-t-2 border-gray-300">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-semibold text-gray-700">Total Activity (all accounts)</span>
+          <span className="font-semibold text-gray-700">
+            {filtered ? 'Total Activity (selected accounts)' : 'Total Activity (all accounts)'}
+          </span>
           <div className="flex gap-8 font-mono">
             <span>
               <span className="text-gray-500 mr-2">Debits:</span>

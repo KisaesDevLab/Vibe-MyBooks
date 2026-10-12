@@ -6,11 +6,10 @@
 // as Expenses by Category, parameterized for Revenues, Assets, Liabilities
 // and Equity. Backed by /reports/{endpoint} (buildAccountDetailReport).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
-import type { Account, AccountType } from '@kis-books/shared';
+import type { AccountType } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
 import { useCompanyContext } from '../../providers/CompanyProvider';
@@ -20,6 +19,7 @@ import { DateRangePicker } from './DateRangePicker';
 import { ReportScopeSelector } from './ReportScopeSelector';
 import { ReportTagFilter } from './ReportTagFilter';
 import { BasisSelector } from './BasisSelector';
+import { ReportAccountMultiSelect } from './ReportAccountMultiSelect';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
@@ -89,54 +89,6 @@ const TXN_TYPE_LABELS: Record<string, string> = {
   bill_payment: 'BP', vendor_credit: 'VC',
 };
 
-function AccountMultiSelect({ accounts, selected, onChange, noun }: {
-  accounts: Account[]; selected: string[]; onChange: (ids: string[]) => void; noun: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
-  const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
-  const label = selected.length === 0 ? `All ${noun} accounts` : `${selected.length} selected`;
-  return (
-    <div className="relative" ref={containerRef}>
-      <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
-        {label}
-        <ChevronDown className="h-4 w-4 text-gray-400" />
-      </button>
-      {open && (
-        <div className="absolute left-0 z-20 mt-1 max-h-72 w-72 overflow-auto rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
-          {accounts.length === 0 ? (
-            <p className="px-2 py-1.5 text-sm text-gray-500">No {noun} accounts</p>
-          ) : (
-            <>
-              {selected.length > 0 && (
-                <button type="button" onClick={() => onChange([])}
-                  className="mb-1 w-full rounded px-2 py-1 text-left text-xs font-medium text-blue-600 hover:bg-blue-50">
-                  Clear selection (show all)
-                </button>
-              )}
-              {accounts.map((a) => (
-                <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-gray-50">
-                  <input type="checkbox" checked={selected.includes(a.id)} onChange={() => toggle(a.id)} className="rounded border-gray-300" />
-                  <span className="truncate">{a.accountNumber ? `${a.accountNumber} — ${a.name}` : a.name}</span>
-                </label>
-              ))}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function AccountDetailReport({ config }: { config: AccountDetailConfig }) {
   const today = new Date();
   const ns = (k: string) => `vibe:report-${config.sessionPrefix}:${k}`;
@@ -179,7 +131,8 @@ export function AccountDetailReport({ config }: { config: AccountDetailConfig })
       filters={
         <div className="flex flex-wrap items-center gap-4">
           <DateRangePicker startDate={startDate} endDate={endDate} onChange={(s, e) => { setStartDate(s); setEndDate(e); }} />
-          <AccountMultiSelect accounts={groupAccounts} selected={accountIds} onChange={setAccountIds} noun={config.noun} />
+          <ReportAccountMultiSelect accounts={groupAccounts} selected={accountIds} onChange={setAccountIds}
+            allLabel={`All ${config.noun} accounts`} emptyLabel={`No ${config.noun} accounts`} />
           <label className="flex items-center gap-2 text-sm text-gray-600">
             View
             <select aria-label="Report view mode" value={view} onChange={(e) => setView(e.target.value as 'detail' | 'summary')}
