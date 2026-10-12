@@ -119,7 +119,7 @@ describe('SuggestionsBanner', () => {
 });
 
 describe('YearInputsPanel', () => {
-  const inputs: EntityYearInputsDto = { tenantId: 't', companyId: 'c', taxYear: 2026, w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, updatedAt: null };
+  const inputs: EntityYearInputsDto = { tenantId: 't', companyId: 'c', taxYear: 2026, w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: false, updatedAt: null };
   it('requires a reason for a W-2 wages override and warns on blank UBIA', () => {
     const onSave = vi.fn();
     renderRoute(<YearInputsPanel taxYear={2026} inputs={inputs} booksW2Wages="54000.0000" canWrite saving={false} onSave={onSave} />);
@@ -130,7 +130,18 @@ describe('YearInputsPanel', () => {
     expect(screen.getByText(/A reason is required/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Override reason'), { target: { value: 'Payroll report' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save year inputs' }));
-    expect(onSave).toHaveBeenCalledWith({ w2WagesOverride: '60000', w2WagesOverrideReason: 'Payroll report', ubia: null });
+    expect(onSave).toHaveBeenCalledWith({ w2WagesOverride: '60000', w2WagesOverrideReason: 'Payroll report', ubia: null, includeSehiInW2Wages: false });
+  });
+
+  it('Q41: the >2% shareholder health switch defaults to excluded and saves true when ticked', () => {
+    const onSave = vi.fn();
+    renderRoute(<YearInputsPanel taxYear={2026} inputs={inputs} booksW2Wages="54000.0000" canWrite saving={false} onSave={onSave} />);
+    const box = screen.getByLabelText('Include shareholder health insurance in W-2 wages');
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/excluded/)).toBeInTheDocument();
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole('button', { name: 'Save year inputs' }));
+    expect(onSave).toHaveBeenCalledWith({ w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: true });
   });
 });
 
