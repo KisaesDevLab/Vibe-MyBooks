@@ -3480,7 +3480,7 @@ Printing the same estimate twice on the same day reuses the same PDF snapshot ra
 
 ## PDF
 
-**Print / Download PDF** on the summary (and **Download PDF** on each scenario card of the compare page) produces tax-estimate-YEAR-NAME.pdf: summary, federal, state, safe harbor, vouchers, warnings, assumptions and the firm disclaimer. The figures equal the screen. Read-only staff can download; users outside the firm cannot.
+**Print / Download PDF** on the summary (and **Download PDF** on each scenario card of the compare page) produces tax-estimate-YEAR-NAME.pdf (a what-if scenario adds its own name to the file name): summary, federal, state, safe harbor, vouchers, warnings, assumptions and the firm disclaimer. The figures equal the screen. Read-only staff can download; users outside the firm cannot.
 
 ## Scenario compare
 
