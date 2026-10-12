@@ -296,7 +296,7 @@ Your sort and filters are kept for the browser tab, so refreshing or coming back
     id: 'transactions-list',
     title: 'Finding & Bulk-Editing Transactions',
     category: 'Transactions',
-    summary: 'Filter, search, and sort the transactions list, change how many rows are shown, and edit many transactions at once — including moving them to a different account.',
+    summary: 'Filter, search, and sort the transactions list, change how many rows are shown, export or print it (CSV / PDF), and edit many transactions at once — including moving them to a different account.',
     body: `
 ## Finding & Bulk-Editing Transactions
 
@@ -311,6 +311,20 @@ The **Transactions** list is the central view of everything posted to your books
 
 ### Rows Per Page
 Use the **Show** dropdown next to the pager to display **50, 100, 250, 500, or All** transactions per page. **All** loads the entire filtered set at once — handy for reviewing or bulk-editing a whole account.
+
+### Exporting & Printing the List (CSV / PDF)
+The **CSV** and **Print / PDF** buttons at the top of the Transactions page export **everything that matches your current filters, search, date range, and sort** — every page, not just the rows on screen. One row per transaction, in the General Ledger's layout:
+
+**Date · Type · Ref # · Name · Description · Account / Category · Debit · Credit**, then a **Total** row (total debits and total credits).
+
+- **Filtered by an Account** — Debit / Credit are that account's own debit and credit on each transaction, the same register view the list shows
+- **Not filtered by an account** — Debit / Credit are the amounts posted to the transaction's **category** (an expense shows as a debit, a deposit to income as a credit). Transactions with several categories show **Split**
+- Transactions with no category side (a **transfer** between two bank accounts, a bill or customer payment) show their full amount in both columns
+- **Void** transactions show 0.00 and add nothing to the totals
+- The **CSV** adds **Tag** and **Status** columns; money is plain numbers with 2 decimals, ready for a spreadsheet
+- The **PDF** opens in a new tab (landscape) with the company name, the date range and filters applied, when it was printed, and page numbers — print it or save it
+- Exports are capped at **50,000** transactions (CSV) and **10,000** (PDF). A larger list is cut off with a clear "Export truncated" note — narrow the date range or filters to export the rest
+- Exports are recorded in the audit log (the filters used and the row count — not the data)
 
 The same pager with a **Show** dropdown appears on nearly every other list in the app — bills, vendor credits, statement imports, reconciliation statements, daily sales, recurring schedules, the attachment library, practice lists, and the admin tables — so older rows are always reachable.
 

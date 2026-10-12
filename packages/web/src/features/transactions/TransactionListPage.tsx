@@ -19,6 +19,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { SortableTh } from '../../components/ui/SortableTh';
 import { ArrowLeft, Plus, Search, X } from 'lucide-react';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { TransactionExportButtons } from './TransactionExportButtons';
 
 // Rows-per-page choices. 'all' fetches up to the API cap (10000) in one
 // request — effectively the whole filtered set for typical volumes.
@@ -416,6 +417,14 @@ export function TransactionListPage() {
       )}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
+        <div className="flex items-start gap-2">
+        {/* Export the whole filtered + sorted list (every page), not just
+            the rows on screen. */}
+        <TransactionExportButtons filters={{
+          txnType: typeFilter, status: statusFilter, accountId: accountFilter, contactId: contactFilter,
+          source: sourceFilter, basis: basisFilter, startDate, endDate, tagId: tagFilter,
+          search: debouncedSearch, sortBy, sortDir: sortBy ? sortDir : '',
+        }} />
         <div className="relative">
           <Button size="sm" onClick={() => setShowNewMenu(!showNewMenu)}>
             <Plus className="h-4 w-4 mr-1" /> New Transaction
@@ -433,6 +442,7 @@ export function TransactionListPage() {
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
 

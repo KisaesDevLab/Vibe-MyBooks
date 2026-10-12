@@ -12,7 +12,10 @@
 
 import { API_BASE, getAccessToken, refreshAccessToken } from '../../api/client';
 
-async function fetchPdf(path: string): Promise<Response> {
+/** GET an API path with the session's bearer token + active company,
+ *  refreshing an expired access token once. Shared with the Transactions
+ *  list CSV export. */
+export async function fetchWithSession(path: string): Promise<Response> {
   const request = () => {
     const headers: Record<string, string> = {};
     const token = getAccessToken();
@@ -42,7 +45,7 @@ export async function openReportPdf(path: string, opts: { title: string; fallbac
   const tab = window.open('', '_blank');
   if (tab) tab.document.title = `${opts.title}…`;
   try {
-    const res = await fetchPdf(path);
+    const res = await fetchWithSession(path);
     if (!res.ok) {
       const body = await res.json().catch(() => null) as { error?: { message?: string } } | null;
       throw new Error(body?.error?.message || `Could not build the report (${res.status})`);
