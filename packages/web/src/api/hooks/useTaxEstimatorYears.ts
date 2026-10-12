@@ -74,15 +74,22 @@ export function useRenameScenario() {
 export function useCloneScenario() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: async (id: string) => (await call<{ data: ScenarioDTO }>(`/scenarios/${id}/clone`, { method: 'POST' })).data,
+    /** QA D21: the copy is named by the user (blank → "Copy of …"). */
+    mutationFn: async (v: { id: string; name?: string }) =>
+      (await call<{ data: ScenarioDTO }>(`/scenarios/${v.id}/clone`, { method: 'POST', ...json(v.name ? { name: v.name } : {}) })).data,
     onSuccess: invalidate,
   });
 }
 export function useDeleteScenario() {
-  const invalidate = useInvalidate();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => call<void>(`/scenarios/${id}`, { method: 'DELETE' }),
-    onSuccess: invalidate,
+    // QA D22: never refetch the deleted scenario's adjustments / state rows (they 404); drop them.
+    onSuccess: (_v, id) => {
+      qc.removeQueries({ queryKey: [KEY, 'adjustments', id] });
+      qc.removeQueries({ queryKey: [KEY, 'state-rows', id] });
+      return qc.invalidateQueries({ queryKey: [KEY], predicate: (q) => !q.queryKey.includes(id) });
+    },
   });
 }
 

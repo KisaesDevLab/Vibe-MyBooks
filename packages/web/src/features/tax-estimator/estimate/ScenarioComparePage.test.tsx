@@ -87,7 +87,11 @@ describe('ScenarioComparePage', () => {
     render();
     const manage = screen.getByLabelText('Manage scenarios');
     fireEvent.click(within(manage).getByRole('button', { name: 'Clone' }));
-    expect(h.clone).toHaveBeenCalledWith('s1', expect.anything());
+    expect(h.clone).not.toHaveBeenCalled(); // QA D21: the copy is named first
+    expect(within(manage).queryByRole('button', { name: 'Rename' })).toBeNull(); // Base keeps its name
+    fireEvent.change(screen.getByLabelText('Name the copy'), { target: { value: 'Buy truck in December' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create copy' }));
+    expect(h.clone).toHaveBeenCalledWith({ id: 's1', name: 'Buy truck in December' }, expect.anything());
     fireEvent.click(within(manage).getByRole('tab', { name: /Buy truck/ }));
     fireEvent.click(within(manage).getByRole('button', { name: 'Rename' }));
     fireEvent.change(screen.getByLabelText('Scenario name'), { target: { value: 'Truck Dec' } });

@@ -133,7 +133,7 @@ export function AnnualSettingsPage() {
             busy={createScenario.isPending || clone.isPending || rename.isPending || del.isPending}
             error={scenarioError ? errMsg(scenarioError.error) : undefined}
             onSelect={setSelected}
-            onClone={(sid) => clone.mutate(sid, { onSuccess: (s) => setSelected(s.id) })}
+            onClone={(sid, name) => clone.mutate({ id: sid, name }, { onSuccess: (s) => setSelected(s.id) })}
             onRename={(sid, name) => rename.mutate({ id: sid, name })}
             onDelete={(sid) => del.mutate(sid, { onSuccess: () => setSelected(undefined) })} />
           <YearInputsForm key={detail.year.updatedAt} detail={detail} persons={persons} filingStatus={tp.filingStatus} canWrite={canWrite} saving={save.isPending}

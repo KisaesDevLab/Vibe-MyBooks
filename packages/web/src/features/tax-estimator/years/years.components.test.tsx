@@ -33,19 +33,24 @@ const row = (over: Partial<StateRowDTO> = {}): StateRowDTO => ({
 describe('ScenarioTabs', () => {
   const handlers = () => ({ onSelect: vi.fn(), onClone: vi.fn(), onRename: vi.fn(), onDelete: vi.fn() });
 
-  it('selects, clones and renames; Base has no Delete', () => {
+  it('selects, clones (named, QA D21) and renames non-base scenarios; Base has no Delete and no Rename', () => {
     const h = handlers();
-    render(<ScenarioTabs scenarios={[scen(), scen({ id: 's2', name: 'Buy truck', isBase: false })]} selectedId="s1" canWrite {...h} />);
+    const { rerender } = render(<ScenarioTabs scenarios={[scen(), scen({ id: 's2', name: 'Buy truck', isBase: false })]} selectedId="s1" canWrite {...h} />);
     expect(screen.getByRole('tab', { name: /Base/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Rename' })).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: /Buy truck/ }));
     expect(h.onSelect).toHaveBeenCalledWith('s2');
     fireEvent.click(screen.getByRole('button', { name: 'Clone' }));
-    expect(h.onClone).toHaveBeenCalledWith('s1');
+    expect(screen.getByLabelText('Name the copy')).toHaveValue('Copy of Base');
+    fireEvent.change(screen.getByLabelText('Name the copy'), { target: { value: 'Sell the truck' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create copy' }));
+    expect(h.onClone).toHaveBeenCalledWith('s1', 'Sell the truck');
+    rerender(<ScenarioTabs scenarios={[scen(), scen({ id: 's2', name: 'Buy truck', isBase: false })]} selectedId="s2" canWrite {...h} />);
     fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
-    fireEvent.change(screen.getByLabelText('Scenario name'), { target: { value: 'Baseline' } });
+    fireEvent.change(screen.getByLabelText('Scenario name'), { target: { value: 'Truck Dec' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
-    expect(h.onRename).toHaveBeenCalledWith('s1', 'Baseline');
+    expect(h.onRename).toHaveBeenCalledWith('s2', 'Truck Dec');
   });
 
   it('deletes a non-base scenario only after confirmation', () => {
@@ -219,6 +224,22 @@ describe('YearInputsForm — People card (R7-01)', () => {
     id: `p-${role}`, taxpayerId: 'tp', role, firstName, lastName: 'Rivera', dateOfBirth: '1981-05-10', isBlind: false, sehiEligibleMonths: Array(12).fill(true),
   });
   const persons = [person('primary', 'Carlos'), person('spouse', 'Maria')];
+
+  it('QA D28/D27/D31: 110% note only above the AGI threshold; state withholding error tied to the field; stored decimals shown plain', () => {
+    const { unmount } = render(<YearInputsForm detail={detail(settings({ priorYearAgi: '100000.0000', priorYearTax: '8000.0000' }))} persons={persons} filingStatus="mfj" canWrite onSave={vi.fn()} />);
+    expect(screen.queryByTestId('rule-callout')).toBeNull();
+    expect(screen.getByLabelText('Prior-year total tax')).toHaveValue('8000');
+    fireEvent.change(screen.getByLabelText('Prior-year AGI'), { target: { value: '182000' } });
+    expect(screen.getByTestId('rule-callout')).toHaveTextContent('110%');
+    const wh = screen.getByLabelText('State withholding (annual)');
+    fireEvent.change(wh, { target: { value: 'Missouri 2000' } });
+    expect(wh).toHaveAttribute('aria-invalid', 'true');
+    expect(wh).toHaveAttribute('aria-describedby', 'state-wh-error');
+    expect(document.getElementById('state-wh-error')).toHaveTextContent('Use STATE=amount');
+    unmount();
+    render(<YearInputsForm detail={detail(settings({ priorYearAgi: '80000' }))} persons={persons} filingStatus="mfs" canWrite onSave={vi.fn()} />);
+    expect(screen.getByTestId('rule-callout')).toHaveTextContent('$75,000');
+  });
 
   it('saves outside W-2 wages, Social Security wages, plan type and deferral per person (into personInputs)', () => {
     const onSave = vi.fn();

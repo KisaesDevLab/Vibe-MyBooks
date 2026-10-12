@@ -90,7 +90,7 @@ export function ScenarioComparePage() {
             <h2 className="text-base font-semibold text-gray-900">Scenarios ({scenarios.length} of {MAX_SCENARIOS_PER_YEAR})</h2>
             <ScenarioTabs scenarios={scenarios} selectedId={manageId} canWrite={canWrite} busy={clone.isPending || rename.isPending || del.isPending}
               error={scenarioError ? errMsg(scenarioError.error) : undefined} onSelect={setManage}
-              onClone={(sid) => clone.mutate(sid, { onSuccess: (s) => setManage(s.id) })}
+              onClone={(sid, name) => clone.mutate({ id: sid, name }, { onSuccess: (s) => setManage(s.id) })}
               onRename={(sid, name) => rename.mutate({ id: sid, name })}
               onDelete={(sid) => del.mutate(sid, { onSuccess: () => setManage(undefined) })} />
             {scenarios.length < 2 && <p className="text-sm text-gray-600">Clone the Base scenario to compare a what-if against it.</p>}
