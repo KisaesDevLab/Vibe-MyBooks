@@ -279,6 +279,8 @@ const TaxpayerListPage = lazyNamed(() => import('./features/tax-estimator/taxpay
 const TaxpayerDetailPage = lazyNamed(() => import('./features/tax-estimator/taxpayers/TaxpayerDetailPage'), 'TaxpayerDetailPage');
 const EntityTaxSetupPage = lazyNamed(() => import('./features/tax-estimator/entities/EntityTaxSetupPage'), 'EntityTaxSetupPage');
 const AnnualSettingsPage = lazyNamed(() => import('./features/tax-estimator/years/AnnualSettingsPage'), 'AnnualSettingsPage');
+const EstimateSummaryPage = lazyNamed(() => import('./features/tax-estimator/estimate/EstimateSummaryPage'), 'EstimateSummaryPage');
+const ScenarioComparePage = lazyNamed(() => import('./features/tax-estimator/estimate/ScenarioComparePage'), 'ScenarioComparePage');
 const TbLayout = lazyNamed(() => import('./features/tb/TbLayout'), 'TbLayout');
 const TbSettingsPage = lazyNamed(() => import('./features/tb/TbSettingsPage'), 'TbSettingsPage');
 const AjeListPage = lazyNamed(() => import('./features/tb/AjeListPage'), 'AjeListPage');
@@ -660,6 +662,8 @@ export function App() {
               <Route path="taxpayers" element={<TaxpayerListPage />} />
               <Route path="taxpayers/:id" element={<TaxpayerDetailPage />} />
               <Route path="taxpayers/:id/annual-settings" element={<AnnualSettingsPage />} />
+              <Route path="taxpayers/:id/estimate" element={<EstimateSummaryPage />} />
+              <Route path="taxpayers/:id/scenarios" element={<ScenarioComparePage />} />
               <Route path="entities/:tenantId/:companyId" element={<EntityTaxSetupPage />} />
             </Route>
             {/* Trial Balance module (docs/tb/BUILD_PLAN.md) — TbLayout

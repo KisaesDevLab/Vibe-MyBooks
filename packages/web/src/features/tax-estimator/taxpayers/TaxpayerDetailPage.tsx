@@ -96,6 +96,8 @@ export function TaxpayerDetailPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">{taxpayer.displayName}{!taxpayer.isActive && <span className="ml-2 text-sm font-normal text-gray-500">(archived)</span>}</h1>
           <div className="flex items-center gap-2">
+            <Link to={`/tax-estimator/taxpayers/${taxpayer.id}/estimate`} className="text-sm font-medium text-primary-700 hover:underline">Tax estimate</Link>
+            <Link to={`/tax-estimator/taxpayers/${taxpayer.id}/scenarios`} className="text-sm font-medium text-primary-700 hover:underline">Scenarios</Link>
             <Link to={`/tax-estimator/taxpayers/${taxpayer.id}/annual-settings`} className="text-sm font-medium text-primary-700 hover:underline">Annual settings</Link>
             {canWrite && taxpayer.isActive && <Button variant="secondary" size="sm" onClick={() => setConfirmArchive(true)}>Archive</Button>}
           </div>
