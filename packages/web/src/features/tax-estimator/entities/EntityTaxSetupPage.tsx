@@ -102,7 +102,7 @@ export function EntityTaxSetupPage() {
         : yearInputs.isError || !yearInputs.data ? <ErrorMessage message="Could not load year inputs." onRetry={() => yearInputs.refetch()} />
         : (
           <YearInputsPanel key={`${taxYear}:${yearInputs.data.updatedAt ?? 'new'}`} taxYear={taxYear} inputs={yearInputs.data}
-            booksW2Wages={pl.data?.w2Wages.projectedYear ?? null} canWrite={canWrite} saving={saveYear.isPending}
+            booksW2Wages={pl.data?.w2Wages.projectedYear ?? null} entityType={r.entityType} canWrite={canWrite} saving={saveYear.isPending}
             error={saveYear.isError ? errMsg(saveYear.error) : undefined} onSave={(input) => saveYear.mutate(input)} />
         )}
 

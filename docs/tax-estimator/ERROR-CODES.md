@@ -5,7 +5,7 @@ Every `TE_*` code the module can emit, generated from the source on branch
 writing, 2026-10-12). Companion to [MODULE.md](./MODULE.md) and
 [AUDIT-CATALOGUE.md](./AUDIT-CATALOGUE.md).
 
-**218 distinct codes**: 217 emitted, plus one documented-but-never-emitted code listed last. Line numbers
+**219 distinct codes**: 218 emitted, plus one documented-but-never-emitted code listed last. Line numbers
 are a snapshot and drift; the code is the key. See "Regenerating" at the bottom.
 
 ## How codes reach you
@@ -185,6 +185,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_SEHI_CAPPED` | warning | `engine/owner-deductions.ts:190` | …: self-employed health insurance … exceeds earned income from the business …; only … is deducted. |
 | `TE_SEHI_MONTHS_EXCLUDED` | warning | `engine/owner-deductions.ts:184` | …: self-employed health insurance is deductible for … of … months (an employer-subsidized plan was available in the others); … excluded. |
 | `TE_SEHI_MONTHS_INVALID` | HTTP 422, warning | `svc/taxpayers.service.ts:225`, `engine/owner-deductions.ts:178` | SEHI months must be 12 booleans / Also: …: SEHI eligibility has … months instead of …; all months were treated as deductible. |
+| `TE_SEHI_W2_S_CORP_ONLY` | HTTP 422 | `svc/entity-settings.service.ts` (upsertYearInputs) | Including >2% shareholder health insurance in W-2 wages applies to S corporations only (QA2-03) |
 | `TE_SE_BELOW_MINIMUM` | info | `engine/se-tax.ts:48` | …: net earnings from self-employment … are below …; no SE tax. |
 | `TE_SNAPSHOT_IMMUTABLE` | HTTP 409 | `svc/estimate-snapshots.service.ts:47` | PUT / PATCH / DELETE on /snapshots/:id is refused; the DB trigger tax_est_snapshots_immutable raises the same text (restrict_violation) for any UPDATE except re-encryption of the two ciphertext columns. |
 | `TE_SNAPSHOT_INTEGRITY` | HTTP 500 | `svc/estimate-snapshots.service.ts:182` | Snapshot integrity check failed |

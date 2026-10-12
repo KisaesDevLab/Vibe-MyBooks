@@ -158,13 +158,27 @@ describe('YearInputsPanel', () => {
 
   it('Q41: the >2% shareholder health switch defaults to excluded and saves true when ticked', () => {
     const onSave = vi.fn();
-    renderRoute(<YearInputsPanel taxYear={2026} inputs={inputs} booksW2Wages="54000.0000" canWrite saving={false} onSave={onSave} />);
+    renderRoute(<YearInputsPanel taxYear={2026} inputs={inputs} booksW2Wages="54000.0000" entityType="s_corp" canWrite saving={false} onSave={onSave} />);
     const box = screen.getByLabelText('Include shareholder health insurance in W-2 wages');
     expect(box).not.toBeChecked();
     expect(screen.getByText(/excluded/)).toBeInTheDocument();
     fireEvent.click(box);
     fireEvent.click(screen.getByRole('button', { name: 'Save year inputs' }));
     expect(onSave).toHaveBeenCalledWith({ w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: true });
+  });
+});
+
+describe('YearInputsPanel — QA2-03', () => {
+  const inputs: EntityYearInputsDto = { tenantId: 't', companyId: 'c', taxYear: 2026, w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: true, updatedAt: null };
+  it('the shareholder health switch is offered for S corporations only; other entities save it off', () => {
+    for (const entityType of ['sch_c', 'partnership', null] as const) {
+      const onSave = vi.fn();
+      const { unmount } = renderRoute(<YearInputsPanel taxYear={2026} inputs={inputs} booksW2Wages="0" entityType={entityType} canWrite saving={false} onSave={onSave} />);
+      expect(screen.queryByLabelText('Include shareholder health insurance in W-2 wages')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Save year inputs' }));
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ includeSehiInW2Wages: false }));
+      unmount();
+    }
   });
 });
 
