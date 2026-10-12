@@ -161,9 +161,9 @@ describe('GeneralLedgerReport account filter', () => {
 });
 
 describe('GeneralLedgerReport Tag column', () => {
-  const line = (lineId: string, description: string, tagLabel: string, tagSource: 'line' | 'transaction' | null) => ({
+  const line = (lineId: string, description: string, tagLabel: string) => ({
     lineId, transactionId: `t-${lineId}`, date: '2026-03-01', txnType: 'journal_entry', txnNumber: null, contactName: null,
-    description, debit: 10, credit: 0, tagId: null, tagName: tagSource === 'line' ? tagLabel : null, tagLabel, tagSource, runningBalance: 110,
+    description, debit: 10, credit: 0, tagId: tagLabel ? `tag-${lineId}` : null, tagName: tagLabel || null, tagLabel, runningBalance: 110,
   });
 
   it('shows a Tag column after Description and before Debit, with each line’s tag (empty when none)', async () => {
@@ -172,9 +172,9 @@ describe('GeneralLedgerReport Tag column', () => {
       accounts: [{
         ...glResponse.accounts[0]!,
         lines: [
-          line('l1', 'Own tag line', 'East Region', 'line'),
-          line('l2', 'Inherited tag line', 'East Region, West', 'transaction'),
-          line('l3', 'Untagged line', '', null),
+          line('l1', 'Own tag line', 'East Region'),
+          line('l2', 'Other tag line', 'West'),
+          line('l3', 'Untagged line', ''),
         ],
       }],
     }) as unknown as typeof glResponse);
@@ -185,10 +185,8 @@ describe('GeneralLedgerReport Tag column', () => {
 
     const cellsOf = (desc: string) => Array.from(screen.getByText(desc).closest('tr')!.querySelectorAll('td')).map((td) => td.textContent);
     expect(cellsOf('Own tag line').slice(4, 6)).toEqual(['Own tag line', 'East Region']);
-    expect(cellsOf('Inherited tag line').slice(4, 6)).toEqual(['Inherited tag line', 'East Region, West']);
+    expect(cellsOf('Other tag line').slice(4, 6)).toEqual(['Other tag line', 'West']);
     expect(cellsOf('Untagged line').slice(4, 6)).toEqual(['Untagged line', '']);
-    // An inherited (transaction-level) tag says so on hover.
-    expect(screen.getByText('East Region, West').getAttribute('title')).toMatch(/transaction/i);
     // Summary rows still span through the Tag column.
     expect(screen.getByText('Beginning balance').closest('td')!.getAttribute('colspan')).toBe('6');
     apiClientMock.mockImplementation(async () => glResponse);

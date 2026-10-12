@@ -30,11 +30,9 @@ interface GLLine {
   description: string;
   debit: number;
   credit: number;
-  // Tag column: the line's own tag, else its transaction's tags
-  // ('transaction' — e.g. the bank side of a tagged expense). '' = none.
-  // Optional so an older API response still renders.
+  // Tag column: the line's own tag ('' = untagged). Optional so an
+  // older API response still renders.
   tagLabel?: string;
-  tagSource?: 'line' | 'transaction' | null;
   runningBalance: number;
 }
 
@@ -337,16 +335,7 @@ function AccountSection({ account, showAcctNums = true }: { account: GLAccount; 
                 <td className="py-1 text-gray-500">{line.txnNumber || ''}</td>
                 <td className="py-1 truncate max-w-[160px] font-sans text-gray-700">{line.contactName || ''}</td>
                 <td className="py-1 truncate max-w-[260px] font-sans text-gray-600">{line.description}</td>
-                <td className="py-1 max-w-[120px] break-words font-sans">
-                  {line.tagLabel ? (
-                    <span
-                      className={line.tagSource === 'transaction' ? 'text-gray-400' : 'text-gray-700'}
-                      title={line.tagSource === 'transaction' ? 'From the transaction (this line has no tag of its own)' : undefined}
-                    >
-                      {line.tagLabel}
-                    </span>
-                  ) : ''}
-                </td>
+                <td className="py-1 max-w-[120px] break-words font-sans text-gray-700">{line.tagLabel || ''}</td>
                 <td className="py-1 text-right">{line.debit > 0 ? fmtMoney(line.debit) : ''}</td>
                 <td className="py-1 text-right">{line.credit > 0 ? fmtMoney(line.credit) : ''}</td>
                 <td className="py-1 text-right font-semibold">{fmtMoney(line.runningBalance)}</td>
