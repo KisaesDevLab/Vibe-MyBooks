@@ -38,7 +38,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_ADJUSTMENT_LINK_INVALID` | HTTP 422 | `svc/adjustments.service.ts:71` | Entity link does not belong to this taxpayer and year |
 | `TE_ADJUSTMENT_LINK_NOT_ALLOWED` | HTTP 422 | `svc/adjustments.service.ts` (validate) | This owner-level deduction is figured per person and cannot be attached to an entity. (QA D1: owner health insurance, SEP/solo 401k, HSA, retirement catch-up — `adjustmentLinkRule` = not_allowed.) |
 | `TE_ADJUSTMENT_LINK_REQUIRED` | HTTP 422 | `svc/adjustments.service.ts` (validate) | Choose the business this deduction belongs to. Without an entity it would be treated as an itemized deduction, not a business expense. (QA D1: §179 vehicle, tax-vs-book depreciation and firm deduction types that affect SE/QBI and are not above the line; checked on create and on the merged row of an update.) |
-| `TE_ADJUSTMENT_NOT_FOUND` | HTTP 404 | `svc/year-access.ts:27` | Adjustment not found |
+| `TE_ADJUSTMENT_NOT_FOUND` | HTTP 404 | `svc/year-access.ts:27` | Adjustment not found (D17: also for the id of a taxpayer the caller may not see) |
 | `TE_ADJUSTMENT_PERSON_INVALID` | HTTP 422 | `svc/adjustments.service.ts:66` | Person does not belong to this taxpayer |
 | `TE_ADJUSTMENT_TYPE_INACTIVE` | HTTP 422 | `svc/adjustments.service.ts:107` | Adjustment type is inactive |
 | `TE_ADJUSTMENT_TYPE_IN_USE` | HTTP 409 | `svc/adjustment-types.service.ts:104` | This type is used by adjustments; deactivate it instead |
@@ -84,7 +84,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_FARMER_SPOUSE_INCOME_IGNORED` | info | `engine/farmer.ts:218` | The gross-income test on a separate return counts only the filer's gross income; the other person's amounts were ignored. |
 | `TE_FARM_INCOME_ASSUMED` | warning | `svc/pl-provider.service.ts:759` | No Trial Balance farm tax codes are assigned, so ALL income accounts are counted as gross farming income for the farmer test. Assign farm codes (or set the farmer override) to confirm. |
 | `TE_FARM_INCOME_UNASSIGNED` | warning | `svc/pl-provider.service.ts:768` | … income account(s) have no TB tax code and are left out of gross farming income (farmer test). |
-| `TE_FIRM_ADMIN_REQUIRED` | HTTP 403 | `svc/firm-settings.service.ts:36` | Firm administrator required |
+| `TE_FIRM_ADMIN_REQUIRED` | HTTP 403 | `svc/firm-settings.service.ts:36`, `svc/taxpayer-staff.service.ts` | Firm administrator required / Also (D17): Only a firm administrator can change who can see a taxpayer (staff list PUT and staff-candidates; also the firm visibility switch, which rides firm settings) |
 | `TE_FIRM_REQUIRED` | HTTP 400 | `svc/firm-scope.service.ts:44`, `svc/firm-scope.service.ts:56` | Select a firm (X-Firm-Id) |
 | `TE_GP_CODE_WITHOUT_TREATMENT` | warning | `svc/pl-provider.service.ts:895` | … account(s) carry a TB guaranteed-payment code but no "Guaranteed payment" treatment: the amount is deducted from partnership profit and NOT allocated to any partner, so it is MISSING from every partner's income. Set the Guaranteed payment treatment and pick the partner. |
 | `TE_HSA_CAPPED` | warning | `engine/owner-deductions.ts:233` | HSA contribution exceeds the coverage-type limit (only the limit is deducted), or a contribution is recorded but no HDHP coverage type is set (nothing is deducted). |
@@ -135,7 +135,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_PAYMENT_GL_REF_REQUIRED` | HTTP 422 | `svc/payments.service.ts:312`, `svc/payments.service.ts:313` | A GL payment needs tenantId and transactionId / Also: transactionId needs tenantId |
 | `TE_PAYMENT_JURISDICTION_CHANGED` | info | `svc/payments.service.ts:279` | A payment booked to a … payment account on … is recorded as …; the recorded jurisdiction is used. |
 | `TE_PAYMENT_JURISDICTION_MISSING` | warning | `svc/payments.service.ts:166` | Payment account … has no jurisdiction; its payments are not credited. Set federal or a state on the treatment. |
-| `TE_PAYMENT_NOT_FOUND` | HTTP 404 | `svc/payments.service.ts:63` | Payment not found |
+| `TE_PAYMENT_NOT_FOUND` | HTTP 404 | `svc/payments.service.ts:63` | Payment not found (D17: also for the id of a taxpayer the caller may not see) |
 | `TE_PAYMENT_NOT_POSITIVE` | info, warning | `svc/payments.service.ts:187`, `engine/payments.ts:147` | A payment-account entry nets to zero or negative (refund / reversal) and is not credited (info from the ledger); the engine also ignores a non-positive payment passed to it (warning). |
 | `TE_PAYMENT_OTHER_YEAR` | HTTP 409 | `svc/payments.service.ts:330` | This transaction is already recorded for tax year … |
 | `TE_PAYMENT_PINNED_OTHER_YEAR` | info | `svc/payments.service.ts:259` | A … payment of … on … is recorded for tax year …; it is not credited to …. |
@@ -171,7 +171,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_SALT_PHASED_DOWN` | warning | `engine/deductions.ts:118` | SALT cap reduced from … to … because MAGI exceeds …. |
 | `TE_SCENARIO_CAP` | HTTP 422 | `svc/scenarios.service.ts:52` | At most … scenarios per tax year |
 | `TE_SCENARIO_NAME_TAKEN` | HTTP 409 | `svc/scenarios.service.ts:41` | A scenario with that name already exists |
-| `TE_SCENARIO_NOT_FOUND` | HTTP 404 | `svc/estimate-documents.service.ts:222`, `svc/year-access.ts:26` | No … scenario exists for this taxpayer / Also: Scenario not found |
+| `TE_SCENARIO_NOT_FOUND` | HTTP 404 | `svc/estimate-documents.service.ts:222`, `svc/year-access.ts:26` | No … scenario exists for this taxpayer / Also: Scenario not found (D17: also for a scenario of a taxpayer the caller may not see) |
 | `TE_SCH1A_MFS_NOT_ALLOWED` | info | `engine/deductions.ts:196` | Married filing separately: no Schedule 1-A deduction (senior, tips, overtime, car-loan interest) — each requires a joint return for a married taxpayer (§151(d)(5)(C)(v), §224(f), §225(e), §163(h)(4)(F)). |
 | `TE_SCH1A_NOT_IN_EFFECT` | info | `engine/deductions.ts:192` | Schedule 1-A deductions do not apply to tax year …. |
 | `TE_SCH_AI_ASSUMPTION` | info | `engine/sch-ai.ts:396` | One info line per Schedule AI assumption the engine made (its text is the assumption itself), shown on the assumptions page. |
@@ -189,11 +189,12 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_SE_BELOW_MINIMUM` | info | `engine/se-tax.ts:48` | …: net earnings from self-employment … are below …; no SE tax. |
 | `TE_SNAPSHOT_IMMUTABLE` | HTTP 409 | `svc/estimate-snapshots.service.ts:47` | PUT / PATCH / DELETE on /snapshots/:id is refused; the DB trigger tax_est_snapshots_immutable raises the same text (restrict_violation) for any UPDATE except re-encryption of the two ciphertext columns. |
 | `TE_SNAPSHOT_INTEGRITY` | HTTP 500 | `svc/estimate-snapshots.service.ts:182` | Snapshot integrity check failed |
-| `TE_SNAPSHOT_NOT_FOUND` | HTTP 404 | `svc/estimate-snapshots.service.ts:46` | Snapshot not found |
+| `TE_SNAPSHOT_NOT_FOUND` | HTTP 404 | `svc/estimate-snapshots.service.ts:46` | Snapshot not found (D17: also for the id of a taxpayer the caller may not see) |
 | `TE_SNAPSHOT_SAVE_FAILED` | HTTP 500 | `svc/estimate-snapshots.service.ts:165` | Snapshot insert failed |
 | `TE_SNAPSHOT_TOO_LARGE` | HTTP 422 | `svc/estimate-snapshots.service.ts:153` | The estimate is too large to snapshot (… bytes) |
 | `TE_SNAPSHOT_UNREADABLE` | HTTP 500 | `svc/estimate-snapshots.service.ts:180` | Snapshot could not be decrypted with this server's key |
 | `TE_SS_WAGES_DEFAULTED` | warning, info | `engine/federal.ts:125`, `engine/federal.ts:127` | A person has no Social Security wages (W-2 box 3) entered, so box 1 wages were used for the SE wage-base offset. Warning (with the maximum SE-tax overstatement as `details.maxOverstatement`) when the SE Social Security part is positive; info when box 1 already uses the whole wage base. This is the largest single SE-tax error in the engine for wage earners until the year-inputs screen exists (R7-01). |
+| `TE_STAFF_NOT_ELIGIBLE` | HTTP 422 | `svc/taxpayer-staff.service.ts` | Only active firm staff with Tax Estimator access can be added (D17 staff list: an added user is not an active `firm_staff` / `firm_readonly` member holding `tax_estimator` in the admin's active tenant; `details.userIds` lists them) |
 | `TE_STATE_BASE_INVALID` | throws Error | `engine/state.ts:109` | … |
 | `TE_STATE_CREDIT_ASSUMED` | warning | `engine/state.ts:183` | …: no verified rule on the credit for other-state taxes; the credit was assumed allowed. Verify. |
 | `TE_STATE_CREDIT_CAPPED` | warning | `engine/state.ts:203` | …: credit for other-state taxes … exceeds the resident tax …; only … is used. |
@@ -225,8 +226,8 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_STATE_SOURCED_NONE` | warning | `engine/state.ts:133` | …: no linked entity is sourced to the state, so derived sourced income is 0. Enter it manually or set the entity's state sourcing. |
 | `TE_STATE_THRESHOLD_MISSING` | warning | `engine/state-gates.ts:193` | … has no required_threshold; the estimate requirement could not be tested. |
 | `TE_SUSPENSE_BALANCE` | warning | `svc/readiness.service.ts:116` | Suspense / uncategorized / ask-my-accountant accounts carry a balance; those amounts are not classified for tax. |
-| `TE_TAXPAYER_NOT_FOUND` | HTTP 404 | `svc/taxpayers.service.ts:76`, `svc/treatments.service.ts:132`, `svc/year-access.ts:25` | Taxpayer not found |
-| `TE_TAXPAYER_NOT_LINKED` | HTTP 404 | `svc/estimate-documents.service.ts:217` | The taxpayer is not linked to this company for … |
+| `TE_TAXPAYER_NOT_FOUND` | HTTP 404 | `svc/taxpayers.service.ts:76`, `svc/treatments.service.ts:132`, `svc/year-access.ts:25` | Taxpayer not found. D17: also the answer for a taxpayer of the caller's own firm that the caller may not see (linked-tenant rule, unlinked-creator rule, staff list) — deliberately identical to another firm's id |
+| `TE_TAXPAYER_NOT_LINKED` | HTTP 404 | `svc/estimate-documents.service.ts:217` | The taxpayer is not linked to this company for … (D17: also when the requester may not see the taxpayer — Report Pack request and worker) |
 | `TE_TAX_DEPRECIATION_ADJUSTMENT` | info | `svc/pl-provider.service.ts:930` | Book depreciation is used for accounts marked "tax depreciation differs"; enter the tax amount as an adjustment. |
 | `TE_TAX_METHOD_MISSING` | warning | `svc/entity-type.service.ts:184` | The company has no accounting method; accrual is assumed. Set the tax method. |
 | `TE_TB_CODE_IMPLIES_TREATMENT` | info | `svc/pl-provider.service.ts:923` | The TB tax code implies a different treatment than the estimator treatment; the estimator treatment is applied. |

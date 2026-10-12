@@ -17,7 +17,7 @@ classification in [DATA-DICTIONARY.md](./DATA-DICTIONARY.md).
 
   | Written by | Tenant |
   |---|---|
-  | Firm-scoped rows (taxpayer, person, link, year, scenario, adjustment, state rows, payment, snapshot, Schedule AI, firm settings, adjustment type) | The caller's **active tenant** (`actor.tenantId`). The firm id is added into `before_data` / `after_data` as `firmId` (the `tag()` helper), so a firm's history is found by `firmId`, not by tenant. |
+  | Firm-scoped rows (taxpayer, person, link, year, scenario, adjustment, state rows, payment, snapshot, Schedule AI, firm settings, visibility switch, staff list, adjustment type) | The caller's **active tenant** (`actor.tenantId`). The firm id is added into `before_data` / `after_data` as `firmId` (the `tag()` helper), so a firm's history is found by `firmId`, not by tenant. |
   | Books-scoped rows (entity settings, entity year inputs, treatments, transaction flags) | The **books tenant that owns the company** being configured. Treatment rows also carry `firmId` in the data. |
   | Platform reference data (federal parameters, state rules) | The all-zero tenant id `00000000-0000-0000-0000-000000000000` (no tenant), action `override` (edits) or `signoff` (Verify). |
   | Portal access grants | The portal contact's tenant. |
@@ -56,7 +56,14 @@ classification in [DATA-DICTIONARY.md](./DATA-DICTIONARY.md).
 | `tax_est_adjustment` | `create`, `update`, `delete` | adjustment id | adjustment DTO including type name, amount, cadence, dates, GL link, flags |
 | `tax_est_adjustment_type` | `create`, `update`, `delete` | type id | adjustment type DTO (firm-defined types only; shipped types are read-only) |
 | `tax_est_state_rows` | `update` | **scenario id** | The whole replace-set: before `{ rows: [...] }`, after `{ rows: [...] }` (state, residency, rate, base, sourced income, credits, ...) with `priorYearTaxPresent` / `priorYearAgiPresent` only |
-| `tax_est_firm_settings` | `create`, `update` | **firm id** | firm settings DTO (safe-harbor default, disclaimer text, `portalShows`) |
+| `tax_est_firm_settings` | `create`, `update` | **firm id** | firm settings DTO (safe-harbor default, disclaimer text, `portalShows`, D17 `restrictTaxpayersToLinkedTenants`) |
+| `tax_est_visibility_switch` | `update` | **firm id** | D17, written in addition to the `tax_est_firm_settings` row ONLY when the switch actually changes: before `{ restrictTaxpayersToLinkedTenants }`, after `{ restrictTaxpayersToLinkedTenants }` (+ `firmId`). Metadata only. Firm admins / super admins only |
+
+### Taxpayer visibility staff list (`services/tax-estimator/taxpayer-staff.service.ts`, D17)
+
+| Entity type | Actions | entity_id | What the data holds |
+|---|---|---|---|
+| `tax_est_taxpayer_staff` | `update` | **taxpayer id** | One row per effective change of a taxpayer's staff allow-list (an unchanged PUT writes nothing): before `{ userIds: [...] }`, after `{ userIds: [...], added: [...], removed: [...] }` (+ `firmId`). User ids only — no names, emails or taxpayer data. Tenant = the admin's active tenant. Firm admins / super admins only |
 
 ### Payments and Schedule AI (`payments`, `sch-ai-snapshots`)
 

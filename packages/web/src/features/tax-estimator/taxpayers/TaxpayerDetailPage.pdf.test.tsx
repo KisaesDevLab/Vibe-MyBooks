@@ -22,6 +22,7 @@ vi.mock('../../../api/hooks/useTaxEstimatorYears', () => ({ useYear: () => h.yea
 vi.mock('../../../api/hooks/useTaxEstimatorEstimate', () => ({ downloadEstimatePdf: (...a: unknown[]) => h.download(...a) }));
 vi.mock('./LinksSection', () => ({ LinksSection: () => null }));
 vi.mock('./ContactsPanel', () => ({ ContactsPanel: () => null }));
+vi.mock('./TaxpayerAccessCard', () => ({ TaxpayerAccessCard: () => null }));
 
 import { TaxpayerDetailPage } from './TaxpayerDetailPage';
 

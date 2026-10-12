@@ -19,6 +19,7 @@ import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { PersonsEditor } from './PersonsEditor';
 import { LinksSection } from './LinksSection';
 import { ContactsPanel } from './ContactsPanel';
+import { TaxpayerAccessCard } from './TaxpayerAccessCard';
 import { StateSelect } from './StateSelect';
 import { FILING_STATUS_LABELS, SAFE_HARBOR_LABELS, SELECT_CLASS } from './labels';
 import { useYear } from '../../../api/hooks/useTaxEstimatorYears';
@@ -140,6 +141,7 @@ export function TaxpayerDetailPage() {
       </section>
       <LinksSection taxpayerId={taxpayer.id} persons={persons} canWrite={canWrite} />
       <ContactsPanel taxpayerId={taxpayer.id} canWrite={canWrite} />
+      <TaxpayerAccessCard taxpayerId={taxpayer.id} />
       <ConfirmDialog open={confirmArchive} title="Archive this taxpayer?" variant="danger" confirmLabel="Archive"
         message="The taxpayer, persons and links are kept but hidden from the default list."
         onCancel={() => setConfirmArchive(false)}

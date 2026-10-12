@@ -3318,7 +3318,15 @@ The **Portal contacts** panel on the taxpayer page links client portal contacts 
 
 ## Who can see what
 
-You see a company link only if the company is in a client your firm actively manages and you have access to that client. A link to a client you can no longer reach is shown as "no longer managed by your firm" and is left out of the numbers for you.`,
+You see a company link only if the company is in a client your firm actively manages and you have access to that client. A link to a client you can no longer reach is shown as "no longer managed by your firm" and is left out of the numbers for you.
+
+## Who can see which taxpayer
+
+Firm administrators (and super admins) always see every taxpayer of the firm. For everyone else:
+- **Linked clients rule** (firm estimator settings, "Staff see only taxpayers linked to clients they can access"; ON by default): you see a taxpayer only when you have access to at least one client company it is linked to. A taxpayer with no links yet is visible to the person who created it. Turn the setting OFF to let every staff member with Tax Estimator access see every firm taxpayer.
+- **Who can see this taxpayer** (card on the taxpayer page): a firm administrator can limit a taxpayer to named staff members. While the list is empty, the linked clients rule alone decides. Once it has names, only those people (and firm administrators) can see the taxpayer, and with the rule ON each of them still needs access to one of its linked clients. A lock icon in the taxpayer list marks taxpayers with a list. The picker offers active firm staff and read-only members who have Tax Estimator access.
+
+A taxpayer you may not see is simply "Taxpayer not found", everywhere: the list, the estimate, payments, PDFs, snapshots and the Report Pack Tax Estimate section. Only firm administrators can change the setting or a list, and every change is recorded in the audit log. The client portal is not affected: portal contacts see the taxpayers they are mapped to.`,
   },
   {
     id: 'tax-estimator-entity-setup',

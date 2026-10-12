@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Lock } from 'lucide-react';
 import { FILING_STATUSES, STATE_CODES, STATE_NAMES, type FilingStatus } from '@kis-books/shared';
 import {
   useTaxpayers, useCreateTaxpayer, useTaxEstimatorScope, setTaxEstimatorFirmId,
@@ -137,6 +138,11 @@ export function TaxpayerListPage() {
                   <tr key={t.id} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="py-2 px-3 text-sm">
                       <Link className="text-primary-700 hover:underline" to={`/tax-estimator/taxpayers/${t.id}`}>{t.displayName}</Link>
+                      {t.staffRestricted && (
+                        <span className="ml-1.5 inline-flex align-middle text-gray-500" title="Visible only to the listed staff and firm administrators" data-testid="staff-lock">
+                          <Lock className="h-3.5 w-3.5" aria-label="Staff list set" />
+                        </span>
+                      )}
                       {!t.isActive && <span className="ml-2 text-xs text-gray-500">(archived)</span>}
                     </td>
                     <td className="py-2 px-3 text-sm text-gray-600">{t.personNames.join(', ') || '—'}</td>
