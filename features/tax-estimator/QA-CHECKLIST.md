@@ -36,9 +36,20 @@ Run the sections in order on a scratch/test firm (D13: never on the production t
 - [ ] Read-only user sees the table without edit controls. A treatment mapped by another firm sharing the books is read-only with its note.
 - [ ] Readiness panel and Through month selector list unreconciled accounts, suspense, unmapped accounts.
 
+## 3a. Non-recurring flag on a transaction (register / transaction detail)
+Setup: TAX_ESTIMATOR_V1 ON for the CLIENT tenant (the flag is evaluated on the tenant you are working in); switch into client tenant B as firm staff; the Sch C company is linked to the taxpayer, a second company in B is not.
+- [ ] Open a transaction of the linked company (Transactions or a register row): a **Tax Estimator** card shows "Recurring" and the linked taxpayer name; **Mark non-recurring** turns it to "Non-recurring" (counted once, not run-rated). Reload: the state persists.
+- [ ] The account register shows an **NR** badge beside the type of that transaction (hover title explains it). **Mark recurring** removes the card state and the badge.
+- [ ] Estimate summary (Refresh): the flagged amount is no longer projected forward (Entity tax setup preview: non-recurring line); unflagging restores the run-rate.
+- [ ] Admin audit: a `tax_est_treatment` row with `kind: transaction_flag` per change (create / delete), tagged with the firm.
+- [ ] Transaction of the unlinked company, a NULL-company transaction, flag OFF on the client tenant, a client (non-staff) user, a user whose firm does not manage the tenant: no card and no badges (API: 404 for no access; PUT on an unlinked company 409 `TE_COMPANY_NOT_LINKED`).
+- [ ] Firm read-only staff: card shows the state without the button; API PUT returns 403.
+
 ## 4. Annual settings
 - [ ] Tax year selector; "Year not set up" offers Create; creating a year with no parameters shows the provisional notice later.
-- [ ] Year inputs: deduction method (automatic / standard forced / itemized forced), federal method (bracket / effective-rate override with a rate), credits, withholding, HSA coverage, Schedule 1-A per person (needs persons first), prior-year tax and AGI.
+- [ ] Year inputs: deduction method (automatic / standard forced / itemized forced), federal method (bracket / effective-rate override with a rate), credits, withholding, HSA coverage, prior-year tax and AGI.
+- [ ] Schedule 1-A (Deductions card): chips read "Senior · <names> 65+" (or "none 65+", from each person's date of birth), "Tips · $", "Overtime · $", "Car loan interest · $". **Edit Schedule 1-A** opens the dialog: per person tips / overtime / car-loan interest, the senior line says 65 or older / under 65 / no date of birth. "3,700" or a negative is rejected (Apply disabled); Apply updates the chips, Cancel / Esc discards; values persist only after **Save annual settings** and round-trip after reload. No people → the dialog says to add them first. Read-only staff gets **View Schedule 1-A** (inputs disabled, Close only).
+- [ ] MFS taxpayer: the chips row and the dialog both say Schedule 1-A is not allowed when married filing separately; the estimate's Schedule 1-A line stays 0 with amounts entered.
 - [ ] Prior-year AGI above $150,000 (above $75,000 MFS) shows the 110% note. Values persist after reload and are not visible in plain text via the API list (encrypted; D9).
 - [ ] States: exactly one resident state (validation message), other states with effective rates, other-state credit override, state withholding "STATE=amount" format.
 - [ ] Firm settings dialog: safe-harbor default (lesser of / current year / prior year), disclaimer text, Client portal shows (Live / Latest snapshot). Only firm admins/owners with write rights can save.
@@ -112,7 +123,8 @@ Setup: `TAX_ESTIMATOR_V1` ON for the firm's practice tenant, a firm staff user, 
 - [ ] Calculation table: YTD tax-basis column is filled for income lines only; projected column everywhere; there is no "period tax" column.
 - [ ] Inline chips: SEP "Capped at limit" in the truck scenario, "Passive loss suspended", "Rules unverified" on the unverified state, nonresident row carries the effective-rate wording.
 - [ ] Trace on Regular income tax opens the drawer with bracket rows (label, amount, formula, source, marginal rate); Esc and the close button dismiss it; focus returns sensibly.
-- [ ] Safe-harbor card shows BOTH rules (90% current and 100/110% prior), the recommended one outlined, the rule badge with its source, required / withholding / paid / remaining. Prior-year unavailable shows the reason.
+- [ ] Safe-harbor card shows BOTH rules (90% current and 100/110% prior), the recommended one outlined, the rule badge with its source, required / withholding / paid / remaining. Prior-year unavailable shows the reason. (The "Q4 under the other rule" line is not in v1: the engine result does not carry it.)
+- [ ] Self-employment tax by person: one tile per person with SE tax, SE income and the ½ SE tax deduction (Rivera: Daniel $18,086 / SE income per the oracle; Maria $0 "No self-employment income · wages …"). Additional Medicare shows once, as the household Form 8959 figure, only when non-zero. No people → explanatory empty text.
 - [ ] Voucher table per jurisdiction tab: due dates, Regular, Sch AI (bold where it lowers the installment), W-2 credit, from estimates, paid, remaining, penalty, status, Pay now (catch-up) amounts. A state with no regime shows "none required".
 - [ ] Payments ledger: GL rows read-only with account/company; add a manual payment (date + amount required), edit it, delete it with confirmation; the estimate figures refresh. Read-only user sees no add/edit/delete.
 - [ ] Farmer and C corp cases (when their fixtures exist) render their own summary cards.

@@ -16,6 +16,7 @@ import { RecurringScheduleModal } from './RecurringScheduleModal';
 import { RelatedTransactionsCard } from './RelatedTransactionsCard';
 import { TransactionActivityCard } from './TransactionActivityCard';
 import { TransactionReportButton } from './TransactionReportButton';
+import { NonRecurringFlagCard } from '../tax-estimator/register/NonRecurringFlagCard';
 
 const billStatusColors: Record<string, string> = {
   unpaid: 'bg-yellow-100 text-yellow-700',
@@ -250,6 +251,10 @@ export function TransactionDetail() {
       </div>
 
       <RelatedTransactionsCard transactionId={txn.id} />
+
+      {/* Tax Estimator non-recurring flag — renders nothing unless TAX_ESTIMATOR_V1 is on
+          here, the caller is firm staff with tax_estimator access, and the company is linked. */}
+      <NonRecurringFlagCard transactionId={txn.id} />
 
       {/* Attachments. AJE files are stored under 'journal_entry' (the AJE
           form and the tb routes both write that), not under 'aje'. */}

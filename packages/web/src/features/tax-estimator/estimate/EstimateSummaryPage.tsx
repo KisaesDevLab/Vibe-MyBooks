@@ -18,6 +18,7 @@ import { ReadinessBanner } from './ReadinessBanner';
 import { KeyFigures } from './KeyFigures';
 import { CalculationTable } from './CalculationTable';
 import { SafeHarborCard } from './SafeHarborCard';
+import { SeTaxTiles } from './SeTaxTiles';
 import { VoucherTable, JurisdictionTabs, useJurisdictionTab } from './VoucherTable';
 import { PaymentsLedger } from './PaymentsLedger';
 import { WarningsList } from './WarningsList';
@@ -175,12 +176,7 @@ export function EstimateSummaryPage() {
                 <div className="flex flex-wrap gap-5 items-start">
                   <div className="flex-[999_1_40rem] min-w-0 space-y-5"><CalculationTable estimate={e} /></div>
                   <div className="flex-1 basis-80 min-w-0 space-y-4">
-                    <section aria-label="Self-employment tax by person" className="rounded-lg border border-gray-200 bg-white p-4 space-y-2">
-                      <h2 className="text-base font-semibold text-gray-900">Self-employment tax by person</h2>
-                      {e.federal.persons.map((p) => (
-                        <div key={p.personId} className="flex justify-between text-sm"><span>{p.displayName}</span><span className="tabular-nums">{dollars(p.seTax)}</span></div>
-                      ))}
-                    </section>
+                    <SeTaxTiles persons={e.federal.persons} additionalMedicareTax={e.federal.additionalMedicareTax} />
                   </div>
                 </div>
 

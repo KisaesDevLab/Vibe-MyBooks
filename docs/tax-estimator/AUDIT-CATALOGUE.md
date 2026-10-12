@@ -79,7 +79,7 @@ classification in [DATA-DICTIONARY.md](./DATA-DICTIONARY.md).
 | `tax_est_entity_settings` | `create`, `update` | settings row id | full row: estimator entity type, tax method override, fiscal-year and per-entity flags. Tenant = the company's tenant; no `firmId` tag |
 | `tax_est_entity_year_inputs` | `create`, `update` | row id | full row: W-2 wages override and its mandatory reason (`TE_W2_OVERRIDE_REASON`), UBIA. Tenant = the company's tenant |
 | `tax_est_treatment` | `create`, `update`, `delete` | treatment row id | account treatment row (account, treatment, pct, payment taxpayer / person / jurisdiction, `nonRecurring`) + `firmId`. A treatment cleared to null with no non-recurring flag is a `delete` |
-| `tax_est_treatment` with `kind: 'transaction_flag'` in the data | `create`, `delete` | flag row id | A transaction-level `non_recurring` flag in `tax_est_transaction_flags` (same entity type string as treatments; tell them apart by `kind`). Re-flagging an already flagged transaction writes nothing |
+| `tax_est_treatment` with `kind: 'transaction_flag'` in the data | `create`, `delete` | flag row id | A transaction-level `non_recurring` flag in `tax_est_transaction_flags` (same entity type string as treatments; tell them apart by `kind`). Re-flagging an already flagged transaction writes nothing. The register / transaction-detail toggle (`PUT /tax-estimator/register/transactions/:id`) writes through the same path, so its rows are identical |
 
 ### Portal access (`services/portal-contact.service.ts`)
 

@@ -107,6 +107,7 @@ describe('EstimateSummaryPage', () => {
     expect(screen.getByLabelText('Key figures')).toHaveTextContent('$43,731');
     expect(screen.getByLabelText('Books readiness')).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: '2026 projected' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Daniel Rivera self-employment tax' })).toHaveTextContent('$18,086');
     expect(screen.getByLabelText('Federal safe harbor')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: /MO/ }));
     expect(screen.getByLabelText('MO safe harbor')).toBeInTheDocument();

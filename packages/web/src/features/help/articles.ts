@@ -3347,6 +3347,8 @@ The estimator reads the company's profit and loss accounts and needs to know wha
 - **Non-recurring** marks one-off items so they are not projected forward.
 - Where an item belongs to a specific person, pick the person.
 
+A single transaction can be marked non-recurring too: open it (from Transactions or an account register) and use **Mark non-recurring** on the **Tax Estimator** card. The card appears for firm staff when the Tax Estimator is on for that client and the company is linked to a taxpayer; the register shows an **NR** badge on flagged transactions. Mark recurring undoes it.
+
 An account with activity and no mapping is treated as ordinary and raises a warning. **Suggestions are never applied automatically**: review each one and accept or dismiss it. A treatment mapped by another firm that shares the same books is shown read-only.
 
 ## Readiness
@@ -3366,7 +3368,7 @@ The readiness panel lists what would make the estimate unreliable: unreconciled 
 - **Federal tax method**: bracket computation or an **Effective-rate override** when you only want to apply a rate you provide.
 - **Nonrefundable and refundable credits**, **Federal withholding (annual)** and **State withholding (annual)**.
 - **People**: for each person, **W-2 wages (box 1)** and **Social Security wages (box 3)** from jobs outside the linked businesses, the **retirement plan** (SEP, solo 401(k), SIMPLE or no plan) and, for a solo 401(k) or SIMPLE, the **employee deferral**. Leave box 3 blank to use box 1; box 3 is usually higher when there are 401(k) deferrals, and the estimate warns how much SE tax that may overstate. Also here: deductions allocable to investment income (Form 8960), the **lived apart all year** flag for married filing separately, and the farmer or fisherman gross-income figures (this year and prior year) when the farmer rules apply.
-- **HSA coverage** and **Schedule 1-A** amounts (tips, overtime, car loan interest) per person.
+- **HSA coverage** per person, and **Schedule 1-A**: the chips show the senior deduction (from each person's date of birth) and the totals for tips, overtime and car loan interest; **Edit Schedule 1-A** opens a dialog for the per-person amounts. Schedule 1-A is not allowed when married filing separately, and the screen says so.
 - **Prior-year total tax and prior-year AGI**, used for the prior-year safe harbor. They are stored encrypted and only decrypted when an estimate is computed. The 110 percent prior-year test applies above $150,000 of prior-year AGI ($75,000 if married filing separately).
 - **Recommended rule**: the safe-harbor rule shown outlined on the summary. Left on the firm default unless you change it here.
 
@@ -3427,7 +3429,7 @@ Farmers (the two-thirds rule), C corporations and large corporations get their o
 
 ## Self-employment tax by person
 
-Shows each person's SE tax, SS wage base use and the deduction taken.`,
+Shows a tile per person with the SE tax, the SE income it is figured on and the half of SE tax deducted from income. Additional Medicare tax is shown once below the tiles, because it is figured on the whole return (Form 8959).`,
   },
   {
     id: 'tax-estimator-safe-harbor-vouchers',
