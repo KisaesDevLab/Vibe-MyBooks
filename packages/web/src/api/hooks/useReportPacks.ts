@@ -322,7 +322,8 @@ export function useReportPackRun(runId: string | undefined) {
     enabled: !!runId,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status === 'queued' || status === 'running' ? 1500 : false;
+      // 3 s = 20 polls/min, under the 30/min expensiveOpLimiter on /reports/packs (1.5 s hit 429s).
+      return status === 'queued' || status === 'running' ? 3000 : false;
     },
   });
 }
