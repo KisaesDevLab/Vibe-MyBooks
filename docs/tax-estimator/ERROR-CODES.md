@@ -5,7 +5,7 @@ Every `TE_*` code the module can emit, generated from the source on branch
 writing, 2026-10-12). Companion to [MODULE.md](./MODULE.md) and
 [AUDIT-CATALOGUE.md](./AUDIT-CATALOGUE.md).
 
-**214 distinct codes**: 213 emitted, plus one documented-but-never-emitted code listed last. Line numbers
+**215 distinct codes**: 214 emitted, plus one documented-but-never-emitted code listed last. Line numbers
 are a snapshot and drift; the code is the key. See "Regenerating" at the bottom.
 
 ## How codes reach you
@@ -57,6 +57,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_CCORP_LARGE_CORP_DERIVED` | warning | `engine/ccorp.ts:312` | … is treated as a large corporation: taxable income reached … in one of the … preceding years (IRC §6655(g)(2)); the entity flag is off. |
 | `TE_CCORP_PRIOR_YEAR_UNAVAILABLE` | info | `engine/ccorp.ts:327` | The prior-year safe harbor is unavailable (…); installments are based on the current-year tax (IRC §6655(d)(1)(B)(ii)). |
 | `TE_COMPANY_NOT_FOUND` | HTTP 404 | `svc/adjustments.service.ts:80`, `svc/entity-type.service.ts:49`, `svc/taxpayers.service.ts:399` | Company not found |
+| `TE_COMPANY_NOT_LINKED` | HTTP 409 | `svc/register-flags.service.ts:67` | This company is not linked to a taxpayer in the Tax Estimator (register / transaction-detail non-recurring flag; only a company linked to one of the managing firm's active taxpayers can be flagged) |
 | `TE_CONTACT_NOT_FOUND` | HTTP 404 | `svc/taxpayers.service.ts:522`, `svc/taxpayers.service.ts:581` | Contact not found |
 | `TE_DEDUCTION_FORCED` | info | `engine/deductions.ts:159` | The … deduction was forced although the … deduction is larger. |
 | `TE_DOB_IN_FUTURE` | HTTP 422 | `svc/taxpayers.service.ts:116` | Date of birth cannot be in the future |
@@ -226,7 +227,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_TB_RJE_NOT_APPLIED` | info | `svc/pl-provider.service.ts:689` | Trial Balance tax adjustments (RJEs) exist for this year. They are shown per account but not applied; enter them as estimator adjustments if they should change the estimate. |
 | `TE_TENANT_NOT_MANAGED` | HTTP 404, warning | `svc/entity-type.service.ts:29`, `svc/estimate-snapshots.service.ts:222`, `svc/taxpayers.service.ts:73` (+4 more) | The company / tenant is not in the caller's server-resolved scope (firm-managed tenants intersected with the caller's own access); hides whether it exists. As a warning: a linked company, payment or adjustment account in a tenant the firm no longer manages (or the caller can no longer reach) is left out or read for its manual amount only; on a snapshot the figures are hidden. |
 | `TE_THROUGH_OUT_OF_RANGE` | HTTP 400 | `svc/periods.ts:67` | through must be between … and … |
-| `TE_TRANSACTION_NOT_FOUND` | HTTP 404 | `svc/payments.service.ts:320`, `svc/treatments.service.ts:288` | Transaction not found |
+| `TE_TRANSACTION_NOT_FOUND` | HTTP 404 | `svc/payments.service.ts:320`, `svc/treatments.service.ts:288`, `svc/register-flags.service.ts:31` | Transaction not found |
 | `TE_TREATMENT_ACCOUNT_TYPE` | HTTP 422 | `svc/treatments.service.ts:163` | The treatment does not apply to this account type (see TREATMENT_ACCOUNT_TYPES). `details`: accountId, treatment, accountType. |
 | `TE_TREATMENT_NOT_FOR_ENTITY` | HTTP 422, warning | `svc/treatments.service.ts:170`, `svc/pl-provider.service.ts:916` | The … treatment applies to … entities only (this entity: …) / Also: Treatments that do not apply to this entity type (…) are ignored; the amounts stay in entity profit. |
 | `TE_TREATMENT_OTHER_FIRM` | HTTP 409 | `svc/treatments.service.ts:207` | This account's treatment belongs to another firm that also manages these books; it cannot be changed here |
