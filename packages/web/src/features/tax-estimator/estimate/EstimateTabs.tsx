@@ -5,12 +5,13 @@
 import { Link } from 'react-router-dom';
 
 export type EstimateTab = 'summary' | 'settings' | 'scenarios';
-interface Props { taxpayerId: string; taxYear: number; active: EstimateTab; scenarioId?: string }
+interface Props { taxpayerId: string; taxYear: number; active: EstimateTab; scenarioId?: string; through?: string }
 
 /** Section tabs shared by the estimator screens: Summary . Annual settings . Scenarios . Payments. */
-export function EstimateTabs({ taxpayerId, taxYear, active, scenarioId }: Props) {
+export function EstimateTabs({ taxpayerId, taxYear, active, scenarioId, through }: Props) {
   const base = `/tax-estimator/taxpayers/${taxpayerId}`;
-  const q = `year=${taxYear}${scenarioId ? `&scenario=${scenarioId}` : ''}`;
+  // QA D23: Summary / Payments keep the chosen Actuals-through month.
+  const q = `year=${taxYear}${scenarioId ? `&scenario=${scenarioId}` : ''}${through ? `&through=${through}` : ''}`;
   const items: Array<{ key: EstimateTab | 'payments'; label: string; to: string | { pathname: string; search: string; hash: string } }> = [
     { key: 'summary', label: 'Summary', to: `${base}/estimate?${q}` },
     { key: 'settings', label: 'Annual settings', to: `${base}/annual-settings?year=${taxYear}` },

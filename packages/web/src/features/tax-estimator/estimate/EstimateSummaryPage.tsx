@@ -115,7 +115,7 @@ export function EstimateSummaryPage() {
         </div>
       </div>
 
-      <EstimateTabs taxpayerId={tp.id} taxYear={taxYear} active="summary" scenarioId={scenarioId} />
+      <EstimateTabs taxpayerId={tp.id} taxYear={taxYear} active="summary" scenarioId={scenarioId} through={through} />
 
       {!year.data.exists || scenarios.length === 0 ? (
         <section className="rounded-lg border border-dashed border-gray-300 bg-white p-6 space-y-2" aria-label="Year not set up">
@@ -143,7 +143,8 @@ export function EstimateSummaryPage() {
                 {Math.max(0, ...e.entities.map((x) => x.monthsElapsed))} months of actuals &middot; run-rate on recurring items &middot; non-recurring counted once
               </p>
             )}
-            <div className="ml-auto flex gap-2">
+            {/* QA D5: the action row wraps at 375px instead of pushing the page wide. */}
+            <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto" data-testid="estimate-actions">
               <Button variant="secondary" onClick={() => estimate.refetch()} loading={estimate.isFetching && !estimate.isLoading}>Refresh</Button>
               <Button variant="secondary" disabled={!e} loading={pdfBusy} onClick={download}>Print / Download PDF</Button>
               <Button variant="secondary" aria-expanded={showSnapshots} onClick={() => setShowSnapshots((v) => !v)}>Snapshots</Button>

@@ -169,6 +169,13 @@ describe('EstimateSummaryPage', () => {
     expect(screen.getByRole('button', { name: 'Snapshots' })).toBeInTheDocument();
   });
 
+  it('QA D5: the Refresh / Print / Snapshots / Finalize row wraps (no page-level horizontal scroll at 375px)', () => {
+    render();
+    const row = screen.getByTestId('estimate-actions');
+    expect(row).toHaveClass('flex-wrap');
+    expect(row).toContainElement(screen.getByRole('button', { name: 'Finalize & issue vouchers' }));
+  });
+
   it('QA D2: firm staff whose tenant role is readonly (scope.canWrite false) get the read-only screen', () => {
     h.canWrite = false;
     render();

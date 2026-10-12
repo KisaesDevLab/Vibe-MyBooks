@@ -16,6 +16,7 @@ import { KeyFigures, nextFederalPayment } from './KeyFigures';
 import { ReadinessBanner } from './ReadinessBanner';
 import { WarningsList } from './WarningsList';
 import { SpecialCases } from './SpecialCases';
+import { EstimateTabs } from './EstimateTabs';
 
 const TODAY = new Date(2026, 9, 7);
 const wrap = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>);
@@ -172,3 +173,11 @@ describe('buildCompareRows', () => {
 });
 
 beforeEach(() => vi.clearAllMocks());
+
+describe('EstimateTabs (QA D23)', () => {
+  it('keeps ?through= on the Summary and Payments links', () => {
+    render(<MemoryRouter><EstimateTabs taxpayerId="tp1" taxYear={2026} active="summary" scenarioId="s1" through="2026-12" /></MemoryRouter>);
+    expect(screen.getByRole('link', { name: 'Payments' })).toHaveAttribute('href', '/tax-estimator/taxpayers/tp1/estimate?year=2026&scenario=s1&through=2026-12#payments');
+    expect(screen.getByRole('link', { name: 'Summary' }).getAttribute('href')).toContain('through=2026-12');
+  });
+});
