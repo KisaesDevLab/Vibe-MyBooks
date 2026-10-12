@@ -18,6 +18,7 @@ export const categories = [
   'Checks',
   'Reports',
   'Trial Balance',
+  'Tax Estimator',
   'Client Portal',
   'Settings',
   'Security',
@@ -3241,5 +3242,299 @@ Contacts who have opted out by replying STOP are never texted, exactly as with a
 Two switches, both off by default. Enable **PORTAL_CATEGORIZE_V1** for the tenant, then tick **Can suggest categories** for each portal contact on Practice \u2192 Client Portal. Staff also need **UNCATEGORIZED_REVIEW_V1** to see the review queue.
 
 The per-contact tick is the one people miss: the tenant switch alone shows the client nothing. It defaults to off, and re-saving a contact's company list without it turns it back off. Attaching files rides on the same tick \u2014 there is no separate permission for it.`,
+  },
+  // ─── Tax Estimator ────────────────────────────────────────────
+  {
+    id: 'tax-estimator-overview',
+    title: 'Tax Estimator — what it is and what it is not',
+    category: 'Tax Estimator',
+    summary: 'A firm-side estimate of a household\'s federal and state income tax, built from the books. An estimate, not tax advice.',
+    body: `The Tax Estimator gives the accounting firm a running estimate of a household's income tax for the year, built from the general ledger of every linked client company. It appears as the **Tax Estimator** group in the sidebar for firm staff when an administrator turns on TAX_ESTIMATOR_V1 for the firm's practice tenant (see "Turning on the Tax Estimator").
+
+## What it does
+
+- Pulls profit from the books of each linked company (Schedule C, Schedule F, partnership, S corporation, C corporation) and projects it to the end of the year.
+- Combines it with the household's other income, adjustments, credits and withholding.
+- Computes federal tax (brackets, self-employment tax, QBI deduction, Medicare surtaxes, NIIT, loss limits), state tax for each state the household files in, and the quarterly payment vouchers.
+- Compares scenarios ("buy a truck in December", "raise Maria's wages") side by side.
+- Freezes finalized estimates as snapshots, prints a PDF, adds a section to a Report Pack, and can share a read-only view with the client in the portal.
+
+## What it is not
+
+- **It is an estimate, not tax advice and not a tax return.** Every printed or shared estimate carries the firm's disclaimer. The preparer remains responsible for the figures.
+- It never posts anything to the books.
+- Nothing is computed from information the books do not hold: outside W-2 income, interest, dividends and the like are entered as adjustments.
+
+## Version 1 limits
+
+These are known approximations. They also appear on the Assumptions list of every snapshot.
+- Quarterly adjustments are spread evenly (one third per remaining quarter) and withholding is treated as paid evenly through the year.
+- The QBI loss carryforward from earlier years is not modeled; losses net within the year only.
+- Retirement plan type is assumed to be a SEP; there is no SIMPLE 60 to 63 catch-up. Charitable 60 percent of AGI limits and mortgage-interest limits are not applied. MAGI is taken as AGI for the SALT, Schedule 1-A and passive-loss phase-outs.
+- Nonresident state tax is an effective-rate estimate (sourced income times the rate you enter), labeled as such. Many states actually use a ratio of the full return, which is not modeled yet.
+- State penalty add-ons that compound or run per month (for example MI, VT, IN, UT, ID, DC, CT, DE) are noted rather than computed, and the estimate may differ.
+- A C corporation with a short current year, annualized corporate installments (Form 2220), the large-corporation extra penalty rate and the $500 minimum are not modeled.
+- A prior-year overpayment is dated at the original due date; a late-filed prior return is not modeled.
+- Tax parameters and state rules that are still marked unverified are used, with a warning wherever they matter. Treat those figures with extra care until they are verified.
+
+## Where to go next
+
+Taxpayers, persons and links; entity tax setup; annual settings and scenarios; reading the estimate; payments, snapshots and the portal each have their own article in this category.`,
+  },
+  {
+    id: 'tax-estimator-taxpayers',
+    title: 'Tax Estimator — taxpayers, persons and links',
+    category: 'Tax Estimator',
+    summary: 'Create a household, add its people, and link the client companies they own, even across different client books.',
+    body: `A **taxpayer** is the household or filer the estimate is for. It belongs to your **firm**, not to one client, so one taxpayer can link companies that live in different client books, as long as your firm manages them and you personally have access to them.
+
+## Create a taxpayer
+
+Open **Tax Estimator > Taxpayers** and choose **New taxpayer**. Enter the display name, the filing status and the two-letter resident state. If you work for more than one firm, pick the firm first. The list can be searched by taxpayer or person name and filtered by filing status or state.
+
+## Persons
+
+On the taxpayer page, add each person on the return. Mark exactly one as the **primary taxpayer**. For each person you can record date of birth, blindness and the other flags that drive the standard deduction. Under **Months eligible for self-employed health insurance**, check only the months in which the person had no employer-subsidized plan available; the deduction is allowed only for those months. **All months** and **No months** are shortcuts.
+
+## Links to companies
+
+A **link** ties one person to one company for the tax year and says how they share in it:
+- **Profit %, Loss % and Capital %** (capital is informational).
+- **Partner SE status** for partnerships: general, limited, or LLC member manager, with a memo.
+- **Activity type**: active, passive, rental or investment. Passive and rental activities only offset passive income. For rentals, tick active participation to allow the rental loss allowance (up to $25,000, phased out by income).
+- **QBI eligibility**: default for the activity, or an override with a reason (for example a rental that is not a trade or business).
+- **Allowed loss override**: an amount plus a reason, when the preparer has figured the allowed loss outside the tool.
+
+The page warns when profit or loss percentages for a company do not add up to 100.
+
+## Portal contacts
+
+The **Portal contacts** panel on the taxpayer page links client portal contacts to the taxpayer. Linking does not by itself show them anything; see "Tax Estimator in the client portal".
+
+## Archive
+
+**Archive** removes a taxpayer from the working list without deleting its history or snapshots.
+
+## Who can see what
+
+You see a company link only if the company is in a client your firm actively manages and you have access to that client. A link to a client you can no longer reach is shown as "no longer managed by your firm" and is left out of the numbers for you.`,
+  },
+  {
+    id: 'tax-estimator-entity-setup',
+    title: 'Tax Estimator — entity tax setup and account treatments',
+    category: 'Tax Estimator',
+    summary: 'Tell the estimator how each company is taxed and how each profit and loss account should be treated.',
+    body: `Each linked company has an **Entity tax setup** page (from the taxpayer's link list). It has three parts.
+
+## Tax profile
+
+- **Entity type** comes from the company's Trial Balance tax profile (1040, 1065, 1120-S, 1120). If the company has no Trial Balance profile you can set the type here; once a profile exists it wins.
+- **Tax accounting method** defaults to the company's accounting method; override it only if the return uses a different method.
+- **State sourcing** records which states the entity's income is sourced to, used for nonresident partners and shareholders.
+- Flags for **Specified service trade or business (SSTB)**, **Rental is a trade or business (QBI)**, **Large corporation** and **Farmer** (or not) change which rules apply.
+
+## Year inputs
+
+Per entity and year: an optional **W-2 wages override** (with a required reason) and **UBIA**. The QBI wage limit uses the W-2 wages from accounts treated as W-2 wages in the books unless you override them. If UBIA is blank, the UBIA part of the QBI limit is not computed and the estimate says so.
+
+## GL tax treatment
+
+The estimator reads the company's profit and loss accounts and needs to know what each one means for tax. The treatment table lists every account with its book amount, its Trial Balance tax code, a status (Mapped, Suggested, None, or Unmapped with activity) and the **tax effect**:
+- Ordinary, as booked (the default).
+- Owner items that belong on the owner's return instead of the entity, for example self-employed health insurance, owner retirement contributions, or estimated tax payments (payments are removed from profit and recorded as payments).
+- W-2 wages, guaranteed payments, personal items to drop, and so on.
+- **Non-recurring** marks one-off items so they are not projected forward.
+- Where an item belongs to a specific person, pick the person.
+
+An account with activity and no mapping is treated as ordinary and raises a warning. **Suggestions are never applied automatically**: review each one and accept or dismiss it. A treatment mapped by another firm that shares the same books is shown read-only.
+
+## Readiness
+
+The readiness panel lists what would make the estimate unreliable: unreconciled accounts, suspense balances, unmapped accounts with activity, and links to companies outside your reach. The Through month selector shows the same checks for any month.`,
+  },
+  {
+    id: 'tax-estimator-annual-settings',
+    title: 'Tax Estimator — annual settings, prior-year data, scenarios and adjustments',
+    category: 'Tax Estimator',
+    summary: 'Set up a tax year, enter prior-year figures for safe harbor, build scenarios and add adjustments.',
+    body: `Open the taxpayer and choose **Annual settings**, then pick the **Tax year**. If the year has not been set up the page offers to create it.
+
+## Year inputs
+
+- **Deduction method**: automatic (larger of standard and itemized), standard forced, or itemized forced, with the itemized detail (SALT is capped and phased down by the platform parameters, enter what was actually paid).
+- **Federal tax method**: bracket computation or an **Effective-rate override** when you only want to apply a rate you provide.
+- **Nonrefundable and refundable credits**, **Federal withholding (annual)** and **State withholding (annual)**.
+- **HSA coverage** and **Schedule 1-A** amounts (tips, overtime, car loan interest) per person.
+- **Prior-year total tax and prior-year AGI**, used for the prior-year safe harbor. They are stored encrypted and only decrypted when an estimate is computed. The 110 percent prior-year test applies above $150,000 of prior-year AGI ($75,000 if married filing separately).
+- **Recommended rule**: the safe-harbor rule shown outlined on the summary. Left on the firm default unless you change it here.
+
+## States
+
+The **States** table has one row per state, with exactly one resident state. Other states are used for nonresident tax; the rate is an effective-rate estimate you supply. Per-state inputs such as withholding, credits and prior-year state figures live here too, and there is an optional other-state credit override.
+
+## Scenarios
+
+Every year has a **Base** scenario. Use the scenario tabs to clone, rename or delete scenarios (Base can never be deleted, and there is a cap on how many you can keep). A scenario holds its own adjustments, so "Buy truck in December" can change one thing without touching the base case.
+
+## Adjustments
+
+An adjustment is anything the books do not know: a one-time sale, a bonus, interest and dividends, a planned purchase, an owner retirement contribution. Each has a label, amount, the person it belongs to (or the household), a cadence, a start and end month, a percent applied, a memo and a **Non-recurring** flag. **Run-rate from GL** fills the amount from the books. Adjustments are spread across the remaining quarters equally.
+
+## Firm settings
+
+**Firm settings** (on this page) set your firm's defaults: the safe-harbor rule (default is the lesser of the current-year and prior-year rules), the disclaimer text that prints on every estimate, and **Client portal shows** (the live estimate, or the latest finalized snapshot).`,
+  },
+  {
+    id: 'tax-estimator-reading-estimate',
+    title: 'Tax Estimator — reading the estimate',
+    category: 'Tax Estimator',
+    summary: 'The summary screen: actuals-through date, readiness, the calculation table, trace, warnings and unverified parameters.',
+    body: `**Tax estimate** on the taxpayer page opens the summary. Everything on it is computed on request from the live books and the platform's tax parameters.
+
+## Controls
+
+- **Actuals through** defaults to the last closed month and is labeled that way. Choosing a later month that is not reconciled shows an amber warning.
+- **Scenario** switches the figures; the choice is kept in the address, so a reload or a shared link stays on it.
+- **Refresh** recomputes, **Print / Download PDF** produces the PDF, **Finalize & issue vouchers** freezes a snapshot (see "Payments, snapshots and the PDF").
+
+## Readiness banner
+
+Lists what weakens the figures: unreconciled accounts by company, suspense balances, unmapped accounts with activity, links out of your reach, parameters marked unverified or provisional, and state rules marked unverified. Items for a company link to its Entity tax setup page. With clean books you get a green banner. If the tax year has no seeded parameters the engine falls back to the nearest year and says the figures are provisional.
+
+## Key figures
+
+Projected total (federal and state), paid and withheld so far, the next federal payment with its date and days away (or overdue), and the marginal rate with the effective rate beneath it.
+
+## Calculation table
+
+One row per line of the calculation. The year-to-date tax-basis column is filled for income lines only; the projected column is filled everywhere. Chips explain special cases: "Capped at limit" (for example SEP contributions), "Passive loss suspended", "Rules unverified" on a state, and nonresident rows labeled as effective-rate estimates.
+
+## Trace
+
+Click **Trace** on a line, such as Regular income tax, to open a drawer showing each step: the label, amount, formula, the parameter source and the marginal rate. Esc or the close button dismisses it.
+
+## Warnings and the footer
+
+The warnings list is exactly what the calculation raised. The footer repeats the disclaimer, shows the parameter and state-rule status and the engine version. If a parameter is missing the page names the key and offers **Try again**.
+
+## Special cases
+
+Farmers (the two-thirds rule), C corporations and large corporations get their own summary cards, and a federal tax below the minimum shows the schedule for reference only.
+
+## Self-employment tax by person
+
+Shows each person's SE tax, SS wage base use and the deduction taken.`,
+  },
+  {
+    id: 'tax-estimator-safe-harbor-vouchers',
+    title: 'Tax Estimator — safe harbor, Schedule AI, vouchers and penalty',
+    category: 'Tax Estimator',
+    summary: 'How required payments are figured, what the voucher table shows and how the underpayment penalty is estimated.',
+    body: `## Safe harbor
+
+The safe-harbor card shows **both** rules side by side: 90 percent of the current-year tax, and 100 percent (110 percent for higher incomes) of the prior-year tax. The **recommended** rule is outlined and carries a badge with its source (firm default or a taxpayer override). Each rule shows the required amount, withholding counted, paid, and the remaining balance. If prior-year data is missing, the card says why the prior-year rule is unavailable. The firm default is the lesser of the two.
+
+## Vouchers
+
+The voucher table has one tab per jurisdiction (federal and each state). For each installment it shows the due date, the regular amount, the **Schedule AI** amount (bold where annualizing lowers the installment), the W-2 withholding credit, the amount from the estimate, paid, remaining, the estimated penalty and a status. A late installment shows a **Pay now (catch-up)** amount. A state that requires no estimates shows "none required"; several states also have income thresholds that are modeled.
+
+## Schedule AI
+
+For income that is uneven through the year (a seasonal business, a big December sale), the annualized installment method of Form 2210 Schedule AI can reduce earlier installments. The estimator computes the Schedule AI columns from the books by period and uses them wherever they lower the amount due. Snapshots store the period figures.
+
+## Penalty
+
+The underpayment penalty is estimated per installment from the due date to the earlier of the date it is paid or the return due date, with payments applied to the earliest unpaid installment, at the quarterly federal rate (split wherever the rate changes). A prior-year overpayment applied to the estimate counts from the original due date. State penalties use each state's rule where it is modeled, and some states' compounding add-ons are noted only. The penalty is an estimate, not the amount the IRS will assess.
+
+## Payments ledger
+
+Payments the estimator knows about come from two places. **GL rows** (estimated tax payments found in the books) are read-only and show the account and company. **Manual payments** (date and amount required) can be added, edited or deleted by firm staff with write access; read-only staff see the ledger without the controls. The figures refresh after every change.
+
+## Why a voucher amount can change
+
+Moving actuals-through, switching scenario, a payment arriving, or an updated parameter all recompute the amounts. A finalized snapshot never changes.`,
+  },
+  {
+    id: 'tax-estimator-snapshots-pdf',
+    title: 'Tax Estimator — payments, snapshots, finalize, the PDF and Report Packs',
+    category: 'Tax Estimator',
+    summary: 'Freeze an estimate, compare it with live, download the PDF and add it to a Report Pack.',
+    body: `## Snapshots
+
+A **snapshot** is an immutable copy of an estimate as it stood on the day: every figure, the trace, the warnings, the parameters and state rules it used, the voucher schedule and the assumptions. A snapshot is created when you:
+- choose **Finalize & issue vouchers** (add an optional note, for example "Q4 vouchers sent to client"),
+- download the PDF, or
+- generate a Report Pack that contains the tax-estimate section.
+
+Snapshots cannot be edited or deleted. Finalize a new one instead. The **Snapshots** list on the summary page shows scenario, date, reason and note. Open one to see its figures, the **Assumptions** list and the **Voucher schedule**, and to download its PDF.
+
+**Compare with live** lists every figure that changed since the snapshot, which warnings were added or resolved, and any parameter or state-rule changes made by an administrator in the meantime. If the snapshot includes a client you can no longer reach, the page says so.
+
+Printing the same estimate twice on the same day reuses the same PDF snapshot rather than filling the list.
+
+## PDF
+
+**Print / Download PDF** on the summary (and **Download PDF** on each scenario card of the compare page) produces tax-estimate-YEAR-NAME.pdf: summary, federal, state, safe harbor, vouchers, warnings, assumptions and the firm disclaimer. The figures equal the screen. Read-only staff can download; users outside the firm cannot.
+
+## Scenario compare
+
+**Scenarios** on the taxpayer page compares up to three scenarios: A is required, B and C optional. Cards show each total, the change from the first scenario, the next federal payment or overpayment; the table below goes line by line and can hide the change columns.
+
+## Report Pack section
+
+In a Report Pack for a linked company, add **Tax Estimate** (group Tax). Pick the taxpayer, and optionally the scenario, in the section options. The report's as-of date sets actuals-through to that month; otherwise the last closed month is used. Only firm staff may include it, and generating the pack freezes a snapshot with the reason "report pack". A pack run records who requested it so the section is re-checked against that person's access.`,
+  },
+  {
+    id: 'tax-estimator-client-portal',
+    title: 'Tax Estimator in the client portal',
+    category: 'Tax Estimator',
+    summary: 'Share a read-only estimate with the client, per contact and per company, and control live versus snapshot.',
+    body: `Clients can see their own estimate and payment vouchers in the portal, on a phone or a desktop. Nothing is shared until you turn it on.
+
+## What the client sees
+
+The portal home shows a **Tax estimate** tile. The page shows the projected total (federal and state), the next payments with due dates (a **Past due** badge when late), federal estimates paid and withheld, the payments on record, a **Download payment vouchers** button and the firm disclaimer. It is labeled "as of" a time for a live estimate, or "prepared" on a date for a snapshot. The client does **not** see persons, other owners, the linked companies, adjustments, rates, the calculation trace, parameters, safe-harbor workings or prior-year figures.
+
+## What must all be true
+
+1. The portal and Tax Estimator features are on for the client's tenant (CLIENT_PORTAL_V1 and TAX_ESTIMATOR_V1).
+2. The contact is linked to the taxpayer (Tax Estimator > taxpayer > **Portal contacts > Add contact**).
+3. The taxpayer has a link, for the year, to a company of the contact's tenant, and that company's access has **Tax estimates** ticked. Find it on **Practice > Client Portal** under the contact's company permissions. The contact list shows an **Estimates access** badge when it is set.
+4. The year has annual settings.
+
+If any item fails the portal says no estimate is shared, and it never reveals whether a taxpayer exists. Granting the toggle requires firm staff; client users cannot grant it. **Remove** on the contact also revokes the access.
+
+## Live or snapshot
+
+Set **Client portal shows** on the taxpayer (or the firm default in Firm settings): **Live estimate** (recomputed on request and cached briefly) or **Latest finalized snapshot** (shows only after you finalize). With snapshot mode and no finalized snapshot, the client sees "No tax estimate shared yet".`,
+  },
+  {
+    id: 'tax-estimator-admin',
+    title: 'Tax Estimator — enabling it and super-admin parameters',
+    category: 'Tax Estimator',
+    summary: 'Turn on TAX_ESTIMATOR_V1 per tenant; super admins maintain federal parameters and state rules, with audited overrides.',
+    body: `## Turning on the Tax Estimator
+
+TAX_ESTIMATOR_V1 is **off** for every tenant, including new ones. An administrator turns it on in the Feature Flags card on **Admin > Tenants > the tenant's page**.
+- Turn it on for the firm's **practice tenant** (the tenant firm staff work in). Staff see the sidebar group and routes there.
+- For the client portal view, it must also be on for each **client's tenant**, together with CLIENT_PORTAL_V1.
+- Staff also need the tax_estimator permission (read to view, write to change data). Client users never see the module.
+- Taxpayers are scoped to the firm, so a staff member only reaches the client companies they already have access to.
+
+Turning the flag off hides the module again. Nothing is deleted.
+
+## Tax parameters (super admin only)
+
+**Admin > Tax parameters** lists the federal parameters for each tax year: brackets, standard deductions, Social Security wage base, QBI thresholds, retirement limits, penalty rates, due dates and so on. Each row shows its value, its **status** (verified, unverified or provisional), the citation and its source. Parameters are shipped with the release and re-synced at startup, and they are the same for every firm. A year can be created from the page, and the **Missing keys** view shows anything not yet seeded.
+
+Use **Override** to change a value: enter the value in the units shown, and a **reason**, which is audited. **Revert** returns to the shipped value. Firms cannot override parameters.
+
+## State rules (super admin only)
+
+The **States** view covers all 50 states plus DC: whether an estimate is required, thresholds, safe-harbor percentages, due dates, penalty method, farmer rules and nonresident method. Each rule has the same status, citation, override and revert controls. A state with no income tax shows "No income tax". Rules marked unverified are used and flagged: the summary shows "Rules unverified" and the readiness banner lists them.
+
+## Verification status matters
+
+An estimate that uses unverified or provisional values still computes, but says so in the trace, the warnings and the assumptions. Super admins and the firm's CPA should review those before the estimates are relied on for client vouchers.`,
   },
 ];
