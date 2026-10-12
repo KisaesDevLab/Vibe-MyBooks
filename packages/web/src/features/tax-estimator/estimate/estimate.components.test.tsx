@@ -58,6 +58,15 @@ describe('buildCalcSections', () => {
     expect(JSON.stringify(sections)).not.toMatch(/period tax/i);
     expect(sections.at(-1)!.lines[0]!.projected).toBe('43731');
   });
+
+  it('labels the engine entity types (sch_c / sch_f) like the other types, and marks review chips', () => {
+    const base = makeEstimate();
+    const fed = { ...base.federal, entities: [{ ...base.federal.entities[0]!, entityType: 'sch_c' }, { ...base.federal.entities[0]!, companyId: 'c2', entityType: 'sch_f' }] };
+    const lines = buildCalcSections(makeEstimate({ federal: fed })).flatMap((s) => s.lines);
+    expect(lines.find((l) => l.key === 'inc.c1')!.sub).toBe('Sch C · active');
+    expect(lines.find((l) => l.key === 'inc.c2')!.sub).toBe('Sch F · active');
+    expect(lines.find((l) => l.key === 'st.r2')!.chips?.[0]?.review).toBe(true);
+  });
 });
 
 describe('CalculationTable', () => {
