@@ -10,6 +10,7 @@ import type {
   TaxpayerListDTO, TaxpayerDetailDTO, TaxpayerDTO, PersonDTO, LinkListDTO, LinkUpsertResultDTO,
   CompanyOptionListDTO, TaxpayerContactListDTO, TaxpayerContactCandidateListDTO, LinkContactResultDTO, UnlinkContactResultDTO,
   CreateTaxpayerInput, UpdateTaxpayerInput, UpsertPersonInput, UpsertLinkInput, PersonRole,
+  TaxpayerStaffDTO, TaxpayerStaffCandidateListDTO,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
 
@@ -184,6 +185,34 @@ export function useUnlinkContact(taxpayerId: string) {
     mutationFn: async (v: { portalContactId: string; revokeAccess: boolean }) =>
       (await call<{ data: UnlinkContactResultDTO }>(
         `/${taxpayerId}/contacts/${v.portalContactId}?revokeAccess=${v.revokeAccess}`, { method: 'DELETE' })).data,
+    onSuccess: invalidate,
+  });
+}
+
+// ── D17: who can see this taxpayer (staff allow-list) ──
+
+export function useTaxpayerStaff(taxpayerId: string | undefined) {
+  return useQuery({
+    queryKey: [KEY, 'staff', taxpayerId],
+    enabled: !!taxpayerId,
+    queryFn: async () => (await call<{ data: TaxpayerStaffDTO }>(`/${taxpayerId}/staff`)).data,
+  });
+}
+
+/** Firm admins only (the server answers 403 to anyone else); enable it only for them. */
+export function useTaxpayerStaffCandidates(taxpayerId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: [KEY, 'staff-candidates', taxpayerId],
+    enabled: !!taxpayerId && enabled,
+    queryFn: () => call<TaxpayerStaffCandidateListDTO>(`/${taxpayerId}/staff-candidates`),
+  });
+}
+
+export function useReplaceTaxpayerStaff(taxpayerId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (userIds: string[]) =>
+      (await call<{ data: TaxpayerStaffDTO }>(`/${taxpayerId}/staff`, { method: 'PUT', body: JSON.stringify({ userIds }) })).data,
     onSuccess: invalidate,
   });
 }

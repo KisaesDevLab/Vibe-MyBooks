@@ -22,8 +22,12 @@ export function FirmSettingsDialog({ open, settings, loading, saving, error, onC
   const [harbor, setHarbor] = useState<SafeHarborOverride>('lesser_of');
   const [disclaimer, setDisclaimer] = useState('');
   const [portal, setPortal] = useState<PortalShows>('live');
+  const [restrict, setRestrict] = useState(true);
   useEffect(() => {
-    if (settings) { setHarbor(settings.safeHarborDefault); setDisclaimer(settings.disclaimerText ?? ''); setPortal(settings.portalShows); }
+    if (settings) {
+      setHarbor(settings.safeHarborDefault); setDisclaimer(settings.disclaimerText ?? ''); setPortal(settings.portalShows);
+      setRestrict(settings.restrictTaxpayersToLinkedTenants);
+    }
   }, [settings]);
   useEffect(() => {
     if (!open) return;
@@ -53,6 +57,18 @@ export function FirmSettingsDialog({ open, settings, loading, saving, error, onC
                 </select>
               </div>
               <div>
+                <label className="flex items-start gap-2 text-sm font-medium text-gray-700">
+                  <input id="fs-restrict" type="checkbox" className="mt-0.5" checked={restrict} onChange={(e) => setRestrict(e.target.checked)} />
+                  Staff see only taxpayers linked to clients they can access
+                </label>
+                <p className="mt-1 text-xs text-gray-500">
+                  On (recommended): a staff member sees a taxpayer only when they have access to at least one client company it is
+                  linked to; an unlinked taxpayer is visible to the person who created it. Off: every staff member with Tax Estimator
+                  access sees every taxpayer of the firm. Either way, a taxpayer&apos;s own staff list narrows it further, figures from
+                  clients a person cannot access stay hidden, and firm administrators always see everything.
+                </p>
+              </div>
+              <div>
                 <label htmlFor="fs-disclaimer" className="block text-sm font-medium text-gray-700 mb-1">Disclaimer text</label>
                 <textarea id="fs-disclaimer" rows={4} maxLength={4000} className={SELECT_CLASS} value={disclaimer} onChange={(e) => setDisclaimer(e.target.value)} />
                 <p className="mt-1 text-xs text-gray-500">Leave blank to use: {settings.effectiveDisclaimerText === (settings.disclaimerText ?? '') ? 'the shipped text' : settings.effectiveDisclaimerText}</p>
@@ -63,7 +79,7 @@ export function FirmSettingsDialog({ open, settings, loading, saving, error, onC
         </div>
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
           <Button variant="secondary" onClick={onClose}>Close</Button>
-          <Button loading={saving} disabled={!settings} onClick={() => onSave({ safeHarborDefault: harbor, portalShows: portal, disclaimerText: disclaimer.trim() === '' ? null : disclaimer })}>Save settings</Button>
+          <Button loading={saving} disabled={!settings} onClick={() => onSave({ safeHarborDefault: harbor, portalShows: portal, disclaimerText: disclaimer.trim() === '' ? null : disclaimer, restrictTaxpayersToLinkedTenants: restrict })}>Save settings</Button>
         </div>
       </div>
     </div>
