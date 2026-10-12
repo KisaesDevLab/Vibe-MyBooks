@@ -4,7 +4,7 @@
 
 // Super-admin Tax Parameters screen (features/tax-estimator/MODULE.md "Tax parameters").
 import { useEffect, useMemo, useState } from 'react';
-import { PARAMETER_GROUPS } from '@kis-books/shared';
+import { PARAMETER_GROUPS, FEDERAL_INSTALLMENT_PAIRS, installmentPartnerKey } from '@kis-books/shared';
 import type { ParameterSource, ParameterStatus, TaxParameterRowDTO } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
@@ -222,10 +222,11 @@ export function TaxParametersPage() {
       {overrideRow && (
         <OverrideModal
           row={overrideRow}
+          partner={(() => { const k = installmentPartnerKey(FEDERAL_INSTALLMENT_PAIRS, overrideRow.key); return k ? data?.parameters.find((p) => p.key === k) : undefined; })()}
           saving={setOverride.isPending}
           serverError={setOverride.isError ? (setOverride.error instanceof Error ? setOverride.error.message : 'Save failed') : null}
           onClose={() => { setOverride.reset(); setOverrideRow(null); }}
-          onSave={(value, reason) => setOverride.mutate({ key: overrideRow.key, value, reason }, {
+          onSave={(value, reason, companion) => setOverride.mutate({ key: overrideRow.key, value, reason, ...(companion ? { companion } : {}) }, {
             onSuccess: () => { toast.success('Override saved'); setOverrideRow(null); },
           })}
         />

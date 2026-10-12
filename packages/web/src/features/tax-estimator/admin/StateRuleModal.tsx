@@ -3,7 +3,9 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState } from 'react';
-import { getStateRuleDef, validateStateRuleValue } from '@kis-books/shared';
+import {
+  getStateRuleDef, validateStateRuleValue, installmentPairOf, installmentPairError, STATE_INSTALLMENT_PAIRS,
+} from '@kis-books/shared';
 import type { StateRuleDef, StateRuleRowDTO, StateRuleValueType } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { StateRuleValue, stateRuleEditorText } from './StateRuleValue';
@@ -68,26 +70,38 @@ const HINT: Partial<Record<StateRuleValueType, string>> = {
   farmer_rule: 'JSON: {"ratio": 0.667, "current_pct": 0.667, "due_date": "YYYY-MM-DD", "file_by": "YYYY-MM-DD"} plus optional "treatment": "single_installment" | "quarterly" | "exempt".',
 };
 
-export function StateRuleModal({ row, saving, serverError, onSave, onClose }: {
+export function StateRuleModal({ row, partner, saving, serverError, onSave, onClose }: {
   row: StateRuleRowDTO;
+  /** QA D6: the other half of an installment pair (pcts + due dates), edited alongside. */
+  partner?: StateRuleRowDTO;
   saving: boolean;
   serverError?: string | null;
-  onSave: (value: unknown, reason: string) => void;
+  onSave: (value: unknown, reason: string, companion?: { key: string; value: unknown }) => void;
   onClose: () => void;
 }) {
   const def = getStateRuleDef(row.key);
+  const partnerDef = partner ? getStateRuleDef(partner.key) : undefined;
   const [text, setText] = useState(stateRuleEditorText(row.type, row.value));
   const [isNull, setIsNull] = useState(row.value === null);
+  const [partnerText, setPartnerText] = useState(partner ? stateRuleEditorText(partner.type, partner.value) : '');
   const [reason, setReason] = useState('');
   const [submitted, setSubmitted] = useState(false);
   if (!def) return null;
   const v = validateStateOverride(def, text, isNull, reason);
   const multiline = OBJECT_TYPES.includes(def.type) || LIST_TYPES.includes(def.type);
+  const pair = installmentPairOf(STATE_INSTALLMENT_PAIRS, row.key);
+  const partnerParsed = partner && partnerDef ? parseStateEditorValue(partnerDef, partnerText, partner.value === null && partnerText.trim() === '') : undefined;
+  const partnerError = partnerParsed ? (partnerParsed.error ?? (partnerDef ? validateStateRuleValue(partnerDef, partnerParsed.value) : null) ?? undefined) : undefined;
+  const partnerValue = partnerParsed && !partnerError ? partnerParsed.value : partner?.value;
+  const pairError = pair && !v.valueError && !partnerError
+    ? installmentPairError(pair, row.key === pair.pcts ? v.value : partnerValue, row.key === pair.pcts ? partnerValue : v.value) ?? undefined
+    : undefined;
+  const partnerChanged = !!partner && partnerParsed !== undefined && !partnerError && JSON.stringify(partnerParsed.value) !== JSON.stringify(partner.value);
 
   const submit = () => {
     setSubmitted(true);
-    if (v.valueError || v.reasonError) return;
-    onSave(v.value, reason.trim());
+    if (v.valueError || v.reasonError || partnerError || pairError) return;
+    onSave(v.value, reason.trim(), partnerChanged ? { key: partner!.key, value: partnerParsed!.value } : undefined);
   };
 
   return (
@@ -124,6 +138,15 @@ export function StateRuleModal({ row, saving, serverError, onSave, onClose }: {
           </>
         )}
         {submitted && v.valueError && <p role="alert" className="text-xs text-red-600 mt-1">{v.valueError}</p>}
+        {partner && (
+          <>
+            <label className="block text-sm font-medium text-gray-700 mt-3 mb-1" htmlFor="sr-partner">{partner.label} ({partner.key}) — saved together</label>
+            <textarea id="sr-partner" rows={3} value={partnerText} onChange={(e) => setPartnerText(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono" />
+            {submitted && partnerError && <p role="alert" className="text-xs text-red-600 mt-1">{partner.key}: {partnerError}</p>}
+          </>
+        )}
+        {pairError && <p role="alert" className="text-xs text-red-600 mt-1" data-testid="pair-error">{pairError}</p>}
         <label className="block text-sm font-medium text-gray-700 mt-4 mb-1" htmlFor="sr-reason">Reason (audited)</label>
         <input id="sr-reason" value={reason} onChange={(e) => setReason(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
         {submitted && v.reasonError && <p role="alert" className="text-xs text-red-600 mt-1">{v.reasonError}</p>}

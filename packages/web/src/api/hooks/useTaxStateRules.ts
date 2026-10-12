@@ -55,7 +55,7 @@ export function useSetStateRuleOverride(year: number) {
   return useMutation({
     mutationFn: async (v: { state: string; key: string } & SetStateRuleOverrideInput) =>
       (await apiClient<{ data: StateRuleRowDTO }>(`${BASE}/${year}/${v.state}/${encodeURIComponent(v.key)}`, {
-        method: 'PUT', body: JSON.stringify({ value: v.value, reason: v.reason }),
+        method: 'PUT', body: JSON.stringify({ value: v.value, reason: v.reason, ...(v.companion ? { companion: v.companion } : {}) }),
       })).data,
     onSuccess: invalidate,
   });

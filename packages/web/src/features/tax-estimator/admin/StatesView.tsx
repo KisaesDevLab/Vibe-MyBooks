@@ -4,6 +4,7 @@
 
 // States view of the super-admin Tax Parameters screen (MODULE.md "State rule keys").
 import { useMemo, useState } from 'react';
+import { STATE_INSTALLMENT_PAIRS, installmentPartnerKey } from '@kis-books/shared';
 import type { ParameterSource, ParameterStatus, StateRuleRowDTO, StateRuleSetStatus, StateRuleSummaryDTO } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
@@ -56,6 +57,10 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
   const data = q.data;
   const unverified = (data?.isFallback ? [] : data?.rules ?? []).filter((r) => r.status !== 'verified' && r.source !== 'fallback');
   const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
+  const partnerRow = (key: string): StateRuleRowDTO | undefined => {
+    const other = installmentPartnerKey(STATE_INSTALLMENT_PAIRS, key);
+    return other ? data?.rules.find((r) => r.key === other) : undefined;
+  };
 
   return (
     <div className="space-y-4">
@@ -128,10 +133,11 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
       {overrideRow && (
         <StateRuleModal
           row={overrideRow}
+          partner={partnerRow(overrideRow.key)}
           saving={setOverride.isPending}
           serverError={setOverride.isError ? (setOverride.error instanceof Error ? setOverride.error.message : 'Save failed') : null}
           onClose={() => { setOverride.reset(); setOverrideRow(null); }}
-          onSave={(value, reason) => setOverride.mutate({ state: state.state, key: overrideRow.key, value, reason }, {
+          onSave={(value, reason, companion) => setOverride.mutate({ state: state.state, key: overrideRow.key, value, reason, ...(companion ? { companion } : {}) }, {
             onSuccess: () => { toast.success('Override saved'); setOverrideRow(null); },
           })}
         />

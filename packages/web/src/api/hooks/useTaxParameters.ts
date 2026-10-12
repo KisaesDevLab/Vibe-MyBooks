@@ -54,7 +54,7 @@ export function useSetTaxParameterOverride(year: number) {
   return useMutation({
     mutationFn: async (v: { key: string } & SetTaxParameterOverrideInput) =>
       (await apiClient<{ data: TaxParameterRowDTO }>(`${BASE}/${year}/${encodeURIComponent(v.key)}`, {
-        method: 'PUT', body: JSON.stringify({ value: v.value, reason: v.reason }),
+        method: 'PUT', body: JSON.stringify({ value: v.value, reason: v.reason, ...(v.companion ? { companion: v.companion } : {}) }),
       })).data,
     onSuccess: invalidate,
   });

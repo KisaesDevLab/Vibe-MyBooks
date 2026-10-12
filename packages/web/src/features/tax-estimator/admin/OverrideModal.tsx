@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState } from 'react';
-import { validateParameterValue } from '@kis-books/shared';
+import { validateParameterValue, installmentPairOf, installmentPairError, FEDERAL_INSTALLMENT_PAIRS } from '@kis-books/shared';
 import type { ParameterValueType, TaxParameterRowDTO } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { ParameterValue } from './ParameterValue';
@@ -41,23 +41,34 @@ const HINT: Partial<Record<ParameterValueType, string>> = {
   rate_period_list: 'JSON: [{"from":"YYYY-MM-DD","to":"YYYY-MM-DD","rate":0.07}]',
 };
 
-export function OverrideModal({ row, saving, serverError, onSave, onClose }: {
+export function OverrideModal({ row, partner, saving, serverError, onSave, onClose }: {
   row: TaxParameterRowDTO;
+  /** QA D6: the other half of an installment pair, edited alongside. */
+  partner?: TaxParameterRowDTO;
   saving: boolean;
   serverError?: string | null;
-  onSave: (value: unknown, reason: string) => void;
+  onSave: (value: unknown, reason: string, companion?: { key: string; value: unknown }) => void;
   onClose: () => void;
 }) {
   const [text, setText] = useState(initialText(row));
+  const [partnerText, setPartnerText] = useState(partner ? initialText(partner) : '');
   const [reason, setReason] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const v = validateOverride(row.type, text, reason);
   const multiline = !SCALAR.includes(row.type);
+  const pair = installmentPairOf(FEDERAL_INSTALLMENT_PAIRS, row.key);
+  const pp = partner ? parseEditorValue(partner.type, partnerText) : undefined;
+  const partnerError = pp && partner ? (pp.error ?? validateParameterValue(partner.type, pp.value) ?? undefined) : undefined;
+  const partnerValue = pp && !partnerError ? pp.value : partner?.value;
+  const pairError = pair && !v.valueError && !partnerError
+    ? installmentPairError(pair, row.key === pair.pcts ? v.value : partnerValue, row.key === pair.pcts ? partnerValue : v.value) ?? undefined
+    : undefined;
+  const partnerChanged = !!partner && !!pp && !partnerError && JSON.stringify(pp.value) !== JSON.stringify(partner.value);
 
   const submit = () => {
     setSubmitted(true);
-    if (v.valueError || v.reasonError) return;
-    onSave(v.value, reason.trim());
+    if (v.valueError || v.reasonError || partnerError || pairError) return;
+    onSave(v.value, reason.trim(), partnerChanged ? { key: partner!.key, value: pp!.value } : undefined);
   };
 
   return (
@@ -79,6 +90,15 @@ export function OverrideModal({ row, saving, serverError, onSave, onClose }: {
         {HINT[row.type] && <p className="text-xs text-gray-500 mt-1">{HINT[row.type]}</p>}
         {row.type.endsWith('_list') && <p className="text-xs text-gray-500 mt-1">Enter a JSON array, e.g. [1, 2, 3].</p>}
         {submitted && v.valueError && <p role="alert" className="text-xs text-red-600 mt-1">{v.valueError}</p>}
+        {partner && (
+          <>
+            <label className="block text-sm font-medium text-gray-700 mt-3 mb-1" htmlFor="tp-partner">{partner.label} ({partner.key}) — saved together</label>
+            <textarea id="tp-partner" rows={3} value={partnerText} onChange={(e) => setPartnerText(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono" />
+            {submitted && partnerError && <p role="alert" className="text-xs text-red-600 mt-1">{partner.key}: {partnerError}</p>}
+          </>
+        )}
+        {pairError && <p role="alert" className="text-xs text-red-600 mt-1" data-testid="pair-error">{pairError}</p>}
         <label className="block text-sm font-medium text-gray-700 mt-4 mb-1" htmlFor="tp-reason">Reason (audited)</label>
         <input id="tp-reason" value={reason} onChange={(e) => setReason(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
