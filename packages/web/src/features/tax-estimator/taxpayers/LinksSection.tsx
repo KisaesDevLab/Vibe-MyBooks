@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Lock } from 'lucide-react';
 import type { LinkDTO, PersonDTO } from '@kis-books/shared';
 import { useTaxpayerLinks, useUpsertLink, useRemoveLink } from '../../../api/hooks/useTaxEstimatorTaxpayers';
 import { Button } from '../../../components/ui/Button';
@@ -74,6 +75,12 @@ export function LinksSection({ taxpayerId, persons, canWrite }: { taxpayerId: st
                       {l.outOfScope
                         ? <span className="text-amber-700">Client no longer managed by your firm <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs">Excluded</span></span>
                         : <>{l.tenantName} &mdash; {l.companyName}</>}
+                      {l.viaStaffList && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-800" data-testid="via-staff-list"
+                          title="You see this company because you're on this taxpayer's access list; its client stays closed to you">
+                          <Lock className="h-3 w-3" aria-hidden="true" />Via access list
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 capitalize">{l.personRole}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{pct(l.profitPct)}</td>
@@ -84,9 +91,9 @@ export function LinksSection({ taxpayerId, persons, canWrite }: { taxpayerId: st
                       {[l.partnerSeStatus && SE_STATUS_LABELS[l.partnerSeStatus], l.isOfficer && 'Officer', l.activityType === 'rental' && l.activeParticipation && 'Active participation', l.allowedLossOverride != null && 'Loss override'].filter(Boolean).join(', ')}
                     </td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
-                      {!l.outOfScope && <Link className="text-sm text-primary-600 hover:underline mr-2" to={`/tax-estimator/entities/${l.tenantId}/${l.companyId}?year=${taxYear}`}>Entity tax setup</Link>}
-                      {canWrite && !l.outOfScope && <Button variant="ghost" size="sm" onClick={() => setEditing(l)}>Edit</Button>}
-                      {canWrite && <Button variant="ghost" size="sm" disabled={remove.isPending} onClick={() => remove.mutate(l.id)}>Remove</Button>}
+                      {!l.outOfScope && !l.viaStaffList && <Link className="text-sm text-primary-600 hover:underline mr-2" to={`/tax-estimator/entities/${l.tenantId}/${l.companyId}?year=${taxYear}`}>Entity tax setup</Link>}
+                      {canWrite && !l.outOfScope && !l.viaStaffList && <Button variant="ghost" size="sm" onClick={() => setEditing(l)}>Edit</Button>}
+                      {canWrite && !l.viaStaffList && <Button variant="ghost" size="sm" disabled={remove.isPending} onClick={() => remove.mutate(l.id)}>Remove</Button>}
                     </td>
                   </tr>
                 ))}

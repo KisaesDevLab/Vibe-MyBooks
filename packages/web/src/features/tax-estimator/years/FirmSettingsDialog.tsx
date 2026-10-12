@@ -64,8 +64,9 @@ export function FirmSettingsDialog({ open, settings, loading, saving, error, onC
                 <p className="mt-1 text-xs text-gray-500">
                   On (recommended): a staff member sees a taxpayer only when they have access to at least one client company it is
                   linked to; an unlinked taxpayer is visible to the person who created it. Off: every staff member with Tax Estimator
-                  access sees every taxpayer of the firm. Either way, a taxpayer&apos;s own staff list narrows it further, figures from
-                  clients a person cannot access stay hidden, and firm administrators always see everything.
+                  access sees every taxpayer of the firm. Either way, figures from clients a person cannot access stay hidden and firm
+                  administrators always see everything. A taxpayer with its own access list ignores this setting: only the listed
+                  people see it, with all of its linked companies.
                 </p>
               </div>
               <div>

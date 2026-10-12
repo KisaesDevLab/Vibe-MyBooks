@@ -16,9 +16,11 @@ const errMsg = (e: unknown) => (e instanceof Error ? e.message : 'Request failed
 const ROLE_LABEL: Record<string, string> = { firm_staff: 'Staff', firm_readonly: 'Read-only', firm_admin: 'Admin' };
 
 /**
- * D17 "Who can see this taxpayer". Firm admins edit the staff list; everyone else sees it
- * read-only. The server enforces every rule (firm-scope.service visibleTaxpayerFilter); this
- * card only explains it and edits the list.
+ * D17 / D18 "Who can see this taxpayer". Firm admins edit the staff list; everyone else sees
+ * it read-only. Empty list = the firm rule (D17); a non-empty list REPLACES it (D18): only the
+ * listed people (and firm administrators) see the taxpayer, with all of its linked companies.
+ * The server enforces every rule (firm-scope.service visibleTaxpayerFilter / scopeForTaxpayer);
+ * this card only explains it and edits the list.
  */
 export function TaxpayerAccessCard({ taxpayerId }: { taxpayerId: string }) {
   const staff = useTaxpayerStaff(taxpayerId);
@@ -46,8 +48,8 @@ export function TaxpayerAccessCard({ taxpayerId }: { taxpayerId: string }) {
           <>
             <p className="text-sm text-gray-600">
               {members.length === 0
-                ? `Everyone allowed by the firm rule can see it: ${rule}. Firm administrators always can.`
-                : `Only the people listed below (and firm administrators) can see it${staff.data?.restrictToLinkedTenants ? ', and each still needs access to at least one linked client company' : ''}.`}
+                ? `Everyone allowed by the firm rule can see it: ${rule}. Firm administrators always can. Each person sees only the linked companies in clients they can open.`
+                : 'Only these people (and firm administrators) can see this taxpayer, and they see all of its linked companies even in clients they can\u2019t otherwise open. The list replaces the firm rule for this taxpayer; it does not let them open those clients\u2019 books or change their entity setup.'}
             </p>
             {members.length > 0 && (
               <ul className="divide-y rounded-md border border-gray-200">
