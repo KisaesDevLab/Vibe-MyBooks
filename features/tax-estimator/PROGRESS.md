@@ -3,10 +3,10 @@
 (Was STATE.md; renamed because the repo git-ignores that filename. This file IS committed.)
 
 ## Status
-- Current phase: **Phases 0, 1, 3, 4 (backend), 5 built; Phase 2 state research in progress; engine phases 6-10 BLOCKED on Kurt's sign-offs (D12)**
+- Current phase: **Phases 0-13 built, reviewed (R1-R5) and fixed; Phase 14 hardening in progress (seasonal golden fixture, final Fable audit R7, full regression). Engine started at Kurt's risk before sign-off (D12a); Kurt's checklists still OPEN. Nothing merged or deployed; flag OFF.**
 - Plan version: v2.2 (2026-10-11 — repo adaptation + owner decisions D1–D16 folded in; v2 = Oct 8 CPA review)
 - Branch: `feat/tax-estimator` (from main @ `ecac490a`, v0.9.218)
-- Engine version: 0.0.0
+- Engine version: 1.0.0-rc.1
 - Target: usable for Q4 2026 vouchers (Jan 15, 2027); slip accepted (D14)
 
 ## Hard gates
@@ -25,15 +25,15 @@
 | 3 Taxpayers, persons, links (firm-scoped) | ✅ built 2026-10-11 | schema/api/ui-builder (sonnet) | see git log | 22 route+service tests incl. cross-tenant isolation; web pages + sidebar group |
 | 4 Entity tax setup, treatments, readiness | ✅ backend + Entity tax setup screen built 2026-10-11; R1 review pending | books-integration-engineer (opus) | see git log | Rivera 115,400 → 128,000 reproduced; 31 tests |
 | 5 Settings, scenarios, adjustments | ✅ built 2026-10-11 | schema/api/ui-builder (sonnet) | see git log | allocation module, encrypted prior-year data, firm settings; 27 api + 12 web tests |
-| 6 Engine core (federal income tax) | ⬜ | tax-engine-architect (fable) | | blocked on both sign-offs |
-| 7 QBI / Medicare / NIIT / losses / §469(i) | ⬜ | tax-engine-architect (fable) | | |
-| 8 State engine | ⬜ | tax-engine-architect (fable) | | |
-| 9 C corp & Sch F | ⬜ | tax-engine-architect (fable) | | |
-| 10 Payments, safe harbor, Sch AI, penalties | ⬜ | tax-engine-architect (fable) | | |
-| 11 UI summary & scenarios + standalone PDF | ⬜ | ui-builder (sonnet) | | |
-| 12 Snapshots, assumptions, audit | ⬜ | api-builder (sonnet) + books-integration-engineer (opus) | | |
-| 13 Report Pack section & portal | ⬜ | api/ui-builder (sonnet) | | |
-| 14 Hardening, docs, merge readiness | ⬜ | oracle-verifier (fable) | | |
+| 6 Engine core (federal income tax) | ✅ 2026-10-12 | tax-engine-architect (fable) | 94c96180 | Rivera base/truck/raise match oracle; R2 fixes 0ac225bc |
+| 7 QBI / Medicare / NIIT / losses / §469(i) | ✅ 2026-10-12 | tax-engine-architect (fable) | f70b3803 | full QBI, Form 8959/8960, Form 8582 allocation after R2 |
+| 8 State engine | ✅ 2026-10-12 | tax-engine-architect (fable) | 58ef5322 | MO 7,590 + AR 312 = 7,902; AZ/GA/PA/ME/NM gates (D12b) |
+| 9 C corp & Sch F | ✅ 2026-10-12 | tax-engine-architect (fable) | d356debd | large-corp recapture, farmer 66⅔% |
+| 10 Payments, safe harbor, Sch AI, penalties | ✅ 2026-10-12 | tax-engine-architect (fable) | d356debd, b46618bf (10b service + DB) | Rivera via DB matches oracle; penalty $11 |
+| 11 UI summary & scenarios + standalone PDF | ✅ built 2026-10-12 (UI never opened in a browser; manual QA open) | ui-builder (sonnet) | f642e39b |  |
+| 12 Snapshots, assumptions, audit | ✅ 2026-10-12 | integration engineer (opus) | ad097aa0 | immutable encrypted snapshots, assumptions block, encrypted cache |
+| 13 Report Pack section & portal | ✅ 2026-10-12 | opus | 21165e3b; R3 fixes 9a979aa1; R4 fixes 6b0cb4b3 | R4 blocker fixed |
+| 14 Hardening, docs, merge readiness | ⏳ docs a6856ab0 done; oracle seasonal fixtures + R7 + full regression in progress | oracle-verifier (fable) |  |  |
 
 ## Decisions made during build
 | Date | Decision | Source |
@@ -51,11 +51,11 @@ One row per working session so model shares can be tuned (ORCHESTRATION.md §7).
 ## Fable deep reviews
 | ID | Process | Date | Verdict | Critical / Major / Minor | Fixes merged |
 |---|---|---|---|---|---|
-| R1 | Books → tax-basis income | | | | |
-| R2 | Owner allocation & character | | | | |
-| R3 | Payments → vouchers | | | | |
-| R4 | End-to-end | | | | |
-| R5 | State rules sample | | | | |
+| R1 | Books → tax-basis income | 2026-10-11 | FAIL → fixed | 16 findings | f746d98f (re-check in R3) |
+| R2 | Engine (phases 6-10) | 2026-10-12 | FAIL → fixed | 1 blocker / 3 major / 19 minor | 0ac225bc |
+| R3 | Service layer | 2026-10-12 | PASS-WITH-FIXES → fixed | 0 / 6 / 12 | 9a979aa1 |
+| R4 | Portal + Report Pack security | 2026-10-12 | FAIL → fixed | 1 / 2 / 7 | 6b0cb4b3 |
+| R5 | State rules sample | 2026-10-11 | PASS-WITH-FIXES → fixed | see review | f746d98f |
 | R6 | Parameter lifecycle | | | | |
 | R7 | Final tax-logic audit | | | | |
 
