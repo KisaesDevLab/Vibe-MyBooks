@@ -135,7 +135,9 @@ export function AnnualSettingsPage() {
             onSelect={setSelected}
             onClone={(sid, name) => clone.mutate({ id: sid, name }, { onSuccess: (s) => setSelected(s.id) })}
             onRename={(sid, name) => rename.mutate({ id: sid, name })}
-            onDelete={(sid) => del.mutate(sid, { onSuccess: () => setSelected(undefined) })} />
+            // QA D22: leave the scenario BEFORE deleting it, so no mounted adjustments / state-rows
+            // query re-creates and refetches the deleted id (404) while the year list reloads.
+            onDelete={(sid) => { if (sid === selected) setSelected(scenarios.find((s) => s.isBase)?.id); del.mutate(sid); }} />
           <YearInputsForm key={detail.year.updatedAt} detail={detail} persons={persons} filingStatus={tp.filingStatus} canWrite={canWrite} saving={save.isPending}
             saved={save.isSuccess} error={save.isError ? errMsg(save.error) : undefined} onSave={(input) => save.mutate(input)} />
           {selected && <ScenarioPanels taxpayerId={tp.id} scenarioId={selected} taxYear={taxYear} canWrite={canWrite} persons={persons} residentState={tp.residentState} />}
