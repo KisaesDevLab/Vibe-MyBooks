@@ -90,15 +90,20 @@ export function useAdoptShippedParameters(year: number) {
   });
 }
 
-/** R7 in-app Verify: mark one parameter verified (super admin). */
+/**
+ * R7 in-app Verify: mark one parameter verified (super admin). `expectedValue` is the value shown
+ * in the dialog (R6-04): the server refuses (409 TE_PARAM_CHANGED) if the row changed meanwhile.
+ */
 export function useVerifyTaxParameter(year: number) {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: async (v: { key: string; note?: string }) =>
+    mutationFn: async (v: { key: string; note?: string; expectedValue: unknown }) =>
       (await apiClient<{ data: TaxParameterRowDTO }>(`${BASE}/${year}/${encodeURIComponent(v.key)}/verify`, {
-        method: 'POST', body: JSON.stringify(v.note ? { note: v.note } : {}),
+        method: 'POST', body: JSON.stringify({ ...(v.note ? { note: v.note } : {}), expectedValue: v.expectedValue }),
       })).data,
     onSuccess: invalidate,
+    // A 409 means the row moved under the dialog: refresh so the admin sees the current value.
+    onError: invalidate,
   });
 }
 

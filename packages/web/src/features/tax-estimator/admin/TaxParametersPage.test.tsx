@@ -174,7 +174,8 @@ describe('TaxParametersPage — R7 in-app Verify', () => {
     fireEvent.click(screen.getByLabelText('Mark se.nese_factor verified'));
     fireEvent.change(screen.getByLabelText(/Note/), { target: { value: 'IRC 1402(a)(12)' } });
     fireEvent.click(screen.getByRole('button', { name: 'Mark verified' }));
-    expect(h.verify).toHaveBeenCalledWith({ key: 'se.nese_factor', note: 'IRC 1402(a)(12)' }, expect.anything());
+    // R6-04: the dialog signs the value it showed, so a concurrent override is refused by the server.
+    expect(h.verify).toHaveBeenCalledWith({ key: 'se.nese_factor', note: 'IRC 1402(a)(12)', expectedValue: 0.9235 }, expect.anything());
   });
 
   it('bulk verify counts the unverified rows and asks for confirmation before calling the API', async () => {

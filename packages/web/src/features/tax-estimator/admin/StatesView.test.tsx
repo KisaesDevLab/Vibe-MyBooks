@@ -260,7 +260,7 @@ describe('StatesView detail — R7 in-app Verify', () => {
     expect(screen.queryByLabelText('Mark required_threshold verified')).toBeNull();
     fireEvent.click(screen.getByLabelText('Mark penalty.rate_source verified'));
     fireEvent.click(screen.getByRole('button', { name: 'Mark verified' }));
-    expect(h.verify).toHaveBeenCalledWith({ state: 'AR', key: 'penalty.rate_source', note: undefined }, expect.anything());
+    expect(h.verify).toHaveBeenCalledWith({ state: 'AR', key: 'penalty.rate_source', note: undefined, expectedValue: 'federal' }, expect.anything());
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     fireEvent.click(screen.getByText('Verify all unverified in AR 2026 (2)'));

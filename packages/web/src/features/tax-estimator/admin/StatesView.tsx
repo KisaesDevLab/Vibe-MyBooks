@@ -140,7 +140,7 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
           saving={verify.isPending}
           serverError={verify.isError ? errText(verify.error, 'Verify failed') : null}
           onClose={() => { verify.reset(); setVerifyRow(null); }}
-          onConfirm={(note) => verify.mutate({ state: state.state, key: verifyRow.key, note }, {
+          onConfirm={(note) => verify.mutate({ state: state.state, key: verifyRow.key, note, expectedValue: verifyRow.value }, {
             onSuccess: () => { toast.success('Marked verified'); setVerifyRow(null); },
           })}
         />
