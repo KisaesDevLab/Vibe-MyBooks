@@ -47,19 +47,24 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil((async () => {
+  const ready = (async () => {
+    // Tabs the build being replaced controls. Empty on a first install: the
+    // page that registered this worker was just fetched from the network.
+    const stale = await self.clients.matchAll({ type: 'window' });
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => k !== SHELL_CACHE).map((k) => caches.delete(k)));
     await self.clients.claim();
-    // Any tab still showing the build this worker just replaced is reloaded
-    // into the new one. Without it the person sits on the old page until
-    // they happen to navigate — which is how "I still have to hard refresh"
-    // survived the first fix.
-    const windows = await self.clients.matchAll({ type: 'window' });
-    for (const client of windows) {
-      try { await client.navigate(client.url); } catch { /* not navigable */ }
-    }
-  })());
+    return stale;
+  })();
+  event.waitUntil(ready);
+  // Reload those tabs into the new build, but NOT inside waitUntil: the
+  // reload is a navigation this worker must answer, and fetch events wait
+  // until the worker is 'activated', which waitUntil is holding back.
+  // Awaiting it there deadlocked the worker in 'activating' and the tab's
+  // load never finished.
+  ready.then((stale) => {
+    for (const client of stale) client.navigate(client.url).catch(() => { /* not navigable */ });
+  });
 });
 
 self.addEventListener('fetch', (event) => {

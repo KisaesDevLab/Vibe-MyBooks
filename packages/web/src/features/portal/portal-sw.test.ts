@@ -32,10 +32,16 @@ interface Harness {
   matches: Map<string, string>;
   fetchMock: ReturnType<typeof vi.fn>;
   navigated: string[];
+  /** Mark the worker 'activated' — releases navigations that were waiting on it. */
+  activated: () => void;
 }
 
 /** Run the worker source with fake globals and return what it registered. */
-function loadWorker(opts: { base?: string; offline?: boolean; cached?: Record<string, string> } = {}): Harness {
+function loadWorker(opts: {
+  base?: string; offline?: boolean; cached?: Record<string, string>;
+  /** false = first install: no tab is controlled until claim() (default true = replacing a build). */
+  controlledBeforeClaim?: boolean;
+} = {}): Harness {
   const base = opts.base ?? '/';
   const listeners: Record<string, Listener> = {};
   const deleted: string[] = [];
@@ -66,6 +72,15 @@ function loadWorker(opts: { base?: string; offline?: boolean; cached?: Record<st
   };
 
   const navigated: string[] = [];
+  // Like a browser: client.navigate() settles only once the navigation is
+  // answered, and the worker cannot answer a fetch until it is 'activated'.
+  let activated!: () => void;
+  const activation = new Promise<void>((r) => { activated = r; });
+  let claimed = false;
+  const tab = {
+    url: 'https://books.example.com/portal/dashboard',
+    navigate: (u: string) => activation.then(() => { navigated.push(u); }),
+  };
   const self = {
     // Real WorkerLocation stringifies to its href — new URL('./', location)
     // relies on that, so the fake has to as well.
@@ -76,10 +91,8 @@ function loadWorker(opts: { base?: string; offline?: boolean; cached?: Record<st
     addEventListener: (type: string, fn: Listener) => { listeners[type] = fn; },
     skipWaiting: vi.fn(),
     clients: {
-      claim: vi.fn(async () => {}),
-      matchAll: vi.fn(async () => [
-        { url: 'https://books.example.com/portal/dashboard', navigate: async (u: string) => { navigated.push(u); } },
-      ]),
+      claim: vi.fn(async () => { claimed = true; }),
+      matchAll: vi.fn(async () => (claimed || opts.controlledBeforeClaim !== false ? [tab] : [])),
     },
     registration: { scope: `https://books.example.com${base}portal/` },
   };
@@ -91,7 +104,7 @@ function loadWorker(opts: { base?: string; offline?: boolean; cached?: Record<st
     undefined, undefined,
   );
 
-  return { listeners, cacheNames, deleted, put, matches, fetchMock, navigated };
+  return { listeners, cacheNames, deleted, put, matches, fetchMock, navigated, activated };
 }
 
 /** Dispatch a fetch event and resolve whatever the worker responded with. */
@@ -151,14 +164,40 @@ describe('portal service worker', () => {
     expect(h.deleted).toEqual(['kisbooks-portal-shell-v1']);
   });
 
-  it('reloads tabs still showing the build it replaced', async () => {
-    const h = loadWorker();
+  /** Fire activate; resolves 'settled' or 'deadlocked' (waitUntil never settles). */
+  async function activate(h: Harness): Promise<'settled' | 'deadlocked'> {
     const waits: Array<Promise<unknown>> = [];
     h.listeners['activate']!({ waitUntil: (p: Promise<unknown>) => waits.push(p) });
-    await Promise.all(waits);
+    return Promise.race([
+      Promise.all(waits).then(() => 'settled' as const),
+      new Promise<'deadlocked'>((r) => setTimeout(() => r('deadlocked'), 50)),
+    ]);
+  }
+
+  it('reloads tabs still showing the build it replaced', async () => {
+    const h = loadWorker();
+    await activate(h);
+    h.activated();
+    await new Promise((r) => setTimeout(r, 0));
     // Otherwise the person sits on the old page until they navigate — which
     // is how "I still have to hard refresh" survived the first fix.
     expect(h.navigated).toEqual(['https://books.example.com/portal/dashboard']);
+  });
+
+  it('does not hold activation open on the reloads it starts', async () => {
+    // QA-ENV-1: awaiting client.navigate() inside waitUntil deadlocked — the
+    // reload waited for activation, activation waited for the reload — and a
+    // cold load of any /portal/* page never finished loading.
+    const h = loadWorker();
+    expect(await activate(h)).toBe('settled');
+  });
+
+  it('does not reload the page that just installed it', async () => {
+    const h = loadWorker({ controlledBeforeClaim: false });
+    expect(await activate(h)).toBe('settled');
+    h.activated();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(h.navigated).toEqual([]);
   });
 
   it('matches its own subpath on an appliance install', async () => {
