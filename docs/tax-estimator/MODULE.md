@@ -129,7 +129,7 @@ they get the firm's full managed set.
   belongs to another firm is shown with `targetOtherFirm: true` and the foreign ids withheld, and cannot be
   changed (`TE_TREATMENT_OTHER_FIRM` 409).
 
-### 2.1 Taxpayer visibility (D17, migration 0202)
+### 2.1 Taxpayer visibility (D17, migration 0202; D18 staff-list override)
 
 On top of the firm scope, **which taxpayers** a member sees is decided by one predicate,
 `visibleTaxpayerFilter(scope)` in `firm-scope.service.ts` (SQL on `tax_est_taxpayers`, includes
@@ -140,8 +140,9 @@ the firm, or super admin) and the firm switch `tax_est_firm_settings.restrict_ta
 | Viewer | Sees a taxpayer when |
 |---|---|
 | bypass (firm admin, super admin) | always (any firm taxpayer) |
-| anyone else, switch ON | (no staff list, or they are on it) AND (a link of the taxpayer, any year, points into their `allowedTenantIds` OR the taxpayer has no **active** link — none into a tenant the firm still actively manages — and `created_by` is them) |
-| anyone else, switch OFF | no staff list, or they are on it |
+| anyone else, taxpayer HAS a staff list (D18) | they are on it — nothing else (tenant reach and the switch play no part) |
+| anyone else, no staff list, switch ON | a link of the taxpayer, any year, points into their `allowedTenantIds` OR the taxpayer has no **active** link — none into a tenant the firm still actively manages — and `created_by` is them |
+| anyone else, no staff list, switch OFF | always |
 
 - The predicate is in the list query's WHERE (the `total` counts only visible rows; the lock flag
   `staffRestricted` is a row-local EXISTS, no N+1) and in every by-id loader: `loadTaxpayerForFirm`,
@@ -149,8 +150,24 @@ the firm, or super admin) and the firm switch `tax_est_firm_settings.restrict_ta
   payment and snapshot loaders. A hidden taxpayer is indistinguishable from another firm's: 404
   `TE_TAXPAYER_NOT_FOUND` (or `TE_SCENARIO_` / `TE_ADJUSTMENT_` / `TE_PAYMENT_` / `TE_SNAPSHOT_NOT_FOUND`
   on routes keyed by those ids).
-- Visibility is about the taxpayer; the **data** from linked tenants outside the viewer's scope stays
-  hidden exactly as in section 2 (partial view: those links are `outOfScope`, their figures left out).
+- Visibility is about the taxpayer; under the firm rule the **data** from linked tenants outside the
+  viewer's scope stays hidden exactly as in section 2 (partial view: those links are `outOfScope`,
+  their figures left out).
+- **D18 full data for listed users** (OPEN-QUESTIONS.md Q43). `scopeForTaxpayer(scope, taxpayerId)`
+  (`firm-scope.service.ts`) returns the scope for reads / computations OF that taxpayer: for a
+  non-bypass viewer on its staff list, `allowedTenantIds` gains every tenant the firm still actively
+  manages that the taxpayer links into (any year), and the scope carries `elevation { taxpayerId,
+  baseTenantIds }`; otherwise it is unchanged. It checks the list membership itself. Used by: the
+  estimate (`computeEstimateWithInputs`, cache key adds `elevated`), estimate readiness, `listLinks`
+  (links read only through the list are `viaStaffList: true`), the taxpayer detail (`elevatedAccess`),
+  the payment ledger, Schedule AI list / capture / stored figures, estimate snapshots (create, history,
+  view, compare — the snapshot's tenant gate is checked against the widened set), PDFs and the Report
+  Pack section (request and worker). `baseScope(scope)` strips it at every write that could reach the
+  books: `upsertLink`, `removeLink` (non-admins need their own reach into a still-managed tenant),
+  company options, portal contacts, entity settings / year inputs, treatments, transaction flags, GL-linked
+  adjustments, payments, the register flag. Routes keyed by tenant (`/entities/*`, `/register/*`) and
+  everything outside the estimator never see a widened scope. `EstimateResultDTO.elevatedAccess` drives
+  the estimate-page note; audit rows written under a widened scope carry `elevated: true`.
 - Report Pack: the `tax-estimate` choices and `renderPackSection` apply the requester's visibility;
   the worker re-derives the scope from `requested_by` (`resolvePackScopeForUser`), so a staff list
   set after the run was queued is honoured at render time. A hidden taxpayer is `TE_TAXPAYER_NOT_LINKED` 404 there.

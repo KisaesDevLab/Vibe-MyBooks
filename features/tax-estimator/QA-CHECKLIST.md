@@ -36,10 +36,22 @@ Setup: firm admin A (access to the practice tenant only); staff S1 with access t
 - [ ] Switch OFF (admin): S3 sees every firm taxpayer; ON again restores the rule. Audit: a `tax_est_visibility_switch` row per change (before/after flag only).
 - [ ] Taxpayer page, "Who can see this taxpayer" card: admin adds S1 → the list shows a lock beside T; S2 and R no longer see T (404 by URL), S1 does; admin and super admin still do. Staff and read-only users see the card read-only ("Only a firm administrator can change this list."); API PUT `/staff` from them → 403, from S3 (cannot see T) → 404.
 - [ ] The picker lists only active firm staff / read-only members with Tax Estimator access (no firm admins, no other firm's users); adding anyone else via the API → 422 `TE_STAFF_NOT_ELIGIBLE`. Remove and "Allow everyone" work; each change writes one `tax_est_taxpayer_staff` audit row with user ids only.
-- [ ] A staff-list member who reaches no linked client still cannot see T while the switch is ON.
+- [ ] ~~A staff-list member who reaches no linked client still cannot see T while the switch is ON.~~ Superseded by D18 (section 2b).
 - [ ] Hidden taxpayer everywhere: estimate, readiness, payments, PDF, snapshots (history, view, compare, re-print by snapshot id), scenarios / adjustments / payments by id → 404 for the hidden user.
 - [ ] Report Pack (inside client tenant 1's company): the Tax Estimate section's taxpayer choices omit T for a user who may not see it; the ad-hoc PDF for T → 404; a pack run requested by them renders without the section's PDF (worker re-check). The register NR flag still works for them (it is entity data) but names no hidden taxpayer.
 - [ ] Client portal unchanged: a contact mapped to T still sees T's estimate whatever the staff list says.
+
+## 2b. Staff list overrides the firm rule, with full data (D18)
+Same setup as 2a. Admin A puts S3 (practice tenant only) and S2 (client tenant 2 only) on T's list.
+- [ ] S3 sees T in the list (lock icon; tooltip says listed staff see all linked companies) and opens it; S1 (reaches client tenant 1, NOT listed) no longer sees T (404 by URL). Same with the firm switch OFF.
+- [ ] Card text: empty list says "Everyone allowed by the firm rule…"; with the list: "Only these people (and firm administrators) can see this taxpayer, and they see all of its linked companies even in clients they can't otherwise open."
+- [ ] S3's Entity links table shows both companies by name with a "Via access list" badge and no Entity tax setup / Edit / Remove on them; "Link a company" offers no company from client tenants 1 / 2 (picker = own access).
+- [ ] S3's estimate page shows the note "Includes companies outside your client access because you're on this taxpayer's access list"; the figures equal a super admin's for the same scenario and month; no "outside your access" readiness item; the readiness banner has no "Open entity tax setup" link for those companies. S2 (listed, reaches tenant 2) sees the note too.
+- [ ] S3 finalizes, views, compares and prints (standalone PDF and from history); audit `tax_est_snapshot` create / download rows carry `elevated: true` and no figures. A super admin's download carries no flag.
+- [ ] S3 opening `/tax-estimator/entities/<tenant 1>/<company>` directly gets "not managed" (404); switching into client tenant 1 is refused; PUT link into tenant 1 or DELETE an existing tenant-1 link → 404 `TE_TENANT_NOT_MANAGED`. A firm admin can still remove the link.
+- [ ] Report Pack in client tenant 2's company (S2): T is offered; the section PDF includes both companies; S1 in tenant 1 gets no T.
+- [ ] Clear the list ("Allow everyone"): S3 no longer sees T; S2 sees T with only tenant 2's figures (no note); S1 sees T again. The estimate is recomputed (no widened figures served from cache).
+- [ ] Firm admin A (practice tenant only) is unaffected: sees T, no note, own data view.
 
 ## 3. Entity tax setup
 - [ ] Open from a link: entity type derived from the Trial Balance profile (Automatic); override works and explains the profile wins when set.

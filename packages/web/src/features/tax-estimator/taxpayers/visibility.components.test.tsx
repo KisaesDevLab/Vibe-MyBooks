@@ -52,6 +52,7 @@ describe('TaxpayerAccessCard', () => {
   it('admin, empty list: explains the firm rule and adds a staff member', () => {
     renderRoute(<TaxpayerAccessCard taxpayerId="tp1" />);
     expect(screen.getByText(/Everyone allowed by the firm rule can see it: staff who can reach at least one client company/)).toBeInTheDocument();
+    expect(screen.getByText(/sees only the linked companies in clients they can open/)).toBeInTheDocument();
     expect(h.candidatesEnabled).toBe(true);
     fireEvent.change(screen.getByLabelText('Limit to staff member'), { target: { value: 'u2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
@@ -61,7 +62,8 @@ describe('TaxpayerAccessCard', () => {
   it('admin, with a list: shows members, removes one, and can allow everyone again', () => {
     h.staff = { ...h.staff, data: staffDto({ members: [member('u1', 'Ann'), member('u3', 'Cy')], total: 2 }) };
     renderRoute(<TaxpayerAccessCard taxpayerId="tp1" />);
-    expect(screen.getByText(/Only the people listed below \(and firm administrators\) can see it, and each still needs access/)).toBeInTheDocument();
+    // D18: a non-empty list replaces the firm rule and grants full data for this taxpayer.
+    expect(screen.getByText(/Only these people \(and firm administrators\) can see this taxpayer, and they see all of its linked companies even in clients they can.t otherwise open/)).toBeInTheDocument();
     const rows = screen.getAllByTestId('staff-row');
     expect(rows).toHaveLength(2);
     // The picker hides users already on the list.
@@ -79,7 +81,8 @@ describe('TaxpayerAccessCard', () => {
     expect(screen.queryByLabelText('Limit to staff member')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
     expect(h.candidatesEnabled).toBe(false);
-    expect(screen.getByText(/Only the people listed below \(and firm administrators\) can see it\.$/)).toBeInTheDocument();
+    expect(screen.getByText(/Only these people \(and firm administrators\) can see this taxpayer/)).toBeInTheDocument();
+    expect(screen.queryByText(/still needs access/)).toBeNull();
   });
 
   it('shows the server error inline and has loading / error states', () => {
@@ -121,5 +124,6 @@ describe('TaxpayerListPage lock icon', () => {
     const locks = screen.getAllByTestId('staff-lock');
     expect(locks).toHaveLength(1);
     expect(locks[0]!.closest('td')).toHaveTextContent('Locked Taxpayer');
+    expect(locks[0]!.getAttribute('title')).toMatch(/listed staff see all of its linked companies/);
   });
 });

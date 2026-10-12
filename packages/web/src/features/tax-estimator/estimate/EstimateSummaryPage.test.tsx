@@ -63,6 +63,16 @@ beforeEach(() => {
 });
 
 describe('EstimateSummaryPage', () => {
+  it('D18: notes when the estimate includes companies outside the viewer\'s client access (access list)', () => {
+    h.estimate = q({ data: makeEstimate({ elevatedAccess: true }) });
+    const { unmount } = render();
+    expect(screen.getByTestId('elevated-access-note')).toHaveTextContent('Includes companies outside your client access because you\u2019re on this taxpayer\u2019s access list.');
+    unmount();
+    h.estimate = q({ data: makeEstimate() });
+    render();
+    expect(screen.queryByTestId('elevated-access-note')).toBeNull();
+  });
+
   it('shows a spinner while the taxpayer / year loads', () => {
     h.year = q({ isLoading: true });
     render();

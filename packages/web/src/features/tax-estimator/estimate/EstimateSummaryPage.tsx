@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Lock } from 'lucide-react';
 import { DEFAULT_ASSUMPTIONS_DISCLAIMER } from '@kis-books/shared';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useTaxpayer, useTaxEstimatorScope } from '../../../api/hooks/useTaxEstimatorTaxpayers';
@@ -172,6 +173,12 @@ export function EstimateSummaryPage() {
               </section>
             ) : (
               <>
+                {e.elevatedAccess && (
+                  <p role="note" data-testid="elevated-access-note" className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-900">
+                    <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    Includes companies outside your client access because you&rsquo;re on this taxpayer&rsquo;s access list.
+                  </p>
+                )}
                 <ReadinessBanner taxpayerId={tp.id} taxYear={taxYear} estimate={e} readiness={readiness.data} readinessError={readiness.isError} />
                 <KeyFigures estimate={e} />
                 <div className="flex flex-wrap gap-5 items-start">

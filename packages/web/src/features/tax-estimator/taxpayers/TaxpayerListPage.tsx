@@ -139,8 +139,8 @@ export function TaxpayerListPage() {
                     <td className="py-2 px-3 text-sm">
                       <Link className="text-primary-700 hover:underline" to={`/tax-estimator/taxpayers/${t.id}`}>{t.displayName}</Link>
                       {t.staffRestricted && (
-                        <span className="ml-1.5 inline-flex align-middle text-gray-500" title="Visible only to the listed staff and firm administrators" data-testid="staff-lock">
-                          <Lock className="h-3.5 w-3.5" aria-label="Staff list set" />
+                        <span className="ml-1.5 inline-flex align-middle text-gray-500" title="Access list set: only the listed staff and firm administrators can see this taxpayer, and listed staff see all of its linked companies" data-testid="staff-lock">
+                          <Lock className="h-3.5 w-3.5" aria-label="Access list set" />
                         </span>
                       )}
                       {!t.isActive && <span className="ml-2 text-xs text-gray-500">(archived)</span>}

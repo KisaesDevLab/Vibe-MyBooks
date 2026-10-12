@@ -21,7 +21,8 @@ export function ReadinessBanner({ taxpayerId, taxYear, estimate, readiness, read
   const items: Item[] = [];
   for (const e of readiness?.entities ?? []) {
     if (!e.inScope || !e.readiness) continue;
-    const entityLink = (
+    // D18: a company seen only through the taxpayer's access list has no entity-setup link (its client stays closed).
+    const entityLink = e.viaStaffList ? null : (
       <Link className="underline" to={`/tax-estimator/entities/${e.tenantId}/${e.companyId}`}>Open entity tax setup</Link>
     );
     const name = e.companyName ?? 'Linked company';
