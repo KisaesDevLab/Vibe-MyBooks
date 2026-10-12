@@ -5,7 +5,7 @@ Every `TE_*` code the module can emit, generated from the source on branch
 writing, 2026-10-12). Companion to [MODULE.md](./MODULE.md) and
 [AUDIT-CATALOGUE.md](./AUDIT-CATALOGUE.md).
 
-**215 distinct codes**: 214 emitted, plus one documented-but-never-emitted code listed last. Line numbers
+**218 distinct codes**: 217 emitted, plus one documented-but-never-emitted code listed last. Line numbers
 are a snapshot and drift; the code is the key. See "Regenerating" at the bottom.
 
 ## How codes reach you
@@ -36,6 +36,8 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_ADJUSTMENT_INVALID` | HTTP 422 | `svc/adjustments.service.ts:153` | Invalid adjustment |
 | `TE_ADJUSTMENT_LINK_EXCLUDED` | warning | `svc/estimate.service.ts:494` | Adjustment "…" belongs to an entity that is not in this estimate (out of scope, C corporation or skipped); left out. |
 | `TE_ADJUSTMENT_LINK_INVALID` | HTTP 422 | `svc/adjustments.service.ts:71` | Entity link does not belong to this taxpayer and year |
+| `TE_ADJUSTMENT_LINK_NOT_ALLOWED` | HTTP 422 | `svc/adjustments.service.ts` (validate) | This owner-level deduction is figured per person and cannot be attached to an entity. (QA D1: owner health insurance, SEP/solo 401k, HSA, retirement catch-up — `adjustmentLinkRule` = not_allowed.) |
+| `TE_ADJUSTMENT_LINK_REQUIRED` | HTTP 422 | `svc/adjustments.service.ts` (validate) | Choose the business this deduction belongs to. Without an entity it would be treated as an itemized deduction, not a business expense. (QA D1: §179 vehicle, tax-vs-book depreciation and firm deduction types that affect SE/QBI and are not above the line; checked on create and on the merged row of an update.) |
 | `TE_ADJUSTMENT_NOT_FOUND` | HTTP 404 | `svc/year-access.ts:27` | Adjustment not found |
 | `TE_ADJUSTMENT_PERSON_INVALID` | HTTP 422 | `svc/adjustments.service.ts:66` | Person does not belong to this taxpayer |
 | `TE_ADJUSTMENT_TYPE_INACTIVE` | HTTP 422 | `svc/adjustments.service.ts:107` | Adjustment type is inactive |
@@ -46,7 +48,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_ADJUSTMENT_TYPE_READONLY` | HTTP 403 | `svc/adjustment-types.service.ts:60` | Shipped adjustment types are read-only |
 | `TE_ADJUSTMENT_UNLINKED_DEDUCTION` | info | `engine/income.ts:360` | …: a deduction with no entity link that is not above the line is treated as an itemized deduction (other) — it is not SE, QBI or §461(l) business income. Link it to an entity if it is a business deduction. |
 | `TE_AMT_NOT_MODELLED` | warning | `engine/federal.ts:241` | AMT exposure was flagged; the alternative minimum tax is out of scope and not included. |
-| `TE_BASE_SCENARIO_PROTECTED` | HTTP 422 | `svc/scenarios.service.ts:94` | The Base scenario cannot be deleted |
+| `TE_BASE_SCENARIO_PROTECTED` | HTTP 422 | `svc/scenarios.service.ts` (delete, rename) | The Base scenario cannot be deleted / The Base scenario cannot be renamed (QA D21) |
 | `TE_CAPITAL_LOSS_LIMITED` | warning | `engine/income.ts:423` | Net capital loss … is limited to … this year (§1211); … carries forward (not tracked). |
 | `TE_CCORP_BELOW_MIN_TAX` | info | `engine/ccorp.ts:298` | Federal tax … is below …; no estimated-tax installments are required (IRC §6655(f)). The schedule is shown for reference. |
 | `TE_CCORP_FAILED` | warning | `svc/estimate.service.ts:662` | Fallback code when computing a linked C corporation fails with an AppError that carries no code; the message is `<company>: <error message>`; the entity is left out. |
@@ -117,12 +119,13 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_PACK_TAXPAYER_REQUIRED` | HTTP 400 | `routes/reports.routes.ts:1798`, `svc/estimate-documents.service.ts:205` | taxpayer_id must be a UUID / Also: Pick a taxpayer for the Tax Estimate section |
 | `TE_PARAM_CHANGED` | HTTP 409 | `svc/tax-parameters.service.ts` (verifyOne), `svc/tax-state-rules.service.ts` (verifyOne) | The value of … changed since you read it; review the current value and verify again. (R6-04: the Verify body's `expectedValue` no longer matches the row; `details.currentValue` carries the value now stored. Bulk verify never throws it — changed keys come back in `changed`) |
 | `TE_PARAMS_FALLBACK_YEAR` | warning | `svc/estimate.service.ts:223` | No federal parameters exist for …; the … values were used (all provisional). Due dates, the return due date and holidays were rolled forward to …; rates, amounts and the penalty rate table are …'s. |
-| `TE_PARAM_INVALID` | HTTP 400, throws Error | `svc/tax-parameters.service.ts:267`, `svc/tax-parameters.service.ts:269`, `svc/tax-parameters.service.ts:271` (+2 more) | HTTP 400 from the parameters admin (override or verify): unknown key, value fails registry validation, or a reason under 3 characters. Engine throw: a parameter has the wrong type for how the engine reads it. |
+| `TE_PARAM_INVALID` | HTTP 400, throws Error | `svc/tax-parameters.service.ts:267`, `svc/tax-parameters.service.ts:269`, `svc/tax-parameters.service.ts:271` (+2 more) | HTTP 400 from the parameters admin (override or verify): unknown key, value fails registry validation, a reason under 3 characters, or (QA D6) an installment pair that does not line up — `installments.pcts` / `ccorp.installment_pcts` entries over 1, not totalling 100%, or a different count from `installments.due_dates` / `ccorp.installment_months` (save both with `companion`); also a `companion` that is not the key's partner, or a revert that would orphan a partner with no shipped row. Engine throw: a parameter has the wrong type for how the engine reads it. |
 | `TE_PARAM_MISSING` | throws Error | `engine/parameters.ts:48` | The engine read a registry key that is not in the resolved parameter set (a year with an incomplete parameter set). Plain Error, surfaces as 500 INTERNAL_ERROR. |
 | `TE_PARAM_UNVERIFIED` | warning | `engine/parameters.ts:162` | Tax parameter '…' is … (not CPA-verified); the estimate uses its current value …. |
 | `TE_PASSIVE_ALLOWANCE_PHASED_OUT` | info | `engine/loss-limits.ts:166` | §469(i) rental allowance reduced from … to … because MAGI … exceeds ……. |
 | `TE_PASSIVE_LOSS_SUSPENDED` | warning | `engine/loss-limits.ts:201` | Passive losses of … exceed passive income ……; … is suspended (carried forward, not tracked). |
 | `TE_PASSIVE_MFS_NO_ALLOWANCE` | warning | `engine/loss-limits.ts:152` | Married filing separately and not living apart all year: no §469(i) rental loss allowance (§469(i)(5)(B)). |
+| `TE_PAYMENTS_AFTER_AS_OF` | info | `svc/estimate.service.ts` (withPaymentsAsOf) | … payment(s) dated after … are not counted as paid yet. (QA D13: the live client-portal estimate is computed as of today; staff estimates still project every known payment.) |
 | `TE_PAYMENTS_EXCESS` | info | `engine/payments.ts:205` | …: payments exceed the required installments by …; the excess is an overpayment. |
 | `TE_PAYMENTS_SHAPE` | throws Error | `engine/payments.ts:138` | withholdingShares must match installments |
 | `TE_PAYMENT_ACCOUNT_UNASSIGNED` | info | `svc/pl-provider.service.ts:730` | Some estimated-tax payment accounts are not tied to a taxpayer; their payments are listed but cannot be credited automatically. |
@@ -215,7 +218,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_STATE_RULES_FALLBACK_YEAR` | warning | `svc/estimate.service.ts` (gather) | No … rules exist for …; the … … rules were used (all provisional). Due dates, the return due date, the farmer dates and holidays were derived for …; thresholds, percentages and penalty rates are …'s. (R6-03: the state mirror of `TE_PARAMS_FALLBACK_YEAR`, one per state; the admin States screen shows the same state as status `fallback`) |
 | `TE_STATE_RULES_FALLBACK` | warning | `engine/state-gates.ts:173`, `engine/vouchers.ts:526` | … has no verified estimated-tax rule set; the federal pattern (estimates required at … after withholding and credits) was applied. Verify. / Also: … has no verified estimated-tax rule set; the federal pattern (percentages, due dates, penalty rate) was applied. Verify. |
 | `TE_STATE_RULES_MISSING` | warning | `engine/state.ts:86` | No rule set was supplied for …; the federal pattern applies and the state is flagged "verify". |
-| `TE_STATE_RULE_INVALID` | HTTP 400, throws Error | `svc/tax-state-rules.service.ts:343`, `svc/tax-state-rules.service.ts:345`, `svc/tax-state-rules.service.ts:347` (+13 more) | HTTP 400 from the state-rules admin: unknown rule key, value fails its registry validation, or a reason under 3 characters. Engine throw: a rule value has the wrong shape (not a date list, number, etc.) or a required rule is absent; a seed or override defect. |
+| `TE_STATE_RULE_INVALID` | HTTP 400, throws Error | `svc/tax-state-rules.service.ts:343`, `svc/tax-state-rules.service.ts:345`, `svc/tax-state-rules.service.ts:347` (+13 more) | HTTP 400 from the state-rules admin: unknown rule key, value fails its registry validation, a reason under 3 characters, or (QA D6) `installments.pcts` that does not total 100%, has an entry over 1, or does not have one entry per `installments.due_dates` date (save both with `companion`; a revert that would orphan a partner with no shipped row is refused). Engine throw: a rule value has the wrong shape (not a date list, number, etc.) or a required rule is absent; a seed or override defect. |
 | `TE_STATE_RULE_UNVERIFIED` | warning | `engine/state-types.ts:268` | … rule '…' is … (not CPA-verified); the estimate uses its current value …. |
 | `TE_STATE_SOURCED_MISSING` | warning | `engine/state.ts:124` | …: sourced income is manual but blank; 0 was used. |
 | `TE_STATE_SOURCED_NONE` | warning | `engine/state.ts:133` | …: no linked entity is sourced to the state, so derived sourced income is 0. Enter it manually or set the entity's state sourcing. |

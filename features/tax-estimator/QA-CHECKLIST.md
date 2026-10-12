@@ -14,16 +14,17 @@ Run the sections in order on a scratch/test firm (D13: never on the production t
 - [ ] With the flag OFF on the practice tenant: no Tax Estimator sidebar group; /tax-estimator/taxpayers bounces to the dashboard; API /api/v1/tax-estimator/* returns 403/404.
 - [ ] Admin > Tenants > practice tenant > Feature Flags: turn TAX_ESTIMATOR_V1 ON. Staff user reloads: group "Tax Estimator" with Taxpayers appears; collapse/expand works and is remembered; the sidebar "collapse all" collapses it.
 - [ ] Read-only staff sees the group (read). Client user and second-firm user never see it. A user with no tax_estimator permission does not.
+- [ ] (QA D2) A firm staff member whose ACTIVE-tenant role is `readonly` sees the group and the read-only screens (no New taxpayer, Save, Finalize or other write controls; `GET /tax-estimator/scope` returns `canWrite: false`); their write calls are 403.
 - [ ] Turn the flag OFF again: group disappears, data is untouched; ON again restores it.
 - [ ] A new tenant created afterwards has the flag OFF.
 
 ## 2. Taxpayers, persons, links
-- [ ] New taxpayer: display name, filing status, resident state (two letters; "Missouri" is rejected with "Use a two-letter state code"). Created and listed; a staff user with several firms must pick a firm.
-- [ ] List: search by taxpayer and by person name; filter by filing status and state; Clear filters; empty states ("No taxpayers yet" / "No taxpayers match").
+- [ ] New taxpayer: display name, filing status, resident state picked from a list of the 51 jurisdictions ("MO · Missouri"; there is no free-text box, so "Missouri" can never become MI). The API rejects an unknown code (`residentState: "ZZ"` → 400 "Use a two-letter state code …"). Created and listed; a staff user with several firms must pick a firm.
+- [ ] List: search by taxpayer and by person name; filter by filing status and by state (column filters); Clear filters; empty states ("No taxpayers yet" / "No taxpayers match").
 - [ ] Taxpayer page: edit details, Save details; Safe-harbor rule and Client portal shows select Firm default or an override; read-only staff sees fields disabled.
 - [ ] Persons: add primary + spouse; only one primary; future date of birth rejected; SEHI month checkboxes plus All months / No months.
 - [ ] Links: add a link for the S corp (tenant A) and the Sch C + rental (tenant B) -- one taxpayer across two client tenants. Company picker lists only companies in clients the firm manages and the user can access.
-- [ ] Link form: profit/loss/capital %, partner SE status for a partnership, activity type, active participation on a rental, QBI override requires a reason, allowed-loss override requires a reason. Percent totals notice appears when a company's profit % does not total 100.
+- [ ] Link form: profit/loss/capital %, partner SE status for a partnership, activity type, active participation on a rental, QBI override requires a reason, allowed-loss override requires a reason. Percent totals notice appears when a company's profit % does not total 100: once below the table, naming the company (QA D17); active participation shows in Notes.
 - [ ] Archive: confirm dialog; archived taxpayer leaves the default list.
 - [ ] Isolation: second firm's staff cannot open the taxpayer by URL (not found); a user who lost access to tenant B sees that link as "no longer managed by your firm" and cannot see its figures.
 
@@ -31,10 +32,12 @@ Run the sections in order on a scratch/test firm (D13: never on the production t
 - [ ] Open from a link: entity type derived from the Trial Balance profile (Automatic); override works and explains the profile wins when set.
 - [ ] Tax method override, state sourcing, SSTB, rental-is-trade-or-business, large corporation, Farmer / Not a farmer; Save tax profile persists after reload.
 - [ ] Year inputs: W-2 wages override requires a reason; UBIA blank shows the "UBIA limb not computed" notice; values with more than 4 decimals are rejected.
-- [ ] GL tax treatment table: filters (status, search), Suggested / Mapped / None / Unmapped with activity badges, tax effect select, person picker for owner items, Non-recurring toggle, Discard. Suggestions banner: nothing is applied until accepted; Dismiss works.
-- [ ] Rivera check: the S corp profit moves from 115,400 to 128,000 after treatments are applied (see docs/reference-calc).
+- [ ] GL tax treatment table: filters (status, treatment), account search box, Suggested / Mapped / None / Unmapped with activity badges, tax effect select, person picker for owner items, Non-recurring toggle, Discard. Suggestions banner: nothing is applied until accepted; Dismiss works and stays dismissed after a reload (per browser; a changed suggestion shows again).
+- [ ] Suggestions (QA D15): "Entertainment" → Nondeductible 100% (§274(a)); "Meals" → 50%; "Meals & Entertainment" → 50% with a note to split out the entertainment.
+- [ ] A company with no TB profile shows the entity-type notice once (no duplicate-key console error); an empty treatment table explains it lists accounts with activity in the range.
+- [ ] Rivera check: the **Sch C company (Rivera Plumbing)** profit moves from book 115,400 to tax-basis 128,000 after treatments are applied (see docs/reference-calc).
 - [ ] Read-only user sees the table without edit controls. A treatment mapped by another firm sharing the books is read-only with its note.
-- [ ] Readiness panel and Through month selector list unreconciled accounts, suspense, unmapped accounts.
+- [ ] Readiness panel and Through month selector list unreconciled accounts, suspense, unmapped accounts; the Through month input shows the month in use (not blank).
 
 ## 3a. Non-recurring flag on a transaction (register / transaction detail)
 Setup: TAX_ESTIMATOR_V1 ON for the CLIENT tenant (the flag is evaluated on the tenant you are working in); switch into client tenant B as firm staff; the Sch C company is linked to the taxpayer, a second company in B is not.
@@ -50,13 +53,14 @@ Setup: TAX_ESTIMATOR_V1 ON for the CLIENT tenant (the flag is evaluated on the t
 - [ ] Year inputs: deduction method (automatic / standard forced / itemized forced), federal method (bracket / effective-rate override with a rate), credits, withholding, HSA coverage, prior-year tax and AGI.
 - [ ] Schedule 1-A (Deductions card): chips read "Senior · <names> 65+" (or "none 65+", from each person's date of birth), "Tips · $", "Overtime · $", "Car loan interest · $". **Edit Schedule 1-A** opens the dialog: per person tips / overtime / car-loan interest, the senior line says 65 or older / under 65 / no date of birth. "3,700" or a negative is rejected (Apply disabled); Apply updates the chips, Cancel / Esc discards; values persist only after **Save annual settings** and round-trip after reload. No people → the dialog says to add them first. Read-only staff gets **View Schedule 1-A** (inputs disabled, Close only).
 - [ ] MFS taxpayer: the chips row and the dialog both say Schedule 1-A is not allowed when married filing separately; the estimate's Schedule 1-A line stays 0 with amounts entered.
-- [ ] Prior-year AGI above $150,000 (above $75,000 MFS) shows the 110% note. Values persist after reload and are not visible in plain text via the API list (encrypted; D9).
-- [ ] States: exactly one resident state (validation message), other states with effective rates, other-state credit override, state withholding "STATE=amount" format.
+- [ ] Prior-year AGI above $150,000 (above $75,000 MFS) shows the 110% note; at or below it the note is absent (QA D28). Values persist after reload and are not visible in plain text via the API list (encrypted; D9). Stored amounts edit as plain numbers ("8000", not "8000.0000").
+- [ ] States: exactly one resident state (validation message), states chosen from the jurisdiction list, other states with effective rates, other-state credit override, state withholding "STATE=amount" format (the error is announced on the field: aria-invalid / aria-describedby). Every control on the page has an accessible name (farmer/fisherman inputs included).
 - [ ] Firm settings dialog: safe-harbor default (lesser of / current year / prior year), disclaimer text, Client portal shows (Live / Latest snapshot). Only firm admins/owners with write rights can save.
 
 ## 5. Scenarios and adjustments
-- [ ] Scenario tabs: clone Base (name it), rename, delete; Base cannot be deleted or renamed away; clone disabled at the scenario cap.
-- [ ] Adjustment editor: label, amount, person or household, cadence, start/end month (end before start rejected), percent applied, memo, Non-recurring, Run-rate from GL fills an amount. Edit and delete with confirmation.
+- [ ] Scenario tabs: Clone asks for the copy's name (prefilled "Copy of …"); rename and delete non-base scenarios; Base has no Rename or Delete (API: rename/delete Base → 422 `TE_BASE_SCENARIO_PROTECTED`); clone disabled at the scenario cap. After a delete the page does not request the deleted scenario again (no 404s in the network log).
+- [ ] Adjustment editor: label, amount, **Entity** (the taxpayer's links for the year), person or household, cadence, start/end month (end before start rejected), percent applied, memo, Non-recurring, Run-rate from GL fills an amount. Edit and delete with confirmation.
+- [ ] (QA D1) "Vehicle purchase (§179)" and "Depreciation (tax vs book)" require an entity: Save stays disabled with "Choose the business this deduction belongs to …" until one is picked (API without `linkId` → 422 `TE_ADJUSTMENT_LINK_REQUIRED`). Picking Rivera Plumbing fills the person from the link. With the truck linked, the estimate lowers Sch C profit, SE tax, QBI and AGI and the SEP line shows "Capped at limit". Owner health insurance / SEP / HSA / catch-up offer no entity (API with `linkId` → 422 `TE_ADJUSTMENT_LINK_NOT_ALLOWED`). An older unlinked §179 row is flagged in the grid.
 - [ ] Allocation strip: adjustments are spread evenly across remaining quarters.
 - [ ] Adjustments in one scenario do not change another scenario.
 
@@ -70,21 +74,24 @@ Run the Phase 11 script (section 11) for the full screen-by-screen steps. In add
 - [ ] Payments ledger: GL-derived row (the estimated-tax account) read-only; add/edit/delete a manual payment; read-only staff has no controls.
 - [ ] Finalize & issue vouchers: dialog with optional note; confirms "Snapshot saved"; appears in Snapshots with scenario/date/reason/note.
 - [ ] Snapshot view: figures, Assumptions list, Voucher schedule match what was on screen at finalize time. No edit/delete controls; direct API PATCH/DELETE returns 409 TE_SNAPSHOT_IMMUTABLE.
-- [ ] Change an input afterwards: live moves, snapshot does not. Compare with live lists changed figures, warning changes, parameter/state-rule changes; with nothing changed it says "No figures changed".
+- [ ] Change an input afterwards: live moves, snapshot does not. Compare with live lists changed figures (each line once; "Federal required annual payment" appears once), warning changes, parameter/state-rule changes; with nothing changed it says "No figures changed".
 - [ ] Download PDF twice the same day with no change: one PDF snapshot reused (not two).
 - [ ] Snapshot containing a client the viewer lost access to: not viewable ("includes a client you can no longer reach").
 
 ## 8. Report Pack
-- [ ] Reports > Report packs: for a linked company, add the "Tax Estimate" section (group Tax). Taxpayer picker lists only taxpayers linked to that company; optional scenario.
+- [ ] Reports > Report packs: for a linked company, add the "Tax Estimate" section (group Tax). Taxpayer picker lists only taxpayers linked to that company; then an optional **Scenario** select (Base by default; the year's other scenarios).
+- [ ] (QA D9) With TAX_ESTIMATOR_V1 ON only on the firm's practice tenant (not on the client tenant), switch into the linked client company: the section is offered (the flag counts when it is ON in the pack's tenant or in another tenant of the same firm in your scope). With the flag OFF everywhere in the firm, it is absent.
 - [ ] Generate: the pack PDF includes the tax estimate pages; as-of date sets actuals-through; a snapshot with reason "report pack" is created.
 - [ ] A non-staff user cannot add or generate the section; a pack run requested by someone without access renders the section as unavailable, not as data.
 - [ ] Pack for an unlinked company: section shows no choices / explanatory message.
 
 ## 9. Client portal (phone width, 375px, and desktop)
-- [ ] Taxpayer > Portal contacts > Add contact: only contacts in managed clients are offered. Added contact is listed but the "Estimates access" badge is absent until the toggle is on.
+- [ ] Taxpayer > Portal contacts > Add contact **from the practice tenant**: the picker lists the active contacts of the taxpayer's linked client companies ("Name — Company"), never another firm's; an empty list explains why. Added contact is listed but the "Estimates access" badge is absent until the toggle is on. Remove asks for confirmation (it revokes access).
 - [ ] Practice > Client Portal > contact > company permissions: tick "Tax estimates". Badge appears. Client users cannot set it.
 - [ ] Portal home shows the "Tax estimate" tile only when all conditions are met; the tile is absent with the toggle off, the flag off on the client tenant, or no link.
 - [ ] Portal page (phone): no horizontal scroll; projected total, next payments with due dates, Past due badge when late, paid/withheld, payments on record, disclaimer; "as of" label for live, "prepared" for snapshot.
+- [ ] (QA D12) "Next payments · due …" is the next UPCOMING due date (with any earlier unpaid amount included), never a past date; past-due installments stay in the list with "Past due". An installment covered by withholding says "Covered by withholding or earlier payments" (not "Nothing paid yet" beside "Paid"); paid dates show the year. The voucher PDF's "Next payment" matches.
+- [ ] (QA D13) A payment dated after today (Rivera books one on 2027-01-15) is not counted as paid in the live portal view and is not listed under "Payments on record"; the staff "Paid & withheld to date" tile leaves it out and says "$X dated after today not included".
 - [ ] Download payment vouchers returns a PDF with only the client-safe content.
 - [ ] Client never sees persons, other owners, adjustments, trace, parameters, safe-harbor workings or prior-year figures (inspect the network response too).
 - [ ] Switch Client portal shows to Latest snapshot: portal shows the finalized snapshot, or "No tax estimate shared yet" before one exists.
@@ -96,6 +103,7 @@ Run the Phase 11 script (section 11) for the full screen-by-screen steps. In add
 - [ ] Override a parameter: value in the right units, Reason required, saved toast; the estimate uses it; Revert returns to shipped. Override is audited (Admin > audit).
 - [ ] Create a tax year from the page; Missing keys shows what is not seeded.
 - [ ] States view: All states / status filter / search; No income tax rows; Complete / Partial / Missing; override and revert a state rule (JSON array values accepted only as arrays).
+- [ ] (QA D6) Override MO `installments.pcts` with "0.25": refused before saving ("must add up to 100%"); "0.5, 0.5" against four due dates is refused ("has 2 entries but installments.due_dates has 4 …"). The dialog shows the due dates beside the percentages; editing both saves them together. API without the partner → 400 `TE_STATE_RULE_INVALID` (federal: `TE_PARAM_INVALID`, also for `ccorp.installment_pcts` / months). Reverting one half also reverts an overridden partner that would no longer line up. MO estimates keep working throughout.
 - [ ] Firm owner and staff cannot open Admin > Tax parameters or the admin API.
 - [ ] Restart the API: shipped values re-sync, overrides remain.
 
@@ -110,25 +118,25 @@ Setup: `TAX_ESTIMATOR_V1` ON for the firm's practice tenant, a firm staff user, 
 
 ### Access and navigation
 - [ ] Staff user: Tax Estimator group shows in the sidebar; Taxpayers > Rivera shows "Tax estimate" and "Scenarios" links; both open.
-- [ ] Section tabs (Summary, Annual settings, Scenarios, Payments) navigate and the active tab is underlined; Payments scrolls to the ledger.
+- [ ] Section tabs (Summary, Annual settings, Scenarios, Payments) navigate and the active tab is underlined; Payments scrolls to the ledger and keeps `?through=`.
 - [ ] Client user and a user with the flag OFF: deep link to `/tax-estimator/taxpayers/<id>/estimate` bounces to the dashboard.
 - [ ] Second firm's staff cannot open Rivera's estimate or PDF by URL (not found / error, no data).
 
 ### Summary screen
 - [ ] "Actuals through" defaults to the last closed month, labelled as such; choosing a later, unreconciled month shows the amber warning.
 - [ ] Scenario select changes the figures and the URL (`scenario=`); reload keeps it.
-- [ ] Readiness banner lists unreconciled accounts by entity and account, suspense, unmapped accounts, out-of-scope links, unverified/provisional parameters and unverified state rules; each entity item links to Entity tax setup. Clean books show the green "no issues" banner.
+- [ ] Readiness banner lists unreconciled accounts by entity and account, suspense, unmapped accounts, out-of-scope links, unverified/provisional parameters and unverified state rules; each entity item links to Entity tax setup; one item per issue, for the selected "Actuals through" month (QA D20). Clean books show the green "no issues" banner.
 - [ ] Missing-year fallback (use a year with no parameters): banner says values are provisional.
 - [ ] Key figures: projected total (federal / state), paid & withheld, next federal payment with date and days away (or overdue), marginal rate with effective rate subline.
 - [ ] Calculation table: YTD tax-basis column is filled for income lines only; projected column everywhere; there is no "period tax" column.
-- [ ] Inline chips: SEP "Capped at limit" in the truck scenario, "Passive loss suspended", "Rules unverified" on the unverified state, nonresident row carries the effective-rate wording.
-- [ ] Trace on Regular income tax opens the drawer with bracket rows (label, amount, formula, source, marginal rate); Esc and the close button dismiss it; focus returns sensibly.
-- [ ] Safe-harbor card shows BOTH rules (90% current and 100/110% prior), the recommended one outlined, the rule badge with its source, required / withholding / paid / remaining. Prior-year unavailable shows the reason. (The "Q4 under the other rule" line is not in v1: the engine result does not carry it.)
+- [ ] Inline chips: SEP "Capped at limit" in the truck scenario, "Passive loss suspended", "Rules unverified" only on a state whose used rules are not all verified ("Verify" for other review reasons, QA D18), nonresident row carries the effective-rate wording.
+- [ ] Trace on Regular income tax opens the drawer with one row per bracket reached ("Bracket 2: 24,800 to 100,800 at 0.12", slice × rate, marginal rate) and the total; amounts in formulas are formatted (no long decimals); Esc and the close button dismiss it and focus returns to the Trace button.
+- [ ] Safe-harbor card shows BOTH rules (90% current and 100/110% prior), the recommended one outlined (under "lesser of", the lower available amount, QA D8), the rule badge with its source, required / withholding / paid / remaining. Prior-year unavailable shows the reason. (The "Q4 under the other rule" line is not in v1: the engine result does not carry it.)
 - [ ] Self-employment tax by person: one tile per person with SE tax, SE income and the ½ SE tax deduction (Rivera: Daniel $18,086 / SE income per the oracle; Maria $0 "No self-employment income · wages …"). Additional Medicare shows once, as the household Form 8959 figure, only when non-zero. No people → explanatory empty text.
 - [ ] Voucher table per jurisdiction tab: due dates, Regular, Sch AI (bold where it lowers the installment), W-2 credit, from estimates, paid, remaining, penalty, status, Pay now (catch-up) amounts. A state with no regime shows "none required".
 - [ ] Payments ledger: GL rows read-only with account/company; add a manual payment (date + amount required), edit it, delete it with confirmation; the estimate figures refresh. Read-only user sees no add/edit/delete.
 - [ ] Farmer and C corp cases (when their fixtures exist) render their own summary cards.
-- [ ] Warnings list matches the warnings the API returned; footer shows the firm disclaimer, parameter/rule status and engine version.
+- [ ] Warnings list matches the warnings the API returned, in readable form (no raw JSON rate tables, "more than $1,000" not "more_than", no "AR: AR:", grouped numbers; the PDF matches); footer shows the firm disclaimer, parameter/rule status and engine version.
 - [ ] Error: break a parameter (remove a key in a scratch DB) and confirm the message names the missing key and Try again works.
 
 ### Scenario compare
@@ -140,9 +148,9 @@ Setup: `TAX_ESTIMATOR_V1` ON for the firm's practice tenant, a firm staff user, 
 
 ### PDF
 - [ ] "Print / Download PDF" on the summary downloads `tax-estimate-2026-<name>.pdf`; the file opens, lists summary, federal, state, safe harbor, vouchers, warnings, assumptions placeholder and the firm disclaimer; figures equal the screen.
-- [ ] Per-scenario "Download PDF" on the compare cards works; a failed download shows an inline error.
+- [ ] Per-scenario "Download PDF" on the compare cards works and each file carries its scenario (`tax-estimate-2026-<name>-<scenario>.pdf`; Base keeps the plain name); a failed download shows an inline error.
 - [ ] Read-only staff can download; another firm's user gets an error.
 
 ### Responsive and states
-- [ ] 375px width: no horizontal page scroll; tables scroll inside their cards; controls wrap; drawer fits.
+- [ ] 375px width: no horizontal page scroll (the Refresh / Print / Snapshots / Finalize row wraps); tables scroll inside their cards; controls wrap; drawer fits.
 - [ ] Every page shows a spinner while loading, an error with retry on failure, and an explanatory empty state (no year, no linked entities, no payments).
