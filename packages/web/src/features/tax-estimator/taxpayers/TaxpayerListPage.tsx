@@ -93,7 +93,7 @@ export function TaxpayerListPage() {
     ...(stateFilter && stateFilter.length > 0 ? { residentState: stateFilter } : {}),
     ...(view.sortCol ? { sortBy: view.sortCol, sortDir: view.sortDir } : {}),
   });
-  const canWrite = scope.data ? scope.data.firmRole !== 'firm_readonly' : false;
+  const canWrite = scope.data ? (scope.data.canWrite ?? scope.data.firmRole !== 'firm_readonly') : false;
 
   if ((error as { code?: string } | null)?.code === 'TE_FIRM_REQUIRED') return <FirmChooser />;
   const rows = data?.data ?? [];

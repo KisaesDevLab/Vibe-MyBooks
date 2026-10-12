@@ -76,7 +76,7 @@ export function EstimateSummaryPage() {
   }
   if (year.isError || !year.data) return <ErrorMessage message="Could not load this tax year." onRetry={() => year.refetch()} />;
   const tp = taxpayer.data.taxpayer;
-  const canWrite = scope.data ? scope.data.firmRole !== 'firm_readonly' : false;
+  const canWrite = scope.data ? (scope.data.canWrite ?? scope.data.firmRole !== 'firm_readonly') : false;
   const download = async () => {
     if (!id || !scenarioId) return;
     setPdfBusy(true); setPdfError(undefined);

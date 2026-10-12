@@ -86,7 +86,7 @@ export function AnnualSettingsPage() {
   }, [scenarios, selected]);
   useEffect(() => setYearDraft(String(taxYear)), [taxYear]);
 
-  const canWrite = scope.data ? scope.data.firmRole !== 'firm_readonly' : false;
+  const canWrite = scope.data ? (scope.data.canWrite ?? scope.data.firmRole !== 'firm_readonly') : false;
   const isAdmin = scope.data?.firmRole === 'firm_admin';
   const setYear = (y: number) => { setSelected(undefined); setSearch({ year: String(y) }); };
 

@@ -34,7 +34,7 @@ export function EntityTaxSetupPage() {
   const setParam = (k: string, v: string) => setSearch((p) => { const n = new URLSearchParams(p); if (v) n.set(k, v); else n.delete(k); return n; }, { replace: true });
 
   const scope = useTaxEstimatorScope();
-  const canWrite = scope.data ? scope.data.firmRole !== 'firm_readonly' : false;
+  const canWrite = scope.data ? (scope.data.canWrite ?? scope.data.firmRole !== 'firm_readonly') : false;
   const readOnly = !!scope.data && !canWrite;
 
   const settings = useEntitySettings(tenantId, companyId);

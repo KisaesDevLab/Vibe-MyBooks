@@ -107,7 +107,7 @@ export function TaxpayerDetailPage() {
   const archive = useArchiveTaxpayer();
   const [confirmArchive, setConfirmArchive] = useState(false);
   // UX only; the server enforces firm_admin / firm_staff on every mutation.
-  const canWrite = scope.data ? scope.data.firmRole !== 'firm_readonly' : false;
+  const canWrite = scope.data ? (scope.data.canWrite ?? scope.data.firmRole !== 'firm_readonly') : false;
 
   if (isLoading) return <LoadingSpinner className="py-16" />;
   if (isError || !data) {

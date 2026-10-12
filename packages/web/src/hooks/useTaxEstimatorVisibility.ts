@@ -39,7 +39,10 @@ export function filterTaxEstimatorNav(
   canRead: boolean,
 ): TaxEstimatorNavItem[] {
   if (userType === 'client') return [];
-  if (!role || role === 'readonly') return [];
+  // QA D2: a tenant role of `readonly` is NOT excluded. The API serves it every read
+  // (R3-07: GETs plus the compute/print POSTs) and MODULE.md gives read-only members
+  // the read-only screens; write controls follow /scope `canWrite`.
+  if (!role) return [];
   if (!firmStaff || !flagEnabled || !canRead) return [];
   return [...items];
 }

@@ -179,6 +179,7 @@ Adjustment-catalog percentages (meals) are an editable `pct` on the adjustment t
 | firm admin (`firm_role = firm_admin`) | all staff rights + firm safe-harbor default, disclaimer, `portal_shows` |
 | firm staff with the `tax_estimator` permission resource (new row in `shared/src/constants/permissions.ts`, like `trial_balance`) | taxpayers, links, entity settings, treatments, scenarios, payments, finalize, PDF |
 | `firm_readonly` | read-only screens, no mutations, no finalize; may compute (POST `/estimate`) and print (POST `/pdf`, which freezes a `pdf` snapshot as the record of what was issued) |
+| firm admin / staff whose **active-tenant role is `readonly`** (QA D2) | same as `firm_readonly`: the sidebar group and read-only screens (the API serves every read, R3-07), no write controls — `GET /scope` returns `canWrite` = firm admin/staff AND the `tax_estimator` update permission, and every page's write controls follow it |
 | `user_type = 'client'` | 404 on `/api/v1/tax-estimator/*` |
 | portal contact | `portal-tax-estimates-public` router only: tenant flag + `tax_estimates_access`; sees summary + vouchers for linked Taxpayers; never other owners, adjustments, rates or traces |
 | tenant staff outside the firm (incl. in-house bookkeepers) | may REVOKE `tax_estimates_access` on a contact or leave it unchanged; only a caller who passes the Tax Estimator gates may GRANT it (`TE_ACCESS_GRANT_FORBIDDEN`, 403); an assignment payload that omits the field keeps the stored value; every change audits `tax_est_contact_access` (R4-08) |

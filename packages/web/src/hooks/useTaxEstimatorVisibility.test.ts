@@ -15,7 +15,13 @@ describe('filterTaxEstimatorNav', () => {
     expect(show('accountant', 'staff', true, false, true)).toEqual([]);
     expect(show('accountant', 'staff', true, true, false)).toEqual([]);
     expect(show('accountant', 'client', true, true, true)).toEqual([]);
-    expect(show('readonly', 'staff', true, true, true)).toEqual([]);
+    expect(show(undefined, 'staff', true, true, true)).toEqual([]);
+  });
+
+  it('QA D2: a tenant-role readonly firm member sees the (read-only) group, matching the API which serves their reads', () => {
+    expect(show('readonly', 'staff', true, true, true).map((i) => i.path)).toEqual(['/tax-estimator/taxpayers']);
+    expect(show('readonly', 'staff', true, true, false)).toEqual([]);
+    expect(show('readonly', 'client', true, true, true)).toEqual([]);
     expect(show(undefined, 'staff', true, true, true)).toEqual([]);
   });
 });

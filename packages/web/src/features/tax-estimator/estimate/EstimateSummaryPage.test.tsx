@@ -11,13 +11,14 @@ type Q = { data?: unknown; isLoading?: boolean; isError?: boolean; error?: unkno
 const q = (over: Partial<Q> = {}): Q => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn(), ...over });
 const h = vi.hoisted(() => ({
   role: 'firm_staff',
+  canWrite: undefined as boolean | undefined,
   taxpayer: null as unknown, year: null as unknown, estimate: null as unknown, readiness: null as unknown, ledger: null as unknown,
   download: vi.fn(),
 }));
 const mut = { mutate: vi.fn(), isPending: false, isError: false, error: null };
 
 vi.mock('../../../api/hooks/useTaxEstimatorTaxpayers', () => ({
-  useTaxEstimatorScope: () => ({ data: { firmRole: h.role } }),
+  useTaxEstimatorScope: () => ({ data: { firmRole: h.role, canWrite: h.canWrite } }),
   useTaxpayer: () => h.taxpayer,
 }));
 vi.mock('../../../api/hooks/useTaxEstimatorYears', () => ({
@@ -53,6 +54,7 @@ const render = () => renderRoute(<EstimateSummaryPage />, { path: '/tp/:id/estim
 beforeEach(() => {
   vi.clearAllMocks();
   h.role = 'firm_staff';
+  h.canWrite = undefined;
   h.taxpayer = q({ data: tp });
   h.year = q({ data: yearData });
   h.estimate = q({ data: makeEstimate() });
@@ -162,6 +164,13 @@ describe('EstimateSummaryPage', () => {
 
   it('read-only staff cannot finalize but can open the history', () => {
     h.role = 'firm_readonly';
+    render();
+    expect(screen.queryByRole('button', { name: 'Finalize & issue vouchers' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Snapshots' })).toBeInTheDocument();
+  });
+
+  it('QA D2: firm staff whose tenant role is readonly (scope.canWrite false) get the read-only screen', () => {
+    h.canWrite = false;
     render();
     expect(screen.queryByRole('button', { name: 'Finalize & issue vouchers' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Snapshots' })).toBeInTheDocument();

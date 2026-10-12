@@ -179,7 +179,11 @@ export function useUnlinkContact(taxpayerId: string) {
   });
 }
 
-export interface TaxEstimatorScopeInfo { firmId: string; firmRole: 'firm_admin' | 'firm_staff' | 'firm_readonly'; managedTenantCount: number }
+export interface TaxEstimatorScopeInfo {
+  firmId: string; firmRole: 'firm_admin' | 'firm_staff' | 'firm_readonly'; managedTenantCount: number;
+  /** QA D2: firm admin/staff AND the tax_estimator update permission in the active tenant. */
+  canWrite?: boolean;
+}
 
 /** Who am I acting as (counts only). Drives write controls; the server enforces the role regardless. */
 export function useTaxEstimatorScope() {
