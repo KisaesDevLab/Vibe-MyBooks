@@ -233,3 +233,24 @@ Probe files: `scratchpad/r6/dates-probe.ts`, `scratchpad/r6/db-probe.mts` (sessi
 3. **R6-02 + R6-03** together (the two paths share `yearHasRows` / `anyRowsInYear` and the fallback semantics) — 409 guards, per-state create, fallback-aware summary, `TE_STATE_RULES_FALLBACK_YEAR`.
 4. R6-05 … R6-11 and the MODULE.md corrections (R6-13) in the same PR as the tests in §3.
 5. R6-12 is a one-line test-setup change; do it first if any estimate test is going to be run on this host.
+
+---
+
+## 6. Disposition (fix track, 2026-10-12, branch `feat/tax-estimator-r6`)
+
+| ID | Status | Where |
+|---|---|---|
+| R6-01 | Fixed | registry `roll` rules + `deriveFederalDates` / legal-holiday calendar in `shared/dates.ts`; state roll inferred (`rollStateRuleDates`); seed completeness asserts every shipped date equals the derived one; MO / AR 2025→2026 reproduced; TY2027 hand-checked (Jan 18 / Jan 31 / Apr 18, 2028). Finding for the CPA: the shipped AR 2026 holiday list omits Fri Dec 31, 2027 (Saturday New Year's Day 2028 under AR Policy 52 item 6); no AR date falls on it, seed left as shipped |
+| R6-02 | Fixed | `TE_YEAR_NOT_CREATED` on override / verify of a fallback year (federal) or fallback state-year; state create-from-prior per jurisdiction with `skipped`; UI hides Override on fallback rows |
+| R6-03 | Fixed | one resolver (`getStateRules` + `jurisdictionFromStateRules`); summaries report `fallback` + `fallbackYear`; `TE_STATE_RULES_FALLBACK_YEAR`; dead `resolveStateRulesForEngine` / `StateRulesEngineView` deleted |
+| R6-04 | Fixed | `expectedValue` in the body, conditional UPDATE … RETURNING, audit only on returned rows, 409 `TE_PARAM_CHANGED`; bulk reports `changed` |
+| R6-05 | Fixed | `same` on diff rows, UI chip, empty-state text, runbook step 5 |
+| R6-06 | Fixed | `tax_parameter_overrides.citation` (part `r6-lifecycle.sql`), "Carried from Y: …" |
+| R6-07 | Fixed | 409 `TE_NO_SHIPPED_VALUE` unless the row is the year's last row (fallback recovery); UI text conditional on `hasShipped` |
+| R6-08 | Fixed | same value keeps the sign-off; provisional-without-seed stays provisional |
+| R6-09 | Fixed | `before` = effective value; `/:year/changes` filtered by year |
+| R6-10 | Fixed | re-sync compares value AND citation |
+| R6-11 | Documented | MODULE.md §9.1 (backward-only, 2025 onward) |
+| R6-12 | Fixed | `test-setup.ts` fails closed outside CI unless `REDIS_URL` is a test instance |
+| R6-13 | Fixed | MODULE.md §9.1 / 9.2 / 9.4 / §10 / §15; service header comment |
+| R6-14 | Covered | §3 items 1–7 and 9 have tests; item 8 (cache miss after verify) is implied by the hash contract and not separately asserted |

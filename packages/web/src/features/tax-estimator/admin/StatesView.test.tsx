@@ -38,10 +38,10 @@ import { parseStateEditorValue, validateStateOverride } from './StateRuleModal';
 
 const counts = (o: Partial<StateRuleSummaryDTO['counts']> = {}) => ({ verified: 0, unverified: 0, provisional: 0, override: 0, ...o });
 const summaries = (): StateRuleSummaryDTO[] => [
-  { state: 'AR', name: 'Arkansas', hasIncomeTax: true, status: 'complete', counts: counts({ verified: 12, override: 1 }), usesFederalFallback: false },
-  { state: 'MO', name: 'Missouri', hasIncomeTax: true, status: 'partial', counts: counts({ unverified: 3 }), usesFederalFallback: true },
-  { state: 'TX', name: 'Texas', hasIncomeTax: false, status: 'complete', counts: counts({ verified: 1 }), usesFederalFallback: false },
-  { state: 'CA', name: 'California', hasIncomeTax: true, status: 'missing', counts: counts(), usesFederalFallback: true },
+  { state: 'AR', name: 'Arkansas', hasIncomeTax: true, status: 'complete', counts: counts({ verified: 12, override: 1 }), usesFederalFallback: false, fallbackYear: null },
+  { state: 'MO', name: 'Missouri', hasIncomeTax: true, status: 'partial', counts: counts({ unverified: 3 }), usesFederalFallback: true, fallbackYear: null },
+  { state: 'TX', name: 'Texas', hasIncomeTax: false, status: 'complete', counts: counts({ verified: 1 }), usesFederalFallback: false, fallbackYear: null },
+  { state: 'CA', name: 'California', hasIncomeTax: true, status: 'missing', counts: counts(), usesFederalFallback: true, fallbackYear: null },
 ];
 const detail = (over: Partial<StateRulesDTO> = {}): StateRulesDTO => ({
   year: 2026, state: 'AR', hasIncomeTax: true, isFallback: false, fallbackYear: null, complete: true, missing: [],
@@ -67,7 +67,7 @@ describe('StatesView list', () => {
   it('shows jurisdictions with status chips, counts, no-income-tax and federal-fallback badges', async () => {
     render();
     expect(await screen.findByText('Arkansas')).toBeInTheDocument();
-    expect(screen.getByText('2 complete · 1 partial · 1 missing')).toBeInTheDocument();
+    expect(screen.getByText('2 complete · 1 partial · 0 fallback · 1 missing')).toBeInTheDocument();
     expect(screen.getAllByText('complete')).toHaveLength(2);
     expect(screen.getByText('partial')).toBeInTheDocument();
     expect(screen.getByText('missing')).toBeInTheDocument();
@@ -104,18 +104,23 @@ describe('StatesView list', () => {
     expect(await screen.findByText('No jurisdictions are available.')).toBeInTheDocument();
   });
 
-  it('offers create-from-prior only when every state is missing and a prior year exists', async () => {
+  it('R6-02/03: offers create-from-prior while any state is served from an earlier year (status fallback), and names the year served', async () => {
     const r0 = render();
     await screen.findByText('Arkansas');
     expect(screen.queryByText(/state rules from/)).not.toBeInTheDocument();
     r0.unmount();
 
-    h.summary = { data: summaries().map((s) => ({ ...s, status: 'missing' as const, counts: counts() })), isLoading: false, isError: false, refetch: vi.fn() };
+    // one state already created, the rest still on the 2025 fallback: the button stays (create is per state)
+    h.summary = { data: summaries().map((s) => (s.state === 'AR' ? s : { ...s, status: 'fallback' as const, fallbackYear: 2025, counts: counts({ provisional: 20 }), usesFederalFallback: false })), isLoading: false, isError: false, refetch: vi.fn() };
     const r = render();
     fireEvent.click(await screen.findByText('Create 2026 state rules from 2025'));
     expect(h.create).toHaveBeenCalledWith(2026, expect.anything());
+    expect(screen.getAllByText('Using 2025 rules · verify')).toHaveLength(3);
+    expect(screen.getByText('1 complete · 0 partial · 3 fallback · 0 missing')).toBeInTheDocument();
     r.unmount();
-    render([2026]);
+    // every state missing in every year: nothing to copy, no button
+    h.summary = { data: summaries().map((s) => ({ ...s, status: 'missing' as const, counts: counts() })), isLoading: false, isError: false, refetch: vi.fn() };
+    render();
     await screen.findByText('Arkansas');
     expect(screen.queryByText(/state rules from/)).not.toBeInTheDocument();
   });
@@ -138,12 +143,17 @@ describe('StatesView detail', () => {
     expect(await screen.findByLabelText('Search states')).toBeInTheDocument();
   });
 
-  it('shows the fallback banner and the incomplete (federal pattern) notice with missing keys', async () => {
-    h.detail = { ...h.detail, data: detail({ isFallback: true, fallbackYear: 2025, complete: false, missing: ['holidays'] }) };
+  it('shows the fallback banner and the incomplete (federal pattern) notice with missing keys; fallback rows cannot be overridden (R6-02)', async () => {
+    const fb = detail({ isFallback: true, fallbackYear: 2025, complete: false, missing: ['holidays'] });
+    fb.rules = fb.rules.map((r) => ({ ...r, source: 'fallback' as const, status: 'provisional' as const, fallbackYear: 2025 }));
+    h.detail = { ...h.detail, data: fb };
     await open();
     expect(await screen.findByText(/No 2026 rules for Arkansas — showing 2025 as provisional/)).toBeInTheDocument();
     expect(screen.getByText(/uses the federal pattern for Arkansas, flagged verify/)).toBeInTheDocument();
     expect(screen.getByLabelText('Missing keys')).toHaveTextContent('holidays');
+    expect(screen.queryByLabelText('Override required_threshold')).toBeNull();
+    expect(screen.getAllByText('Create 2026 from prior to edit').length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText(/Mark .* verified/)).toBeNull();
   });
 
   it('typed money editor validates, requires a reason and saves', async () => {
@@ -260,7 +270,7 @@ describe('StatesView detail — R7 in-app Verify', () => {
     expect(screen.queryByLabelText('Mark required_threshold verified')).toBeNull();
     fireEvent.click(screen.getByLabelText('Mark penalty.rate_source verified'));
     fireEvent.click(screen.getByRole('button', { name: 'Mark verified' }));
-    expect(h.verify).toHaveBeenCalledWith({ state: 'AR', key: 'penalty.rate_source', note: undefined }, expect.anything());
+    expect(h.verify).toHaveBeenCalledWith({ state: 'AR', key: 'penalty.rate_source', note: undefined, expectedValue: 'federal' }, expect.anything());
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     fireEvent.click(screen.getByText('Verify all unverified in AR 2026 (2)'));

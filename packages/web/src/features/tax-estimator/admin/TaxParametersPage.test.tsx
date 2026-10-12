@@ -86,6 +86,15 @@ describe('TaxParametersPage', () => {
     expect(screen.getByLabelText('Missing keys')).toHaveTextContent('se.min_nese');
   });
 
+  it('R6-02: fallback rows show no Override button, only the create hint', async () => {
+    h.params = { data: fixture({ isFallback: true, fallbackYear: 2025, parameters: fixture().parameters.map((p) => ({ ...p, source: 'fallback' as const, status: 'provisional' as const, fallbackYear: 2025 })) }), isLoading: false, isError: false, refetch: vi.fn() };
+    render();
+    await screen.findByText(/No 2026 parameters shipped/);
+    expect(screen.queryByLabelText(/^Override /)).toBeNull();
+    expect(screen.getAllByText('Create 2026 from prior to edit')).toHaveLength(3);
+    expect(screen.queryByLabelText(/Mark .* verified/)).toBeNull();
+  });
+
   it('shows the fallback banner', async () => {
     h.params = { ...h.params, data: fixture({ isFallback: true, fallbackYear: 2025 }) };
     render();
@@ -174,7 +183,8 @@ describe('TaxParametersPage — R7 in-app Verify', () => {
     fireEvent.click(screen.getByLabelText('Mark se.nese_factor verified'));
     fireEvent.change(screen.getByLabelText(/Note/), { target: { value: 'IRC 1402(a)(12)' } });
     fireEvent.click(screen.getByRole('button', { name: 'Mark verified' }));
-    expect(h.verify).toHaveBeenCalledWith({ key: 'se.nese_factor', note: 'IRC 1402(a)(12)' }, expect.anything());
+    // R6-04: the dialog signs the value it showed, so a concurrent override is refused by the server.
+    expect(h.verify).toHaveBeenCalledWith({ key: 'se.nese_factor', note: 'IRC 1402(a)(12)', expectedValue: 0.9235 }, expect.anything());
   });
 
   it('bulk verify counts the unverified rows and asks for confirmation before calling the API', async () => {

@@ -106,6 +106,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_NO_MONTHS_ELAPSED` | warning | `engine/income.ts:203` | …: no closed months; the projection equals the year-to-date books. |
 | `TE_NO_PERSONS` | HTTP 422, throws Error | `svc/estimate.service.ts:218`, `engine/context.ts:53`, `engine/federal.ts:166` (+1 more) | The taxpayer has no persons; add the primary person before estimating (HTTP). The engine throws the same code as an invariant if it is ever called with no persons. |
 | `TE_NO_PRIOR_YEAR` | HTTP 400 | `svc/tax-parameters.service.ts:370`, `svc/tax-state-rules.service.ts:473` | No earlier tax year to copy from |
+| `TE_NO_SHIPPED_VALUE` | HTTP 409 | `svc/tax-parameters.service.ts` (revertOverride), `svc/tax-state-rules.service.ts` (revertOverride) | … has no shipped value for …; removing it would leave the key missing for the year. Edit the value instead. (R6-07: allowed only when the row is the year's / state-year's last row, which restores the fallback) |
 | `TE_NO_RECONCILABLE_ACTIVITY` | info | `svc/readiness.service.ts:75` | No bank or credit-card account has activity in the range, so no closed month can be derived. |
 | `TE_OFFICER_ONLY_SCORP` | HTTP 422 | `svc/taxpayers.service.ts:384` | Officer applies only to S corporations |
 | `TE_OVERRIDE_REASON_REQUIRED` | HTTP 422 | `svc/taxpayers.service.ts:423`, `svc/taxpayers.service.ts:427` | A reason is required to override QBI eligibility / Also: A reason is required for an allowed-loss override |
@@ -114,6 +115,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_OWNER_PERSON_MISSING` | warning | `svc/pl-provider.service.ts:909` | Guaranteed-payment / S corp officer treatments without a person: the amount cannot be attributed to a partner or officer. Pick the person on the treatment. |
 | `TE_PACK_AS_OF_REQUIRED` | HTTP 400 | `svc/estimate-documents.service.ts:192` | The tax estimate needs an as-of date (YYYY-MM-DD) |
 | `TE_PACK_TAXPAYER_REQUIRED` | HTTP 400 | `routes/reports.routes.ts:1798`, `svc/estimate-documents.service.ts:205` | taxpayer_id must be a UUID / Also: Pick a taxpayer for the Tax Estimate section |
+| `TE_PARAM_CHANGED` | HTTP 409 | `svc/tax-parameters.service.ts` (verifyOne), `svc/tax-state-rules.service.ts` (verifyOne) | The value of … changed since you read it; review the current value and verify again. (R6-04: the Verify body's `expectedValue` no longer matches the row; `details.currentValue` carries the value now stored. Bulk verify never throws it — changed keys come back in `changed`) |
 | `TE_PARAMS_FALLBACK_YEAR` | warning | `svc/estimate.service.ts:223` | No federal parameters exist for …; the … values were used (all provisional). Due dates, the return due date and holidays were rolled forward to …; rates, amounts and the penalty rate table are …'s. |
 | `TE_PARAM_INVALID` | HTTP 400, throws Error | `svc/tax-parameters.service.ts:267`, `svc/tax-parameters.service.ts:269`, `svc/tax-parameters.service.ts:271` (+2 more) | HTTP 400 from the parameters admin (override or verify): unknown key, value fails registry validation, or a reason under 3 characters. Engine throw: a parameter has the wrong type for how the engine reads it. |
 | `TE_PARAM_MISSING` | throws Error | `engine/parameters.ts:48` | The engine read a registry key that is not in the resolved parameter set (a year with an incomplete parameter set). Plain Error, surfaces as 500 INTERNAL_ERROR. |
@@ -210,6 +212,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_STATE_ONE_RESIDENT` | HTTP 422 | `svc/state-rows.service.ts:74` | Exactly one resident state row is required |
 | `TE_STATE_PENALTY_ADDONS_NOT_MODELLED` | info | `engine/state-gates.ts:244` | State underpayment-penalty add-ons and caps (where the state has them) are not modelled; the penalty estimate may differ. |
 | `TE_STATE_PRIOR_AGI_FEDERAL_PROXY` | info | `svc/estimate.service.ts:632` | …: no prior-year state AGI on file; the prior-year federal AGI was used for the state's high-AGI test. |
+| `TE_STATE_RULES_FALLBACK_YEAR` | warning | `svc/estimate.service.ts` (gather) | No … rules exist for …; the … … rules were used (all provisional). Due dates, the return due date, the farmer dates and holidays were derived for …; thresholds, percentages and penalty rates are …'s. (R6-03: the state mirror of `TE_PARAMS_FALLBACK_YEAR`, one per state; the admin States screen shows the same state as status `fallback`) |
 | `TE_STATE_RULES_FALLBACK` | warning | `engine/state-gates.ts:173`, `engine/vouchers.ts:526` | … has no verified estimated-tax rule set; the federal pattern (estimates required at … after withholding and credits) was applied. Verify. / Also: … has no verified estimated-tax rule set; the federal pattern (percentages, due dates, penalty rate) was applied. Verify. |
 | `TE_STATE_RULES_MISSING` | warning | `engine/state.ts:86` | No rule set was supplied for …; the federal pattern applies and the state is flagged "verify". |
 | `TE_STATE_RULE_INVALID` | HTTP 400, throws Error | `svc/tax-state-rules.service.ts:343`, `svc/tax-state-rules.service.ts:345`, `svc/tax-state-rules.service.ts:347` (+13 more) | HTTP 400 from the state-rules admin: unknown rule key, value fails its registry validation, or a reason under 3 characters. Engine throw: a rule value has the wrong shape (not a date list, number, etc.) or a required rule is absent; a seed or override defect. |
@@ -237,7 +240,8 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_UNPOSTED_BANK_FEED` | warning | `svc/readiness.service.ts:123` | … bank-feed transaction(s) are not posted yet. |
 | `TE_UNRECONCILED_ACCOUNTS` | warning | `svc/readiness.service.ts:81` | … bank/credit-card account(s) are not reconciled through …. |
 | `TE_W2_OVERRIDE_REASON` | HTTP 400 | `svc/entity-settings.service.ts:125` | A reason is required when overriding W-2 wages |
-| `TE_YEAR_EXISTS` | HTTP 409 | `svc/tax-parameters.service.ts:368`, `svc/tax-state-rules.service.ts:471` | Tax year … already has parameters / Also: State rules for … already exist |
+| `TE_YEAR_EXISTS` | HTTP 409 | `svc/tax-parameters.service.ts`, `svc/tax-state-rules.service.ts` | Tax year … already has parameters / Also: State rules for … already exist for every jurisdiction that has … rules (R6-02: state create is per jurisdiction; `details.skipped` lists them) |
+| `TE_YEAR_NOT_CREATED` | HTTP 409 | `svc/tax-parameters.service.ts` (assertYearEditable), `svc/tax-state-rules.service.ts` (assertStateEditable) | Tax year … has no parameters of its own (it is served from an earlier year); create … from the prior year first / Also: … has no … rules of its own …. (R6-02: override and verify on a year or state-year served through the fallback) |
 | `TE_YEAR_NOT_SAVED` | warning | `svc/estimate.service.ts:220` | No annual settings are saved for …; defaults were used (no prior-year tax, no withholding, no credits). |
 | `TE_YEAR_NOT_SET_UP` | HTTP 422 | `svc/scenarios.service.ts:48` | Save the annual settings for this year first |
 | `TE_YEAR_SAVE_FAILED` | HTTP 500 | `svc/years.service.ts:154` | Year upsert failed |
@@ -254,7 +258,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 
 ## Where the web client keys off a code
 
-`TE_FIRM_REQUIRED` (TaxpayerListPage shows the firm chooser), `TE_PARAMS_FALLBACK_YEAR` and any warning code matching the readiness-banner regex (ReadinessBanner), `TE_SNAPSHOT_IMMUTABLE` (documented in the snapshots hook; no UI path triggers it).
+`TE_FIRM_REQUIRED` (TaxpayerListPage shows the firm chooser), `TE_PARAMS_FALLBACK_YEAR` and any warning code matching the readiness-banner regex (ReadinessBanner; `TE_STATE_RULES_FALLBACK_YEAR` matches it), `TE_SNAPSHOT_IMMUTABLE` (documented in the snapshots hook; no UI path triggers it). The Verify dialogs show a `TE_PARAM_CHANGED` 409 inline and refetch the row.
 
 ## Support playbook for the common 4xx
 

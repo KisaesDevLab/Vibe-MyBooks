@@ -92,15 +92,19 @@ export function useAdoptShippedStateRules(year: number) {
   });
 }
 
-/** R7 in-app Verify: mark one state rule verified (super admin). */
+/**
+ * R7 in-app Verify: mark one state rule verified (super admin). `expectedValue` is the value shown
+ * in the dialog (R6-04): the server refuses (409 TE_PARAM_CHANGED) if the row changed meanwhile.
+ */
 export function useVerifyStateRule(year: number) {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: async (v: { state: string; key: string; note?: string }) =>
+    mutationFn: async (v: { state: string; key: string; note?: string; expectedValue: unknown }) =>
       (await apiClient<{ data: StateRuleRowDTO }>(`${BASE}/${year}/${v.state}/${encodeURIComponent(v.key)}/verify`, {
-        method: 'POST', body: JSON.stringify(v.note ? { note: v.note } : {}),
+        method: 'POST', body: JSON.stringify({ ...(v.note ? { note: v.note } : {}), expectedValue: v.expectedValue }),
       })).data,
     onSuccess: invalidate,
+    onError: invalidate,
   });
 }
 
