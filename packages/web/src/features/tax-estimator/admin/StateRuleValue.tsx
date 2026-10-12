@@ -12,14 +12,24 @@ export function formatStateRuleValue(type: StateRuleValueType, v: unknown): stri
     case 'bool': return v === true ? 'Yes' : 'No';
     case 'money': return formatScalar('money', v);
     case 'rate': return formatScalar('rate', v);
+    case 'date': return String(v);
+    case 'rate_schedule': return Array.isArray(v)
+      ? (v as Array<{ from: string; to: string; rate: number }>).map((p) => `${p.from} to ${p.to}: ${formatScalar('rate', p.rate)}`).join('; ')
+      : String(v);
     case 'rate_list': return Array.isArray(v) ? v.map((x) => formatScalar('rate', x)).join(', ') : String(v);
     case 'date_list': return Array.isArray(v) ? (v.length ? v.join(', ') : 'None') : String(v);
     case 'high_agi_rule': {
-      const o = v as { threshold: number; pct: number };
-      return `AGI over ${formatScalar('money', o.threshold)}: ${formatScalar('rate', o.pct)} of prior year`;
+      const o = v as { threshold: number; pct: number; threshold_mfs?: number; no_prior_year_agi?: number; no_prior_year_agi_mfs?: number };
+      const mfs = o.threshold_mfs !== undefined ? ` (${formatScalar('money', o.threshold_mfs)} MFS)` : '';
+      const none = o.no_prior_year_agi !== undefined
+        ? `; no prior-year harbor at current AGI of ${formatScalar('money', o.no_prior_year_agi)}${o.no_prior_year_agi_mfs !== undefined ? ` (${formatScalar('money', o.no_prior_year_agi_mfs)} MFS)` : ''} or more`
+        : '';
+      return `AGI over ${formatScalar('money', o.threshold)}${mfs}: ${formatScalar('rate', o.pct)} of prior year${none}`;
     }
     case 'farmer_rule': {
-      const o = v as { ratio: number; current_pct: number; due_date: string; file_by: string };
+      const o = v as { ratio: number; current_pct: number; due_date: string; file_by: string; treatment?: string };
+      if (o.treatment === 'exempt') return `${formatScalar('rate', o.ratio)} farm income: exempt from estimates`;
+      if (o.treatment === 'quarterly') return `${formatScalar('rate', o.ratio)} farm income: ${formatScalar('rate', o.current_pct)} in the regular installments; no penalty if filed and paid by ${o.file_by}`;
       return `${formatScalar('rate', o.ratio)} farm income: ${formatScalar('rate', o.current_pct)} by ${o.due_date}, file by ${o.file_by}`;
     }
     default: return String(v);
@@ -32,6 +42,9 @@ export function stateRuleEditorText(type: StateRuleValueType, v: unknown): strin
   switch (type) {
     case 'bool': return v === true ? 'true' : 'false';
     case 'date_list': case 'rate_list': return Array.isArray(v) ? v.join(', ') : '';
+    case 'rate_schedule': return Array.isArray(v)
+      ? (v as Array<{ from: string; to: string; rate: number }>).map((p) => `${p.from} ${p.to} ${p.rate}`).join('\n')
+      : '';
     case 'high_agi_rule': case 'farmer_rule': return JSON.stringify(v, null, 2);
     default: return String(v);
   }

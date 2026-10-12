@@ -7,8 +7,13 @@ import { SELECT_CLASS, US_STATES } from './labels';
 
 export interface PaymentTarget { paymentTaxpayerId: string | null; paymentPersonId: string | null; paymentJurisdiction: string | null }
 
-/** Taxpayer / person / jurisdiction for an estimated-tax-payment account, fed from the taxpayers API. */
-export function PaymentTargetPicker({ value, disabled, onChange }: { value: PaymentTarget; disabled: boolean; onChange: (v: PaymentTarget) => void }) {
+/**
+ * Taxpayer / person / jurisdiction for an estimated-tax-payment account, fed from the taxpayers API.
+ * `personOnly` hides the jurisdiction: the person target of a guaranteed payment, owner item or W-2 wage account.
+ */
+export function PaymentTargetPicker({ value, disabled, onChange, personOnly = false }: {
+  value: PaymentTarget; disabled: boolean; onChange: (v: PaymentTarget) => void; personOnly?: boolean;
+}) {
   const taxpayers = useTaxpayers({ status: 'active', limit: 200, offset: 0 });
   const detail = useTaxpayer(value.paymentTaxpayerId ?? undefined);
   const persons = detail.data?.persons ?? [];
@@ -24,12 +29,12 @@ export function PaymentTargetPicker({ value, disabled, onChange }: { value: Paym
         <option value="">Person...</option>
         {persons.map((p) => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
       </select>
-      <select aria-label="Payment jurisdiction" className={`${SELECT_CLASS} !w-auto`} disabled={disabled} value={value.paymentJurisdiction ?? ''}
+      {!personOnly && <select aria-label="Payment jurisdiction" className={`${SELECT_CLASS} !w-auto`} disabled={disabled} value={value.paymentJurisdiction ?? ''}
         onChange={(e) => onChange({ ...value, paymentJurisdiction: e.target.value || null })}>
         <option value="">Jurisdiction...</option>
         <option value="federal">Federal</option>
         {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-      </select>
+      </select>}
     </div>
   );
 }

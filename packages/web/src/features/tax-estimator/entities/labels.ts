@@ -14,6 +14,10 @@ export const TREATMENT_LABELS: Record<AccountTreatment, string> = {
   nondeductible_pct: 'Nondeductible %', owner_sehi: 'Owner SEHI', owner_retirement: 'Owner retirement',
   owner_personal: 'Owner personal', estimated_tax_payment: 'Estimated tax payment',
   tax_depreciation_differs: 'Tax depreciation differs', w2_wages: 'W-2 wages',
+  guaranteed_payment: 'Guaranteed payment (partner)',
+  capital_gain_lt: 'Character: long-term capital gain', capital_gain_st: 'Character: short-term capital gain',
+  section_1231: 'Character: Section 1231', interest: 'Character: interest',
+  dividends_ordinary: 'Character: ordinary dividends', dividends_qualified: 'Character: qualified dividends',
 };
 
 export function entityTypeSourceLabel(source: EntityTypeSource, returnForm: string | null): string {

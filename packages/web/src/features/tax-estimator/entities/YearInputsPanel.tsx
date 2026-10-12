@@ -26,7 +26,7 @@ export function YearInputsPanel({ taxYear, inputs, booksW2Wages, canWrite, savin
     <section className="space-y-3 bg-white rounded-lg border border-gray-200 p-4" aria-label="Year inputs">
       <h2 className="text-lg font-semibold text-gray-900">{taxYear} QBI inputs</h2>
       <p className="text-sm text-gray-600">
-        W-2 wages from accounts treated as W-2 wages:{' '}
+        W-2 wages from accounts treated as W-2 wages (projected for the year):{' '}
         <strong data-testid="books-w2">{booksW2Wages == null ? 'unavailable' : formatMoney(booksW2Wages)}</strong>
       </p>
       <div className="grid gap-3 sm:grid-cols-2">

@@ -42,7 +42,7 @@ beforeEach(() => {
     treat: ok({ items: [], total: 0, limit: 500, offset: 0 }),
     sugg: ok([]),
     ready: ok({ lastClosedMonth: null, throughIsOpen: false, unreconciledAccounts: [], suspense: { balance: '0', transactionCount: 0, unpostedFeedCount: 0 }, unmappedAccounts: [], entity: { warnings: [] }, warnings: [] }),
-    pl: ok({ accounts: [{ accountId: 'a2', accountNumber: '6900', name: 'Misc', accountType: 'expense', taxCode: null, treatment: null, pct: null, accountNonRecurring: false, bookAmount: '-5.0000', taxAmount: '-5.0000' }], w2Wages: { booksYtd: '0' }, bookNetIncome: '0', taxBasisProfit: '0', byCharacter: {}, trace: [], warnings: [] }),
+    pl: ok({ accounts: [{ accountId: 'a2', accountNumber: '6900', name: 'Misc', accountType: 'expense', taxCode: null, treatment: null, pct: null, accountNonRecurring: false, bookAmount: '-5.0000', taxAmount: '-5.0000' }], w2Wages: { projectedYear: '0' }, bookNetIncome: '0', taxBasisProfit: '0', byCharacter: {}, trace: [], warnings: [] }),
   };
 });
 

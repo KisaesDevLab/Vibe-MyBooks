@@ -9,7 +9,21 @@ import { Button } from '../../../components/ui/Button';
 import { StateRuleValue, stateRuleEditorText } from './StateRuleValue';
 
 const OBJECT_TYPES: StateRuleValueType[] = ['high_agi_rule', 'farmer_rule'];
-const LIST_TYPES: StateRuleValueType[] = ['date_list', 'rate_list'];
+const LIST_TYPES: StateRuleValueType[] = ['date_list', 'rate_list', 'rate_schedule'];
+
+/** One `from to rate` leg per line (commas also accepted), e.g. "2025-01-01 2025-12-31 0.08". */
+function parseRateSchedule(t: string): { value?: unknown; error?: string } {
+  const lines = t.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return { error: 'Enter at least one "from to rate" line, or tick null' };
+  const legs: Array<{ from: string; to: string; rate: number }> = [];
+  for (const [i, line] of lines.entries()) {
+    const parts = line.split(/[\s,]+/).filter(Boolean);
+    const rate = Number(parts[2]);
+    if (parts.length !== 3 || Number.isNaN(rate)) return { error: `Line ${i + 1}: expected "YYYY-MM-DD YYYY-MM-DD rate"` };
+    legs.push({ from: parts[0]!, to: parts[1]!, rate });
+  }
+  return { value: legs };
+}
 
 /** Parse the editor text into a candidate value, or an error message. */
 export function parseStateEditorValue(def: StateRuleDef, text: string, isNull: boolean): { value?: unknown; error?: string } {
@@ -23,6 +37,8 @@ export function parseStateEditorValue(def: StateRuleDef, text: string, isNull: b
       return Number.isNaN(n) ? { error: 'expected a number' } : { value: n };
     }
     case 'enum': return { value: t };
+    case 'date': return t === '' ? { error: 'A date is required' } : { value: t };
+    case 'rate_schedule': return parseRateSchedule(t);
     case 'date_list': return { value: t === '' ? [] : t.split(/[\s,]+/).filter(Boolean) };
     case 'rate_list': {
       const parts = t.split(/[\s,]+/).filter(Boolean);
@@ -46,8 +62,10 @@ const HINT: Partial<Record<StateRuleValueType, string>> = {
   money: 'Enter dollars, e.g. 1000.',
   date_list: 'YYYY-MM-DD dates separated by commas or new lines.',
   rate_list: 'Decimal fractions separated by commas, e.g. 0.25, 0.25, 0.25, 0.25.',
-  high_agi_rule: 'JSON: {"threshold": 150000, "pct": 1.1}',
-  farmer_rule: 'JSON: {"ratio": 0.667, "current_pct": 0.667, "due_date": "YYYY-MM-DD", "file_by": "YYYY-MM-DD"}',
+  date: 'One YYYY-MM-DD date.',
+  rate_schedule: 'One period per line: from, to, annual rate as a decimal, e.g. 2025-01-01 2025-12-31 0.08. Periods in date order, no overlaps. These rates replace the single penalty rate on the days they cover.',
+  high_agi_rule: 'JSON: {"threshold": 150000, "pct": 1.1} plus optional "threshold_mfs", "no_prior_year_agi", "no_prior_year_agi_mfs".',
+  farmer_rule: 'JSON: {"ratio": 0.667, "current_pct": 0.667, "due_date": "YYYY-MM-DD", "file_by": "YYYY-MM-DD"} plus optional "treatment": "single_installment" | "quarterly" | "exempt".',
 };
 
 export function StateRuleModal({ row, saving, serverError, onSave, onClose }: {

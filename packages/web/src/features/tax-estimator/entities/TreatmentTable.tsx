@@ -3,8 +3,8 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useMemo, useState } from 'react';
-import type { AccountTreatment, AccountTreatmentInput } from '@kis-books/shared';
-import { ACCOUNT_TREATMENTS } from '@kis-books/shared';
+import type { AccountTreatment, AccountTreatmentInput, EntityTaxType } from '@kis-books/shared';
+import { ACCOUNT_TREATMENTS, allowsPersonTarget, personRequiredFor, treatmentAllowedFor } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { SortableTh } from '../../../components/ui/SortableTh';
 import { useColumnView } from '../../../hooks/useColumnView';
@@ -30,13 +30,16 @@ function toInput(accountId: string, d: Draft): AccountTreatmentInput {
   return {
     accountId, treatment: d.treatment, nonRecurring: d.nonRecurring,
     pct: d.treatment === 'nondeductible_pct' ? d.pct : null,
-    ...(pay ? { paymentTaxpayerId: d.paymentTaxpayerId, paymentPersonId: d.paymentPersonId, paymentJurisdiction: d.paymentJurisdiction } : {}),
+    ...(pay ? { paymentTaxpayerId: d.paymentTaxpayerId, paymentPersonId: d.paymentPersonId, paymentJurisdiction: d.paymentJurisdiction }
+      : allowsPersonTarget(d.treatment) && d.paymentPersonId ? { paymentTaxpayerId: d.paymentTaxpayerId, paymentPersonId: d.paymentPersonId } : {}),
   };
 }
 
 /** GL tax-treatment map: TB tax code (read-only chip) beside the estimator treatment. Edits are staged and saved together. */
-export function TreatmentTable({ rows, canWrite, saving, error, onSave }: {
+export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityType = null }: {
   rows: TreatmentRow[]; canWrite: boolean; saving: boolean; error?: string; onSave: (inputs: AccountTreatmentInput[]) => void;
+  /** Resolved entity tax type: limits the treatment list and decides when a person is required. */
+  entityType?: EntityTaxType | null;
 }) {
   const view = useColumnView<SortKey>('vibe:te-entity-treatments:view', { sortKeys: SORT_KEYS, defaultSort: { col: 'account', dir: 'asc' } });
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -68,7 +71,8 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave }: {
   const byId = new Map(rows.map((r) => [r.accountId, r]));
   const dirtyIds = Object.keys(drafts);
   const pctBad = (id: string) => { const d = drafts[id]; return !!d && d.treatment === 'nondeductible_pct' && (!PCT_RE.test(d.pct) || Number(d.pct) > 100); };
-  const anyBad = dirtyIds.some(pctBad);
+  const personBad = (id: string) => { const d = drafts[id]; return !!d && personRequiredFor(d.treatment, entityType) && !d.paymentPersonId; };
+  const anyBad = dirtyIds.some((id) => pctBad(id) || personBad(id));
 
   if (rows.length === 0) {
     return <p className="text-sm text-gray-500 py-6 text-center border border-dashed rounded-lg">No P&amp;L accounts found for this company.</p>;
@@ -111,13 +115,20 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave }: {
                     <select aria-label={`Treatment for ${r.name}`} className={SELECT_CLASS} disabled={!canWrite} value={d.treatment ?? ''}
                       onChange={(e) => patch(r, { treatment: (e.target.value || null) as AccountTreatment | null })}>
                       <option value="">None</option>
-                      {ACCOUNT_TREATMENTS.map((t) => <option key={t} value={t}>{TREATMENT_LABELS[t]}</option>)}
+                      {ACCOUNT_TREATMENTS.filter((t) => t === d.treatment || treatmentAllowedFor(t, r.accountType, entityType))
+                        .map((t) => <option key={t} value={t}>{TREATMENT_LABELS[t]}</option>)}
                     </select>
                     {d.treatment === 'estimated_tax_payment' && (
                       <PaymentTargetPicker disabled={!canWrite}
                         value={{ paymentTaxpayerId: d.paymentTaxpayerId, paymentPersonId: d.paymentPersonId, paymentJurisdiction: d.paymentJurisdiction }}
                         onChange={(v) => patch(r, v)} />
                     )}
+                    {d.treatment !== 'estimated_tax_payment' && allowsPersonTarget(d.treatment) && (
+                      <PaymentTargetPicker personOnly disabled={!canWrite}
+                        value={{ paymentTaxpayerId: d.paymentTaxpayerId, paymentPersonId: d.paymentPersonId, paymentJurisdiction: null }}
+                        onChange={(v) => patch(r, { paymentTaxpayerId: v.paymentTaxpayerId, paymentPersonId: v.paymentPersonId })} />
+                    )}
+                    {personBad(r.accountId) && <div className="text-xs text-red-600" role="alert">Pick the person this belongs to</div>}
                   </td>
                   <td className="px-3 py-2 w-24">
                     {d.treatment === 'nondeductible_pct' && (

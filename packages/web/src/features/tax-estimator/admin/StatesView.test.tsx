@@ -46,6 +46,7 @@ const detail = (over: Partial<StateRulesDTO> = {}): StateRulesDTO => ({
     { state: 'AR', key: 'safe_harbor.current_pct', label: 'Current-year %', type: 'rate', value: 0.9, status: 'unverified', source: 'override', citation: 'Ark. Code', reason: 'testing', shippedValue: 0.8 },
     { state: 'AR', key: 'safe_harbor.high_agi_rule', label: 'High AGI', type: 'high_agi_rule', value: { threshold: 150000, pct: 1.1 }, status: 'verified', source: 'seed', citation: 'x' },
     { state: 'AR', key: 'penalty.rate_source', label: 'Penalty rate source', type: 'enum', value: 'federal', status: 'provisional', source: 'provisional', citation: 'y' },
+    { state: 'AR', key: 'penalty.rate_schedule', label: 'Dated penalty rates', type: 'rate_schedule', value: [{ from: '2025-01-01', to: '2025-12-31', rate: 0.08 }, { from: '2026-01-01', to: '2026-12-31', rate: 0.07 }], status: 'verified', source: 'seed', citation: 'z' },
   ],
   ...over,
 });
@@ -125,7 +126,8 @@ describe('StatesView detail', () => {
     expect(screen.getByText('90%')).toBeInTheDocument();
     expect(screen.getByText('Shipped:')).toBeInTheDocument();
     expect(screen.getByText(/AGI over \$150,000: 110% of prior year/)).toBeInTheDocument();
-    expect(screen.getAllByText('verified', { selector: 'span' }).length).toBe(2);
+    expect(screen.getByText('2025-01-01 to 2025-12-31: 8%; 2026-01-01 to 2026-12-31: 7%')).toBeInTheDocument();
+    expect(screen.getAllByText('verified', { selector: 'span' }).length).toBe(3);
     expect(screen.getByText('override', { selector: 'span' })).toBeInTheDocument();
     expect(screen.getByText('AR1000ES instructions')).toBeInTheDocument();
     fireEvent.click(screen.getByText('All states'));
@@ -168,6 +170,27 @@ describe('StatesView detail', () => {
     expect(screen.getByText('Invalid JSON')).toBeInTheDocument();
   });
 
+  it('rate-schedule editor takes one "from to rate" line per period, validates order and saves', async () => {
+    await open();
+    fireEvent.click(await screen.findByLabelText('Override penalty.rate_schedule'));
+    const value = screen.getByLabelText(/Value \(rate_schedule\)/) as HTMLTextAreaElement;
+    expect(value.value).toBe('2025-01-01 2025-12-31 0.08\n2026-01-01 2026-12-31 0.07');
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'MO-2210 legs' } });
+    fireEvent.change(value, { target: { value: '2026-01-01 2026-12-31 0.07\n2025-01-01 2025-12-31 0.08' } });
+    fireEvent.click(screen.getByText('Save override'));
+    expect(screen.getByText('periods must be in date order and must not overlap')).toBeInTheDocument();
+    fireEvent.change(value, { target: { value: '2025-01-01 2025-12-31' } });
+    fireEvent.click(screen.getByText('Save override'));
+    expect(screen.getByText('Line 1: expected "YYYY-MM-DD YYYY-MM-DD rate"')).toBeInTheDocument();
+    expect(h.setOverride).not.toHaveBeenCalled();
+    fireEvent.change(value, { target: { value: '2025-01-01 2025-12-31 0.08\n2026-01-01, 2026-12-31, 0.07' } });
+    fireEvent.click(screen.getByText('Save override'));
+    expect(h.setOverride).toHaveBeenCalledWith({
+      state: 'AR', key: 'penalty.rate_schedule', reason: 'MO-2210 legs',
+      value: [{ from: '2025-01-01', to: '2025-12-31', rate: 0.08 }, { from: '2026-01-01', to: '2026-12-31', rate: 0.07 }],
+    }, expect.anything());
+  });
+
   it('revert is offered for override/provisional rows and asks for confirmation', async () => {
     await open();
     expect(screen.queryByLabelText('Revert required_threshold')).not.toBeInTheDocument();
@@ -207,5 +230,19 @@ describe('state editor parsing', () => {
     expect(validateStateOverride(def('required_threshold'), '', true, 'abc').valueError).toBe('null not allowed for this key');
     expect(validateStateOverride(def('installments.due_dates'), '04/15/2026', false, 'abc').valueError).toBe('expected YYYY-MM-DD dates');
     expect(validateStateOverride(def('farmer.rule'), '{"ratio":0.667,"current_pct":0.667,"due_date":"2026-01-15","file_by":"2027-03-01"}', false, 'abc').valueError).toBeUndefined();
+  });
+
+  it('handles the R5 value types (date, rate schedule, enums, exempt farmer)', () => {
+    expect(parseStateEditorValue(def('return_due_date'), ' 2026-05-01 ', false).value).toBe('2026-05-01');
+    expect(validateStateOverride(def('return_due_date'), '05/01/2026', false, 'abc').valueError).toBe('expected a YYYY-MM-DD date');
+    expect(validateStateOverride(def('return_due_date'), '', true, 'abc').valueError).toBeUndefined();
+    expect(validateStateOverride(def('penalty.rate_schedule'), '', false, 'abc').valueError).toMatch(/at least one/);
+    expect(validateStateOverride(def('penalty.rate_schedule'), '2026-12-31 2026-01-01 0.07', false, 'abc').valueError).toMatch(/ends before it starts/);
+    expect(validateStateOverride(def('penalty.min_balance_due'), '500', false, 'abc')).toMatchObject({ value: 500, valueError: undefined });
+    expect(validateStateOverride(def('threshold_comparison'), 'more_than', false, 'abc').valueError).toBeUndefined();
+    expect(validateStateOverride(def('penalty.method'), 'hourly', false, 'abc').valueError).toMatch(/expected one of daily_simple/);
+    expect(validateStateOverride(def('estimates_required'), 'false', false, 'abc')).toMatchObject({ value: false, valueError: undefined });
+    expect(validateStateOverride(def('farmer.rule'), '{"ratio":0.667,"current_pct":0,"due_date":"2026-04-15","file_by":"2026-04-15","treatment":"exempt"}', false, 'abc').valueError).toBeUndefined();
+    expect(validateStateOverride(def('farmer.rule'), '{"ratio":0.667,"current_pct":0,"due_date":"2026-04-15","file_by":"2026-04-15","treatment":"maybe"}', false, 'abc').valueError).toMatch(/treatment must be one of/);
   });
 });

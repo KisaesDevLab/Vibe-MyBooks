@@ -23,12 +23,13 @@ import { buildRows } from './rows';
 const line = (o: Partial<TaxBasisAccountLine>): TaxBasisAccountLine => ({
   accountId: 'a1', accountNumber: '6200', name: 'Owner health insurance', accountType: 'expense', character: 'ordinary',
   characterSource: 'tb_assignment', taxCode: { returnForm: '1040', activityType: 'sch_c', code: 'C-15', description: 'Insurance' },
-  treatment: null, pct: null, route: 'entity', accountNonRecurring: false, bookAmount: '-10800.0000', taxAmount: '-10800.0000',
+  treatment: null, effectiveTreatment: null, treatmentSource: null, personId: null,
+  pct: null, route: 'entity', accountNonRecurring: false, bookAmount: '-10800.0000', taxAmount: '-10800.0000',
   reclass: '0.0000', nonRecurringBookAmount: '0.0000', tbTaxRje: '0.0000', ...o,
 });
 const sugg: TreatmentSuggestion = {
   accountId: 'a1', accountNumber: '6200', accountName: 'Owner health insurance', accountType: 'expense',
-  treatment: 'owner_sehi', pct: null, paymentJurisdiction: null, reason: 'Name matches health insurance',
+  treatment: 'owner_sehi', pct: null, paymentJurisdiction: null, reason: 'Name matches health insurance', basis: 'name',
 };
 const lines = [
   line({}),
@@ -37,6 +38,20 @@ const lines = [
 ];
 
 describe('TreatmentTable', () => {
+  it('guaranteed payment: offered on partnerships only, and needs the partner before saving (R1 F1)', () => {
+    const { unmount } = renderRoute(<TreatmentTable rows={buildRows(lines, [], [])} canWrite saving={false} onSave={vi.fn()} entityType="sch_c" />);
+    const opts = (label: string) => Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((o) => o.value);
+    expect(opts('Treatment for Misc')).not.toContain('guaranteed_payment');
+    expect(opts('Treatment for Misc')).not.toContain('interest'); // character treatments are for income accounts
+    unmount();
+    const onSave = vi.fn();
+    renderRoute(<TreatmentTable rows={buildRows(lines, [], [])} canWrite saving={false} onSave={onSave} entityType="partnership" />);
+    expect(opts('Treatment for Misc')).toContain('guaranteed_payment');
+    fireEvent.change(screen.getByLabelText('Treatment for Misc'), { target: { value: 'guaranteed_payment' } });
+    expect(screen.getByText('Pick the person this belongs to')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Save 1 change/ })).toBeDisabled();
+  });
+
   it('renders source chips and filters to unmapped accounts with activity', () => {
     const rows = buildRows(lines, [], []);
     renderRoute(<TreatmentTable rows={rows} canWrite saving={false} onSave={vi.fn()} />);
