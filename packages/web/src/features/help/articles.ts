@@ -3496,6 +3496,8 @@ Printing the same estimate twice on the same day reuses the same PDF snapshot ra
 
 **Print / Download PDF** on the summary (and **Download PDF** on each scenario card of the compare page) produces tax-estimate-YEAR-NAME.pdf (a what-if scenario adds its own name to the file name): summary, federal, state, safe harbor, vouchers, warnings, assumptions and the firm disclaimer. The figures equal the screen. Read-only staff can download; users outside the firm cannot.
 
+The **Businesses included** list at the top shows who owns each linked business and their share, for example "Owners: Maria Rivera 50%" (the loss share is added only when it differs from the profit share). After the payment vouchers the PDF starts a new page, **Detailed calculation**: the same lines as the **Calculation** tab (income by business, wages, adjustments, AGI, the deduction, QBI, taxable income, each federal tax, each state and the totals) with the **YTD tax basis** and projected columns. It prints in the client copy too (the Report Pack section), without the review markers; neither copy includes the trace.
+
 ## Scenario compare
 
 **Scenarios** on the taxpayer page compares up to three scenarios: A is required, B and C optional. Cards show each total, the change from the first scenario, the next federal payment or overpayment; the table below goes line by line and can hide the change columns.
