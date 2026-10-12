@@ -138,6 +138,16 @@ describe('KeyFigures', () => {
     expect(screen.getByText(/Due Jan 15, 2027/)).toBeInTheDocument();
     expect(nextFederalPayment(e, TODAY)!.label).toBe('Q4');
   });
+
+  it('QA D13: a payment dated after today is not "paid to date"', () => {
+    const base = makeEstimate();
+    const fed = base.federalEstimates;
+    const e = { ...base, federalEstimates: { ...fed, totals: { ...fed.totals, estimatesPaid: '10000', withholding: '0' } }, stateEstimates: [],
+      payments: [{ id: 'gl:1', stored: false, jurisdiction: 'federal', date: '2027-01-15', amount: '4000', source: 'gl', memo: null }] } as never;
+    wrap(<KeyFigures estimate={e} today={TODAY} />);
+    expect(screen.getByText('$6,000')).toBeInTheDocument();
+    expect(screen.getByText(/\$4,000 dated after today not included/)).toBeInTheDocument();
+  });
 });
 
 describe('ReadinessBanner', () => {

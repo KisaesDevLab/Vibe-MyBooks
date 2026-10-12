@@ -19,7 +19,7 @@ vi.mock('./PortalLayout', () => ({
   }),
 }));
 
-import { PortalTaxEstimatesPage } from './PortalTaxEstimatesPage';
+import { PortalTaxEstimatesPage, installmentPaidText } from './PortalTaxEstimatesPage';
 
 const TP = '11111111-1111-4111-8111-111111111111';
 const estimate: PortalTaxEstimateDTO = {
@@ -164,5 +164,16 @@ describe('PortalTaxEstimatesPage', () => {
     render();
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(screen.getByText('No tax estimate shared yet.')).toBeTruthy());
+  });
+});
+
+describe('installmentPaidText (QA D12)', () => {
+  const i = (over: Record<string, unknown>) => ({ label: 'Q1', dueDate: '2026-04-15', amount: '1416', paid: '0', remaining: '0', status: 'paid', paidOn: null, ...over }) as never;
+  it('a covered installment never reads "Nothing paid yet" next to a Paid badge', () => {
+    expect(installmentPaidText(i({}))).toBe('Covered by withholding or earlier payments');
+    expect(installmentPaidText(i({ status: 'unpaid', remaining: '1416' }))).toBe('Nothing paid yet');
+  });
+  it('a payment date carries its year', () => {
+    expect(installmentPaidText(i({ paid: '1416', paidOn: '2027-01-15' }))).toBe('Paid $1,416 · Jan 15, 2027');
   });
 });

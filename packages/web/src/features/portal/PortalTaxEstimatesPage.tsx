@@ -63,6 +63,16 @@ function StatusBadge({ inst }: { inst: PortalTaxInstallmentDTO }) {
   return <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Due</span>;
 }
 
+/**
+ * QA D12: never "Nothing paid yet" beside a green "Paid" badge — an installment covered by
+ * withholding or an earlier overpayment says so; a payment date always carries its year.
+ */
+export function installmentPaidText(i: PortalTaxInstallmentDTO): string {
+  if (Number(i.paid) > 0) return `Paid ${usd(i.paid)}${i.paidOn ? ` · ${fmtDate(i.paidOn)}` : ''}`;
+  if (i.status === 'paid') return 'Covered by withholding or earlier payments';
+  return 'Nothing paid yet';
+}
+
 function History({ j }: { j: PortalTaxJurisdictionDTO }) {
   if (!j.estimatesRequired || j.installments.length === 0) return null;
   return (
@@ -74,7 +84,7 @@ function History({ j }: { j: PortalTaxJurisdictionDTO }) {
             <div className="min-w-0">
               <p className="text-sm text-gray-900">{i.label} <span className="text-gray-500">&middot; due {fmtShortDate(i.dueDate)}</span></p>
               <p className="text-xs text-gray-500">
-                {Number(i.paid) > 0 ? `Paid ${usd(i.paid)}${i.paidOn ? ` · ${fmtShortDate(i.paidOn)}` : ''}` : 'Nothing paid yet'}
+                {installmentPaidText(i)}
               </p>
             </div>
             <div className="text-right shrink-0">
