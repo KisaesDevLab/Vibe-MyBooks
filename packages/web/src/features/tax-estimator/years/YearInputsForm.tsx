@@ -10,7 +10,7 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { SAFE_HARBOR_LABELS, SELECT_CLASS } from '../taxpayers/labels';
-import { DEDUCTION_MODE_LABELS, HSA_LABELS, ITEMIZED_FIELDS, SCH1A_FIELDS, fmtMoney } from './labels';
+import { DEDUCTION_MODE_LABELS, HSA_LABELS, ITEMIZED_FIELDS, SCH1A_FIELDS, fmtMoney, plainDecimal } from './labels';
 import { PeopleCard, peopleDraftFromYear, peopleDraftInvalid, peoplePayload } from './PeopleCard';
 import { Sch1aDialog, SCH1A_MFS_NOTICE, sch1aAmountBad, seniorByYearEnd } from './Sch1aDialog';
 
@@ -43,10 +43,14 @@ function Card({ title, children, note }: { title: string; children: React.ReactN
 }
 
 /** Year-level inputs (shared by every scenario of the year): prior year, rate mode, people (wages, retirement plans), deductions, Sch 1-A, credits, HSA, withholding. */
+// §6654(d)(1)(C) high-income threshold, for the explanatory note only (the engine reads the parameter).
+const HIGH_AGI = 150000;
+const HIGH_AGI_MFS = 75000;
+
 export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving, error, saved, onSave }: Props) {
   const y = detail.year;
-  const [priorTax, setPriorTax] = useState(y.priorYearTax ?? '');
-  const [priorAgi, setPriorAgi] = useState(y.priorYearAgi ?? '');
+  const [priorTax, setPriorTax] = useState(plainDecimal(y.priorYearTax));
+  const [priorAgi, setPriorAgi] = useState(plainDecimal(y.priorYearAgi));
   const [twelve, setTwelve] = useState(y.priorYearTwelveMonths);
   const [filed, setFiled] = useState(y.priorYearFiled);
   const [rule, setRule] = useState<SafeHarborOverride | ''>(y.safeHarborRule ?? '');
@@ -208,14 +212,24 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
           <input type="checkbox" checked={twelve && filed} disabled={!canWrite} onChange={(e) => { setTwelve(e.target.checked); setFiled(e.target.checked); }} />
           Prior year was a full 12-month year with a return filed
         </label>
-        <p className="text-xs text-gray-500" data-testid="rule-callout">The 110% prior-year test applies when prior-year AGI is above $150,000 ($75,000 if married filing separately).</p>
+        {/* QA D28: only when the entered prior-year AGI is above the threshold (the estimate shows the computed rule). */}
+        {Number(priorAgi) > (filingStatus === 'mfs' ? HIGH_AGI_MFS : HIGH_AGI) && (
+          <p className="text-xs text-gray-500" data-testid="rule-callout">
+            Prior-year AGI is above {filingStatus === 'mfs' ? '$75,000 (married filing separately)' : '$150,000'}, so the prior-year safe harbor is 110% of the prior-year tax.
+          </p>
+        )}
       </Card>
 
       <Card title="Withholding" note="Treated as paid evenly through the year. State entries look like MO=2000, AR=500.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input label="Federal withholding (annual)" inputMode="decimal" value={fedWh} disabled={!canWrite} onChange={(e) => setFedWh(e.target.value)} />
-          <Input label="State withholding (annual)" value={stateWh} disabled={!canWrite} placeholder="MO=2000"
-            error={stateWhBad ? 'Use STATE=amount, comma separated' : undefined} onChange={(e) => setStateWh(e.target.value)} />
+          <div>
+            {/* QA D27: the format error is tied to the field. */}
+            <Input label="State withholding (annual)" value={stateWh} disabled={!canWrite} placeholder="MO=2000"
+              aria-invalid={stateWhBad} aria-describedby={stateWhBad ? 'state-wh-error' : undefined}
+              className={stateWhBad ? 'border-red-300' : undefined} onChange={(e) => setStateWh(e.target.value)} />
+            {stateWhBad && <p id="state-wh-error" className="mt-1 text-sm text-red-600">Use STATE=amount, comma separated</p>}
+          </div>
         </div>
       </Card>
 

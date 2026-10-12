@@ -151,8 +151,8 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
                     <input type="checkbox" aria-label={`Non-recurring ${r.name}`} disabled={!rowWrite} checked={d.nonRecurring}
                       onChange={(e) => patch(r, { nonRecurring: e.target.checked })} />
                   </td>
-                  <td className="px-3 py-2 text-right font-mono">{formatMoney(r.bookAmount)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{formatMoney(r.taxAmount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.bookAmount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatMoney(r.taxAmount)}</td>
                   <td className="px-3 py-2 text-xs">
                     {st === 'unmapped' && <span className="rounded bg-amber-100 text-amber-800 px-1.5 py-0.5">Unmapped (treated as ordinary)</span>}
                     {st === 'suggested' && r.suggestion && <span className="rounded bg-blue-100 text-blue-800 px-1.5 py-0.5">Suggested: {TREATMENT_LABELS[r.suggestion.treatment]}</span>}

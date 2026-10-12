@@ -25,3 +25,10 @@ export const SCH1A_FIELDS = [
 
 export const fmtMoney = (n: number | string): string =>
   Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+/** QA D31: a stored decimal(19,4) string as an editable value ("8000.0000" → "8000", "150.5000" → "150.5"). */
+export function plainDecimal(v: string | null | undefined): string {
+  if (v == null) return '';
+  const t = String(v).trim();
+  return /^-?\d+\.\d+$/.test(t) ? t.replace(/0+$/, '').replace(/\.$/, '') : t;
+}

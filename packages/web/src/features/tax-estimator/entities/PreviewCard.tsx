@@ -25,15 +25,15 @@ export function PreviewCard({ pl }: { pl: TaxBasisPl }) {
         <div className="px-4 pb-4 space-y-3">
           <p className="text-xs text-gray-500">{pl.periodStart} through {pl.throughDate} ({pl.monthsElapsed} months, {pl.basis} basis)</p>
           <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm max-w-md" data-testid="reconciliation">
-            <dt>Book net income</dt><dd className="text-right font-mono">{formatMoney(pl.bookNetIncome)}</dd>
-            <dt>Reclasses</dt><dd className="text-right font-mono">{formatMoney(reclass)}</dd>
-            <dt className="font-semibold">Tax-basis profit</dt><dd className="text-right font-mono font-semibold">{formatMoney(pl.taxBasisProfit)}</dd>
+            <dt>Book net income</dt><dd className="text-right tabular-nums">{formatMoney(pl.bookNetIncome)}</dd>
+            <dt>Reclasses</dt><dd className="text-right tabular-nums">{formatMoney(reclass)}</dd>
+            <dt className="font-semibold">Tax-basis profit</dt><dd className="text-right tabular-nums font-semibold">{formatMoney(pl.taxBasisProfit)}</dd>
           </dl>
           <table className="text-sm min-w-[18rem]">
             <thead className="text-xs uppercase tracking-wide text-gray-500"><tr><th className="text-left pr-6">Character</th><th className="text-right">Amount</th></tr></thead>
             <tbody>
               {INCOME_CHARACTERS.filter((c) => !new Decimal(pl.byCharacter[c]).isZero()).map((c) => (
-                <tr key={c}><td className="capitalize pr-6">{CHAR_LABEL(c)}</td><td className="text-right font-mono">{formatMoney(pl.byCharacter[c])}</td></tr>
+                <tr key={c}><td className="capitalize pr-6">{CHAR_LABEL(c)}</td><td className="text-right tabular-nums">{formatMoney(pl.byCharacter[c])}</td></tr>
               ))}
             </tbody>
           </table>
@@ -45,7 +45,7 @@ export function PreviewCard({ pl }: { pl: TaxBasisPl }) {
               {pl.trace.map((t, i) => (
                 <tr key={i} className="border-b last:border-0" data-testid="trace-row">
                   <td className="px-3 py-1.5">{t.label}{t.formula && <div className="text-xs text-gray-500">{t.formula}</div>}</td>
-                  <td className="px-3 py-1.5 text-right font-mono">{formatMoney(t.amount)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{formatMoney(t.amount)}</td>
                   <td className="px-3 py-1.5 text-gray-600">{t.source}</td>
                 </tr>
               ))}

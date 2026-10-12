@@ -174,7 +174,7 @@ export function TaxParametersPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead><tr className="text-left text-gray-500 border-t border-gray-100">
-                          <th className="px-4 py-2">Parameter</th><th>Value</th><th>Status</th><th>Source</th><th>Citation</th><th />
+                          <th className="px-4 py-2">Parameter</th><th className="py-2 pr-3">Value</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Source</th><th className="py-2 pr-3">Citation</th><th />
                         </tr></thead>
                         <tbody>
                           {rows.map((r) => {

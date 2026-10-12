@@ -11,7 +11,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { SELECT_CLASS } from '../taxpayers/labels';
 import { AllocationStrip } from './AllocationStrip';
-import { CADENCE_LABELS, FULL_MONTH_LABELS, fmtMoney } from './labels';
+import { CADENCE_LABELS, FULL_MONTH_LABELS, fmtMoney, plainDecimal } from './labels';
 
 interface Props {
   taxYear: number;
@@ -41,7 +41,7 @@ const emptyDraft = (types: AdjustmentTypeDTO[]): Draft => ({
 
 function draftOf(a: AdjustmentDTO): Draft {
   return {
-    adjustmentTypeId: a.adjustmentTypeId, label: a.label, amount: a.amount ?? '', cadence: a.cadence, startMonth: a.startMonth,
+    adjustmentTypeId: a.adjustmentTypeId, label: a.label, amount: plainDecimal(a.amount), cadence: a.cadence, startMonth: a.startMonth,
     endMonth: a.endMonth, personId: a.personId ?? '', linkId: a.linkId ?? '', pct: a.pct == null ? '' : String(a.pct), nonRecurring: a.nonRecurring, memo: a.memo ?? '',
   };
 }

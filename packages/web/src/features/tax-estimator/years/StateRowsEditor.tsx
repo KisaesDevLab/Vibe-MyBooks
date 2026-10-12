@@ -9,7 +9,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { SELECT_CLASS } from '../taxpayers/labels';
 import { StateSelect } from '../taxpayers/StateSelect';
-import { STATE_BASE_LABELS } from './labels';
+import { STATE_BASE_LABELS, plainDecimal } from './labels';
 
 export interface StateDraft {
   key: string;
@@ -32,8 +32,8 @@ const nextKey = () => `row-${++seq}`;
 export function draftFromRow(r: StateRowDTO): StateDraft {
   return {
     key: r.id, residency: r.residency, state: r.state, ratePct: String(Number((r.effectiveRate * 100).toFixed(4))),
-    base: r.base, customBase: r.customBase ?? '', sourcedManual: r.sourcedManual, sourcedIncome: r.sourcedIncome ?? '',
-    creditOverride: r.creditOverride ?? '', memo: r.memo ?? '',
+    base: r.base, customBase: plainDecimal(r.customBase), sourcedManual: r.sourcedManual, sourcedIncome: plainDecimal(r.sourcedIncome),
+    creditOverride: plainDecimal(r.creditOverride), memo: r.memo ?? '',
   };
 }
 

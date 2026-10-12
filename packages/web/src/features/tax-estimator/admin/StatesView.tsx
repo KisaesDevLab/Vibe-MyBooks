@@ -95,7 +95,7 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
             <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-gray-500">
-                  <th className="px-4 py-2">Rule</th><th>Value</th><th>Status</th><th>Source</th><th>Citation</th><th />
+                  <th className="px-4 py-2">Rule</th><th className="py-2 pr-3">Value</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Source</th><th className="py-2 pr-3">Citation</th><th />
                 </tr></thead>
                 <tbody>
                   {data.rules.map((r) => (

@@ -149,7 +149,7 @@ export function PeopleCard({ draft, onChange, persons, filingStatus, canWrite }:
         <summary className="text-sm font-medium text-gray-700 cursor-pointer">Farmer / fisherman gross-income test</summary>
         <p className="text-xs text-gray-500 mt-1">Only for a farmer or fisherman. Figures entered here replace the books for that year&apos;s two-thirds test.</p>
         <label className="flex items-center gap-2 text-sm text-gray-700 mt-2">
-          <input type="checkbox" checked={draft.isFisherman} disabled={!canWrite} onChange={(e) => onChange({ ...draft, isFisherman: e.target.checked })} />
+          <input type="checkbox" id="farmer-is-fisherman" aria-label="Label as a fisherman (same rules)" checked={draft.isFisherman} disabled={!canWrite} onChange={(e) => onChange({ ...draft, isFisherman: e.target.checked })} />
           Label as a fisherman (same rules)
         </label>
         {FARMER_YEARS.map(([yr, yrLabel]) => persons.map((p) => (
@@ -157,7 +157,8 @@ export function PeopleCard({ draft, onChange, persons, filingStatus, canWrite }:
             {FARMER_FIELDS.map(([f, label]) => {
               const k = `${yr}.${p.role}.${f}`;
               return (
-                <Input key={k} label={`${yrLabel} — ${p.firstName} — ${label}`} inputMode="decimal" value={draft.farmer[k] ?? ''} disabled={!canWrite}
+                <Input key={k} id={`farmer-${k.replace(/\./g, '-')}`} label={`${yrLabel} — ${p.firstName} — ${label}`} aria-label={`${yrLabel} — ${p.firstName} — ${label}`}
+                  inputMode="decimal" value={draft.farmer[k] ?? ''} disabled={!canWrite}
                   error={bad(draft.farmer[k] ?? '') ? 'Enter an amount' : undefined}
                   onChange={(e) => onChange({ ...draft, farmer: { ...draft.farmer, [k]: e.target.value } })} />
               );

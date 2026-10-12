@@ -52,7 +52,6 @@ export function LinksSection({ taxpayerId, persons, canWrite }: { taxpayerId: st
           onSave={(input) => upsert.mutate(input, { onSuccess: () => setEditing(null) })} />
       )}
 
-      {upsert.data?.warnings.map((w) => <p key={w.code + w.companyId} className="text-sm text-amber-700" role="status">{w.message}</p>)}
 
       {isLoading ? <LoadingSpinner className="py-8" />
         : isError ? <ErrorMessage message="Could not load links." onRetry={() => refetch()} />
@@ -77,12 +76,12 @@ export function LinksSection({ taxpayerId, persons, canWrite }: { taxpayerId: st
                         : <>{l.tenantName} &mdash; {l.companyName}</>}
                     </td>
                     <td className="px-3 py-2 capitalize">{l.personRole}</td>
-                    <td className="px-3 py-2 text-right font-mono">{pct(l.profitPct)}</td>
-                    <td className="px-3 py-2 text-right font-mono">{pct(l.lossPct)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{pct(l.profitPct)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{pct(l.lossPct)}</td>
                     <td className="px-3 py-2">{ACTIVITY_LABELS[l.activityType]}</td>
                     <td className="px-3 py-2">{l.qbiEligible == null ? 'Default' : l.qbiEligible ? 'Eligible' : 'Not eligible'}{l.qbiOverrideReason ? ' (override)' : ''}</td>
                     <td className="px-3 py-2 text-xs text-gray-600">
-                      {[l.partnerSeStatus && SE_STATUS_LABELS[l.partnerSeStatus], l.isOfficer && 'Officer', l.allowedLossOverride != null && 'Loss override'].filter(Boolean).join(', ')}
+                      {[l.partnerSeStatus && SE_STATUS_LABELS[l.partnerSeStatus], l.isOfficer && 'Officer', l.activityType === 'rental' && l.activeParticipation && 'Active participation', l.allowedLossOverride != null && 'Loss override'].filter(Boolean).join(', ')}
                     </td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
                       {!l.outOfScope && <Link className="text-sm text-primary-600 hover:underline mr-2" to={`/tax-estimator/entities/${l.tenantId}/${l.companyId}?year=${taxYear}`}>Entity tax setup</Link>}
@@ -96,7 +95,11 @@ export function LinksSection({ taxpayerId, persons, canWrite }: { taxpayerId: st
           </div>
         )}
       {remove.isError && <p className="text-sm text-red-600" role="alert">{errMsg(remove.error)}</p>}
-      {data?.warnings.map((w) => <p key={`${w.code}:${w.companyId}`} className="text-sm text-amber-700" role="status">{w.message}</p>)}
+      {/* QA D17: one notice per company (the list refetches after a save), naming the company. */}
+      {data?.warnings.map((w) => {
+        const name = links.find((l) => l.companyId === w.companyId && !l.outOfScope)?.companyName;
+        return <p key={`${w.code}:${w.companyId}`} className="text-sm text-amber-700" role="status" data-testid="link-warning">{name ? `${name}: ` : ''}{w.message}</p>;
+      })}
     </section>
   );
 }

@@ -142,7 +142,7 @@ export function TaxpayerListPage() {
                     <td className="py-2 px-3 text-sm text-gray-600">{t.personNames.join(', ') || '—'}</td>
                     <td className="py-2 px-3 text-sm">{FILING_STATUS_LABELS[t.filingStatus]}</td>
                     <td className="py-2 px-3 text-sm">{t.residentState ?? '—'}</td>
-                    <td className="py-2 px-3 text-sm text-right font-mono">{t.linkCount}</td>
+                    <td className="py-2 px-3 text-sm text-right tabular-nums">{t.linkCount}</td>
                   </tr>
                 ))}
               </tbody>
