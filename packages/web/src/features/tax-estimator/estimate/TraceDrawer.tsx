@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { formatNumbersInText } from '@kis-books/shared';
 import { dollars, pct } from './format';
 import type { TraceItem } from './traceRows';
 
@@ -12,8 +13,17 @@ interface Props { title: string; rows: TraceItem[]; onClose: () => void }
 /** Right-hand drawer listing the engine's trace rows (label, amount, formula, source) for one calculation line. */
 export function TraceDrawer({ title, rows, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  // QA D26: focus moves into the drawer and returns to the control that opened it (Esc, Close or backdrop).
+  const openerRef = useRef<Element | null>(null);
   useEffect(() => {
+    openerRef.current = document.activeElement;
     closeRef.current?.focus();
+    return () => {
+      const opener = openerRef.current;
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
+  }, []);
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -33,10 +43,10 @@ export function TraceDrawer({ title, rows, onClose }: Props) {
             {rows.map((t, i) => (
               <li key={`${t.id}:${i}`} className="rounded-lg border border-gray-200 p-3 space-y-1">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm font-medium text-gray-900">{t.label}</span>
+                  <span className="text-sm font-medium text-gray-900">{formatNumbersInText(t.label)}</span>
                   <span className="text-sm tabular-nums font-semibold text-gray-900">{dollars(t.amount)}</span>
                 </div>
-                {t.formula && <p className="text-xs font-mono text-gray-600 break-words">{t.formula}</p>}
+                {t.formula && <p className="text-xs text-gray-600 break-words tabular-nums">{formatNumbersInText(t.formula)}</p>}
                 <p className="text-xs text-gray-500">
                   Source: {t.source}{t.marginalRate != null && <> &middot; marginal rate {pct(t.marginalRate)}</>}
                 </p>

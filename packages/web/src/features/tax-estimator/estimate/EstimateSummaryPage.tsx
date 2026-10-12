@@ -46,7 +46,7 @@ export function EstimateSummaryPage() {
   const requested = search.get('scenario');
   const scenarioId = scenarios.find((s) => s.id === requested)?.id ?? scenarios.find((s) => s.isBase)?.id ?? scenarios[0]?.id;
   const estimate = useEstimate(id, taxYear, scenarioId, through);
-  const readiness = useEstimateReadiness(id, taxYear);
+  const readiness = useEstimateReadiness(id, taxYear, through);
   const firm = useFirmSettings();
   const [voucherTrace, setVoucherTrace] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);

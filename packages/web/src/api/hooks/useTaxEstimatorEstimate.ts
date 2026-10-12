@@ -48,10 +48,10 @@ export function useEstimates(taxpayerId: string | undefined, taxYear: number, sc
   });
 }
 
-export function useEstimateReadiness(taxpayerId: string | undefined, taxYear: number) {
+export function useEstimateReadiness(taxpayerId: string | undefined, taxYear: number, throughMonth?: string) {
   return useQuery({
-    queryKey: [KEY, 'readiness', taxpayerId, taxYear], enabled: !!taxpayerId,
-    queryFn: async () => (await call<{ data: EstimateReadinessDTO }>(`/taxpayers/${taxpayerId}/years/${taxYear}/readiness`)).data,
+    queryKey: [KEY, 'readiness', taxpayerId, taxYear, throughMonth ?? null], enabled: !!taxpayerId,
+    queryFn: async () => (await call<{ data: EstimateReadinessDTO }>(`/taxpayers/${taxpayerId}/years/${taxYear}/readiness${throughMonth ? `?throughMonth=${throughMonth}` : ''}`)).data,
   });
 }
 

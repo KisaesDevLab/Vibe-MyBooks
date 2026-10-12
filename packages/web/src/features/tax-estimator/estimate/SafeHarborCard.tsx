@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import type { JurisdictionEstimate } from '@kis-books/shared';
+import { presentEngineText, recommendedHarborRule, type JurisdictionEstimate } from '@kis-books/shared';
 import { dollars, JURISDICTION_LABEL, num, pct } from './format';
 
 const RULE_LABEL: Record<string, string> = { current_year: 'Current year', prior_year: 'Prior year', lesser_of: 'Lesser of both' };
@@ -27,6 +27,8 @@ interface Props { estimate: JurisdictionEstimate; ruleSource: string; rule: stri
 export function SafeHarborCard({ estimate: e, ruleSource, rule }: Props) {
   const sh = e.safeHarbor;
   const prior = sh.priorYear;
+  // QA D8: under "lesser of" the lower available amount is the recommended tile.
+  const recommended = recommendedHarborRule(sh);
   return (
     <section aria-label={`${JURISDICTION_LABEL(e.jurisdiction)} safe harbor`} className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -38,11 +40,11 @@ export function SafeHarborCard({ estimate: e, ruleSource, rule }: Props) {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Tile title={`${pct(sh.currentYear.pct, 0)} of current year`} amount={dollars(sh.currentYear.amount)} sub={`Projected tax ${dollars(sh.currentYear.tax)}`}
-          recommended={sh.appliedRule === 'current_year'} />
+          recommended={recommended === 'current_year'} />
         <Tile title={`${prior.pct == null ? 'Prior year' : `${pct(prior.pct, 0)} of prior year`} (guaranteed)`}
           amount={prior.amount == null ? 'Not available' : dollars(prior.amount)}
           sub={prior.available ? `Prior-year tax ${dollars(prior.tax)}${prior.highAgiApplied ? ' · high-AGI percentage' : ''}` : (prior.unavailableDetail ?? 'Prior-year safe harbor is unavailable.')}
-          recommended={sh.appliedRule === 'prior_year'} />
+          recommended={recommended === 'prior_year'} />
       </div>
       <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
         <dt className="text-gray-600">Required annual payment</dt><dd className="tabular-nums font-medium">{dollars(sh.requiredAnnualPayment)}</dd>
@@ -52,7 +54,7 @@ export function SafeHarborCard({ estimate: e, ruleSource, rule }: Props) {
       </dl>
       {sh.noPenaltyReason && <p className="text-xs text-gray-600">No underpayment penalty applies: the prior-year tax on a filed 12-month return was zero.</p>}
       {num(e.totals.excess) > 0 && <p className="text-xs text-gray-600">Overpaid by {dollars(e.totals.excess)}.</p>}
-      {sh.notes.length > 0 && <ul className="list-disc pl-5 text-xs text-gray-500 space-y-0.5">{sh.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
+      {sh.notes.length > 0 && <ul className="list-disc pl-5 text-xs text-gray-500 space-y-0.5">{sh.notes.map((n) => <li key={n}>{presentEngineText(n)}</li>)}</ul>}
     </section>
   );
 }

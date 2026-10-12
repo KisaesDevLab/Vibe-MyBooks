@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState } from 'react';
-import type { JurisdictionEstimate } from '@kis-books/shared';
+import { presentEngineText, type JurisdictionEstimate } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { TableScroll } from '../../../components/ui/TableScroll';
 import { dollars, fmtDate, JURISDICTION_LABEL, num } from './format';
@@ -17,7 +17,7 @@ export function VoucherTable({ estimate: e, onTrace }: Props) {
   if (!e.estimatesRequired || e.installments.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-700">
-        No estimated payments required for {JURISDICTION_LABEL(e.jurisdiction)}. {e.estimatesRequiredReason}
+        No estimated payments required for {JURISDICTION_LABEL(e.jurisdiction)}. {presentEngineText(e.estimatesRequiredReason)}
       </p>
     );
   }
@@ -75,7 +75,7 @@ export function VoucherTable({ estimate: e, onTrace }: Props) {
         <span>Payments are applied to the earliest unpaid installment. Return due {fmtDate(e.returnDueDate)}{e.lastInstallmentReliefDate ? `; file and pay by ${fmtDate(e.lastInstallmentReliefDate)} to waive the last installment` : ''}.</span>
         {onTrace && <Button size="sm" variant="ghost" onClick={() => onTrace(e.jurisdiction)}>Trace vouchers</Button>}
       </div>
-      {e.notes.length > 0 && <ul className="list-disc pl-5 text-xs text-gray-500 space-y-0.5">{e.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+      {e.notes.length > 0 && <ul className="list-disc pl-5 text-xs text-gray-500 space-y-0.5">{e.notes.map((n, i) => <li key={i}>{presentEngineText(n)}</li>)}</ul>}
     </div>
   );
 }

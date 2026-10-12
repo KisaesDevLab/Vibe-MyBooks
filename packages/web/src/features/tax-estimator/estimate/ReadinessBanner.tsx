@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { Link } from 'react-router-dom';
-import type { EstimateResultDTO, EstimateReadinessDTO } from '@kis-books/shared';
+import { presentWarningMessage, type EstimateResultDTO, type EstimateReadinessDTO } from '@kis-books/shared';
 import { fmtMonth } from './format';
 
 interface Props {
@@ -34,7 +34,11 @@ export function ReadinessBanner({ taxpayerId, taxYear, estimate, readiness, read
     if (e.readiness.unmappedAccounts.length > 0) {
       items.push({ key: `unmapped:${e.companyId}`, text: <>{name}: {e.readiness.unmappedAccounts.length} account(s) with activity have no tax treatment. {entityLink}</> });
     }
-    for (const w of e.readiness.warnings) items.push({ key: `rw:${e.companyId}:${w.code}`, text: <>{name}: {w.message} {entityLink}</> });
+    for (const w of e.readiness.warnings) {
+      // QA D20: the per-account rows above already say this; one item per issue.
+      if (w.code === 'TE_UNRECONCILED_ACCOUNTS' && e.readiness.unreconciledAccounts.length > 0) continue;
+      items.push({ key: `rw:${e.companyId}:${w.code}`, text: <>{name}: {presentWarningMessage(w)} {entityLink}</> });
+    }
   }
   if ((readiness?.outOfScopeLinks ?? 0) > 0) items.push({ key: 'oos', text: <>{readiness!.outOfScopeLinks} linked company(ies) are outside your access and are left out of this estimate.</> });
   const provisional = estimate.parametersUsed.filter((p) => p.status !== 'verified');
@@ -50,7 +54,7 @@ export function ReadinessBanner({ taxpayerId, taxYear, estimate, readiness, read
   }
   for (const w of estimate.warnings) {
     if (/FALLBACK|PRIOR_YEAR|TE_ENTITY|ENTITY_TYPE|TAX_METHOD|OWNERSHIP|PCT/.test(w.code)) {
-      items.push({ key: `w:${w.code}`, text: <>{w.message} {w.code === 'TE_PARAMS_FALLBACK_YEAR' ? 'Values are provisional.' : null}{/PRIOR_YEAR/.test(w.code) && <> <Link className="underline" to={`/tax-estimator/taxpayers/${taxpayerId}/annual-settings?year=${taxYear}`}>Open annual settings</Link></>}</> });
+      items.push({ key: `w:${w.code}`, text: <>{presentWarningMessage(w)} {w.code === 'TE_PARAMS_FALLBACK_YEAR' ? 'Values are provisional.' : null}{/PRIOR_YEAR/.test(w.code) && <> <Link className="underline" to={`/tax-estimator/taxpayers/${taxpayerId}/annual-settings?year=${taxYear}`}>Open annual settings</Link></>}</> });
     }
   }
   if (readinessError) items.push({ key: 'rerr', text: <>Books readiness could not be loaded.</> });

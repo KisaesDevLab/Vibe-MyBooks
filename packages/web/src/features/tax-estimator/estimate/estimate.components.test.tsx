@@ -17,6 +17,7 @@ import { ReadinessBanner } from './ReadinessBanner';
 import { WarningsList } from './WarningsList';
 import { SpecialCases } from './SpecialCases';
 import { EstimateTabs } from './EstimateTabs';
+import { TraceDrawer } from './TraceDrawer';
 
 const TODAY = new Date(2026, 9, 7);
 const wrap = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>);
@@ -30,6 +31,16 @@ describe('format helpers', () => {
     expect(fmtDate('2027-01-15')).toBe('Jan 15, 2027');
     expect(fmtDate(null)).toBe('—');
     expect(daysUntil('2026-10-12', new Date(2026, 9, 7))).toBe(5);
+  });
+});
+
+describe('state chips (QA D18)', () => {
+  it('says "Rules unverified" only when a used rule is unverified; a verified-rules row with verify=true reads "Verify"', () => {
+    const unverified = buildCalcSections(makeEstimate()).flatMap((s) => s.lines).find((l) => l.key === 'st.r2')!;
+    expect(unverified.chips?.[0]?.text).toBe('Rules unverified');
+    const verified = buildCalcSections(makeEstimate({ rulesUsed: [{ state: 'AR', key: 'k', status: 'verified', value: 1 }] }))
+      .flatMap((s) => s.lines).find((l) => l.key === 'st.r2')!;
+    expect(verified.chips?.[0]?.text).toBe('Verify');
   });
 });
 
@@ -84,6 +95,18 @@ describe('SafeHarborCard', () => {
     expect(screen.getByText(/Lesser of both . firm default/)).toBeInTheDocument();
     expect(screen.getByText('Remaining').nextSibling).toHaveTextContent('$7,046');
   });
+
+  it('QA D8: under "lesser of" with both rules available, the lower amount is outlined Recommended', () => {
+    const e = makeEstimate();
+    const fe = e.federalEstimates;
+    const est = { ...fe, safeHarbor: { ...fe.safeHarbor, appliedRule: 'lesser_of' as const,
+      currentYear: { ...fe.safeHarbor.currentYear, amount: '32246' },
+      priorYear: { ...fe.safeHarbor.priorYear, available: true, amount: '34650', tax: '31500', pct: '1.1', unavailableDetail: null } } };
+    wrap(<SafeHarborCard estimate={est} rule="lesser_of" ruleSource="firm_default" />);
+    const badge = screen.getByText('Recommended');
+    expect(badge.closest('div.rounded-lg')).toHaveTextContent('$32,246');
+    expect(screen.getAllByText('Recommended')).toHaveLength(1);
+  });
 });
 
 describe('VoucherTable', () => {
@@ -133,6 +156,16 @@ describe('ReadinessBanner', () => {
     expect(banner).toHaveTextContent('1 federal parameter(s) are provisional');
     expect(banner).toHaveTextContent('1 state rule(s) are unverified (AR)');
   });
+  it('QA D20: one item per issue (no duplicate "N account(s) are not reconciled" line next to the per-account row)', () => {
+    const dup = { ...readiness, entities: [{ ...readiness.entities[0]!, readiness: { ...readiness.entities[0]!.readiness, warnings: [
+      { code: 'TE_UNRECONCILED_ACCOUNTS', severity: 'warning', message: '1 bank/credit-card account(s) are not reconciled through 2026-09.' },
+    ] } }] };
+    wrap(<ReadinessBanner taxpayerId="tp1" taxYear={2026} estimate={makeEstimate({ rulesUsed: [] })} readiness={dup as never} />);
+    const banner = screen.getByRole('status', { name: 'Books readiness' });
+    expect(banner).toHaveTextContent('Business Visa');
+    expect(banner).not.toHaveTextContent('bank/credit-card account(s)');
+    expect(banner).toHaveTextContent('Books readiness · 1 item');
+  });
   it('shows the all-clear state', () => {
     wrap(<ReadinessBanner taxpayerId="tp1" taxYear={2026} estimate={makeEstimate({ rulesUsed: [] })} readiness={{ ...readiness, entities: [] } as never} />);
     expect(screen.getByText('Books readiness: no issues found.')).toBeInTheDocument();
@@ -179,5 +212,29 @@ describe('EstimateTabs (QA D23)', () => {
     render(<MemoryRouter><EstimateTabs taxpayerId="tp1" taxYear={2026} active="summary" scenarioId="s1" through="2026-12" /></MemoryRouter>);
     expect(screen.getByRole('link', { name: 'Payments' })).toHaveAttribute('href', '/tax-estimator/taxpayers/tp1/estimate?year=2026&scenario=s1&through=2026-12#payments');
     expect(screen.getByRole('link', { name: 'Summary' }).getAttribute('href')).toContain('through=2026-12');
+  });
+});
+
+describe('TraceDrawer (QA D7 / D26)', () => {
+  it('formats money in labels and formulas and lists bracket rows with their marginal rate', () => {
+    render(<TraceDrawer title="Regular income tax" onClose={vi.fn()} rows={[
+      { id: 'regular_tax.bracket.2', label: 'Bracket 2: 24800 to 100800 at 0.12', amount: '9120', formula: '76000 × 0.12', source: 'parameter', marginalRate: '0.12' },
+      { id: 'regular_tax', label: 'Regular tax (ordinary brackets)', amount: '20843', formula: 'bracket tax on 138725.7318071403638391314', source: 'parameter', marginalRate: '0.22' },
+    ]} />);
+    expect(screen.getByText('Bracket 2: 24,800 to 100,800 at 0.12')).toBeInTheDocument();
+    expect(screen.getByText('76,000 × 0.12')).toBeInTheDocument();
+    expect(screen.getByText('bracket tax on 138,725.73')).toBeInTheDocument();
+    expect(screen.queryByText(/138725\.7318/)).toBeNull();
+  });
+
+  it('returns focus to the control that opened it', () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const { unmount } = render(<TraceDrawer title="X" rows={[]} onClose={vi.fn()} />);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close trace' }));
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
   });
 });

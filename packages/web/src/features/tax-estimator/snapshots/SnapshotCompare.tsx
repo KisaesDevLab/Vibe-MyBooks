@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import type { SnapshotCompareDTO } from '@kis-books/shared';
+import { presentWarningMessage, type SnapshotCompareDTO } from '@kis-books/shared';
 import { dollars, pct } from '../estimate/format';
 import { fmtTimestamp } from './labels';
 
@@ -78,8 +78,8 @@ export function SnapshotCompare({ compare: c }: { compare: SnapshotCompareDTO })
         <h3 className="text-base font-semibold text-gray-900">Warnings</h3>
         {c.warningsAdded.length === 0 && c.warningsRemoved.length === 0 ? <p className="text-sm text-gray-600">Warnings are unchanged.</p> : (
           <ul className="space-y-1 text-sm">
-            {c.warningsAdded.map((w, i) => <li key={`a${i}`}><span className="font-medium text-amber-800">New:</span> {w.message}</li>)}
-            {c.warningsRemoved.map((w, i) => <li key={`r${i}`}><span className="font-medium text-green-800">Resolved:</span> {w.message}</li>)}
+            {c.warningsAdded.map((w, i) => <li key={`a${i}`}><span className="font-medium text-amber-800">New:</span> {presentWarningMessage(w)}</li>)}
+            {c.warningsRemoved.map((w, i) => <li key={`r${i}`}><span className="font-medium text-green-800">Resolved:</span> {presentWarningMessage(w)}</li>)}
           </ul>
         )}
       </section>

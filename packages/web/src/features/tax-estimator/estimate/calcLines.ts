@@ -105,7 +105,11 @@ export function buildCalcSections(r: EstimateResultDTO): CalcSection[] {
   if (r.state && r.state.rows.length > 0) {
     const st: CalcLine[] = r.state.rows.map((s) => {
       const chips: NonNullable<CalcLine['chips']> = [];
-      if (s.verify || s.usesFederalFallback) chips.push({ text: 'Rules unverified', tone: 'warn' });
+      // QA D18: "Rules unverified" only when a rule the state used is not verified (or the federal
+      // pattern stood in); other verify reasons (gate inputs missing) read "Verify".
+      const rulesUnverified = s.usesFederalFallback || r.rulesUsed.some((u) => u.state === s.state && u.status !== 'verified');
+      if (rulesUnverified) chips.push({ text: 'Rules unverified', tone: 'warn' });
+      else if (s.verify) chips.push({ text: 'Verify', tone: 'warn' });
       return {
         key: `st.${s.rowId}`, label: `${s.state} — ${s.residency === 'resident' ? 'resident' : 'nonresident'}`,
         sub: s.residency === 'resident'
