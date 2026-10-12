@@ -38,6 +38,12 @@ Format: question → **default taken** → status. Take the default, log it in P
 
 27. **Gate waiver and scope answers (2026-10-12, Kurt Q&A).** Engine phases start before sign-off (D12a); unverified parameters are used with warnings; AZ/GA/PA/ME/NM income gates are modeled (D12b); if Jan 15 slips, portal live view + standalone PDF move to a point release (D14a). Resolved.
 
+28. **Retirement plan type per person is not stored** (Phase 5 has HSA coverage only). Engine assumes SEP + `TE_RETIREMENT_PLAN_ASSUMED`; outside W-2/SS wages have no DB field. → Add `retirement_plan_type` + `employee_deferral` and person W-2 wages to year inputs (schema-builder, before Phase 11 UI). Open.
+29. **Age thresholds (65/50/55/60-63) are parameters** because the literal guard forbids them in engine code; seeded unverified (8 keys, both years). → CPA verify. Open.
+30. **Engine approximations (warn / assumptions page):** no SIMPLE 60-63 catch-up; charitable 60%-of-AGI and mortgage-interest limits not applied; MAGI = AGI for SALT/Sch 1-A/§469; car-loan phase-out linear; S-corp SEHI cap = officer wages; SEHI cap pooled across businesses; owner items run-rated as recurring; null-person owner items go to the primary with `TE_OWNER_ITEM_UNATTRIBUTED`. Open (CPA).
+31. **`decimal.ts` lives beside `allocation.ts`, outside `engine/`** (guard forbids radix literals). Accepted. Resolved.
+32. **Phase 7 note:** QBI needs TI-before-QBI using the pre-§68 deduction; compute QBI before the §68 base. Raise scenario models Maria at 50% of an 80,000-profit S corp (oracle comment to add). Open.
+
 ## Parameters to verify (Phase 1) — Kurt signs off (D12)
 Verified while reviewing this plan (re-confirm against primary sources when seeding):
 - 2026 SS wage base $184,500.
