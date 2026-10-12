@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { DEFAULT_ASSUMPTIONS_DISCLAIMER, type EstimateResultDTO } from '@kis-books/shared';
+import { DEFAULT_ASSUMPTIONS_DISCLAIMER, presentEngineText, type EstimateResultDTO } from '@kis-books/shared';
 import { useSnapshot, useSnapshotCompare, downloadSnapshotPdf } from '../../../api/hooks/useTaxEstimatorSnapshots';
 import { Button } from '../../../components/ui/Button';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
@@ -109,7 +109,7 @@ export function SnapshotViewPage() {
                   <ul className="mt-1 space-y-0.5 text-sm text-gray-700">
                     {sec.items.map((it, i) => (
                       <li key={`${it.code ?? it.label}:${i}`}>
-                        <span className="font-medium">{it.label}:</span> {it.detail}
+                        <span className="font-medium">{it.label}:</span> {presentEngineText(it.detail)}
                         {it.badge && <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">{it.badge.replace(/_/g, ' ')}</span>}
                       </li>
                     ))}

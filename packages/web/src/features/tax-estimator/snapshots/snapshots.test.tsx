@@ -120,7 +120,7 @@ describe('SnapshotViewPage', () => {
       result: makeEstimate(),
       assumptions: { version: 1, disclaimerText: 'Frozen disclaimer.', sections: [
         { id: 'rate_mode', title: 'Rate mode', items: [{ label: 'Federal', detail: 'Brackets', badge: null }] },
-        { id: 'parameters', title: 'Unverified and provisional parameters', items: [] },
+        { id: 'parameters', title: 'Unverified and provisional parameters', items: [{ label: 'Federal penalty.underpayment_rate', detail: '[{"to":"2025-03-31","rate":0.07}] (unverified).', badge: 'unverified' }] },
         { id: 'disclaimer', title: 'Disclaimer', items: [{ label: 'Disclaimer', detail: 'Frozen disclaimer.' }] },
       ] },
       disclaimerText: 'Frozen disclaimer.',
@@ -134,6 +134,9 @@ describe('SnapshotViewPage', () => {
     expect(screen.getByRole('status').textContent).toMatch(/Snapshot — read only\. Taken .*Finalized.*actuals through Sep 2026/);
     expect(screen.getByText('Rate mode')).toBeTruthy();
     expect(screen.getByText('Brackets')).toBeTruthy();
+    // QA D19: a value frozen as JSON reads for people.
+    expect(screen.getByText(/a table of 1 row \(see Admin > Tax parameters\)/)).toBeTruthy();
+    expect(screen.queryByText(/\{"to"/)).toBeNull();
     expect(screen.getByText('Frozen disclaimer.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
     expect(h.download).toHaveBeenCalledWith('snap-1');
