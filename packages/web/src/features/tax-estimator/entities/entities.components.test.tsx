@@ -103,6 +103,11 @@ describe('TreatmentTable', () => {
     expect(screen.getByText('No accounts match the current filters.')).toBeInTheDocument();
   });
 
+  it('QA D31: a stored percent shows as typed ("50", not "50.0000")', () => {
+    renderRoute(<TreatmentTable rows={buildRows(lines, [], [])} canWrite saving={false} onSave={vi.fn()} />);
+    expect(screen.getByLabelText('Nondeductible % for Meals')).toHaveValue('50');
+  });
+
   it('shows an empty state', () => {
     renderRoute(<TreatmentTable rows={[]} canWrite saving={false} onSave={vi.fn()} />);
     expect(screen.getByText(/No P&L accounts/)).toBeInTheDocument();
@@ -199,6 +204,27 @@ describe('ReadinessPanel', () => {
     expect(screen.getByText(/Misc/)).toBeInTheDocument();
     expect(screen.getByText('Missing UBIA')).toBeInTheDocument();
     expect(screen.getByText('Linked company is out of scope')).toBeInTheDocument();
+  });
+
+  it('QA2-09: a summary warning already shown as a list (unreconciled / unmapped / unposted) is not repeated', () => {
+    const r = {
+      lastClosedMonth: '2026-08', throughIsOpen: false,
+      unreconciledAccounts: [{ accountId: 'b1', accountNumber: '1010', name: 'Checking', closedThroughMonth: null }],
+      suspense: { balance: '0', transactionCount: 0, unpostedFeedCount: 2, lookalikeAccounts: [] },
+      unmappedAccounts: [{ accountId: 'a2', accountNumber: '6900', name: 'Misc', bookAmount: '-500.0000' }],
+      entity: { warnings: [{ code: 'TE_UNMAPPED_ACCOUNTS', severity: 'warning', message: '1 account(s) with activity have no TB tax-code assignment or estimator treatment; they are treated as ordinary income/expense.' }] },
+      warnings: [
+        { code: 'TE_UNRECONCILED_ACCOUNTS', severity: 'warning', message: '1 bank/credit-card account(s) are not reconciled through 2026-09.' },
+        { code: 'TE_UNPOSTED_BANK_FEED', severity: 'warning', message: '2 bank-feed transaction(s) are not posted yet.' },
+        { code: 'TE_RANGE_INCLUDES_OPEN_MONTH', severity: 'warning', message: 'The range runs through 2026-09, after the last closed month (2026-08).' },
+      ],
+    } as unknown as BooksReadiness;
+    renderRoute(<ReadinessPanel readiness={r} />);
+    expect(screen.getByText(/1010 Checking \(reconciled through never\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/bank\/credit-card account\(s\) are not reconciled/)).toBeNull();
+    expect(screen.queryByText(/have no TB tax-code assignment/)).toBeNull();
+    expect(screen.queryByText(/bank-feed transaction\(s\) are not posted/)).toBeNull();
+    expect(screen.getByText(/after the last closed month/)).toBeInTheDocument();
   });
 
   it('QA D16: a warning carried by both lists shows once (no duplicate React key)', () => {

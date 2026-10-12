@@ -13,8 +13,13 @@ export function uniqueWarnings(list: TaxEstimatorWarning[]): TaxEstimatorWarning
 
 /** Books readiness as warnings, never blocks (MODULE.md 'Books readiness'). */
 export function ReadinessPanel({ readiness: r }: { readiness: BooksReadiness }) {
-  const warnings = uniqueWarnings([...r.warnings, ...r.entity.warnings]);
   const suspenseNonZero = Number(r.suspense.balance) !== 0 || r.suspense.transactionCount > 0 || r.suspense.unpostedFeedCount > 0;
+  // QA2-09 (as D20 on the summary): a count warning whose items are already listed below is not repeated.
+  const listed = (w: TaxEstimatorWarning) =>
+    (w.code === 'TE_UNRECONCILED_ACCOUNTS' && r.unreconciledAccounts.length > 0)
+    || (w.code === 'TE_UNMAPPED_ACCOUNTS' && r.unmappedAccounts.length > 0)
+    || (w.code === 'TE_UNPOSTED_BANK_FEED' && r.suspense.unpostedFeedCount > 0);
+  const warnings = uniqueWarnings([...r.warnings, ...r.entity.warnings]).filter((w) => !listed(w));
   return (
     <section className="space-y-2 bg-white rounded-lg border border-gray-200 p-4" aria-label="Books readiness">
       <h2 className="text-lg font-semibold text-gray-900">Books readiness</h2>

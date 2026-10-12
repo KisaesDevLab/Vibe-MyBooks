@@ -11,6 +11,7 @@ import { useColumnView } from '../../../hooks/useColumnView';
 import { formatMoney } from '../../../utils/money';
 import { PaymentTargetPicker } from './PaymentTargetPicker';
 import { SELECT_CLASS, TREATMENT_LABELS } from './labels';
+import { plainDecimal } from '../years/labels';
 import type { TreatmentRow } from './rows';
 
 type SortKey = 'account' | 'treatment' | 'book' | 'tax' | 'status';
@@ -47,7 +48,7 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
   const [q, setQ] = useState('');
 
   const draftOf = (r: TreatmentRow): Draft => drafts[r.accountId] ?? {
-    treatment: r.treatment, pct: r.pct ?? '', paymentTaxpayerId: r.paymentTaxpayerId, paymentPersonId: r.paymentPersonId,
+    treatment: r.treatment, pct: plainDecimal(r.pct), paymentTaxpayerId: r.paymentTaxpayerId, paymentPersonId: r.paymentPersonId,
     paymentJurisdiction: r.paymentJurisdiction, nonRecurring: r.nonRecurring,
   };
   const patch = (r: TreatmentRow, p: Partial<Draft>) => setDrafts((d) => ({ ...d, [r.accountId]: { ...draftOf(r), ...p } }));
