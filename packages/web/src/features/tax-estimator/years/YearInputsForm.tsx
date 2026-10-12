@@ -12,6 +12,9 @@ import { Input } from '../../../components/ui/Input';
 import { SAFE_HARBOR_LABELS, SELECT_CLASS } from '../taxpayers/labels';
 import { DEDUCTION_MODE_LABELS, HSA_LABELS, ITEMIZED_FIELDS, SCH1A_FIELDS, fmtMoney } from './labels';
 import { PeopleCard, peopleDraftFromYear, peopleDraftInvalid, peoplePayload } from './PeopleCard';
+import { Sch1aDialog, SCH1A_MFS_NOTICE, sch1aAmountBad, seniorByYearEnd } from './Sch1aDialog';
+
+const SCH1A_CHIP_LABELS: Record<string, string> = { qualifiedTips: 'Tips', qualifiedOvertime: 'Overtime', carLoanInterest: 'Car loan interest' };
 
 interface Props {
   detail: YearDetailDTO;
@@ -28,7 +31,6 @@ interface Props {
 const MONEY_RE = /^-?\d+(\.\d{1,4})?$/;
 const num = (s: string): number | undefined => (s.trim() === '' ? undefined : Number(s));
 const str = (n: number | undefined): string => (n == null ? '' : String(n));
-const age65 = (dob: string | null, taxYear: number): boolean => !!dob && taxYear - Number(dob.slice(0, 4)) >= 65;
 
 function Card({ title, children, note }: { title: string; children: React.ReactNode; note?: string }) {
   return (
@@ -57,6 +59,7 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
     for (const role of ['primary', 'spouse'] as const) for (const [k] of SCH1A_FIELDS) out[`${role}.${k}`] = str((y.sch1a[role] as Record<string, number | undefined> | undefined)?.[k]);
     return out;
   });
+  const [sch1aOpen, setSch1aOpen] = useState(false);
   const [nonref, setNonref] = useState(String(Number(y.creditsNonrefundable)));
   const [ref, setRef] = useState(String(Number(y.creditsRefundable)));
   const [hsa, setHsa] = useState<Record<string, HsaCoverage | ''>>({ primary: y.hsaCoverage.primary ?? '', spouse: y.hsaCoverage.spouse ?? '' });
@@ -70,7 +73,8 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
   const moneyBad = (s: string) => s.trim() !== '' && !MONEY_RE.test(s.trim());
   const stateWhParsed = stateWh.split(',').map((t) => t.trim()).filter(Boolean).map((t) => t.split('=').map((p) => p.trim()));
   const stateWhBad = stateWhParsed.some(([s, v]) => !s || !/^[A-Za-z]{2}$/.test(s) || v === undefined || !Number.isFinite(Number(v)) || Number(v) < 0);
-  const invalid = peopleDraftInvalid(people) || rateBad || moneyBad(priorTax) || moneyBad(priorAgi) || moneyBad(nonref) || moneyBad(ref) || stateWhBad
+  const sch1aInvalid = Object.values(sch1a).some(sch1aAmountBad);
+  const invalid = sch1aInvalid || peopleDraftInvalid(people) || rateBad || moneyBad(priorTax) || moneyBad(priorAgi) || moneyBad(nonref) || moneyBad(ref) || stateWhBad
     || ITEMIZED_FIELDS.some(([k]) => Number.isNaN(Number(itemized[k] || 0)));
 
   function submit() {
@@ -97,6 +101,7 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
   }
 
   const roles = persons.length > 0 ? persons : [];
+  const seniors = roles.filter((p) => seniorByYearEnd(p.dateOfBirth, y.taxYear));
   return (
     <div className="space-y-4" aria-label="Year inputs">
       <Card title="Tax calculation" note="Brackets use the platform tax parameters. Use an effective rate only for a quick what-if.">
@@ -121,7 +126,7 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
           <ul className="flex flex-wrap gap-2 text-xs text-gray-700" aria-label="People">
             {roles.map((p) => (
               <li key={p.id} className="rounded bg-gray-100 px-2 py-1">
-                {p.firstName} {p.lastName}{age65(p.dateOfBirth, y.taxYear) ? ' · 65 or older' : ''}{p.isBlind ? ' · blind' : ''}
+                {p.firstName} {p.lastName}{seniorByYearEnd(p.dateOfBirth, y.taxYear) ? ' · 65 or older' : ''}{p.isBlind ? ' · blind' : ''}
               </li>
             ))}
           </ul>
@@ -148,18 +153,24 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
           {dedMode !== 'auto' && <span className="ml-2 rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800">{dedMode === 'itemized' ? 'Itemized forced' : 'Standard forced'}</span>}
         </p>
         <p className="text-xs text-gray-500">SALT is capped and phased down by the platform parameters when the estimate runs; enter what was actually paid.</p>
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-gray-700">Schedule 1-A (tips, overtime, car loan interest)</legend>
-          {roles.length === 0 && <p className="text-xs text-gray-500">Add the taxpayer&apos;s people first to enter per-person Schedule 1-A amounts.</p>}
-          {roles.map((p) => (
-            <div key={p.id} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {SCH1A_FIELDS.map(([k, label]) => (
-                <Input key={k} label={`${p.firstName} — ${label}`} inputMode="decimal" value={sch1a[`${p.role}.${k}`] ?? ''} disabled={!canWrite}
-                  onChange={(e) => setSch1a((cur) => ({ ...cur, [`${p.role}.${k}`]: e.target.value }))} />
-              ))}
-            </div>
-          ))}
-        </fieldset>
+        <div className="space-y-2" aria-label="Schedule 1-A summary" role="group">
+          <div className="text-sm font-medium text-gray-700">Schedule 1-A (in addition to either)</div>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border border-gray-300 bg-gray-50 px-2.5 py-1 text-gray-700">
+              Senior &middot; {seniors.length > 0 ? `${seniors.map((p) => p.firstName).join(' & ')} 65+` : 'none 65+'}
+            </span>
+            {SCH1A_FIELDS.map(([k]) => (
+              <span key={k} className="rounded-full border border-gray-300 bg-gray-50 px-2.5 py-1 text-gray-700">
+                {SCH1A_CHIP_LABELS[k]} &middot; {fmtMoney(roles.reduce((sum, p) => sum + (Number(sch1a[`${p.role}.${k}`]) || 0), 0))}
+              </span>
+            ))}
+            <Button variant="secondary" size="sm" onClick={() => setSch1aOpen(true)}>{canWrite ? 'Edit Schedule 1-A' : 'View Schedule 1-A'}</Button>
+          </div>
+          {filingStatus === 'mfs' && <p className="text-xs text-amber-800">{SCH1A_MFS_NOTICE}</p>}
+          {sch1aInvalid && <p className="text-xs text-red-600">A Schedule 1-A amount is not a valid amount; open the dialog to fix it.</p>}
+        </div>
+        <Sch1aDialog open={sch1aOpen} taxYear={y.taxYear} filingStatus={filingStatus} persons={roles} canWrite={canWrite} values={sch1a}
+          onApply={(v) => { setSch1a(v); setSch1aOpen(false); }} onCancel={() => setSch1aOpen(false)} />
         {roles.length > 0 && (
           <fieldset className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <legend className="text-sm font-medium text-gray-700">HSA coverage</legend>
