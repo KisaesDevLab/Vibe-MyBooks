@@ -1043,6 +1043,9 @@ Navigate to **Reports** in the sidebar to see all available reports organized by
 - **Accounting** — General Ledger, Trial Balance, Transaction List, Journal Entries
 - **Budgets** — Budget vs. Actual
 
+### General Ledger account filter
+The **General Ledger** has an account dropdown (it reads **All accounts** by default) listing every active account, grouped by type like the chart of accounts, with a search box. Tick one or more accounts, or tick a type heading to select every account of that type, to show only those accounts' sections. Each account still shows its full beginning balance, running balance and ending balance; the totals at the bottom then cover only the selected accounts. **Clear selection** goes back to all accounts. The CSV and PDF exports use the same selection, and the PDF header lists the selected accounts (or just how many when there are more than five). The selection is remembered until you close the browser tab. Report Packs always include the full General Ledger.
+
 ### Filtering Reports
 Most reports support:
 - **Date Range** — select a start and end date
