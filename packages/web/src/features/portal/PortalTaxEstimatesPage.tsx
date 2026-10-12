@@ -58,6 +58,8 @@ type DetailState =
 
 function StatusBadge({ inst }: { inst: PortalTaxInstallmentDTO }) {
   if (inst.status === 'paid') return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">Paid</span>;
+  // QA2-01: a partly paid installment whose due date has passed is past due by what is left.
+  if (Number(inst.paid) > 0 && inst.dueDate < todayIso()) return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">{usd(inst.remaining)} past due</span>;
   if (Number(inst.paid) > 0) return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{usd(inst.remaining)} short</span>;
   if (inst.dueDate < todayIso()) return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">Past due</span>;
   return <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Due</span>;
@@ -71,6 +73,17 @@ export function installmentPaidText(i: PortalTaxInstallmentDTO): string {
   if (Number(i.paid) > 0) return `Paid ${usd(i.paid)}${i.paidOn ? ` · ${fmtDate(i.paidOn)}` : ''}`;
   if (i.status === 'paid') return 'Covered by withholding or earlier payments';
   return 'Nothing paid yet';
+}
+
+/**
+ * QA2-07: what the Next payments row says when there is no upcoming payment. "None required"
+ * only when the jurisdiction requires no estimates (the AR case); a covered schedule says
+ * "Nothing due", and money still owed after the last due date says it is past due.
+ */
+export function noNextPaymentText(j: PortalTaxJurisdictionDTO): string {
+  if (!j.estimatesRequired) return 'None required';
+  if (Number(j.totals.remaining) > 0) return `${usd(j.totals.remaining)} past due`;
+  return 'Nothing due';
 }
 
 function History({ j }: { j: PortalTaxJurisdictionDTO }) {
@@ -121,7 +134,7 @@ function EstimateView({ e, voucherHref }: { e: PortalTaxEstimateDTO; voucherHref
               <span className="text-sm font-semibold tabular-nums text-gray-900">
                 {j.nextPayment ? (
                   <>{usd(j.nextPayment.amount)}{j.nextPayment.dueDate !== nextDue && <span className="ml-1 text-xs font-normal text-gray-500">due {fmtShortDate(j.nextPayment.dueDate)}</span>}</>
-                ) : <span className="font-normal text-gray-500">None required</span>}
+                ) : <span className="font-normal text-gray-500">{noNextPaymentText(j)}</span>}
               </span>
             </li>
           ))}

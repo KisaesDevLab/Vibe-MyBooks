@@ -19,7 +19,7 @@ vi.mock('./PortalLayout', () => ({
   }),
 }));
 
-import { PortalTaxEstimatesPage, installmentPaidText } from './PortalTaxEstimatesPage';
+import { PortalTaxEstimatesPage, installmentPaidText, noNextPaymentText } from './PortalTaxEstimatesPage';
 
 const TP = '11111111-1111-4111-8111-111111111111';
 const estimate: PortalTaxEstimateDTO = {
@@ -98,7 +98,8 @@ describe('PortalTaxEstimatesPage', () => {
     expect(screen.getByText('$4,500')).toBeTruthy();
     // History badges.
     expect(screen.getAllByText('Paid').length).toBe(2);
-    expect(screen.getByText('$485 short')).toBeTruthy();
+    // QA2-01: a partly paid installment whose due date has passed is past due, not just short.
+    expect(screen.getByText('$485 past due')).toBeTruthy();
     // Voucher download + message link + disclaimer.
     const link = screen.getByRole('link', { name: /Download payment vouchers/ });
     expect(link.getAttribute('href')).toBe(`/mb/api/portal/tax-estimates/${TP}/vouchers.pdf?companyId=co1&year=2026`);
@@ -177,3 +178,18 @@ describe('installmentPaidText (QA D12)', () => {
     expect(installmentPaidText(i({ paid: '1416', paidOn: '2027-01-15' }))).toBe('Paid $1,416 · Jan 15, 2027');
   });
 });
+
+describe('noNextPaymentText (QA2-07)', () => {
+  const j = (over: Record<string, unknown>) => ({ jurisdiction: 'federal', label: 'Federal (IRS)', estimatesRequired: true, installments: [], nextPayment: null,
+    totals: { required: '26246', withholding: '6000', estimatesPaid: '26246', remaining: '0' }, ...over }) as never;
+  it('"None required" only when the jurisdiction requires no estimates', () => {
+    expect(noNextPaymentText(j({ estimatesRequired: false }))).toBe('None required');
+  });
+  it('estimates required and fully covered reads as nothing due, not "none required"', () => {
+    expect(noNextPaymentText(j({}))).toBe('Nothing due');
+  });
+  it('estimates required, no upcoming date but money still owed reads as past due', () => {
+    expect(noNextPaymentText(j({ totals: { required: '26246', withholding: '6000', estimatesPaid: '19200', remaining: '7046' } }))).toBe('$7,046 past due');
+  });
+});
+

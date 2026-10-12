@@ -10,10 +10,12 @@ import { dollars, fmtDate, JURISDICTION_LABEL, num } from './format';
 
 const TH = 'px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500';
 
-interface Props { estimate: JurisdictionEstimate; onTrace?: (jurisdiction: string) => void }
+interface Props { estimate: JurisdictionEstimate; onTrace?: (jurisdiction: string) => void; today?: Date }
+
+const toIsoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 /** Voucher schedule for one jurisdiction: Regular / Sch AI / withholding / net / paid / remaining / penalty / status / pay-now. */
-export function VoucherTable({ estimate: e, onTrace }: Props) {
+export function VoucherTable({ estimate: e, onTrace, today }: Props) {
   if (!e.estimatesRequired || e.installments.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-700">
@@ -21,6 +23,9 @@ export function VoucherTable({ estimate: e, onTrace }: Props) {
       </p>
     );
   }
+  // QA2-01: the engine credits every known amount whatever its date (year-end view). An
+  // installment that only reaches zero on a date after today is not paid yet: say so.
+  const todayIso = toIsoDay(today ?? new Date());
   const penalties = e.penalty?.installments ?? [];
   const penaltyOf = (i: number) => penalties.find((p) => p.index === i)?.penalty ?? '0';
   return (
@@ -40,6 +45,7 @@ export function VoucherTable({ estimate: e, onTrace }: Props) {
           <tbody className="divide-y divide-gray-100">
             {e.installments.map((i) => {
               const aiUsed = i.annualizedInstallment != null && num(i.annualizedInstallment) < num(i.regularInstallment);
+              const coveredLater = i.status === 'paid' && i.paidInFullOn != null && i.paidInFullOn > todayIso;
               return (
                 <tr key={i.index}>
                   <td className="px-3 py-2 font-medium text-gray-900">{i.label}</td>
@@ -50,11 +56,13 @@ export function VoucherTable({ estimate: e, onTrace }: Props) {
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{dollars(i.withholdingShare)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{dollars(i.netRequired)}{num(i.carriedIn) > 0 && <div className="text-xs text-gray-500">after {dollars(i.carriedIn)} carryover</div>}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{dollars(i.estimatesApplied)}{i.paidInFullOn && <div className="text-xs text-gray-500">full {fmtDate(i.paidInFullOn)}</div>}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{dollars(i.estimatesApplied)}{i.paidInFullOn && <div className="text-xs text-gray-500">{coveredLater ? `covered ${fmtDate(i.paidInFullOn)} (after today)` : `full ${fmtDate(i.paidInFullOn)}`}</div>}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{dollars(i.unpaid)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{dollars(penaltyOf(i.index))}</td>
                   <td className="px-3 py-2">
-                    <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${i.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-900'}`}>{i.status === 'paid' ? 'Paid' : 'Unpaid'}</span>
+                    {coveredLater
+                      ? <span className="rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-900" title={`Covered by amounts dated ${fmtDate(i.paidInFullOn)} (a scheduled payment or a later withholding share); not paid as of today`}>Covered later</span>
+                      : <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${i.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-900'}`}>{i.status === 'paid' ? 'Paid' : 'Unpaid'}</span>}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium" title="Amount to pay with this voucher to be current">{dollars(i.catchUpAmount)}</td>
                 </tr>

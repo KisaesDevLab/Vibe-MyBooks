@@ -122,6 +122,17 @@ describe('VoucherTable', () => {
     expect(screen.getByText(/Payments are applied to the earliest unpaid installment/)).toBeInTheDocument();
   });
 
+  it('QA2-01: an installment only covered by an amount dated after today is not shown as Paid', () => {
+    const e = makeEstimate();
+    const fed = { ...e.federalEstimates, installments: e.federalEstimates.installments.map((i, k) => (k === 2 ? { ...i, paidInFullOn: '2027-01-15' } : i)) };
+    wrap(<VoucherTable estimate={fed} today={new Date(2026, 9, 12)} />);
+    const rows = screen.getAllByRole('row');
+    expect(within(rows[3]!).queryByText('Paid')).toBeNull();
+    expect(within(rows[3]!).getByText('Covered later')).toBeInTheDocument();
+    expect(within(rows[3]!).getByText(/covered Jan 15, 2027 \(after today\)/)).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('Paid')).toBeInTheDocument();
+  });
+
   it('says "none required" for a jurisdiction without vouchers', () => {
     const e = makeEstimate();
     wrap(<VoucherTable estimate={e.stateEstimates[1]!} />);
