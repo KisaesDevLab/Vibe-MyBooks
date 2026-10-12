@@ -44,6 +44,9 @@ Format: question → **default taken** → status. Take the default, log it in P
 31. **`decimal.ts` lives beside `allocation.ts`, outside `engine/`** (guard forbids radix literals). Accepted. Resolved.
 32. **Phase 7 note:** QBI needs TI-before-QBI using the pre-§68 deduction; compute QBI before the §68 base. Raise scenario models Maria at 50% of an 80,000-profit S corp (oracle comment to add). Open.
 
+33. **Phase 7 interpretations (CPA):** §199A(i) minimum applied after overall limit; §469(i) MAGI = AGI without passive losses; §461(l) aggregate = ordinary+rental+§1231 of non-investment links+GP after §469; NII has no §1411 trade-or-business carve-out for gains. Inputs `mfsLivedApartAllYear`, `niiAllocableDeductions` need schema/UI. Open.
+34. **Phase 9/10 gaps:** C corp short current year (§6655(i)) and Form 2220 annualized installments not modelled; large-corp +2% penalty rate and $500 minimum not modelled; no C corp return-due-date key. Prior-year STATE tax/AGI, state gate inputs (withholding, credits, gross income, exemptions), farmer gross-income figures, `tax_est_payments` table, and Schedule AI period snapshots need schema + services before Phase 11. Prior-year overpayment dated at original due date; late-filed prior return not modelled. Penalty method difference vs oracle (segments split at rate/year boundaries, Form 2210 method) gives identical $11. Services must pass the ROUNDED federal total / state net tax as current-year tax. Open.
+
 ## Parameters to verify (Phase 1) — Kurt signs off (D12)
 Verified while reviewing this plan (re-confirm against primary sources when seeding):
 - 2026 SS wage base $184,500.
