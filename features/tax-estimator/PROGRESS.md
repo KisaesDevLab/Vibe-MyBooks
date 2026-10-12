@@ -33,7 +33,7 @@
 | 11 UI summary & scenarios + standalone PDF | ✅ built 2026-10-12 (UI never opened in a browser; manual QA open) | ui-builder (sonnet) | f642e39b |  |
 | 12 Snapshots, assumptions, audit | ✅ 2026-10-12 | integration engineer (opus) | ad097aa0 | immutable encrypted snapshots, assumptions block, encrypted cache |
 | 13 Report Pack section & portal | ✅ 2026-10-12 | opus | 21165e3b; R3 fixes 9a979aa1; R4 fixes 6b0cb4b3 | R4 blocker fixed |
-| 14 Hardening, docs, merge readiness | ⏳ docs a6856ab0 done; oracle seasonal fixtures + R7 + full regression in progress | oracle-verifier (fable) |  |  |
+| 14 Hardening, docs, merge readiness | ⏳ docs a6856ab0 done; oracle batch 1 (seasonal, late payments, MFS, high-income, SALT) + batch 2 (FY C corp recapture, farmer prior-year, §469(i)+§461(l), senior Sch 1-A, multistate + AZ/GA/PA gates) + perf guard done 2026-10-12 (Q37; engine Sch 1-A rounding fix); R7 + full regression in progress | oracle-verifier (fable) |  | `scenarios2_fixture.py`, `oracle.scenarios2.golden.test.ts`, `performance.test.ts` (12.9 ms median) |
 
 ## Decisions made during build
 | Date | Decision | Source |
