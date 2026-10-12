@@ -36,7 +36,7 @@ export function SnapshotHistory({ taxpayerId, taxYear }: Props) {
           <p className="text-sm text-gray-600">No snapshots yet. Finalize the estimate, or download its PDF, to freeze one.</p>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b border-gray-200">

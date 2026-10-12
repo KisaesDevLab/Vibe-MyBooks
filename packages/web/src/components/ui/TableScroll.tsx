@@ -17,10 +17,14 @@ interface TableScrollProps {
  * on a phone. Pair with a `min-w-full` table so it fills wide and scrolls
  * narrow. Use this instead of hand-rolling the wrapper div to prevent the
  * clip regression from creeping back in.
+ *
+ * `relative` makes the card the containing block for absolutely positioned
+ * descendants (e.g. a `sr-only` column header), so overflow-x-auto clips
+ * them too; without it they escape the card and widen the whole page.
  */
 export function TableScroll({ children, className = '' }: TableScrollProps) {
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto ${className}`}>
+    <div className={`relative bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto ${className}`}>
       {children}
     </div>
   );

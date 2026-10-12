@@ -80,4 +80,17 @@ describe('PaymentsLedger', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(h.del).toHaveBeenCalledWith('p1');
   });
+
+  it('D5: the visually hidden Actions header stays inside the scroll card (no 375px page overflow)', () => {
+    const { container } = ui();
+    const hidden = Array.from(container.querySelectorAll('.sr-only'));
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const el of hidden) {
+      // sr-only is position:absolute; an overflow-x-auto ancestor only clips it
+      // when that ancestor is the containing block (positioned).
+      const scroller = el.closest('[class*="overflow-x-auto"]');
+      expect(scroller).not.toBeNull();
+      expect(scroller!.className).toMatch(/\brelative\b/);
+    }
+  });
 });

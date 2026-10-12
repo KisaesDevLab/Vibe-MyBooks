@@ -56,6 +56,13 @@ describe('SnapshotHistory', () => {
     expect(h.download).toHaveBeenCalledWith('snap-1');
   });
 
+  it('D5: the visually hidden Actions header stays inside the scroll container', () => {
+    const { container } = renderRoute(<SnapshotHistory taxpayerId="tp1" taxYear={2026} />);
+    const hidden = Array.from(container.querySelectorAll('th .sr-only'));
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const el of hidden) expect(el.closest('[class*="overflow-x-auto"]')!.className).toMatch(/\brelative\b/);
+  });
+
   it('empty and error states', () => {
     h.list = q({ data: { data: [], total: 0, limit: 20, offset: 0 } });
     const { unmount } = renderRoute(<SnapshotHistory taxpayerId="tp1" taxYear={2026} />);
