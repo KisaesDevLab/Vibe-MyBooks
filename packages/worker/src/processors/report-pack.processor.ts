@@ -27,6 +27,11 @@ export function startReportPackWorker(): Worker<ReportPackJobData> {
     },
   );
 
+  // Operator-visible proof the worker (not the API fallback) ran the job.
+  worker.on('completed', (job) => {
+    console.log(`[report-pack] job ${job.id} completed in worker (${(job.finishedOn ?? Date.now()) - (job.processedOn ?? job.timestamp)} ms)`);
+  });
+
   worker.on('failed', (job, err) => {
     console.error(`[report-pack] job ${job?.id ?? '?'} failed: ${err?.message ?? err}`);
   });

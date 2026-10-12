@@ -30,6 +30,11 @@ export function startStatementParseWorker(): Worker<StatementParseJobData> {
     },
   );
 
+  // Operator-visible proof the worker (not the API fallback) ran the job.
+  worker.on('completed', (job) => {
+    console.log(`[statement-parse] job ${job.id} completed in worker (${(job.finishedOn ?? Date.now()) - (job.processedOn ?? job.timestamp)} ms)`);
+  });
+
   worker.on('failed', (job, err) => {
     // The ai_jobs row was already terminal-failed by runStatementParseJob; this
     // is just operator-visible logging.
