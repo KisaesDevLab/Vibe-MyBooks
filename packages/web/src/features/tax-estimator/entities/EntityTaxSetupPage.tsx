@@ -89,7 +89,7 @@ export function EntityTaxSetupPage() {
             onChange={(e) => { const v = Number(e.target.value); if (v >= 2000 && v <= 2100) setParam('year', String(v)); }} />
         </label>
         <label className="text-sm text-gray-700">Through month
-          <input aria-label="Through month" type="month" value={through} placeholder="Latest"
+          <input aria-label="Through month" type="month" value={through || (pl.data?.throughMonth ?? '')} placeholder="Latest"
             className="block rounded-lg border border-gray-300 px-2 py-1.5 text-sm" onChange={(e) => setParam('through', e.target.value)} />
         </label>
       </div>
@@ -109,7 +109,8 @@ export function EntityTaxSetupPage() {
       <section className="space-y-3" aria-label="GL tax treatments section">
         <h2 className="text-lg font-semibold text-gray-900">GL tax treatment</h2>
         {suggestions.data && (
-          <SuggestionsBanner suggestions={suggestions.data} canWrite={canWrite} saving={saveTreatments.isPending} onApply={applySuggestions} />
+          <SuggestionsBanner suggestions={suggestions.data} canWrite={canWrite} saving={saveTreatments.isPending} onApply={applySuggestions}
+            storageKey={`vibe:tax-estimator:dismissed-suggestions:${tenantId}:${companyId}`} />
         )}
         {treatments.isLoading || pl.isLoading ? <LoadingSpinner className="py-8" />
           : treatments.isError || pl.isError ? <ErrorMessage message="Could not load the GL treatment map." onRetry={() => { void treatments.refetch(); void pl.refetch(); }} />

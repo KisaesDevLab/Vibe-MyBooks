@@ -2,12 +2,18 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import type { BooksReadiness } from '@kis-books/shared';
+import { presentWarningMessage, type BooksReadiness, type TaxEstimatorWarning } from '@kis-books/shared';
 import { formatMoney } from '../../../utils/money';
+
+/** QA D16: the readiness and entity lists can carry the same warning; show each once. */
+export function uniqueWarnings(list: TaxEstimatorWarning[]): TaxEstimatorWarning[] {
+  const seen = new Set<string>();
+  return list.filter((w) => { const k = `${w.code}\u0000${w.message}`; if (seen.has(k)) return false; seen.add(k); return true; });
+}
 
 /** Books readiness as warnings, never blocks (MODULE.md 'Books readiness'). */
 export function ReadinessPanel({ readiness: r }: { readiness: BooksReadiness }) {
-  const warnings = [...r.warnings, ...r.entity.warnings];
+  const warnings = uniqueWarnings([...r.warnings, ...r.entity.warnings]);
   const suspenseNonZero = Number(r.suspense.balance) !== 0 || r.suspense.transactionCount > 0 || r.suspense.unpostedFeedCount > 0;
   return (
     <section className="space-y-2 bg-white rounded-lg border border-gray-200 p-4" aria-label="Books readiness">
@@ -41,7 +47,7 @@ export function ReadinessPanel({ readiness: r }: { readiness: BooksReadiness }) 
         </div>
       )}
       {warnings.map((w) => (
-        <p key={w.code + w.message} className={`text-sm ${w.severity === 'warning' ? 'text-amber-800' : 'text-gray-600'}`} role="status">{w.message}</p>
+        <p key={w.code + w.message} className={`text-sm ${w.severity === 'warning' ? 'text-amber-800' : 'text-gray-600'}`} role="status">{presentWarningMessage(w)}</p>
       ))}
       {!r.unreconciledAccounts.length && !suspenseNonZero && !r.unmappedAccounts.length && warnings.length === 0 && (
         <p className="text-sm text-green-700">No readiness issues found.</p>

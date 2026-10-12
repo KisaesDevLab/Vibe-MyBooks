@@ -7,13 +7,36 @@ import type { TreatmentSuggestion } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { TREATMENT_LABELS } from './labels';
 
-/** Suggestions are shown for confirmation only; nothing is applied until the user clicks Apply. */
-export function SuggestionsBanner({ suggestions, canWrite, saving, onApply }: {
-  suggestions: TreatmentSuggestion[]; canWrite: boolean; saving: boolean; onApply: (s: TreatmentSuggestion[]) => void;
+/** A dismissal is remembered for this exact suggestion (a changed suggestion shows again). */
+const sigOf = (s: TreatmentSuggestion) => `${s.accountId}:${s.treatment}:${s.pct ?? ''}`;
+
+function readDismissed(key: string | undefined): Set<string> {
+  if (!key) return new Set();
+  try {
+    const raw = window.localStorage.getItem(key);
+    const v: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissed(key: string | undefined, set: Set<string>): void {
+  if (!key) return;
+  try { window.localStorage.setItem(key, JSON.stringify([...set])); } catch { /* storage unavailable: session-only */ }
+}
+
+/**
+ * Suggestions are shown for confirmation only; nothing is applied until the user clicks Apply.
+ * QA D14: Dismiss is remembered per viewer (browser storage, `storageKey`) across reloads.
+ */
+export function SuggestionsBanner({ suggestions, canWrite, saving, onApply, storageKey }: {
+  suggestions: TreatmentSuggestion[]; canWrite: boolean; saving: boolean; onApply: (s: TreatmentSuggestion[]) => void; storageKey?: string;
 }) {
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissedState] = useState<Set<string>>(() => readDismissed(storageKey));
+  const setDismissed = (next: Set<string>) => { setDismissedState(next); writeDismissed(storageKey, next); };
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const visible = suggestions.filter((s) => !dismissed.has(s.accountId));
+  const visible = suggestions.filter((s) => !dismissed.has(sigOf(s)));
   if (visible.length === 0) return null;
   const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const selected = visible.filter((s) => picked.has(s.accountId));
@@ -35,7 +58,7 @@ export function SuggestionsBanner({ suggestions, canWrite, saving, onApply }: {
             {canWrite && (
               <div className="flex gap-1">
                 <Button size="sm" variant="secondary" disabled={saving} aria-label={`Apply ${s.accountName}`} onClick={() => onApply([s])}>Apply</Button>
-                <Button size="sm" variant="ghost" aria-label={`Dismiss ${s.accountName}`} onClick={() => setDismissed(new Set(dismissed).add(s.accountId))}>Dismiss</Button>
+                <Button size="sm" variant="ghost" aria-label={`Dismiss ${s.accountName}`} onClick={() => setDismissed(new Set(dismissed).add(sigOf(s)))}>Dismiss</Button>
               </div>
             )}
           </li>

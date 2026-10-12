@@ -93,6 +93,16 @@ describe('TreatmentTable', () => {
     expect(screen.getByLabelText('Non-recurring Misc')).toBeDisabled();
   });
 
+  it('QA D14: searches by account number or name', () => {
+    renderRoute(<TreatmentTable rows={buildRows(lines, [], [])} canWrite saving={false} onSave={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Search accounts'), { target: { value: '6420' } });
+    expect(screen.getAllByTestId('treatment-row')).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText('Search accounts'), { target: { value: 'misc' } });
+    expect(screen.getAllByTestId('treatment-row')).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText('Search accounts'), { target: { value: 'zzz-no-such-account' } });
+    expect(screen.getByText('No accounts match the current filters.')).toBeInTheDocument();
+  });
+
   it('shows an empty state', () => {
     renderRoute(<TreatmentTable rows={[]} canWrite saving={false} onSave={vi.fn()} />);
     expect(screen.getByText(/No P&L accounts/)).toBeInTheDocument();
@@ -115,6 +125,19 @@ describe('SuggestionsBanner', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss Owner health insurance' }));
     expect(screen.queryByTestId('suggestion-row')).toBeNull();
     expect(onApply).not.toHaveBeenCalled();
+  });
+
+  it('QA D14: a dismissal survives a reload (per-viewer storage) and a changed suggestion shows again', () => {
+    window.localStorage.removeItem('k-d14');
+    const first = renderRoute(<SuggestionsBanner suggestions={[sugg]} canWrite saving={false} onApply={vi.fn()} storageKey="k-d14" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss Owner health insurance' }));
+    first.unmount();
+    const second = renderRoute(<SuggestionsBanner suggestions={[sugg]} canWrite saving={false} onApply={vi.fn()} storageKey="k-d14" />);
+    expect(screen.queryByTestId('suggestion-row')).toBeNull();
+    second.unmount();
+    renderRoute(<SuggestionsBanner suggestions={[{ ...sugg, pct: '25' }]} canWrite saving={false} onApply={vi.fn()} storageKey="k-d14" />);
+    expect(screen.getAllByTestId('suggestion-row')).toHaveLength(1);
+    window.localStorage.removeItem('k-d14');
   });
 });
 
@@ -162,6 +185,20 @@ describe('ReadinessPanel', () => {
     expect(screen.getByText(/Misc/)).toBeInTheDocument();
     expect(screen.getByText('Missing UBIA')).toBeInTheDocument();
     expect(screen.getByText('Linked company is out of scope')).toBeInTheDocument();
+  });
+
+  it('QA D16: a warning carried by both lists shows once (no duplicate React key)', () => {
+    const w = { code: 'TE_ENTITY_TYPE_FROM_COMPANY', severity: 'info', message: 'Entity tax type taken from the company.' };
+    const r = {
+      lastClosedMonth: null, throughIsOpen: false, unreconciledAccounts: [], unmappedAccounts: [],
+      suspense: { balance: '0', transactionCount: 0, unpostedFeedCount: 0, lookalikeAccounts: [] },
+      entity: { warnings: [w] }, warnings: [w],
+    } as unknown as BooksReadiness;
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    renderRoute(<ReadinessPanel readiness={r} />);
+    expect(screen.getAllByText('Entity tax type taken from the company.')).toHaveLength(1);
+    expect(err.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false);
+    err.mockRestore();
   });
 });
 

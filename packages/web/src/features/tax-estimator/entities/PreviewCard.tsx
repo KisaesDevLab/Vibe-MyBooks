@@ -5,7 +5,8 @@
 import { useState } from 'react';
 import Decimal from 'decimal.js';
 import type { TaxBasisPl } from '@kis-books/shared';
-import { INCOME_CHARACTERS } from '@kis-books/shared';
+import { INCOME_CHARACTERS, presentWarningMessage } from '@kis-books/shared';
+import { uniqueWarnings } from './ReadinessPanel';
 import { formatMoney } from '../../../utils/money';
 
 const CHAR_LABEL = (c: string) => c.replace(/_/g, ' ');
@@ -50,7 +51,7 @@ export function PreviewCard({ pl }: { pl: TaxBasisPl }) {
               ))}
             </tbody>
           </table>
-          {pl.warnings.map((w) => <p key={w.code + w.message} className="text-sm text-amber-700" role="status">{w.message}</p>)}
+          {uniqueWarnings(pl.warnings).map((w) => <p key={w.code + w.message} className="text-sm text-amber-700" role="status">{presentWarningMessage(w)}</p>)}
         </div>
       )}
     </section>

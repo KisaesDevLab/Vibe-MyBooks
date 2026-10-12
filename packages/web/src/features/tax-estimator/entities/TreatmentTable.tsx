@@ -43,6 +43,8 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
 }) {
   const view = useColumnView<SortKey>('vibe:te-entity-treatments:view', { sortKeys: SORT_KEYS, defaultSort: { col: 'account', dir: 'asc' } });
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  // QA D14: search by account number or name.
+  const [q, setQ] = useState('');
 
   const draftOf = (r: TreatmentRow): Draft => drafts[r.accountId] ?? {
     treatment: r.treatment, pct: r.pct ?? '', paymentTaxpayerId: r.paymentTaxpayerId, paymentPersonId: r.paymentPersonId,
@@ -53,7 +55,9 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
   const visible = useMemo(() => {
     const status = view.filterFor('status');
     const treat = view.filterFor('treatment');
-    let out = rows.filter((r) => (status.size === 0 || status.has(statusOf(r))) && (treat.size === 0 || treat.has(r.treatment ?? 'none')));
+    const needle = q.trim().toLowerCase();
+    let out = rows.filter((r) => (status.size === 0 || status.has(statusOf(r))) && (treat.size === 0 || treat.has(r.treatment ?? 'none'))
+      && (needle === '' || `${r.accountNumber ?? ''} ${r.name}`.toLowerCase().includes(needle)));
     const dir = view.sortDir === 'asc' ? 1 : -1;
     const key = (r: TreatmentRow): string | number => {
       switch (view.sortCol) {
@@ -66,7 +70,7 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
     };
     if (view.sortCol) out = [...out].sort((a, b) => { const x = key(a), y = key(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
     return out;
-  }, [rows, view]);
+  }, [rows, view, q]);
 
   const byId = new Map(rows.map((r) => [r.accountId, r]));
   const dirtyIds = Object.keys(drafts);
@@ -75,11 +79,15 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
   const anyBad = dirtyIds.some((id) => pctBad(id) || personBad(id));
 
   if (rows.length === 0) {
-    return <p className="text-sm text-gray-500 py-6 text-center border border-dashed rounded-lg">No P&amp;L accounts found for this company.</p>;
+    return <p className="text-sm text-gray-500 py-6 text-center border border-dashed rounded-lg">No P&amp;L accounts with activity in the selected range. Accounts appear here once they have activity or a saved treatment.</p>;
   }
 
   return (
     <div className="space-y-2">
+      <div className="w-full sm:w-72">
+        <input type="search" aria-label="Search accounts" placeholder="Search accounts" value={q} onChange={(e) => setQ(e.target.value)}
+          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+      </div>
       <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
         <table className="min-w-full text-sm" aria-label="GL tax treatments">
           <thead className="bg-gray-50 border-b text-xs text-gray-500">
