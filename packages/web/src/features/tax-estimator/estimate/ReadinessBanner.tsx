@@ -41,8 +41,13 @@ export function ReadinessBanner({ taxpayerId, taxYear, estimate, readiness, read
   if (provisional.length > 0) {
     items.push({ key: 'params', text: <>{provisional.length} federal parameter(s) are <strong>{provisional.some((p) => p.status === 'provisional') ? 'provisional' : 'unverified'}</strong> (not CPA-verified).</> });
   }
-  const states = [...new Set(estimate.rulesUsed.filter((p) => p.status !== 'verified').map((p) => p.state))];
-  if (states.length > 0) items.push({ key: 'rules', text: <>{states.join(', ')} estimate rules are <strong>unverified</strong>; the values shown use the current rule set.</> });
+  // R7-11: state rules are counted from rulesUsed, separately from the federal parameters.
+  const unverifiedRules = estimate.rulesUsed.filter((p) => p.status !== 'verified');
+  const states = [...new Set(unverifiedRules.map((p) => p.state))];
+  if (states.length > 0) {
+    const n = new Set(unverifiedRules.map((p) => `${p.state}:${p.key}`)).size;
+    items.push({ key: 'rules', text: <>{n} state rule(s) are <strong>{unverifiedRules.some((p) => p.status === 'provisional') ? 'provisional' : 'unverified'}</strong> ({states.join(', ')}) (not CPA-verified); the values shown use the current rule set.</> });
+  }
   for (const w of estimate.warnings) {
     if (/FALLBACK|PRIOR_YEAR|TE_ENTITY|ENTITY_TYPE|TAX_METHOD|OWNERSHIP|PCT/.test(w.code)) {
       items.push({ key: `w:${w.code}`, text: <>{w.message} {w.code === 'TE_PARAMS_FALLBACK_YEAR' ? 'Values are provisional.' : null}{/PRIOR_YEAR/.test(w.code) && <> <Link className="underline" to={`/tax-estimator/taxpayers/${taxpayerId}/annual-settings?year=${taxYear}`}>Open annual settings</Link></>}</> });

@@ -130,7 +130,7 @@ describe('ReadinessBanner', () => {
     expect(banner).toHaveTextContent('Business Visa');
     expect(within(banner).getByRole('link', { name: 'Open entity tax setup' })).toHaveAttribute('href', '/tax-estimator/entities/t/c1');
     expect(banner).toHaveTextContent('1 federal parameter(s) are provisional');
-    expect(banner).toHaveTextContent('AR estimate rules are unverified');
+    expect(banner).toHaveTextContent('1 state rule(s) are unverified (AR)');
   });
   it('shows the all-clear state', () => {
     wrap(<ReadinessBanner taxpayerId="tp1" taxYear={2026} estimate={makeEstimate({ rulesUsed: [] })} readiness={{ ...readiness, entities: [] } as never} />);

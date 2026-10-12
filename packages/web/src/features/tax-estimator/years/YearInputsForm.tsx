@@ -5,16 +5,19 @@
 import { useState } from 'react';
 import {
   DEDUCTION_MODES, HSA_COVERAGES, RATE_MODES, SAFE_HARBOR_OVERRIDES,
-  type DeductionMode, type HsaCoverage, type PersonDTO, type RateMode, type SafeHarborOverride, type UpsertYearInput, type YearDetailDTO,
+  type DeductionMode, type FilingStatus, type HsaCoverage, type PersonDTO, type RateMode, type SafeHarborOverride, type UpsertYearInput, type YearDetailDTO,
 } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { SAFE_HARBOR_LABELS, SELECT_CLASS } from '../taxpayers/labels';
 import { DEDUCTION_MODE_LABELS, HSA_LABELS, ITEMIZED_FIELDS, SCH1A_FIELDS, fmtMoney } from './labels';
+import { PeopleCard, peopleDraftFromYear, peopleDraftInvalid, peoplePayload } from './PeopleCard';
 
 interface Props {
   detail: YearDetailDTO;
   persons: PersonDTO[];
+  /** Taxpayer filing status (the MFS lived-apart flag is shown for MFS only). */
+  filingStatus?: FilingStatus;
   canWrite: boolean;
   saving?: boolean;
   error?: string;
@@ -37,8 +40,8 @@ function Card({ title, children, note }: { title: string; children: React.ReactN
   );
 }
 
-/** Year-level inputs (shared by every scenario of the year): prior year, rate mode, deductions, Sch 1-A, credits, HSA, withholding. */
-export function YearInputsForm({ detail, persons, canWrite, saving, error, saved, onSave }: Props) {
+/** Year-level inputs (shared by every scenario of the year): prior year, rate mode, people (wages, retirement plans), deductions, Sch 1-A, credits, HSA, withholding. */
+export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving, error, saved, onSave }: Props) {
   const y = detail.year;
   const [priorTax, setPriorTax] = useState(y.priorYearTax ?? '');
   const [priorAgi, setPriorAgi] = useState(y.priorYearAgi ?? '');
@@ -58,6 +61,7 @@ export function YearInputsForm({ detail, persons, canWrite, saving, error, saved
   const [ref, setRef] = useState(String(Number(y.creditsRefundable)));
   const [hsa, setHsa] = useState<Record<string, HsaCoverage | ''>>({ primary: y.hsaCoverage.primary ?? '', spouse: y.hsaCoverage.spouse ?? '' });
   const [fedWh, setFedWh] = useState(str(y.withholding.federal));
+  const [people, setPeople] = useState(() => peopleDraftFromYear(y));
   const [stateWh, setStateWh] = useState(Object.entries(y.withholding.states ?? {}).map(([s, v]) => `${s}=${v}`).join(', '));
 
   const itemizedTotal = ITEMIZED_FIELDS.reduce((s, [k]) => s + (num(itemized[k] ?? '') ?? 0), 0);
@@ -66,7 +70,7 @@ export function YearInputsForm({ detail, persons, canWrite, saving, error, saved
   const moneyBad = (s: string) => s.trim() !== '' && !MONEY_RE.test(s.trim());
   const stateWhParsed = stateWh.split(',').map((t) => t.trim()).filter(Boolean).map((t) => t.split('=').map((p) => p.trim()));
   const stateWhBad = stateWhParsed.some(([s, v]) => !s || !/^[A-Za-z]{2}$/.test(s) || v === undefined || !Number.isFinite(Number(v)) || Number(v) < 0);
-  const invalid = rateBad || moneyBad(priorTax) || moneyBad(priorAgi) || moneyBad(nonref) || moneyBad(ref) || stateWhBad
+  const invalid = peopleDraftInvalid(people) || rateBad || moneyBad(priorTax) || moneyBad(priorAgi) || moneyBad(nonref) || moneyBad(ref) || stateWhBad
     || ITEMIZED_FIELDS.some(([k]) => Number.isNaN(Number(itemized[k] || 0)));
 
   function submit() {
@@ -88,6 +92,7 @@ export function YearInputsForm({ detail, persons, canWrite, saving, error, saved
       creditsNonrefundable: nonref.trim() || '0', creditsRefundable: ref.trim() || '0',
       hsaCoverage: { ...(hsa['primary'] ? { primary: hsa['primary'] } : {}), ...(hsa['spouse'] ? { spouse: hsa['spouse'] } : {}) },
       withholding: { ...(num(fedWh) !== undefined ? { federal: num(fedWh)! } : {}), states },
+      ...peoplePayload(people, persons.map((p) => p.role)),
     });
   }
 
@@ -122,6 +127,8 @@ export function YearInputsForm({ detail, persons, canWrite, saving, error, saved
           </ul>
         )}
       </Card>
+
+      <PeopleCard draft={people} onChange={setPeople} persons={roles} filingStatus={filingStatus} canWrite={canWrite} />
 
       <Card title="Deductions">
         <div>

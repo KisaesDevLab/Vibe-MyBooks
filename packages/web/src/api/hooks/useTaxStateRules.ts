@@ -6,7 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   StateRulesDTO, StateRuleRowDTO, StateRuleSummaryDTO, SetStateRuleOverrideInput,
-  CreateStateYearFromPriorResult, StateRuleDiffRowDTO, StateRuleChangeDTO,
+  CreateStateYearFromPriorResult, StateRuleDiffRowDTO, StateRuleChangeDTO, VerifyStateRulesResult,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
 
@@ -88,6 +88,30 @@ export function useAdoptShippedStateRules(year: number) {
           method: 'POST', body: JSON.stringify(keys ? { keys } : {}),
         })).data.adopted.length,
       }),
+    onSuccess: invalidate,
+  });
+}
+
+/** R7 in-app Verify: mark one state rule verified (super admin). */
+export function useVerifyStateRule(year: number) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (v: { state: string; key: string; note?: string }) =>
+      (await apiClient<{ data: StateRuleRowDTO }>(`${BASE}/${year}/${v.state}/${encodeURIComponent(v.key)}/verify`, {
+        method: 'POST', body: JSON.stringify(v.note ? { note: v.note } : {}),
+      })).data,
+    onSuccess: invalidate,
+  });
+}
+
+/** R7 in-app Verify: every not-yet-verified rule of one jurisdiction's year (explicit confirm). */
+export function useVerifyAllStateRules(year: number) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (v: { state: string; note?: string }) =>
+      (await apiClient<{ data: VerifyStateRulesResult }>(`${BASE}/${year}/${v.state}/verify-all`, {
+        method: 'POST', body: JSON.stringify(v.note ? { confirm: true, note: v.note } : { confirm: true }),
+      })).data,
     onSuccess: invalidate,
   });
 }

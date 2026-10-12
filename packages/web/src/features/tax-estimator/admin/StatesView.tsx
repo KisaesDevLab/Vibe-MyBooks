@@ -11,7 +11,9 @@ import { ErrorMessage } from '../../../components/ui/ErrorMessage';
 import { useToast } from '../../../components/ui/Toaster';
 import {
   useStateRuleSummaries, useStateRules, useSetStateRuleOverride, useRevertStateRule, useCreateStateYearFromPrior,
+  useVerifyStateRule, useVerifyAllStateRules,
 } from '../../../api/hooks/useTaxStateRules';
+import { VerifyDialog, VerifiedLine } from './VerifyDialog';
 import { StateRuleModal } from './StateRuleModal';
 import { StateRuleValue } from './StateRuleValue';
 import { StateDiffPanel, StateChangesPanel } from './StatePanels';
@@ -47,7 +49,13 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
   const revert = useRevertStateRule(year);
   const [overrideRow, setOverrideRow] = useState<StateRuleRowDTO | null>(null);
   const [revertRow, setRevertRow] = useState<StateRuleRowDTO | null>(null);
+  const verify = useVerifyStateRule(year);
+  const verifyAll = useVerifyAllStateRules(year);
+  const [verifyRow, setVerifyRow] = useState<StateRuleRowDTO | null>(null);
+  const [verifyAllOpen, setVerifyAllOpen] = useState(false);
   const data = q.data;
+  const unverified = (data?.isFallback ? [] : data?.rules ?? []).filter((r) => r.status !== 'verified' && r.source !== 'fallback');
+  const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
   return (
     <div className="space-y-4">
@@ -55,6 +63,11 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
         <Button size="sm" variant="secondary" onClick={onBack}>All states</Button>
         <h2 className="text-lg font-semibold text-gray-900">{state.name} <span className="text-gray-500 font-mono text-sm">{state.state}</span></h2>
         {data && !data.hasIncomeTax && <Badge cls="bg-gray-100 text-gray-700">No income tax</Badge>}
+        {unverified.length > 0 && (
+          <Button size="sm" variant="secondary" onClick={() => setVerifyAllOpen(true)}>
+            Verify all unverified in {state.state} {year} ({unverified.length})
+          </Button>
+        )}
       </div>
       {q.isLoading ? <Skeleton label="Loading state rules" /> : q.isError ? (
         <ErrorMessage message={`Could not load ${state.name} rules`} onRetry={() => q.refetch()} />
@@ -88,10 +101,13 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
                         {r.shippedValue !== undefined && <div className="text-xs text-gray-500">Shipped: <StateRuleValue type={r.type} value={r.shippedValue} /></div>}
                         {r.reason && <div className="text-xs text-gray-500">Reason: {r.reason}</div>}
                       </td>
-                      <td className="py-2"><Badge cls={STATUS_STYLE[r.status]}>{r.status}</Badge></td>
+                      <td className="py-2"><Badge cls={STATUS_STYLE[r.status]}>{r.status}</Badge><VerifiedLine row={r} /></td>
                       <td className="py-2"><Badge cls={SOURCE_STYLE[r.source]}>{r.source}</Badge></td>
                       <td className="py-2 pr-2 max-w-xs text-gray-600" title={r.citation}>{shortCitation(r.citation)}</td>
                       <td className="py-2 pr-4 whitespace-nowrap text-right">
+                        {r.status !== 'verified' && r.source !== 'fallback' && (
+                          <Button size="sm" variant="ghost" onClick={() => setVerifyRow(r)} aria-label={`Mark ${r.key} verified`}>Mark verified</Button>
+                        )}
                         <Button size="sm" variant="ghost" onClick={() => setOverrideRow(r)} aria-label={`Override ${r.key}`}>Override</Button>
                         {(r.source === 'override' || r.source === 'provisional') && (
                           <Button size="sm" variant="ghost" onClick={() => setRevertRow(r)} aria-label={`Revert ${r.key}`}>Revert</Button>
@@ -113,6 +129,32 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
           onClose={() => { setOverride.reset(); setOverrideRow(null); }}
           onSave={(value, reason) => setOverride.mutate({ state: state.state, key: overrideRow.key, value, reason }, {
             onSuccess: () => { toast.success('Override saved'); setOverrideRow(null); },
+          })}
+        />
+      )}
+      {verifyRow && (
+        <VerifyDialog
+          title={`Mark ${state.state} ${verifyRow.key} verified`}
+          message={`Records that you checked the current ${year} ${state.name} value of ${verifyRow.label} against its source. Only the status changes; the rule can still be overridden with a reason later.`}
+          confirmLabel="Mark verified"
+          saving={verify.isPending}
+          serverError={verify.isError ? errText(verify.error, 'Verify failed') : null}
+          onClose={() => { verify.reset(); setVerifyRow(null); }}
+          onConfirm={(note) => verify.mutate({ state: state.state, key: verifyRow.key, note }, {
+            onSuccess: () => { toast.success('Marked verified'); setVerifyRow(null); },
+          })}
+        />
+      )}
+      {verifyAllOpen && (
+        <VerifyDialog
+          title={`Verify all unverified in ${state.state} ${year}`}
+          message={`Marks all ${unverified.length} ${state.name} rule(s) for ${year} that are not verified as verified by you. Only do this after checking every rule against its source.`}
+          confirmLabel={`Verify ${unverified.length}`}
+          saving={verifyAll.isPending}
+          serverError={verifyAll.isError ? errText(verifyAll.error, 'Verify failed') : null}
+          onClose={() => { verifyAll.reset(); setVerifyAllOpen(false); }}
+          onConfirm={(note) => verifyAll.mutate({ state: state.state, note }, {
+            onSuccess: (r) => { toast.success(`Verified ${r.verified.length} rule(s)`); setVerifyAllOpen(false); },
           })}
         />
       )}

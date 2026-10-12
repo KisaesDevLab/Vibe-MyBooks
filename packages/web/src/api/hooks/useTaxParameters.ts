@@ -6,7 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   TaxParametersDTO, TaxParameterRowDTO, TaxParameterYearsDTO, SetTaxParameterOverrideInput,
-  CreateYearFromPriorResult, TaxParameterDiffRowDTO, TaxParameterChangeDTO,
+  CreateYearFromPriorResult, TaxParameterDiffRowDTO, TaxParameterChangeDTO, VerifyTaxParametersResult,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
 
@@ -86,6 +86,30 @@ export function useAdoptShippedParameters(year: number) {
           method: 'POST', body: JSON.stringify(keys ? { keys } : {}),
         })).data.adopted.length,
       }),
+    onSuccess: invalidate,
+  });
+}
+
+/** R7 in-app Verify: mark one parameter verified (super admin). */
+export function useVerifyTaxParameter(year: number) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (v: { key: string; note?: string }) =>
+      (await apiClient<{ data: TaxParameterRowDTO }>(`${BASE}/${year}/${encodeURIComponent(v.key)}/verify`, {
+        method: 'POST', body: JSON.stringify(v.note ? { note: v.note } : {}),
+      })).data,
+    onSuccess: invalidate,
+  });
+}
+
+/** R7 in-app Verify: every not-yet-verified parameter of the year (explicit confirm). */
+export function useVerifyAllTaxParameters(year: number) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (note?: string) =>
+      (await apiClient<{ data: VerifyTaxParametersResult }>(`${BASE}/${year}/verify-all`, {
+        method: 'POST', body: JSON.stringify(note ? { confirm: true, note } : { confirm: true }),
+      })).data,
     onSuccess: invalidate,
   });
 }

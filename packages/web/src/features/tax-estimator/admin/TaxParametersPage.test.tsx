@@ -15,6 +15,8 @@ const h = vi.hoisted(() => ({
   mutate: vi.fn(),
   revert: vi.fn(),
   create: vi.fn(),
+  verify: vi.fn(),
+  verifyAll: vi.fn(),
 }));
 
 vi.mock('../../../api/hooks/useTaxParameters', () => ({
@@ -26,6 +28,8 @@ vi.mock('../../../api/hooks/useTaxParameters', () => ({
   useRevertTaxParameter: () => ({ mutate: h.revert, isPending: false }),
   useCreateTaxYearFromPrior: () => ({ mutate: h.create, isPending: false }),
   useAdoptShippedParameters: () => ({ mutate: vi.fn(), isPending: false }),
+  useVerifyTaxParameter: () => ({ mutate: h.verify, isPending: false, isError: false, reset: vi.fn() }),
+  useVerifyAllTaxParameters: () => ({ mutate: h.verifyAll, isPending: false, isError: false, reset: vi.fn() }),
 }));
 
 vi.mock('../../../api/hooks/useTaxStateRules', () => ({
@@ -158,5 +162,35 @@ describe('TaxParametersPage', () => {
     h.params = { data: fixture({ parameters: [], completeness: { total: 0, present: 0, missing: [] } }), isLoading: false, isError: false, refetch: vi.fn() };
     render();
     expect(await screen.findByText(/No parameters for 2026/)).toBeInTheDocument();
+  });
+});
+
+describe('TaxParametersPage — R7 in-app Verify', () => {
+  it('offers Mark verified only on rows that are not verified, with an optional note', async () => {
+    render();
+    expect(await screen.findByLabelText('Mark se.nese_factor verified')).toBeInTheDocument();
+    expect(screen.getByLabelText('Mark brackets.mfj verified')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Mark se.ss_wage_base verified')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Mark se.nese_factor verified'));
+    fireEvent.change(screen.getByLabelText(/Note/), { target: { value: 'IRC 1402(a)(12)' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Mark verified' }));
+    expect(h.verify).toHaveBeenCalledWith({ key: 'se.nese_factor', note: 'IRC 1402(a)(12)' }, expect.anything());
+  });
+
+  it('bulk verify counts the unverified rows and asks for confirmation before calling the API', async () => {
+    render();
+    fireEvent.click(await screen.findByText('Verify all unverified in 2026 (2)'));
+    expect(h.verifyAll).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Verify all unverified in 2026' })).toHaveTextContent(/all 2 federal parameter/);
+    fireEvent.click(screen.getByRole('button', { name: 'Verify 2' }));
+    expect(h.verifyAll).toHaveBeenCalledWith(undefined, expect.anything());
+  });
+
+  it('shows who verified a row in-app; a fallback year has nothing to verify; overrides stay available on verified rows', async () => {
+    h.params = { data: fixture({ parameters: [{ ...fixture().parameters[0]!, verifiedAt: '2026-10-12T15:00:00Z', verifiedByEmail: 'kurt@example.com', verificationNote: 'SSA' }] }), isLoading: false, isError: false, refetch: vi.fn() };
+    render();
+    expect(await screen.findByTestId('verified-line')).toHaveTextContent(/Verified by kurt@example.com on .* — SSA/);
+    expect(screen.getByLabelText('Override se.ss_wage_base')).toBeInTheDocument();
+    expect(screen.queryByText(/Verify all unverified/)).toBeNull();
   });
 });

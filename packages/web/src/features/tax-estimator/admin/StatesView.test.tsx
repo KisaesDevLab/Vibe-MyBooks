@@ -16,6 +16,8 @@ const h = vi.hoisted(() => ({
   setOverride: vi.fn(),
   revert: vi.fn(),
   create: vi.fn(),
+  verify: vi.fn(),
+  verifyAll: vi.fn(),
 }));
 
 vi.mock('../../../api/hooks/useTaxStateRules', () => ({
@@ -27,6 +29,8 @@ vi.mock('../../../api/hooks/useTaxStateRules', () => ({
   useRevertStateRule: () => ({ mutate: h.revert, isPending: false }),
   useCreateStateYearFromPrior: () => ({ mutate: h.create, isPending: false }),
   useAdoptShippedStateRules: () => ({ mutate: vi.fn(), isPending: false }),
+  useVerifyStateRule: () => ({ mutate: h.verify, isPending: false, isError: false, reset: vi.fn() }),
+  useVerifyAllStateRules: () => ({ mutate: h.verifyAll, isPending: false, isError: false, reset: vi.fn() }),
 }));
 
 import { StatesView, } from './StatesView';
@@ -244,5 +248,25 @@ describe('state editor parsing', () => {
     expect(validateStateOverride(def('estimates_required'), 'false', false, 'abc')).toMatchObject({ value: false, valueError: undefined });
     expect(validateStateOverride(def('farmer.rule'), '{"ratio":0.667,"current_pct":0,"due_date":"2026-04-15","file_by":"2026-04-15","treatment":"exempt"}', false, 'abc').valueError).toBeUndefined();
     expect(validateStateOverride(def('farmer.rule'), '{"ratio":0.667,"current_pct":0,"due_date":"2026-04-15","file_by":"2026-04-15","treatment":"maybe"}', false, 'abc').valueError).toMatch(/treatment must be one of/);
+  });
+});
+
+describe('StatesView detail — R7 in-app Verify', () => {
+  const open = async () => { render(); fireEvent.click(await screen.findByLabelText('Open Arkansas')); };
+
+  it('Mark verified on a not-verified rule, and a per-jurisdiction bulk verify behind a confirmation', async () => {
+    await open();
+    expect(await screen.findByLabelText('Mark safe_harbor.current_pct verified')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Mark required_threshold verified')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Mark penalty.rate_source verified'));
+    fireEvent.click(screen.getByRole('button', { name: 'Mark verified' }));
+    expect(h.verify).toHaveBeenCalledWith({ state: 'AR', key: 'penalty.rate_source', note: undefined }, expect.anything());
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    fireEvent.click(screen.getByText('Verify all unverified in AR 2026 (2)'));
+    expect(h.verifyAll).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText(/Note/), { target: { value: 'AR DFA 2026' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify 2' }));
+    expect(h.verifyAll).toHaveBeenCalledWith({ state: 'AR', note: 'AR DFA 2026' }, expect.anything());
   });
 });

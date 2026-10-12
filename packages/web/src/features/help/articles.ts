@@ -3263,14 +3263,15 @@ The per-contact tick is the one people miss: the tenant switch alone shows the c
 
 - **It is an estimate, not tax advice and not a tax return.** Every printed or shared estimate carries the firm's disclaimer. The preparer remains responsible for the figures.
 - It never posts anything to the books.
-- Nothing is computed from information the books do not hold: outside W-2 income, interest, dividends and the like are entered as adjustments.
+- Nothing is computed from information the books do not hold. Wages from a job outside the linked businesses are entered per person in the **People** card of Annual settings (W-2 box 1 and box 3), never as an adjustment: an adjustment is treated as business income and would lose the Social Security wage-base offset. Interest, dividends, gains and other outside items are entered as adjustments.
 
 ## Version 1 limits
 
 These are known approximations. They also appear on the Assumptions list of every snapshot.
-- Quarterly adjustments are spread evenly (one third per remaining quarter) and withholding is treated as paid evenly through the year.
+- Adjustments are allocated by their cadence (monthly; quarterly amounts split one third per month; annual amounts spread over the active months; one-time in its month), and withholding is treated as paid evenly through the year.
 - The QBI loss carryforward from earlier years is not modeled; losses net within the year only.
-- Retirement plan type is assumed to be a SEP; there is no SIMPLE 60 to 63 catch-up. Charitable 60 percent of AGI limits and mortgage-interest limits are not applied. MAGI is taken as AGI for the SALT, Schedule 1-A and passive-loss phase-outs.
+- Unrecaptured section 1250 gain and collectibles gain have no input yet (gains are taxed at the regular capital-gain rates), and AMT is not modeled.
+- Each person's retirement plan type (SEP, solo 401(k), SIMPLE or none) is set in the People card; when it is not recorded the limit is figured as a SEP and the estimate warns. A solo 401(k) or SIMPLE without a recorded employee deferral assumes the maximum deferral was made. There is no SIMPLE 60 to 63 catch-up. Charitable 60 percent of AGI limits and mortgage-interest limits are not applied. MAGI is taken as AGI for the SALT, Schedule 1-A and passive-loss phase-outs.
 - Nonresident state tax is an effective-rate estimate (sourced income times the rate you enter), labeled as such. Many states actually use a ratio of the full return, which is not modeled yet.
 - State penalty add-ons that compound or run per month (for example MI, VT, IN, UT, ID, DC, CT, DE) are noted rather than computed, and the estimate may differ.
 - A C corporation with a short current year, annualized corporate installments (Form 2220), the large-corporation extra penalty rate and the $500 minimum are not modeled.
@@ -3364,6 +3365,7 @@ The readiness panel lists what would make the estimate unreliable: unreconciled 
 - **Deduction method**: automatic (larger of standard and itemized), standard forced, or itemized forced, with the itemized detail (SALT is capped and phased down by the platform parameters, enter what was actually paid).
 - **Federal tax method**: bracket computation or an **Effective-rate override** when you only want to apply a rate you provide.
 - **Nonrefundable and refundable credits**, **Federal withholding (annual)** and **State withholding (annual)**.
+- **People**: for each person, **W-2 wages (box 1)** and **Social Security wages (box 3)** from jobs outside the linked businesses, the **retirement plan** (SEP, solo 401(k), SIMPLE or no plan) and, for a solo 401(k) or SIMPLE, the **employee deferral**. Leave box 3 blank to use box 1; box 3 is usually higher when there are 401(k) deferrals, and the estimate warns how much SE tax that may overstate. Also here: deductions allocable to investment income (Form 8960), the **lived apart all year** flag for married filing separately, and the farmer or fisherman gross-income figures (this year and prior year) when the farmer rules apply.
 - **HSA coverage** and **Schedule 1-A** amounts (tips, overtime, car loan interest) per person.
 - **Prior-year total tax and prior-year AGI**, used for the prior-year safe harbor. They are stored encrypted and only decrypted when an estimate is computed. The 110 percent prior-year test applies above $150,000 of prior-year AGI ($75,000 if married filing separately).
 - **Recommended rule**: the safe-harbor rule shown outlined on the summary. Left on the firm default unless you change it here.
@@ -3378,7 +3380,9 @@ Every year has a **Base** scenario. Use the scenario tabs to clone, rename or de
 
 ## Adjustments
 
-An adjustment is anything the books do not know: a one-time sale, a bonus, interest and dividends, a planned purchase, an owner retirement contribution. Each has a label, amount, the person it belongs to (or the household), a cadence, a start and end month, a percent applied, a memo and a **Non-recurring** flag. **Run-rate from GL** fills the amount from the books. Adjustments are spread across the remaining quarters equally.
+An adjustment is anything the books do not know: a one-time sale, a bonus, interest and dividends, a planned purchase, an owner retirement contribution. Each has a label, amount, the person it belongs to (or the household), a cadence, a start and end month, a percent applied, a memo and a **Non-recurring** flag. **Run-rate from GL** fills the amount from the books. Do not enter outside W-2 wages as an adjustment; use the People card.
+
+How an adjustment is spread over the year depends on its **cadence**: monthly amounts go in every active month, a quarterly amount is split one third per month of the quarter, an annual amount is spread over the months from start to end, and a one-time amount lands in its month. The allocation strip shows the result. A GL-linked adjustment uses the actual amounts through the last closed month and then the plan amount, or, with no plan amount, the year-to-date run-rate. A GL-linked adjustment flagged **Non-recurring** is never run-rated: only its actuals (and any plan amount) count.
 
 ## Firm settings
 
@@ -3529,9 +3533,11 @@ Turning the flag off hides the module again. Nothing is deleted.
 
 Use **Override** to change a value: enter the value in the units shown, and a **reason**, which is audited. **Revert** returns to the shipped value. Firms cannot override parameters.
 
+**Mark verified** on a row records that a super admin checked the current value against its source: it sets the status to verified and records who, when and an optional note, and it is audited (it shows as "Verified" in Recent changes). Nothing else changes. **Verify all unverified** does the same for every not-yet-verified row of the year, after a confirmation. A verified row can still be overridden with a reason; the new value starts unverified until it is verified again. A verification is kept across releases as long as the shipped value is unchanged; if a release changes the value, the row takes the release's status again.
+
 ## State rules (super admin only)
 
-The **States** view covers all 50 states plus DC: whether an estimate is required, thresholds, safe-harbor percentages, due dates, penalty method, farmer rules and nonresident method. Each rule has the same status, citation, override and revert controls. A state with no income tax shows "No income tax". Rules marked unverified are used and flagged: the summary shows "Rules unverified" and the readiness banner lists them.
+The **States** view covers all 50 states plus DC: whether an estimate is required, thresholds, safe-harbor percentages, due dates, penalty method, farmer rules and nonresident method. Each rule has the same status, citation, override, revert and **Mark verified** controls, and **Verify all unverified** works per state and year. A state with no income tax shows "No income tax". Rules marked unverified are used and flagged: the summary shows "Rules unverified" and the readiness banner lists them.
 
 ## Verification status matters
 

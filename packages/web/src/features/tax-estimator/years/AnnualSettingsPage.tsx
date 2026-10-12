@@ -135,7 +135,7 @@ export function AnnualSettingsPage() {
             onClone={(sid) => clone.mutate(sid, { onSuccess: (s) => setSelected(s.id) })}
             onRename={(sid, name) => rename.mutate({ id: sid, name })}
             onDelete={(sid) => del.mutate(sid, { onSuccess: () => setSelected(undefined) })} />
-          <YearInputsForm key={detail.year.updatedAt} detail={detail} persons={persons} canWrite={canWrite} saving={save.isPending}
+          <YearInputsForm key={detail.year.updatedAt} detail={detail} persons={persons} filingStatus={tp.filingStatus} canWrite={canWrite} saving={save.isPending}
             saved={save.isSuccess} error={save.isError ? errMsg(save.error) : undefined} onSave={(input) => save.mutate(input)} />
           {selected && <ScenarioPanels scenarioId={selected} taxYear={taxYear} canWrite={canWrite} persons={persons} residentState={tp.residentState} />}
         </>

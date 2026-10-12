@@ -50,7 +50,7 @@ export function StateDiffPanel({ year }: { year: number }) {
 }
 
 const ACTION_LABEL: Record<StateRuleChangeDTO['action'], string> = {
-  override_set: 'Override set', override_reverted: 'Override reverted', year_created: 'Year created', shipped_adopted: 'Shipped adopted',
+  override_set: 'Override set', override_reverted: 'Override reverted', year_created: 'Year created', shipped_adopted: 'Shipped adopted', verified: 'Verified',
 };
 
 export function StateChangesPanel({ year }: { year: number }) {

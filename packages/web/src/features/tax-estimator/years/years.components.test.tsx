@@ -4,11 +4,12 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent, render, within } from '@testing-library/react';
-import type { AdjustmentDTO, AdjustmentTypeDTO, ScenarioDTO, StateRowDTO } from '@kis-books/shared';
+import type { AdjustmentDTO, AdjustmentTypeDTO, PersonDTO, ScenarioDTO, StateRowDTO, YearDetailDTO, YearSettingsDTO } from '@kis-books/shared';
 import { ScenarioTabs } from './ScenarioTabs';
 import { AllocationStrip } from './AllocationStrip';
 import { AdjustmentsSection, previewMonths } from './AdjustmentsSection';
 import { StateRowsEditor, validateDrafts, draftFromRow } from './StateRowsEditor';
+import { YearInputsForm } from './YearInputsForm';
 
 const scen = (over: Partial<ScenarioDTO> = {}): ScenarioDTO => ({
   id: 's1', taxpayerId: 'tp', taxYear: 2026, name: 'Base', isBase: true, sortOrder: 0, sourceScenarioId: null,
@@ -169,5 +170,70 @@ describe('StateRowsEditor', () => {
     const nonres = screen.getByTestId('state-row-nonresident');
     fireEvent.click(within(nonres).getByLabelText('Enter sourced income manually'));
     expect(within(nonres).getByLabelText(/sourced income$/)).toBeInTheDocument();
+  });
+});
+
+describe('YearInputsForm — People card (R7-01)', () => {
+  const settings = (over: Partial<YearSettingsDTO> = {}): YearSettingsDTO => ({
+    id: 'y1', taxpayerId: 'tp', taxYear: 2026, priorYearTax: null, priorYearAgi: null, priorYearTaxPresent: false, priorYearAgiPresent: false,
+    priorYearTwelveMonths: true, priorYearFiled: true, safeHarborRule: null, rateMode: 'brackets', effectiveRateOverride: null, deductionMode: 'auto',
+    itemized: {}, sch1a: {}, creditsNonrefundable: '0', creditsRefundable: '0', hsaCoverage: {}, withholding: {},
+    personInputs: {}, mfsLivedApartAllYear: false, niiAllocableDeductions: null, farmerGross: {}, isFisherman: false,
+    createdAt: '', updatedAt: '', ...over,
+  });
+  const detail = (y: YearSettingsDTO = settings()): YearDetailDTO => ({
+    exists: true, year: y, taxpayerSafeHarborOverride: null, firmSafeHarborDefault: 'lesser_of', effectiveSafeHarborRule: 'lesser_of', scenarios: [scen()],
+  });
+  const person = (role: 'primary' | 'spouse', firstName: string): PersonDTO => ({
+    id: `p-${role}`, taxpayerId: 'tp', role, firstName, lastName: 'Rivera', dateOfBirth: '1981-05-10', isBlind: false, sehiEligibleMonths: Array(12).fill(true),
+  });
+  const persons = [person('primary', 'Carlos'), person('spouse', 'Maria')];
+
+  it('saves outside W-2 wages, Social Security wages, plan type and deferral per person (into personInputs)', () => {
+    const onSave = vi.fn();
+    render(<YearInputsForm detail={detail()} persons={persons} filingStatus="mfj" canWrite onSave={onSave} />);
+    const card = screen.getByRole('region', { name: 'People' });
+    fireEvent.change(within(card).getByLabelText('Maria — W-2 wages (box 1)'), { target: { value: '150000' } });
+    fireEvent.change(within(card).getByLabelText('Maria — Social Security wages (box 3)'), { target: { value: '173500' } });
+    expect(within(card).queryByLabelText('Carlos — employee deferral')).toBeNull();
+    fireEvent.change(within(card).getByLabelText('Carlos — retirement plan'), { target: { value: 'solo_401k' } });
+    fireEvent.change(within(card).getByLabelText('Carlos — employee deferral'), { target: { value: '10000' } });
+    fireEvent.change(within(card).getByLabelText('Maria — retirement plan'), { target: { value: 'none' } });
+    fireEvent.change(within(card).getByLabelText(/allocable to investment income/), { target: { value: '1200.50' } });
+    expect(within(card).queryByLabelText(/Lived apart/)).toBeNull(); // MFS only
+    fireEvent.click(screen.getByRole('button', { name: 'Save annual settings' }));
+    const input = onSave.mock.calls[0]![0];
+    expect(input.personInputs).toEqual({
+      primary: { w2Wages: null, w2SocialSecurityWages: null, retirementPlanType: 'solo_401k', employeeDeferral: 10000 },
+      spouse: { w2Wages: 150000, w2SocialSecurityWages: 173500, retirementPlanType: 'none', employeeDeferral: null },
+    });
+    expect(input).toMatchObject({ niiAllocableDeductions: '1200.50', mfsLivedApartAllYear: false, farmerGross: {}, isFisherman: false });
+  });
+
+  it('round-trips saved values, shows the MFS lived-apart flag for MFS, and saves farmer gross figures', () => {
+    const onSave = vi.fn();
+    const y = settings({
+      personInputs: { primary: { w2Wages: 30000, w2SocialSecurityWages: null, retirementPlanType: 'simple', employeeDeferral: 5000 } },
+      mfsLivedApartAllYear: true, farmerGross: { prior: { primary: { farming: 80000, totalGross: 100000 } } }, isFisherman: true,
+    });
+    render(<YearInputsForm detail={detail(y)} persons={[persons[0]!]} filingStatus="mfs" canWrite onSave={onSave} />);
+    expect(screen.getByLabelText('Carlos — W-2 wages (box 1)')).toHaveValue('30000');
+    expect(screen.getByLabelText('Carlos — employee deferral')).toHaveValue('5000');
+    expect(screen.getByLabelText(/Lived apart/)).toBeChecked();
+    expect(screen.getByLabelText('Prior year — Carlos — Gross farming income')).toHaveValue('80000');
+    fireEvent.change(screen.getByLabelText('This year — Carlos — Total gross income'), { target: { value: '90000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annual settings' }));
+    const input = onSave.mock.calls[0]![0];
+    expect(input.personInputs).toEqual({ primary: { w2Wages: 30000, w2SocialSecurityWages: null, retirementPlanType: 'simple', employeeDeferral: 5000 } });
+    expect(input.farmerGross).toEqual({ current: { primary: { totalGross: 90000 } }, prior: { primary: { farming: 80000, totalGross: 100000 } } });
+    expect(input).toMatchObject({ mfsLivedApartAllYear: true, isFisherman: true });
+  });
+
+  it('blocks saving a malformed amount and is read-only for read-only users', () => {
+    const { rerender } = render(<YearInputsForm detail={detail()} persons={persons} filingStatus="mfj" canWrite onSave={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Carlos — W-2 wages (box 1)'), { target: { value: '12.345' } });
+    expect(screen.getByRole('button', { name: 'Save annual settings' })).toBeDisabled();
+    rerender(<YearInputsForm detail={detail()} persons={persons} filingStatus="mfj" canWrite={false} onSave={vi.fn()} />);
+    expect(screen.getByLabelText('Maria — W-2 wages (box 1)')).toBeDisabled();
   });
 });
