@@ -262,6 +262,7 @@ const PortalBankingRegisterPage = lazyNamed(() => import('./features/portal/Port
 const PortalBillsPage = lazyNamed(() => import('./features/portal/PortalBillsPage'), 'PortalBillsPage');
 const PortalCategorizePage = lazyNamed(() => import('./features/portal/PortalCategorizePage'), 'PortalCategorizePage');
 const PortalBillUploadPage = lazyNamed(() => import('./features/portal/PortalBillUploadPage'), 'PortalBillUploadPage');
+const PortalTaxEstimatesPage = lazyNamed(() => import('./features/portal/PortalTaxEstimatesPage'), 'PortalTaxEstimatesPage');
 const RemindersPage = lazyNamed(() => import('./features/practice/reminders/RemindersPage'), 'RemindersPage');
 const ReportBuilderPage = lazyNamed(() => import('./features/practice/report-builder/ReportBuilderPage'), 'ReportBuilderPage');
 // 3-tier rules plan, Phase 1 — firm admin pages.
@@ -281,6 +282,7 @@ const EntityTaxSetupPage = lazyNamed(() => import('./features/tax-estimator/enti
 const AnnualSettingsPage = lazyNamed(() => import('./features/tax-estimator/years/AnnualSettingsPage'), 'AnnualSettingsPage');
 const EstimateSummaryPage = lazyNamed(() => import('./features/tax-estimator/estimate/EstimateSummaryPage'), 'EstimateSummaryPage');
 const ScenarioComparePage = lazyNamed(() => import('./features/tax-estimator/estimate/ScenarioComparePage'), 'ScenarioComparePage');
+const SnapshotViewPage = lazyNamed(() => import('./features/tax-estimator/snapshots/SnapshotViewPage'), 'SnapshotViewPage');
 const TbLayout = lazyNamed(() => import('./features/tb/TbLayout'), 'TbLayout');
 const TbSettingsPage = lazyNamed(() => import('./features/tb/TbSettingsPage'), 'TbSettingsPage');
 const AjeListPage = lazyNamed(() => import('./features/tb/AjeListPage'), 'AjeListPage');
@@ -404,6 +406,7 @@ export function App() {
             <Route path="bills" element={<PortalBillsPage />} />
             <Route path="categorize" element={<PortalCategorizePage />} />
             <Route path="bill-upload" element={<PortalBillUploadPage />} />
+            <Route path="tax-estimates" element={<PortalTaxEstimatesPage />} />
           </Route>
 
           {/* Setup wizard */}
@@ -664,6 +667,7 @@ export function App() {
               <Route path="taxpayers/:id/annual-settings" element={<AnnualSettingsPage />} />
               <Route path="taxpayers/:id/estimate" element={<EstimateSummaryPage />} />
               <Route path="taxpayers/:id/scenarios" element={<ScenarioComparePage />} />
+              <Route path="taxpayers/:id/snapshots/:snapshotId" element={<SnapshotViewPage />} />
               <Route path="entities/:tenantId/:companyId" element={<EntityTaxSetupPage />} />
             </Route>
             {/* Trial Balance module (docs/tb/BUILD_PLAN.md) — TbLayout

@@ -33,6 +33,8 @@ export interface PortalContactCompanyLink {
   categorizeAccess: boolean;
   bankRepairAccess?: boolean;
   billUploadAccess?: boolean;
+  /** TAX_ESTIMATOR_V1 — sees the estimate / vouchers of taxpayers linked to this company. */
+  taxEstimatesAccess?: boolean;
 }
 
 export interface PortalContactDetail {
@@ -69,6 +71,7 @@ export interface CreatePortalContactInput {
     questionsForUsAccess?: boolean;
     bankingAccess?: boolean;
     billPayAccess?: boolean;
+    taxEstimatesAccess?: boolean;
   }>;
 }
 

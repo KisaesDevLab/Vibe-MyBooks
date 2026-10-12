@@ -20,6 +20,8 @@ import { PersonsEditor } from './PersonsEditor';
 import { LinksSection } from './LinksSection';
 import { ContactsPanel } from './ContactsPanel';
 import { FILING_STATUS_LABELS, SAFE_HARBOR_LABELS, SELECT_CLASS } from './labels';
+import { useYear } from '../../../api/hooks/useTaxEstimatorYears';
+import { downloadEstimatePdf } from '../../../api/hooks/useTaxEstimatorEstimate';
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : 'Request failed');
 
@@ -71,6 +73,31 @@ function CoreForm({ taxpayer, canWrite }: { taxpayer: TaxpayerDTO; canWrite: boo
   );
 }
 
+/**
+ * D15: the standalone Print / Download of the current year's Base scenario — the same PDF
+ * the estimate screen and the Report Pack section produce (the server freezes a snapshot).
+ */
+function DownloadPdfButton({ taxpayerId }: { taxpayerId: string }) {
+  const taxYear = new Date().getFullYear();
+  const year = useYear(taxpayerId, taxYear);
+  const base = year.data?.exists ? (year.data.scenarios.find((s) => s.isBase) ?? year.data.scenarios[0]) : undefined;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | undefined>();
+  const hint = year.isLoading ? undefined : !base ? `Set up ${taxYear} annual settings to print an estimate.` : undefined;
+  const run = async () => {
+    if (!base) return;
+    setBusy(true); setError(undefined);
+    try { await downloadEstimatePdf(taxpayerId, taxYear, base.id); } catch (e) { setError(errMsg(e)); } finally { setBusy(false); }
+  };
+  return (
+    <div className="flex flex-col items-end">
+      <Button variant="secondary" size="sm" disabled={!base} loading={busy} onClick={run} title={hint}>Print / Download PDF</Button>
+      {hint && <span className="text-xs text-gray-500">{hint}</span>}
+      {error && <span className="text-xs text-red-600" role="alert">{error}</span>}
+    </div>
+  );
+}
+
 export function TaxpayerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -93,12 +120,13 @@ export function TaxpayerDetailPage() {
     <div className="space-y-6">
       <div>
         <nav className="text-sm text-gray-500 mb-1" aria-label="Breadcrumb"><Link to="/tax-estimator/taxpayers" className="hover:underline">Taxpayers</Link> &rsaquo; {taxpayer.displayName}</nav>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold text-gray-900">{taxpayer.displayName}{!taxpayer.isActive && <span className="ml-2 text-sm font-normal text-gray-500">(archived)</span>}</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link to={`/tax-estimator/taxpayers/${taxpayer.id}/estimate`} className="text-sm font-medium text-primary-700 hover:underline">Tax estimate</Link>
             <Link to={`/tax-estimator/taxpayers/${taxpayer.id}/scenarios`} className="text-sm font-medium text-primary-700 hover:underline">Scenarios</Link>
             <Link to={`/tax-estimator/taxpayers/${taxpayer.id}/annual-settings`} className="text-sm font-medium text-primary-700 hover:underline">Annual settings</Link>
+            <DownloadPdfButton taxpayerId={taxpayer.id} />
             {canWrite && taxpayer.isActive && <Button variant="secondary" size="sm" onClick={() => setConfirmArchive(true)}>Archive</Button>}
           </div>
         </div>

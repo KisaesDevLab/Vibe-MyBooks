@@ -15,6 +15,7 @@ import type {
   ReportDef,
   PeriodPreset,
   ReportPackItemOptions,
+  TaxEstimatePackTaxpayerDTO,
 } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../client';
 
@@ -137,6 +138,20 @@ export function useReportCatalog() {
     queryKey: ['report-catalog'],
     queryFn: () => apiClient<{ catalog: ReportDef[] }>('/reports/catalog'),
     staleTime: 60 * 60 * 1000,
+  });
+}
+
+// Tax Estimate section (TAX_ESTIMATOR_V1): taxpayers linked to the active
+// company that the caller's firm may print. 404 = the caller cannot use the
+// section at all (flag off, client user, no tax_estimator access) — the
+// builder then hides it. No retries: a 404 is an answer, not a blip.
+export function useTaxEstimatePackTaxpayers(enabled = true) {
+  return useQuery({
+    queryKey: ['report-packs', 'tax-estimate-taxpayers'],
+    queryFn: () => apiClient<{ data: TaxEstimatePackTaxpayerDTO[]; total: number }>('/reports/tax-estimate/taxpayers'),
+    enabled,
+    retry: false,
+    staleTime: 60_000,
   });
 }
 

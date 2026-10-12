@@ -32,6 +32,14 @@ vi.mock('../../../api/hooks/useTaxEstimatorEstimate', () => ({
   downloadEstimatePdf: (...a: unknown[]) => h.download(...a),
 }));
 
+const finalize = vi.hoisted(() => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, isError: false, error: null }));
+vi.mock('../../../api/hooks/useTaxEstimatorSnapshots', () => ({
+  SNAPSHOTS_KEY: 'tax-estimator-snapshots',
+  useFinalizeSnapshot: () => finalize,
+  useSnapshots: () => ({ data: { data: [], total: 0, limit: 20, offset: 0 }, isLoading: false, isError: false, refetch: vi.fn() }),
+  downloadSnapshotPdf: vi.fn(),
+}));
+
 import { EstimateSummaryPage } from './EstimateSummaryPage';
 
 const tp = { taxpayer: { id: 'tp1', displayName: 'Rivera, Daniel & Maria', filingStatus: 'mfj', residentState: 'MO' }, persons: [] };
@@ -134,5 +142,27 @@ describe('EstimateSummaryPage', () => {
     render();
     fireEvent.click(screen.getByRole('button', { name: 'Trace vouchers' }));
     expect(within(screen.getByRole('dialog')).getByText('federal Q4 voucher')).toBeInTheDocument();
+  });
+
+  it('Finalize freezes a snapshot of the selected scenario with the note; Snapshots opens the history', () => {
+    renderRoute(<EstimateSummaryPage />, { path: '/tp/:id/estimate', route: '/tp/tp1/estimate?year=2026&scenario=s2&through=2026-08' });
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize & issue vouchers' }));
+    const dialog = screen.getByRole('dialog', { name: 'Finalize estimate' });
+    expect(dialog.textContent).toContain('Truck');
+    fireEvent.change(within(dialog).getByLabelText('Note (optional)'), { target: { value: 'Sent Q4' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Finalize' }));
+    expect(finalize.mutate).toHaveBeenCalledWith(
+      { scenarioId: 's2', input: { reason: 'finalize', note: 'Sent Q4', throughMonth: '2026-08' } }, expect.anything(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Snapshots' }));
+    expect(screen.getByLabelText('Snapshot history')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'open Report Packs' })).toHaveAttribute('href', '/reports/packs');
+  });
+
+  it('read-only staff cannot finalize but can open the history', () => {
+    h.role = 'firm_readonly';
+    render();
+    expect(screen.queryByRole('button', { name: 'Finalize & issue vouchers' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Snapshots' })).toBeInTheDocument();
   });
 });

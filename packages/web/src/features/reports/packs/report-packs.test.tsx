@@ -46,8 +46,15 @@ const packsHolder: { data: { packs: ReportPackListItem[] }; isLoading: boolean; 
   refetch: vi.fn(),
 };
 
+// Tax Estimate section choices (GET /reports/tax-estimate/taxpayers); 404 → isError.
+const taxHolder: { data?: { data: Array<{ id: string; displayName: string; years: number[] }>; total: number }; isLoading: boolean; isSuccess: boolean; isError: boolean } = {
+  data: { data: [{ id: '11111111-1111-4111-8111-111111111111', displayName: 'Rivera Family', years: [2026] }], total: 1 },
+  isLoading: false, isSuccess: true, isError: false,
+};
+
 vi.mock('../../../api/hooks/useReportPacks', () => ({
   useReportCatalog: () => catalogHolder,
+  useTaxEstimatePackTaxpayers: () => taxHolder,
   useReportPacks: () => packsHolder,
   useReportPackLetters: () => ({ data: { letters: [] }, isLoading: false }),
   useReportPackWorkerHealth: () => ({ data: { redisReachable: true, workerRunning: true } }),
@@ -97,6 +104,29 @@ function samplePack(overrides: Partial<ReportPackListItem> = {}): ReportPackList
 describe('ReportPackBuilderPage', () => {
   beforeEach(() => {
     catalogHolder.data = { catalog: REPORT_CATALOG };
+    taxHolder.data = { data: [{ id: '11111111-1111-4111-8111-111111111111', displayName: 'Rivera Family', years: [2026] }], total: 1 };
+    taxHolder.isSuccess = true;
+    taxHolder.isError = false;
+  });
+
+  it('offers the Tax Estimate section with a taxpayer picker when the caller may use it', () => {
+    renderRoute(<ReportPackBuilderPage />, { route: '/reports/packs/new', path: '/reports/packs/new' });
+    fireEvent.click(screen.getByRole('checkbox', { name: /^Tax Estimate$/i }));
+    const sel = screen.getByLabelText(/Tax Estimate taxpayer/i) as HTMLSelectElement;
+    expect(Array.from(sel.options).map((o) => o.textContent)).toEqual(['Pick a taxpayer', 'Rivera Family (2026)']);
+    expect(screen.getByText(/Pick a taxpayer — the section is skipped without one/)).toBeTruthy();
+    fireEvent.change(sel, { target: { value: '11111111-1111-4111-8111-111111111111' } });
+    expect((screen.getByLabelText(/Tax Estimate taxpayer/i) as HTMLSelectElement).value).toBe('11111111-1111-4111-8111-111111111111');
+    expect(screen.queryByText(/section is skipped without one/)).toBeNull();
+  });
+
+  it('hides the Tax Estimate section when the taxpayer endpoint refuses the caller (404)', () => {
+    taxHolder.data = undefined;
+    taxHolder.isSuccess = false;
+    taxHolder.isError = true;
+    renderRoute(<ReportPackBuilderPage />, { route: '/reports/packs/new', path: '/reports/packs/new' });
+    expect(screen.queryByRole('checkbox', { name: /^Tax Estimate$/i })).toBeNull();
+    expect(screen.getByRole('checkbox', { name: /Profit & Loss/i })).toBeTruthy();
   });
 
   it('renders the catalog and adds a report to the pack when checked', () => {

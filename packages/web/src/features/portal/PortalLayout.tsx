@@ -29,6 +29,8 @@ export interface PortalMe {
       categorizeAccess: boolean;
       bankRepairAccess?: boolean;
       billUploadAccess?: boolean;
+      /** TAX_ESTIMATOR_V1 — the contact may see linked taxpayers' estimates. */
+      taxEstimatesAccess?: boolean;
     }>;
   };
   preview: {

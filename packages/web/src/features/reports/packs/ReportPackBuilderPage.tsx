@@ -31,6 +31,7 @@ import {
   PACK_FILENAME_DEFAULT,
   PACK_FILENAME_PLACEHOLDERS,
   renderPackFilename,
+  TAX_ESTIMATOR_REPORT_IDS,
   type ReportDef,
   type PeriodPreset,
   type ReportPackItemOptions,
@@ -42,6 +43,7 @@ import {
   useCreateReportPack,
   useUpdateReportPack,
   useCreatePackRun,
+  useTaxEstimatePackTaxpayers,
   type ReportPackInput,
 } from '../../../api/hooks/useReportPacks';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
@@ -83,6 +85,38 @@ function describeReportDates(
   return 'Live balances';
 }
 
+/** Taxpayer picker for the Tax Estimate section (choices = taxpayers linked to this company). */
+function TaxpayerOption({ label, value, onChange }: { label: string; value: string; onChange: (v: string | undefined) => void }) {
+  const query = useTaxEstimatePackTaxpayers();
+  const choices = query.data?.data ?? [];
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="flex items-center gap-1.5 text-xs text-gray-600">
+        Taxpayer
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value || undefined)}
+          className="rounded border border-gray-300 px-2 py-1 text-xs bg-white"
+          aria-label={`${label} taxpayer`}
+          disabled={query.isLoading}
+        >
+          <option value="">{query.isLoading ? 'Loading…' : 'Pick a taxpayer'}</option>
+          {choices.map((t) => (
+            <option key={t.id} value={t.id}>{t.displayName}{t.years.length ? ` (${t.years.join(', ')})` : ''}</option>
+          ))}
+        </select>
+      </label>
+      {!value && (
+        <span className="text-[11px] text-amber-700" role="note">
+          {query.isSuccess && choices.length === 0
+            ? 'No taxpayer is linked to this company in the Tax Estimator.'
+            : 'Pick a taxpayer — the section is skipped without one.'}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /**
  * Per-report options row, driven entirely by the report's catalog
  * `ReportOptionSpec`. Renders only the controls that spec declares; a report
@@ -100,7 +134,7 @@ function ReportItemOptions({
 }) {
   const spec = def.options;
   const hasAny = spec.basis || spec.compare || spec.groupBy || spec.showPct || spec.tagFilter || spec.includeAttachments
-    || spec.statements || spec.txnFilters;
+    || spec.statements || spec.txnFilters || spec.taxpayer;
   if (!hasAny) return null;
 
   // Merge a patch and drop keys that carry no meaning (undefined / null /
@@ -116,6 +150,9 @@ function ReportItemOptions({
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-2">
+      {spec.taxpayer && (
+        <TaxpayerOption label={def.label} value={options.taxpayerId ?? ''} onChange={(taxpayerId) => set({ taxpayerId })} />
+      )}
       {spec.basis && (
         <label className="flex items-center gap-1.5 text-xs text-gray-600">
           Basis
@@ -268,7 +305,14 @@ export function ReportPackBuilderPage() {
   // The catalog the API serves is the authoritative source, but fall back to
   // the bundled REPORT_CATALOG so grouping renders even before the fetch
   // resolves (and in tests that don't mock the network).
-  const catalog = catalogQuery.data?.catalog ?? REPORT_CATALOG;
+  // Tax Estimator sections are shown only when the caller can actually use
+  // them (the taxpayer-choices endpoint answers 404 otherwise).
+  const taxEstimateTaxpayers = useTaxEstimatePackTaxpayers();
+  const fullCatalog = catalogQuery.data?.catalog ?? REPORT_CATALOG;
+  const catalog = useMemo(
+    () => (taxEstimateTaxpayers.isSuccess ? fullCatalog : fullCatalog.filter((d) => !TAX_ESTIMATOR_REPORT_IDS.includes(d.id))),
+    [fullCatalog, taxEstimateTaxpayers.isSuccess],
+  );
 
   // ── Pack settings state ──
   const [name, setName] = useState('');

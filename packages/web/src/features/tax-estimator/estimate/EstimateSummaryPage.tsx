@@ -3,6 +3,8 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { DEFAULT_ASSUMPTIONS_DISCLAIMER } from '@kis-books/shared';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useTaxpayer, useTaxEstimatorScope } from '../../../api/hooks/useTaxEstimatorTaxpayers';
 import { useYear, useFirmSettings } from '../../../api/hooks/useTaxEstimatorYears';
@@ -23,6 +25,9 @@ import { SpecialCases } from './SpecialCases';
 import { TraceDrawer } from './TraceDrawer';
 import { traceRowsFor } from './traceRows';
 import { dollars, errMsg, fmtMonth } from './format';
+import { useFinalizeSnapshot, SNAPSHOTS_KEY } from '../../../api/hooks/useTaxEstimatorSnapshots';
+import { SnapshotHistory } from '../snapshots/SnapshotHistory';
+import { FinalizeDialog } from '../snapshots/FinalizeDialog';
 
 const THIS_YEAR = new Date().getFullYear();
 const MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
@@ -45,6 +50,11 @@ export function EstimateSummaryPage() {
   const [voucherTrace, setVoucherTrace] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | undefined>();
+  const [showSnapshots, setShowSnapshots] = useState(false);
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [finalizedMsg, setFinalizedMsg] = useState<string | undefined>();
+  const finalize = useFinalizeSnapshot(id ?? '', taxYear);
+  const qc = useQueryClient();
   const e = estimate.data;
   const jurisdictions = e ? [e.federalEstimates, ...e.stateEstimates] : [];
   const [selectedJ, setSelectedJ] = useJurisdictionTab(jurisdictions);
@@ -69,8 +79,20 @@ export function EstimateSummaryPage() {
   const download = async () => {
     if (!id || !scenarioId) return;
     setPdfBusy(true); setPdfError(undefined);
-    try { await downloadEstimatePdf(id, taxYear, scenarioId, through); } catch (err) { setPdfError(errMsg(err)); } finally { setPdfBusy(false); }
+    try {
+      await downloadEstimatePdf(id, taxYear, scenarioId, through);
+      // The PDF froze a snapshot (reason 'pdf'); refresh the history.
+      void qc.invalidateQueries({ queryKey: [SNAPSHOTS_KEY] });
+    } catch (err) { setPdfError(errMsg(err)); } finally { setPdfBusy(false); }
   };
+  const doFinalize = (note: string | null) => {
+    if (!scenarioId) return;
+    setFinalizedMsg(undefined);
+    finalize.mutate({ scenarioId, input: { reason: 'finalize', note, ...(through ? { throughMonth: through } : {}) } }, {
+      onSuccess: () => { setFinalizeOpen(false); setShowSnapshots(true); setFinalizedMsg('Snapshot saved. It is listed under Snapshots.'); },
+    });
+  };
+  const scenarioName = scenarios.find((s) => s.id === scenarioId)?.name ?? 'Base';
   const closedMonths = (readiness.data?.entities ?? []).map((x) => x.readiness?.lastClosedMonth).filter((m): m is string => !!m);
   const lastClosed = closedMonths.length ? closedMonths.sort()[0] : undefined;
   const throughOpen = !!through && (lastClosed == null || through > lastClosed);
@@ -123,8 +145,19 @@ export function EstimateSummaryPage() {
             <div className="ml-auto flex gap-2">
               <Button variant="secondary" onClick={() => estimate.refetch()} loading={estimate.isFetching && !estimate.isLoading}>Refresh</Button>
               <Button variant="secondary" disabled={!e} loading={pdfBusy} onClick={download}>Print / Download PDF</Button>
+              <Button variant="secondary" aria-expanded={showSnapshots} onClick={() => setShowSnapshots((v) => !v)}>Snapshots</Button>
+              {canWrite && <Button disabled={!e} onClick={() => { finalize.reset(); setFinalizeOpen(true); }}>Finalize &amp; issue vouchers</Button>}
             </div>
+            <p className="basis-full text-xs text-gray-500">
+              Add to Report Pack: pick &ldquo;Tax Estimate&rdquo; (group Tax) in a pack of a linked company &mdash;{' '}
+              <Link className="text-primary-700 hover:underline" to="/reports/packs">open Report Packs</Link>.
+            </p>
           </div>
+          {finalizedMsg && <p className="text-sm text-green-700" role="status">{finalizedMsg}</p>}
+          {showSnapshots && id && <SnapshotHistory taxpayerId={id} taxYear={taxYear} />}
+          <FinalizeDialog open={finalizeOpen} scenarioName={scenarioName} saving={finalize.isPending}
+            error={finalize.isError ? errMsg(finalize.error) : undefined}
+            onConfirm={doFinalize} onCancel={() => setFinalizeOpen(false)} />
           {throughOpen && <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">{fmtMonth(through)} is after the last closed month ({lastClosed ? fmtMonth(lastClosed) : 'none'}); the estimate uses books that are not fully reconciled.</p>}
           {pdfError && <p className="text-sm text-red-600" role="alert">{pdfError}</p>}
 
@@ -165,7 +198,7 @@ export function EstimateSummaryPage() {
                 <PaymentsLedger taxpayerId={tp.id} taxYear={taxYear} jurisdictions={e.stateEstimates.map((s) => s.jurisdiction)} canWrite={canWrite} />
                 <WarningsList warnings={e.warnings} />
                 <footer className="border-t border-gray-200 pt-3 text-xs text-gray-500 space-y-1">
-                  <p>{firm.data?.effectiveDisclaimerText ?? 'Projection based on bookkeeping records and the assumptions listed. Not a tax return.'}</p>
+                  <p>{firm.data?.effectiveDisclaimerText ?? DEFAULT_ASSUMPTIONS_DISCLAIMER}</p>
                   <p>
                     Parameters: {e.parametersUsed.some((p) => p.status !== 'verified') ? 'some values are not yet verified' : 'all verified'} &middot;
                     State rules: {e.rulesUsed.length === 0 ? 'none used' : e.rulesUsed.some((p) => p.status !== 'verified') ? 'some unverified' : 'verified'} &middot; Engine {e.engineVersion}

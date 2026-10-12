@@ -59,6 +59,11 @@ export function PortalDashboardPage() {
   // AP_BILL_CAPTURE_V1 — the tile is the only way into /portal/bill-upload.
   const billUploadEnabled =
     !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.billUploadAccess;
+  // TAX_ESTIMATOR_V1 — per-contact grant from /me; the tenant flags are only
+  // known from the list endpoint (featureEnabled:false hides the entry).
+  const taxEstimatesEnabled =
+    !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.taxEstimatesAccess;
+  const [taxEstimatesFeatureOff, setTaxEstimatesFeatureOff] = useState(false);
 
   const [counts, setCounts] = useState<DashboardCounts>({
     openQuestions: null,
@@ -84,6 +89,19 @@ export function PortalDashboardPage() {
   // or a browser running a stale build — left the client with no way in at
   // all, and "I have to hard refresh to see it" was the result.
   const categorizeAvailable = categorizeEnabled && !categorizeFeatureOff;
+
+  useEffect(() => {
+    setTaxEstimatesFeatureOff(false);
+    if (!activeCompanyId || !taxEstimatesEnabled) return;
+    let cancelled = false;
+    fetch(`${import.meta.env.BASE_URL}api/portal/tax-estimates?companyId=${activeCompanyId}`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : r.status === 403 || r.status === 404 ? { featureEnabled: false } : null))
+      .then((body) => {
+        if (!cancelled && body && body.featureEnabled === false) setTaxEstimatesFeatureOff(true);
+      })
+      .catch(() => { /* transport error — keep the entry point */ });
+    return () => { cancelled = true; };
+  }, [activeCompanyId, taxEstimatesEnabled]);
 
   // PORTAL_BANKING_V1 — separate request because the response carries
   // featureEnabled (tenant flag) which the /me permission can't know.
@@ -442,6 +460,17 @@ export function PortalDashboardPage() {
             <p className="text-sm font-medium text-gray-900">Pay bills</p>
             <p className="text-xs text-gray-500 mt-1">
               Review unpaid bills and queue checks for your firm to print.
+            </p>
+          </Link>
+        )}
+        {taxEstimatesEnabled && !taxEstimatesFeatureOff && (
+          <Link
+            to="/portal/tax-estimates"
+            className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+          >
+            <p className="text-sm font-medium text-gray-900">Tax estimate</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Your projected tax for the year and the estimated payments due.
             </p>
           </Link>
         )}
