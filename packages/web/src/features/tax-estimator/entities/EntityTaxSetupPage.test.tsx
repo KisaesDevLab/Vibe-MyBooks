@@ -23,6 +23,7 @@ vi.mock('../../../api/hooks/useTaxEstimatorEntities', () => ({
   useTreatmentSuggestions: () => h.q.sugg,
   useEntityReadiness: () => h.q.ready,
   useTaxBasisPl: () => h.q.pl,
+  useOwnerCandidates: () => ({ data: { candidates: [] } }),
   useSaveEntitySettings: () => mut, useSaveEntityYearInputs: () => mut, useSaveEntityTreatments: () => mut,
 }));
 

@@ -68,3 +68,15 @@ Operator notes:
 - Migration `0207_tax_est_projection_method.sql` (+ rollback; part `parts/projection-method.sql`; journal idx 207, `when` 1784800000290): new column `tax_est_entity_year_inputs.projection_method` (default `run_rate`, CHECK). Additive; every estimate is unchanged until a method is chosen.
 - Engine 1.0.0-rc.6 and estimate cache version `te-estimate-v6` re-key every live estimate once on deploy (no figure changes for run-rate entities). A selected prior-year method reads 12 more months per company (Redis-cached by the GL stamp).
 - Kurt's review list (prior-year definition and flags, completeness rule, dollar method guardrails, C corp restriction): OPEN-QUESTIONS.md Q46.
+
+## Owner pickers and owner splits (Q50)
+
+User-facing:
+- On Entity tax setup > GL tax treatment, the person / taxpayer for W-2 wages, owner or officer health insurance and retirement, guaranteed payments and estimated tax payments now lists **only the owners linked to this business** (no more firm-wide taxpayer list). With no linked owner the row says to link the owner first (Taxpayers > the taxpayer > Linked businesses). Saving an unlinked owner is refused; older rows naming one keep working and warn.
+- **Split between owners** on those accounts: by **%** (must total 100%; "Default from ownership" fills the link profit %) or by **fixed annual $** per owner for the year (the last owner takes the books' difference, with a warning). S corp officer wages and >2% shareholder health land on each shareholder's W-2 box 1 / health deduction; guaranteed payments and retirement split the same way; estimated tax payments can be shared between taxpayers (each taxpayer's payment ledger gets its share). The trace shows each share.
+
+Operator notes:
+- Migration `0210_tax_est_treatment_splits.sql` (+ rollback; part `parts/treatment-splits.sql`; journal idx 210, `when` 1784800000320 — 0209 belongs to the entity-type override branch): new table `tax_est_account_treatment_splits` and column `tax_est_account_treatments.split_mode` (default `pct`). Additive; no data migration — a treatment without split rows computes exactly as before.
+- Provider cache `te:pl:v3` and estimate cache `te-estimate-v7` re-key once on deploy (no figure changes without splits). Engine unchanged (no version bump, no oracle change). New endpoint `GET /api/v1/tax-estimator/entities/:tenantId/:companyId/owner-candidates` (firm admin / staff).
+- New codes: `TE_TARGET_NOT_LINKED` (422 / warning), `TE_SPLIT_PCT_TOTAL`, `TE_SPLIT_DUPLICATE_TARGET`, `TE_SPLIT_AMOUNT_TOTAL_ZERO` (400), `TE_SPLIT_REMAINDER` (warning), `TE_SPLIT_AMOUNT_YEAR_MISSING` (info). After deploy, check readiness for `TE_TARGET_NOT_LINKED`: existing W-2 wage / owner-item rows that name a taxpayer not linked to the business (the old picker allowed any firm taxpayer).
+- Kurt's review list (defaults a–j: $-mode YTD / projection rule, missing-year fallback, payment $ mode, rounding, existing unlinked rows, names in the trace): OPEN-QUESTIONS.md Q50.
