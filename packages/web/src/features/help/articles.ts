@@ -3396,6 +3396,13 @@ A taxpayer you may not see is simply "Taxpayer not found", everywhere: the list,
 
 Per entity and year: an optional **W-2 wages override** (with a required reason) and **UBIA**. The QBI wage limit uses the W-2 wages from accounts treated as W-2 wages in the books unless you override them. If UBIA is blank, the UBIA part of the QBI limit is not computed and the estimate says so.
 
+**Projection method** (per entity and year) decides how the rest of the year's **ordinary** income is projected:
+- **Run rate** (the default): the year-to-date recurring income per month times the months left.
+- **Prior-year seasonal (scaled)**: last year's remaining months, scaled by how this year compares to the same months last year. Example: through September this year's recurring income is 120,000; last year January to September was 100,000 and October to December 80,000, so the year projects 120,000 + 80,000 x 1.2 = 216,000 (the run rate would give 160,000). The scale is kept between 0.25 and 4.
+- **Prior-year seasonal (dollar)**: last year's remaining months as they were (120,000 + 80,000 = 200,000).
+
+Last year's figures come from the same company's books, through the same GL tax treatment and with non-recurring items left out. Other kinds of income (interest, dividends, gains, rental) keep the run rate. If last year's books are not complete (every month needs activity) or the figures do not support a trend, the estimate uses the run rate and shows a warning, also on the readiness list. The Calculation tab shows the method on the company line with a "Run rate would be" note. Not available for C corporations or businesses outside MyBooks.
+
 ## GL tax treatment
 
 The estimator reads the company's profit and loss accounts and needs to know what each one means for tax. The treatment table lists every account with its book amount, its Trial Balance tax code, a status (Mapped, Suggested, None, or Unmapped with activity) and the **tax effect**:

@@ -60,6 +60,15 @@ encrypted like the rest of the result (Redis cache, `tax_est_snapshots.payload_e
 client portal shows only the taxpayer-level totals (no business names or amounts). Whether to
 encrypt the year amounts at rest is open for Kurt (OPEN-QUESTIONS Q45).
 
+Projection method (Q46, migration `0207_tax_est_projection_method`):
+`tax_est_entity_year_inputs.projection_method` (`run_rate` default | `prior_year_scaled` |
+`prior_year_dollar`, CHECK) is an entity-year setting like the W-2 wage override: books-scoped
+(tenant_id), written only through the entity routes (tenant check, `requireTaxEstimatorWrite`),
+audited with the row. The prior-year monthly figures it reads are books data derived on the fly
+(Redis P&L cache, clear JSON like the current year's); they are frozen inside the encrypted
+estimate cache value and snapshot payload (`inputs.companies[].priorYear`,
+`result.federal.entities[].projection`).
+
 Not tax return information (books data, stored in clear): payment ledger rows
 (`tax_est_payments`), Schedule AI period figures (`tax_est_sch_ai_snapshots`), entity
 settings, treatments and adjustments. Snapshot metadata (`tax_year`, `scenario_name`,

@@ -56,3 +56,15 @@ Operator notes:
 - Migration `0206_tax_est_outside_entities.sql` (+ rollback; part `parts/outside-entities.sql`; journal idx 206, `when` 1784800000280 — 0205 belongs to the AI parameter-check branch): new tables `tax_est_outside_entities` and `tax_est_outside_entity_years`. Additive; estimates without outside businesses are unchanged to the cent.
 - Engine 1.0.0-rc.5 and estimate cache version `te-estimate-v5` re-key every live estimate once on deploy (no figure changes without outside businesses). Frozen snapshots are untouched; results computed before rc.5 render as before.
 - Kurt's review list (defaults taken: Schedule AI spread / proration, all YTD amounts recurring, C corp defaults, Schedule F farmer test, plain-NUMERIC storage of K-1 figures): OPEN-QUESTIONS.md Q45.
+
+## Prior-year trend projection (Q46, engine 1.0.0-rc.6)
+
+User-facing:
+- **Projection method** on Entity tax setup > year inputs (per company and tax year): **Run rate** (the default, unchanged), **Prior-year seasonal (scaled)** (last year's remaining months scaled by this year's recurring year-to-date vs. last year's same months, scale kept between 0.25 and 4) or **Prior-year seasonal (dollar)** (last year's remaining months as-is). Ordinary income only; other income kinds keep the run rate.
+- Last year comes from the same company's books through the same GL tax treatment, non-recurring items excluded. Incomplete prior-year books (a month without activity) or figures that do not support a trend fall back to the run rate with a warning (estimate and readiness).
+- The Calculation view shows the method on the company line ("Prior-year seasonal (scaled ×1.20)") with a "Run rate would be $X" note; the trace shows the prior-year figures; the assumptions page / PDF state the method per business.
+
+Operator notes:
+- Migration `0207_tax_est_projection_method.sql` (+ rollback; part `parts/projection-method.sql`; journal idx 207, `when` 1784800000290): new column `tax_est_entity_year_inputs.projection_method` (default `run_rate`, CHECK). Additive; every estimate is unchanged until a method is chosen.
+- Engine 1.0.0-rc.6 and estimate cache version `te-estimate-v6` re-key every live estimate once on deploy (no figure changes for run-rate entities). A selected prior-year method reads 12 more months per company (Redis-cached by the GL stamp).
+- Kurt's review list (prior-year definition and flags, completeness rule, dollar method guardrails, C corp restriction): OPEN-QUESTIONS.md Q46.

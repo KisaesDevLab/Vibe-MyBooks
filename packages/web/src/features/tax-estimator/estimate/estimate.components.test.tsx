@@ -86,6 +86,45 @@ describe('buildCalcSections — entity total and owner share', () => {
   });
 });
 
+describe('buildCalcSections — prior-year trend projection (Q46)', () => {
+  const withProjection = (projection: Record<string, unknown> | undefined) => {
+    const base = makeEstimate();
+    return makeEstimate({ federal: { ...base.federal, entities: [{ ...base.federal.entities[0]!, ...(projection ? { projection } : {}) }] } });
+  };
+  const scaled = {
+    method: 'prior_year_scaled', applied: 'prior_year_scaled', fallbackReason: null, factor: '1.2', rawFactor: '1.2', capped: null,
+    runRateOrdinary: '160000', projectedOrdinary: '216000', runRateProjectedProfit: '160000',
+    priorYear: { taxYear: 2025, throughMonth: 9, sameMonthsOrdinary: '100000', remainingOrdinary: '80000', fullYearOrdinary: '180000', monthsWithActivity: 12 },
+  };
+
+  it('scaled: the method on the entity sub-label and a "Run rate would be" chip', () => {
+    const entity = buildCalcSections(withProjection(scaled)).flatMap((s) => s.lines).find((l) => l.key === 'inc.c1')!;
+    expect(entity.sub).toBe('Sch C · active · Entity total (100%) · Prior-year seasonal (scaled ×1.20)');
+    expect(entity.chips).toEqual([{ text: 'Run rate would be $160,000', tone: 'info' }]);
+  });
+
+  it('dollar, capped and fallback variants', () => {
+    const line = (p: Record<string, unknown>) => buildCalcSections(withProjection({ ...scaled, ...p })).flatMap((s) => s.lines).find((l) => l.key === 'inc.c1')!;
+    expect(line({ method: 'prior_year_dollar', applied: 'prior_year_dollar', factor: null, rawFactor: null }).sub).toMatch(/Prior-year seasonal \(prior-year dollars\)$/);
+    expect(line({ factor: '4', rawFactor: '5', capped: 'max' }).chips).toContainEqual({ text: 'Scale factor capped at ×4.00 (was ×5.00)', tone: 'warn', review: true });
+    const fb = line({ applied: 'run_rate', fallbackReason: 'py_books_incomplete', factor: null, rawFactor: null });
+    expect(fb.sub).toMatch(/Run rate \(prior-year trend unavailable\)$/);
+    expect(fb.chips).toEqual([{ text: 'Prior-year trend fell back to the run rate', tone: 'warn', review: true }]);
+  });
+
+  it('run rate (no projection block, older snapshots): nothing added', () => {
+    const entity = buildCalcSections(withProjection(undefined)).flatMap((s) => s.lines).find((l) => l.key === 'inc.c1')!;
+    expect(entity.sub).toBe('Sch C · active · Entity total (100%)');
+    expect(entity.chips).toBeUndefined();
+  });
+
+  it('the Calculation table shows the method and the comparison chip', () => {
+    wrap(<CalculationTable estimate={withProjection(scaled)} />);
+    expect(screen.getByText(/Prior-year seasonal \(scaled ×1\.20\)/)).toBeInTheDocument();
+    expect(screen.getByText('Run rate would be $160,000')).toBeInTheDocument();
+  });
+});
+
 describe('buildCalcSections — businesses outside MyBooks (Q45)', () => {
   const outsideEstimate = (basis: 'owner_share' | 'entity_total', mode: 'full_year' | 'ytd') => {
     const base = makeEstimate();

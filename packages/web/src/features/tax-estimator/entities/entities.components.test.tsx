@@ -147,7 +147,7 @@ describe('SuggestionsBanner', () => {
 });
 
 describe('YearInputsPanel', () => {
-  const inputs: EntityYearInputsDto = { tenantId: 't', companyId: 'c', taxYear: 2026, w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: false, updatedAt: null };
+  const inputs: EntityYearInputsDto = { tenantId: 't', companyId: 'c', taxYear: 2026, w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: false, projectionMethod: 'run_rate', updatedAt: null };
   it('requires a reason for a W-2 wages override and warns on blank UBIA', () => {
     const onSave = vi.fn();
     renderRoute(<YearInputsPanel taxYear={2026} inputs={inputs} booksW2Wages="54000.0000" canWrite saving={false} onSave={onSave} />);
@@ -158,7 +158,7 @@ describe('YearInputsPanel', () => {
     expect(screen.getByText(/A reason is required/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Override reason'), { target: { value: 'Payroll report' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save year inputs' }));
-    expect(onSave).toHaveBeenCalledWith({ w2WagesOverride: '60000', w2WagesOverrideReason: 'Payroll report', ubia: null, includeSehiInW2Wages: false });
+    expect(onSave).toHaveBeenCalledWith({ w2WagesOverride: '60000', w2WagesOverrideReason: 'Payroll report', ubia: null, includeSehiInW2Wages: false, projectionMethod: 'run_rate' });
   });
 
   it('Q41: the >2% shareholder health switch defaults to excluded and saves true when ticked', () => {
@@ -169,12 +169,12 @@ describe('YearInputsPanel', () => {
     expect(screen.getByText(/excluded/)).toBeInTheDocument();
     fireEvent.click(box);
     fireEvent.click(screen.getByRole('button', { name: 'Save year inputs' }));
-    expect(onSave).toHaveBeenCalledWith({ w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: true });
+    expect(onSave).toHaveBeenCalledWith({ w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: true, projectionMethod: 'run_rate' });
   });
 });
 
 describe('YearInputsPanel — QA2-03', () => {
-  const inputs: EntityYearInputsDto = { tenantId: 't', companyId: 'c', taxYear: 2026, w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: true, updatedAt: null };
+  const inputs: EntityYearInputsDto = { tenantId: 't', companyId: 'c', taxYear: 2026, w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: true, projectionMethod: 'run_rate', updatedAt: null };
   it('the shareholder health switch is offered for S corporations only; other entities save it off', () => {
     for (const entityType of ['sch_c', 'partnership', null] as const) {
       const onSave = vi.fn();
@@ -184,6 +184,34 @@ describe('YearInputsPanel — QA2-03', () => {
       expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ includeSehiInW2Wages: false }));
       unmount();
     }
+  });
+});
+
+describe('YearInputsPanel — Q46 projection method', () => {
+  const inputs: EntityYearInputsDto = { tenantId: 't', companyId: 'c', taxYear: 2026, w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: false, projectionMethod: 'run_rate', updatedAt: null };
+  it('defaults to the run rate, explains the methods and saves the chosen prior-year method', () => {
+    const onSave = vi.fn();
+    renderRoute(<YearInputsPanel taxYear={2026} inputs={inputs} booksW2Wages="0" entityType="sch_c" canWrite saving={false} onSave={onSave} />);
+    const select = screen.getByLabelText('Projection method') as HTMLSelectElement;
+    expect(select.value).toBe('run_rate');
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['run_rate', 'prior_year_scaled', 'prior_year_dollar']);
+    expect(screen.getByTestId('projection-help')).toHaveTextContent(/2025's remaining months/);
+    expect(screen.getByTestId('projection-help')).toHaveTextContent(/falls back to the run rate/);
+    fireEvent.change(select, { target: { value: 'prior_year_scaled' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save year inputs' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ projectionMethod: 'prior_year_scaled' }));
+  });
+
+  it('shows the stored method; C corporations get no selector and save the run rate', () => {
+    const { unmount } = renderRoute(<YearInputsPanel taxYear={2026} inputs={{ ...inputs, projectionMethod: 'prior_year_dollar' }} booksW2Wages="0" entityType="partnership" canWrite={false} saving={false} onSave={vi.fn()} />);
+    expect((screen.getByLabelText('Projection method') as HTMLSelectElement).value).toBe('prior_year_dollar');
+    expect(screen.getByLabelText('Projection method')).toBeDisabled();
+    unmount();
+    const onSave = vi.fn();
+    renderRoute(<YearInputsPanel taxYear={2026} inputs={{ ...inputs, projectionMethod: 'prior_year_dollar' }} booksW2Wages="0" entityType="c_corp" canWrite saving={false} onSave={onSave} />);
+    expect(screen.queryByLabelText('Projection method')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Save year inputs' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ projectionMethod: 'run_rate' }));
   });
 });
 
