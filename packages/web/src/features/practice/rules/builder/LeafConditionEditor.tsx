@@ -11,6 +11,7 @@ import {
 } from '@kis-books/shared';
 import { Trash2 } from 'lucide-react';
 import { useBankSourceAccounts } from '../../../../api/hooks/useRuleTestSandbox';
+import { NumericInput } from '../../../../components/forms/NumericInput';
 
 interface Props {
   node: LeafCondition;
@@ -114,21 +115,21 @@ function ValueInput({
   if (operator === 'between') {
     const isDate = field === 'date';
     const tuple = Array.isArray(value) && value.length === 2 ? (value as Array<unknown>) : ['', ''];
+    const setLo = (v: string) => onChange([v, String(tuple[1] ?? '')] as Parameters<typeof onChange>[0]);
+    const setHi = (v: string) => onChange([String(tuple[0] ?? ''), v] as Parameters<typeof onChange>[0]);
     return (
       <div className="flex items-center gap-1">
-        <input
-          type={isDate ? 'date' : 'number'}
-          value={String(tuple[0] ?? '')}
-          onChange={(e) => onChange([e.target.value, String(tuple[1] ?? '')] as Parameters<typeof onChange>[0])}
-          className={baseClass}
-        />
+        {isDate ? (
+          <input type="date" value={String(tuple[0] ?? '')} onChange={(e) => setLo(e.target.value)} className={baseClass} />
+        ) : (
+          <NumericInput value={String(tuple[0] ?? '')} onChange={setLo} className={baseClass} />
+        )}
         <span className="text-xs text-gray-400">–</span>
-        <input
-          type={isDate ? 'date' : 'number'}
-          value={String(tuple[1] ?? '')}
-          onChange={(e) => onChange([String(tuple[0] ?? ''), e.target.value] as Parameters<typeof onChange>[0])}
-          className={baseClass}
-        />
+        {isDate ? (
+          <input type="date" value={String(tuple[1] ?? '')} onChange={(e) => setHi(e.target.value)} className={baseClass} />
+        ) : (
+          <NumericInput value={String(tuple[1] ?? '')} onChange={setHi} className={baseClass} />
+        )}
       </div>
     );
   }
@@ -186,11 +187,11 @@ function ValueInput({
     // field (or use a negative amount here).
     return (
       <div>
-        <input
-          type="number"
-          step="0.01"
+        <NumericInput
+          decimals={2}
+          allowNegative
           value={String(value ?? '')}
-          onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+          onChange={(v) => onChange(v === '' ? '' : Number(v))}
           className={baseClass}
         />
         <p className="mt-1 text-[11px] text-gray-500">

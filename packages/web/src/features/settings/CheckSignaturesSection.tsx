@@ -17,6 +17,7 @@ import {
 } from '../../api/hooks/useCheckSignatures';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { NumericField } from '../../components/forms/NumericField';
 import { PenLine, Trash2, Users, ImageUp } from 'lucide-react';
 
 interface TeamUser { id: string; displayName: string; email: string; isActive: boolean }
@@ -229,7 +230,7 @@ export function CheckSignaturesSection() {
 
       <div className="border-t border-gray-100 pt-4 grid grid-cols-1 sm:grid-cols-[1fr_10rem_auto_auto] gap-3 items-end">
         <Input label="Signature name" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Kurt W" />
-        <Input label="Max amount (optional)" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} placeholder="No cap" />
+        <NumericField label="Max amount (optional)" decimals={2} min={0} value={maxAmount} onChange={setMaxAmount} placeholder="No cap" />
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg"

@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Wand2, Save, Plus, Trash2, Pencil, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../../../api/client';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 16.3 — visual formula
 // builder for custom KPIs. Produces an AST the server-side
@@ -490,21 +491,17 @@ function KpiFormulaEditor({
             <div className="grid grid-cols-2 gap-3">
               <label className="block text-xs">
                 <span className="block text-gray-800 mb-1">Green threshold</span>
-                <input
-                  type="number"
-                  step="any"
+                <NumericInput
                   value={green}
-                  onChange={(e) => setGreen(e.target.value)}
+                  onChange={setGreen}
                   className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
                 />
               </label>
               <label className="block text-xs">
                 <span className="block text-gray-800 mb-1">Amber threshold</span>
-                <input
-                  type="number"
-                  step="any"
+                <NumericInput
                   value={amber}
-                  onChange={(e) => setAmber(e.target.value)}
+                  onChange={setAmber}
                   className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
                 />
               </label>
@@ -588,11 +585,10 @@ function NodeEditor({
         </select>
 
         {node.kind === 'literal' && (
-          <input
-            type="number"
+          <NumericInput
             value={Number(node.value ?? 0)}
-            onChange={(e) => {
-              const n = parseFloat(e.target.value);
+            onChange={(v) => {
+              const n = parseFloat(v);
               onChange({ ...node, value: Number.isFinite(n) ? n : 0 });
             }}
             className="w-32 border border-gray-300 rounded-md px-2 py-1 text-sm"

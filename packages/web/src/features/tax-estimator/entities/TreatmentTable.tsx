@@ -14,6 +14,7 @@ import { OwnerSplitEditor, defaultSplitRows, splitProblem, type SplitDraftRow } 
 import { SELECT_CLASS, TREATMENT_LABELS, US_STATES } from './labels';
 import { plainDecimal } from '../years/labels';
 import type { TreatmentRow } from './rows';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 type SortKey = 'account' | 'treatment' | 'book' | 'tax' | 'status';
 const SORT_KEYS: readonly SortKey[] = ['account', 'treatment', 'book', 'tax', 'status'];
@@ -215,8 +216,8 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
                   </td>
                   <td className="px-3 py-2 w-24">
                     {d.treatment === 'nondeductible_pct' && (
-                      <input aria-label={`Nondeductible % for ${r.name}`} inputMode="decimal" disabled={!rowWrite} value={d.pct}
-                        className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-50" onChange={(e) => patch(r, { pct: e.target.value })} />
+                      <NumericInput aria-label={`Nondeductible % for ${r.name}`} disabled={!rowWrite} value={d.pct}
+                        className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-50" onChange={(v) => patch(r, { pct: v })} />
                     )}
                     {pctBad(r.accountId) && <div className="text-xs text-red-600" role="alert">0-100</div>}
                   </td>

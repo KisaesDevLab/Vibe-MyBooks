@@ -11,6 +11,7 @@ import { SortableTh } from '../../../components/ui/SortableTh';
 import { useColumnView } from '../../../hooks/useColumnView';
 import { selectRows } from '../../../utils/columnView';
 import { CommitInput } from '../../../components/forms/CommitInput';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 14 + 15 — bookkeeper UI.
 // Replaces the prior Tax1099Placeholder. Drives the full lifecycle:
@@ -1681,13 +1682,12 @@ function CorrectionModal({
                         </select>
                       </td>
                       <td className="px-2 py-1 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
+                        <NumericInput
+                          decimals={2}
+                          min={0}
                           disabled={r.type !== 'C'}
                           value={r.type === 'G' ? '0.00' : r.newAmount}
-                          onChange={(e) => updateRow(r.contactId, { newAmount: e.target.value })}
+                          onChange={(v) => updateRow(r.contactId, { newAmount: v })}
                           className="w-24 text-right text-xs border border-gray-300 rounded px-1 py-0.5 disabled:bg-gray-100"
                         />
                       </td>
@@ -1736,13 +1736,12 @@ function CorrectionModal({
                   <option value="G">Voided (G)</option>
                 </select>
                 {manualType === 'C' && (
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                  <NumericInput
+                    decimals={2}
+                    min={0}
                     placeholder="Amount"
                     value={manualAmount}
-                    onChange={(e) => setManualAmount(e.target.value)}
+                    onChange={setManualAmount}
                     className="w-24 text-xs border border-gray-300 rounded px-2 py-1"
                   />
                 )}

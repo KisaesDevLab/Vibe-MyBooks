@@ -14,6 +14,7 @@ import { CompanyPicker } from './CompanyPicker';
 import { PctTotalsNotice } from './PctTotalsNotice';
 import { computePctTotals } from './pctTotals';
 import { ACTIVITY_LABELS, SE_STATUS_LABELS, SELECT_CLASS } from './labels';
+import { NumericField } from '../../../components/forms/NumericField';
 
 const RETURN_FORM_KIND: Record<string, LinkEntityKind> = { '1065': 'partnership', '1120S': 's_corp', '1120': 'c_corp', '1040': 'sole' };
 const ENTITY_KIND: Record<string, LinkEntityKind> = {
@@ -92,9 +93,9 @@ export function LinkForm({ persons, links, initial, taxYear, saving, error, onSa
       </div>
       {company && <p className="text-xs text-gray-500">Entity type: {company.kind ? company.kind.replace('_', ' ') : 'unknown'} (from the client's books).</p>}
       <div className="grid grid-cols-3 gap-3">
-        <Input label="Profit %" type="number" min={0} max={100} step="0.0001" value={profit} onChange={(e) => setProfit(e.target.value)} />
-        <Input label="Loss %" type="number" min={0} max={100} step="0.0001" value={loss} onChange={(e) => setLoss(e.target.value)} />
-        <Input label="Capital % (info)" type="number" min={0} max={100} step="0.0001" value={capital} onChange={(e) => setCapital(e.target.value)} />
+        <NumericField label="Profit %" min={0} max={100} decimals={4} value={profit} onChange={setProfit} />
+        <NumericField label="Loss %" min={0} max={100} decimals={4} value={loss} onChange={setLoss} />
+        <NumericField label="Capital % (info)" min={0} max={100} decimals={4} value={capital} onChange={setCapital} />
       </div>
       {totals && <PctTotalsNotice totals={totals} />}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -137,7 +138,7 @@ export function LinkForm({ persons, links, initial, taxYear, saving, error, onSa
           </select>
         </div>
         {qbi !== 'default' && <Input label="QBI override reason" value={qbiReason} onChange={(e) => setQbiReason(e.target.value)} />}
-        <Input label="Allowed loss override ($)" type="number" step="0.01" value={lossOverride} onChange={(e) => setLossOverride(e.target.value)} />
+        <NumericField label="Allowed loss override ($)" decimals={2} value={lossOverride} onChange={setLossOverride} />
         {lossOverride.trim() !== '' && <Input label="Allowed loss reason" value={lossReason} onChange={(e) => setLossReason(e.target.value)} />}
       </div>
       {error && <p className="text-sm text-red-600" role="alert">{error}</p>}

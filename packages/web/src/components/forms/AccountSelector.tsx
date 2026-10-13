@@ -28,9 +28,11 @@ interface AccountSelectorProps {
   // Grid navigation passthrough (see SearchableDropdown).
   onNavigate?: (dir: 'next' | 'prev') => void;
   dataCell?: string;
+  // Standalone forms: focus target after an Enter pick (see SearchableDropdown).
+  onAdvance?: () => boolean | void;
 }
 
-export function AccountSelector({ value, onChange, label, accountTypeFilter, required, compact, onNavigate, dataCell }: AccountSelectorProps) {
+export function AccountSelector({ value, onChange, label, accountTypeFilter, required, compact, onNavigate, dataCell, onAdvance }: AccountSelectorProps) {
   // 500 + server-side search-as-you-type: the previous one-shot 200 cap
   // made accounts past the first page unfindable in large COAs (same
   // truncation class as the ContactSelector vendor bug).
@@ -94,6 +96,7 @@ export function AccountSelector({ value, onChange, label, accountTypeFilter, req
         onQueryChange={setQuery}
         onNavigate={onNavigate}
         dataCell={dataCell}
+        onAdvance={onAdvance}
       />
       {showAddModal && (
         <QuickAddAccountModal

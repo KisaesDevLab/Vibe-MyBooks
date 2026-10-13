@@ -14,6 +14,7 @@ import { useTaxBasisPl } from '../../../api/hooks/useTaxEstimatorEntities';
 import { SELECT_CLASS } from '../taxpayers/labels';
 import { AllocationStrip } from './AllocationStrip';
 import { CADENCE_LABELS, FULL_MONTH_LABELS, fmtMoney, plainDecimal } from './labels';
+import { NumericField } from '../../../components/forms/NumericField';
 
 interface Props {
   taxYear: number;
@@ -140,8 +141,8 @@ function AdjustmentEditor({ taxYear, initial, types, persons, links, isNew, comp
           </select>
         </div>
         <Input label="Label" value={d.label} maxLength={200} onChange={(e) => set({ label: e.target.value })} />
-        <Input label="Amount" inputMode="decimal" value={d.amount} placeholder={glLinked ? 'Run-rate from GL' : '0.00'}
-          error={d.amount !== '' && !AMOUNT_RE.test(d.amount) ? 'Enter a number' : undefined} onChange={(e) => set({ amount: e.target.value })} />
+        <NumericField label="Amount" value={d.amount} placeholder={glLinked ? 'Run-rate from GL' : '0.00'}
+          error={d.amount !== '' && !AMOUNT_RE.test(d.amount) ? 'Enter a number' : undefined} onChange={(v) => set({ amount: v })} />
         <div>
           <label htmlFor="adj-cadence" className="block text-sm font-medium text-gray-700 mb-1">Cadence</label>
           <select id="adj-cadence" className={SELECT_CLASS} value={d.cadence} onChange={(e) => set({ cadence: e.target.value as AdjustmentCadenceDTO })}>
@@ -192,7 +193,7 @@ function AdjustmentEditor({ taxYear, initial, types, persons, links, isNew, comp
           </select>
         </div>
         {(type?.defaultPct != null || d.pct !== '') && (
-          <Input label="Percent applied" inputMode="decimal" value={d.pct} error={!pctOk ? '0 to 100' : undefined} onChange={(e) => set({ pct: e.target.value })} />
+          <NumericField label="Percent applied" value={d.pct} error={!pctOk ? '0 to 100' : undefined} onChange={(v) => set({ pct: v })} />
         )}
         <Input label="Memo" value={d.memo} onChange={(e) => set({ memo: e.target.value })} />
       </div>

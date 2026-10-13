@@ -29,6 +29,7 @@ import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { NumericInput } from '../../components/forms/NumericInput';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -1020,11 +1021,12 @@ function StatementMatchPanel({
                     {/* Misread amount: fix it here (unmatched lines only). */}
                     {amountEditLineId === l.id ? (
                       <span className="flex items-center gap-1">
-                        <input
+                        <NumericInput
                           autoFocus
                           value={amountDraft}
-                          inputMode="decimal"
-                          onChange={(e) => setAmountDraft(e.target.value)}
+                          decimals={2}
+                          allowNegative
+                          onChange={setAmountDraft}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') handleSaveAmount(l.id);
                             if (e.key === 'Escape') { setAmountEditLineId(null); setAmountDraft(''); }
@@ -1358,7 +1360,7 @@ export function ReconciliationPage() {
           )}
 
           <DatePicker label="Statement Date" value={statementDate} onChange={(e) => setStatementDate(e.target.value)} required />
-          <MoneyInput label="Statement Ending Balance" value={endingBalance} onChange={setEndingBalance} required />
+          <MoneyInput label="Statement Ending Balance" value={endingBalance} onChange={setEndingBalance} allowNegative required />
           <Button onClick={handleStart} loading={startRecon.isPending} disabled={!accountId || !endingBalance || !!inProgressRecon}>
             Start Reconciliation
           </Button>
@@ -1440,7 +1442,7 @@ export function ReconciliationPage() {
           <p className="text-xs text-gray-500 uppercase">Statement Balance</p>
           {editingBalance && !isComplete ? (
             <div className="mt-1 space-y-1">
-              <MoneyInput value={balanceDraft} onChange={setBalanceDraft} />
+              <MoneyInput value={balanceDraft} onChange={setBalanceDraft} allowNegative />
               <div className="flex items-center justify-center gap-1">
                 <Button size="sm" onClick={handleSaveBalance} loading={updateRecon.isPending}>
                   <Check className="h-4 w-4" />

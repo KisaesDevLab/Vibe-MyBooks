@@ -10,6 +10,7 @@ import { Input } from '../../../components/ui/Input';
 import { SELECT_CLASS } from '../taxpayers/labels';
 import { StateSelect } from '../taxpayers/StateSelect';
 import { STATE_BASE_LABELS, plainDecimal } from './labels';
+import { NumericField } from '../../../components/forms/NumericField';
 
 export interface StateDraft {
   key: string;
@@ -122,15 +123,15 @@ function RowCard({ d, canWrite, onChange, onRemove }: {
             <option value="effective">Effective-rate override</option>
           </select>
         </div>
-        <Input label={usesEffectiveRate(d) ? `${label} rate %` : `${label} fallback rate %`} inputMode="decimal" value={d.ratePct} disabled={!canWrite} onChange={(e) => onChange({ ratePct: e.target.value })} />
+        <NumericField label={usesEffectiveRate(d) ? `${label} rate %` : `${label} fallback rate %`} min={0} decimals={4} value={d.ratePct} disabled={!canWrite} onChange={(v) => onChange({ ratePct: v })} />
         <div>
           <label htmlFor={`base-${d.key}`} className="block text-sm font-medium text-gray-700 mb-1">Base</label>
           <select id={`base-${d.key}`} className={SELECT_CLASS} value={d.base} disabled={!canWrite} onChange={(e) => onChange({ base: e.target.value as StateBase })}>
             {STATE_BASES.map((b) => <option key={b} value={b}>{STATE_BASE_LABELS[b]}</option>)}
           </select>
         </div>
-        {d.base === 'custom' && <Input label={`${label} custom base`} inputMode="decimal" value={d.customBase} disabled={!canWrite} onChange={(e) => onChange({ customBase: e.target.value })} />}
-        {!nonres && <Input label="Other-state credit override" inputMode="decimal" value={d.creditOverride} disabled={!canWrite} onChange={(e) => onChange({ creditOverride: e.target.value })} />}
+        {d.base === 'custom' && <NumericField label={`${label} custom base`} value={d.customBase} disabled={!canWrite} onChange={(v) => onChange({ customBase: v })} />}
+        {!nonres && <NumericField label="Other-state credit override" value={d.creditOverride} disabled={!canWrite} onChange={(v) => onChange({ creditOverride: v })} />}
       </div>
       {!usesEffectiveRate(d) && (
         <p className="text-xs text-gray-500">
@@ -153,7 +154,7 @@ function RowCard({ d, canWrite, onChange, onRemove }: {
             Enter sourced income manually
           </label>
           {d.sourcedManual
-            ? <Input label={`${label} sourced income`} inputMode="decimal" value={d.sourcedIncome} disabled={!canWrite} onChange={(e) => onChange({ sourcedIncome: e.target.value })} />
+            ? <NumericField label={`${label} sourced income`} value={d.sourcedIncome} disabled={!canWrite} onChange={(v) => onChange({ sourcedIncome: v })} />
             : <p className="text-xs text-gray-500">Derived from each entity&apos;s state and your ownership share when the estimate runs.</p>}
         </div>
       )}

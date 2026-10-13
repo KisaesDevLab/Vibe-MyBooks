@@ -25,6 +25,7 @@ import {
 import { useBill } from '../../../api/hooks/useAp';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { NumericField } from '../../../components/forms/NumericField';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { useToast } from '../../../components/ui/Toaster';
 import { DatePicker } from '../../../components/forms/DatePicker';
@@ -506,7 +507,7 @@ export function BillCaptureReviewPage() {
             </div>
             {paymentTerms === 'custom' && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Input label="Custom Days" type="number" min="0" value={customDays} onChange={(e) => { setCustomDays(e.target.value); setDueDateManual(false); }} />
+                <NumericField label="Custom Days" integer min={0} value={customDays} onChange={(v) => { setCustomDays(v); setDueDateManual(false); }} />
               </div>
             )}
             <Input label="Vendor Invoice #" value={vendorInvoiceNumber} onChange={(e) => setVendorInvoiceNumber(e.target.value)} placeholder="The vendor's reference number" />

@@ -39,7 +39,7 @@ describe('PracticeSettingsPage', () => {
   it('renders the four threshold fields pre-populated', async () => {
     renderRoute(<PracticeSettingsPage />);
     await waitFor(() => {
-      const inputs = screen.getAllByRole('spinbutton') as HTMLInputElement[];
+      const inputs = screen.getAllByRole('textbox') as HTMLInputElement[];
       expect(inputs).toHaveLength(4);
       expect(inputs[0]?.value).toBe('0.95');
     });
@@ -47,8 +47,8 @@ describe('PracticeSettingsPage', () => {
 
   it('submits parsed numeric values via useSetThresholds', async () => {
     const { container } = renderRoute(<PracticeSettingsPage />);
-    await waitFor(() => screen.getAllByRole('spinbutton'));
-    const inputs = screen.getAllByRole('spinbutton') as HTMLInputElement[];
+    await waitFor(() => screen.getAllByRole('textbox'));
+    const inputs = screen.getAllByRole('textbox') as HTMLInputElement[];
     fireEvent.change(inputs[3]!, { target: { value: '0.6' } });
     const form = container.querySelector('form')!;
     fireEvent.submit(form);
@@ -57,8 +57,8 @@ describe('PracticeSettingsPage', () => {
 
   it('shows an inline error when a value is out of [0,1]', async () => {
     const { container } = renderRoute(<PracticeSettingsPage />);
-    await waitFor(() => screen.getAllByRole('spinbutton'));
-    const inputs = screen.getAllByRole('spinbutton') as HTMLInputElement[];
+    await waitFor(() => screen.getAllByRole('textbox'));
+    const inputs = screen.getAllByRole('textbox') as HTMLInputElement[];
     fireEvent.change(inputs[3]!, { target: { value: '1.5' } });
     const form = container.querySelector('form')!;
     fireEvent.submit(form);

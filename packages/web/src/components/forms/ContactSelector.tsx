@@ -36,9 +36,11 @@ interface ContactSelectorProps {
   // Grid navigation passthrough (see SearchableDropdown).
   onNavigate?: (dir: 'next' | 'prev') => void;
   dataCell?: string;
+  // Standalone forms: focus target after an Enter pick (see SearchableDropdown).
+  onAdvance?: () => boolean | void;
 }
 
-export function ContactSelector({ value, onChange, onSelect, label, contactTypeFilter, required, compact, onNavigate, dataCell }: ContactSelectorProps) {
+export function ContactSelector({ value, onChange, onSelect, label, contactTypeFilter, required, compact, onNavigate, dataCell, onAdvance }: ContactSelectorProps) {
   // Server-side search-as-you-type. A capped one-shot fetch meant any
   // contact past the first page could NEVER be found in this dropdown
   // (the type-to-filter only narrowed the loaded page) — the reported
@@ -123,6 +125,7 @@ export function ContactSelector({ value, onChange, onSelect, label, contactTypeF
         selectedLabel={selectedContact?.displayName}
         onNavigate={onNavigate}
         dataCell={dataCell}
+        onAdvance={onAdvance}
       />
       {showAddModal && (
         <QuickAddContactModal

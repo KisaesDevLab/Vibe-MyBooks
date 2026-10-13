@@ -293,6 +293,44 @@ Your sort and filters are kept for the browser tab, so refreshing or coming back
 `,
   },
   {
+    id: 'typing-math-keyboard-entry',
+    title: 'Typing Math in Amount Fields & Keyboard Entry',
+    category: 'Getting Started',
+    summary: 'Every amount and number field works like a calculator (e.g. 145.15-50), and Enter after picking an account jumps to the amount.',
+    body: `
+## Typing Math in Amount Fields & Keyboard Entry
+
+### Math in any amount or number field
+Every amount field (journal entry debits and credits, expense, check, bill, deposit and transfer amounts, register entries, batch entry, budgets, rates and percentages, quantities…) accepts simple math. Type the expression and press **Enter**, **Tab** or click away — the field shows the result.
+
+- \`145.15-50\` → **95.15**
+- \`1200/12\` → **100.00**
+- \`(250+75.50)*2\` → **651.00**
+- \`200+15%\` → **230.00** and \`200-15%\` → **170.00** (adding or subtracting a percent works like a calculator: 15% *of* 200)
+- \`200*15%\` → **30.00** and \`200/50%\` → **400.00** (with \`*\` and \`/\`, and on its own, \`%\` just means "divide by 100": \`15%\` = 0.15)
+- \`$1,234.50 + 10\` → **1244.50** (dollar signs and thousands commas are fine; a leading \`=\` is optional)
+
+Operators: \`+\` \`-\` \`*\` (or \`x\`, \`×\`) \`/\` (or \`÷\`), parentheses and \`%\`. While you type, a small **= result** preview appears under the field.
+
+- The "percent of" rule only applies when the percent is the whole amount being added or subtracted: \`200+10*15%\` is 200 + 1.5 = **201.50**, and \`200+(15%)\` is **200.15**.
+- Money amounts are rounded to the cent (half a cent rounds up); other fields keep their own precision.
+- **Enter** only works out the math — it does not save the form. Press **Enter** again (or your usual save shortcut) once the result is shown. **Escape** discards the expression.
+- If the math can't be worked out (for example dividing by zero, or a typo), the field turns red with the reason and nothing is saved from it until you fix it.
+- Debit, credit and payment amounts can't go below zero — use the other column instead. Fields that allow negatives (statement balances, budgets, opening balances) accept them.
+- Fields that are really numbers-as-labels — years, check and invoice numbers, ports, day of month — don't take math.
+
+### Enter moves to the next field
+When you pick an account, payee or other item from a search dropdown with the keyboard (type to search, arrow keys, **Enter**), the cursor moves straight to the next field instead of disappearing:
+
+- **Journal Entry** and **Trial Balance AJE**: Account → that line's **Debit**.
+- **Expense**, **Write Check**, **Enter Bill**, **Deposit**: a line's Account → that line's **Amount**.
+- **Transfer**: From → To → Amount.
+- Register entry and bank-feed rows move to the next field on the row; batch entry keeps its own grid movement.
+
+Picking with the mouse works as before, and **Tab** still moves through every field in order.
+`,
+  },
+  {
     id: 'transactions-list',
     title: 'Finding & Bulk-Editing Transactions',
     category: 'Transactions',

@@ -9,6 +9,7 @@ import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { useFeatureFlag } from '../../../api/hooks/useFeatureFlag';
 import { RecurringDocRequestsTab } from './RecurringDocRequestsTab';
 import { DocumentRequestsTab } from './DocumentRequestsTab';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 13 — bookkeeper UI for
 // reminder schedules + dispatch trigger + open-rate widget.
@@ -813,12 +814,12 @@ function AddScheduleModal({ onClose, onCreated }: { onClose: () => void; onCreat
           </label>
           <label className="block text-sm">
             <span className="block text-gray-800 mb-1">Max per week</span>
-            <input
-              type="number"
+            <NumericInput
+              integer
               min={1}
               max={20}
               value={maxPerWeek}
-              onChange={(e) => setMaxPerWeek(parseInt(e.target.value, 10) || 1)}
+              onChange={(v) => setMaxPerWeek(parseInt(v, 10) || 1)}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             />
           </label>

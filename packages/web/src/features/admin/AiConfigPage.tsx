@@ -19,6 +19,7 @@ import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Brain, CheckCircle, AlertTriangle, XCircle, ShieldCheck, Lock } from 'lucide-react';
+import { NumericField } from '../../components/forms/NumericField';
 
 interface SelfTestRow {
   task: string;
@@ -817,16 +818,16 @@ export function AiConfigPage() {
                 placeholder="OCR:  (or 'Table Recognition:')" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Input label="Timeout (ms)" type="number" value={form.glmOcrTimeoutMs ?? ''}
-                onChange={(e) => setForm((f) => ({ ...f, glmOcrTimeoutMs: e.target.value === '' ? null : Number(e.target.value) }))}
+              <NumericField label="Timeout (ms)" integer value={form.glmOcrTimeoutMs ?? ''}
+                onChange={(v) => setForm((f) => ({ ...f, glmOcrTimeoutMs: v === '' ? null : Number(v) }))}
                 placeholder="120000" />
-              <Input label="Concurrency" type="number" value={form.glmOcrConcurrency ?? ''}
-                onChange={(e) => setForm((f) => ({ ...f, glmOcrConcurrency: e.target.value === '' ? null : Number(e.target.value) }))}
+              <NumericField label="Concurrency" integer value={form.glmOcrConcurrency ?? ''}
+                onChange={(v) => setForm((f) => ({ ...f, glmOcrConcurrency: v === '' ? null : Number(v) }))}
                 placeholder="2" />
             </div>
             <div className="grid grid-cols-2 gap-2 items-end">
-              <Input label="Render DPI" type="number" value={form.glmOcrRenderDpi ?? ''}
-                onChange={(e) => setForm((f) => ({ ...f, glmOcrRenderDpi: e.target.value === '' ? null : Number(e.target.value) }))}
+              <NumericField label="Render DPI" integer value={form.glmOcrRenderDpi ?? ''}
+                onChange={(v) => setForm((f) => ({ ...f, glmOcrRenderDpi: v === '' ? null : Number(v) }))}
                 placeholder="200 (blank = server default)" />
               <label className="flex items-center gap-2 text-sm pb-2">
                 <input type="checkbox" checked={form.glmOcrForceOcr}
@@ -961,12 +962,12 @@ export function AiConfigPage() {
               className="rounded border-gray-300 text-primary-600 h-4 w-4" />
             <span className="text-sm text-gray-700">Auto-OCR receipts on upload</span>
           </label>
-          <Input label="Confidence Threshold" type="number" step="0.05" min="0" max="1"
+          <NumericField label="Confidence Threshold" decimals={2} min={0} max={1}
             value={String(form.categorizationConfidenceThreshold)}
-            onChange={(e) => setForm((f) => ({ ...f, categorizationConfidenceThreshold: parseFloat(e.target.value) }))} />
-          <Input label="Monthly Budget Limit ($)" type="number" step="1" min="0"
+            onChange={(v) => setForm((f) => ({ ...f, categorizationConfidenceThreshold: parseFloat(v) }))} />
+          <NumericField label="Monthly Budget Limit ($)" integer min={0}
             value={form.monthlyBudgetLimit != null ? String(form.monthlyBudgetLimit) : ''}
-            onChange={(e) => setForm((f) => ({ ...f, monthlyBudgetLimit: e.target.value ? parseFloat(e.target.value) : null }))}
+            onChange={(v) => setForm((f) => ({ ...f, monthlyBudgetLimit: v ? parseFloat(v) : null }))}
             placeholder="Unlimited" />
         </div>
 
@@ -1148,12 +1149,12 @@ function TaskSettingsCard({
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Input
+            <NumericField
               label="Max tokens"
-              type="number"
-              min="1"
+              integer
+              min={1}
               value={numToStr(opt.maxTokens)}
-              onChange={(e) => patch({ maxTokens: strToNum(e.target.value) })}
+              onChange={(v) => patch({ maxTokens: strToNum(v) })}
               placeholder="Default"
             />
             <div>
@@ -1171,30 +1172,29 @@ function TaskSettingsCard({
                 Thinking on/off is applied for self-hosted providers (Ollama uses think=false). For cloud providers it currently has no effect.
               </p>
             </div>
-            <Input
+            <NumericField
               label="Timeout (ms)"
-              type="number"
-              min="1"
+              integer
+              min={1}
               value={numToStr(opt.timeoutMs)}
-              onChange={(e) => patch({ timeoutMs: strToNum(e.target.value) })}
+              onChange={(v) => patch({ timeoutMs: strToNum(v) })}
               placeholder="Default 60000"
             />
-            <Input
+            <NumericField
               label="Temperature"
-              type="number"
-              step="0.1"
-              min="0"
+              decimals={1}
+              min={0}
               value={numToStr(opt.temperature)}
-              onChange={(e) => patch({ temperature: strToNum(e.target.value) })}
+              onChange={(v) => patch({ temperature: strToNum(v) })}
               placeholder="Default"
             />
             <div>
-              <Input
+              <NumericField
                 label="Context window (num_ctx)"
-                type="number"
-                min="1"
+                integer
+                min={1}
                 value={numToStr(opt.numCtx)}
-                onChange={(e) => patch({ numCtx: strToNum(e.target.value) })}
+                onChange={(v) => patch({ numCtx: strToNum(v) })}
                 placeholder="Default"
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -1202,27 +1202,25 @@ function TaskSettingsCard({
               </p>
             </div>
             {showThreshold && (
-              <Input
+              <NumericField
                 label="Confidence threshold"
-                type="number"
-                step="0.05"
-                min="0"
-                max="1"
+                decimals={2}
+                min={0}
+                max={1}
                 value={numToStr(opt.threshold)}
-                onChange={(e) => patch({ threshold: strToNum(e.target.value) })}
+                onChange={(v) => patch({ threshold: strToNum(v) })}
                 placeholder="Default"
               />
             )}
             {showBatchSize && (
               <div className="col-span-2">
-                <Input
+                <NumericField
                   label="Transactions per AI call (batch size)"
-                  type="number"
-                  min="1"
-                  max="50"
-                  step="1"
+                  integer
+                  min={1}
+                  max={50}
                   value={numToStr(opt.batchSize)}
-                  onChange={(e) => patch({ batchSize: strToNum(e.target.value) })}
+                  onChange={(v) => patch({ batchSize: strToNum(v) })}
                   placeholder="Default 15"
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -1740,13 +1738,13 @@ function ChatSettingsSection() {
         </p>
       </div>
 
-      <Input
+      <NumericField
         label="Max Conversation History"
-        type="number"
-        min="10"
-        max="200"
+        integer
+        min={10}
+        max={200}
         value={String(form.chatMaxHistory)}
-        onChange={(e) => setForm((f) => ({ ...f, chatMaxHistory: parseInt(e.target.value) || 50 }))}
+        onChange={(v) => setForm((f) => ({ ...f, chatMaxHistory: parseInt(v) || 50 }))}
       />
 
       {/* Knowledge base status */}

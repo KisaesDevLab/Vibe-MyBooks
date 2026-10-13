@@ -18,6 +18,7 @@ import {
   AlignJustify,
 } from 'lucide-react';
 import { apiClient } from '../../../api/client';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 16.4 — drag-drop layout
 // editor for report templates. Native HTML5 drag-and-drop (no
@@ -594,12 +595,12 @@ function BlockInspector({
         {topNApplies && (
           <label className="block text-xs">
             <span className="block text-gray-800 mb-1">Top N</span>
-            <input
-              type="number"
+            <NumericInput
+              integer
               min={1}
               max={50}
               value={Number(block['topN'] ?? 10)}
-              onChange={(e) => onChange({ topN: parseInt(e.target.value, 10) })}
+              onChange={(v) => onChange({ topN: parseInt(v, 10) })}
               className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
             />
           </label>

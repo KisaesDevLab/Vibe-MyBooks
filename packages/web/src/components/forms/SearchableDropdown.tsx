@@ -5,6 +5,7 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import clsx from 'clsx';
+import { focusNextField } from './focusNav';
 
 export interface DropdownOption {
   id: string;
@@ -46,9 +47,14 @@ interface SearchableDropdownProps {
   // with a `data-cell` coordinate the grid can target with `.focus()`.
   onNavigate?: (dir: 'next' | 'prev') => void;
   dataCell?: string;
+  // Standalone forms: where focus goes after an option is chosen with
+  // Enter. Return true when focus was moved; return false / omit it and
+  // the dropdown falls back to the next focusable field in DOM order
+  // (see focusNextField). Ignored when `onNavigate` is set (grids).
+  onAdvance?: () => boolean | void;
 }
 
-export function SearchableDropdown({ value, onChange, options, placeholder = 'Search...', label, required, className, onAddNew, addNewLabel, compact, onQueryChange, selectedLabel, onNavigate, dataCell }: SearchableDropdownProps) {
+export function SearchableDropdown({ value, onChange, options, placeholder = 'Search...', label, required, className, onAddNew, addNewLabel, compact, onQueryChange, selectedLabel, onNavigate, dataCell, onAdvance }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [highlightIndex, setHighlightIndex] = useState(0);
@@ -144,15 +150,23 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen, setSearchAndNotify]);
 
-  const handleSelect = (id: string) => {
+  const handleSelect = (id: string, via: 'keyboard' | 'pointer' = 'pointer') => {
     onChange(id);
     setIsOpen(false);
     setSearchAndNotify('');
     // In a grid, hand focus to the next cell so entry keeps flowing
     // (the reported "hit Enter to pick an account and it loses focus"
-    // bug). Standalone forms keep the original blur-on-select behavior.
-    if (onNavigate) onNavigate('next');
-    else inputRef.current?.blur();
+    // bug). Standalone forms: picking with Enter moves on to the next
+    // logical field (the amount next to an account) — the caller's
+    // onAdvance when it knows the order, else the next field in DOM
+    // order. A mouse pick keeps the original blur-on-select behavior.
+    if (onNavigate) { onNavigate('next'); return; }
+    const input = inputRef.current;
+    if (via === 'keyboard' && input) {
+      if (onAdvance?.() === true) return;
+      if (focusNextField(input, wrapperRef.current)) return;
+    }
+    input?.blur();
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -186,7 +200,7 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
         e.preventDefault();
         e.stopPropagation();
         if (filtered[highlightIndex]) {
-          handleSelect(filtered[highlightIndex].id);
+          handleSelect(filtered[highlightIndex].id, 'keyboard');
         }
         break;
       case 'Escape':

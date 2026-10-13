@@ -18,6 +18,7 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { NumericInput } from '../../components/forms/NumericInput';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
@@ -401,8 +402,8 @@ export function InvoiceForm() {
                   <div className="flex items-end gap-3 mt-3">
                     <div className="w-20">
                       <label className={fieldLabel}>Qty</label>
-                      <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center" type="number" min="0" step="any" />
+                      <NumericInput value={line.quantity} onChange={(v) => updateLine(i, 'quantity', v)}
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center" min={0} />
                     </div>
                     <div className="w-36">
                       <label className={fieldLabel}>Rate</label>
@@ -420,8 +421,8 @@ export function InvoiceForm() {
                       {line.isTaxable && (
                         <>
                           <label className={fieldLabel}>Tax %</label>
-                          <input type="number" step="0.0001" value={line.taxRate}
-                            onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
+                          <NumericInput decimals={4} value={line.taxRate}
+                            onChange={(v) => updateLine(i, 'taxRate', v)}
                             className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right" />
                         </>
                       )}
@@ -479,8 +480,8 @@ export function InvoiceForm() {
                   </div>
                   <div className="col-span-1">
                     <span className={lbl}>Qty</span>
-                    <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" type="number" min="0" step="any" placeholder="Qty" />
+                    <NumericInput value={line.quantity} onChange={(v) => updateLine(i, 'quantity', v)}
+                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" min={0} placeholder="Qty" />
                   </div>
                   <div className="col-span-1">
                     <span className={lbl}>Rate</span>
@@ -499,8 +500,8 @@ export function InvoiceForm() {
                     {line.isTaxable && (
                       <>
                         <span className={lbl}>Tax %</span>
-                        <input type="number" step="0.0001" value={line.taxRate}
-                          onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
+                        <NumericInput decimals={4} value={line.taxRate}
+                          onChange={(v) => updateLine(i, 'taxRate', v)}
                           className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
                       </>
                     )}

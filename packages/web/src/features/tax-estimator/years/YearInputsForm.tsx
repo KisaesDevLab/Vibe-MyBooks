@@ -13,6 +13,7 @@ import { SAFE_HARBOR_LABELS, SELECT_CLASS } from '../taxpayers/labels';
 import { DEDUCTION_MODE_LABELS, HSA_LABELS, ITEMIZED_FIELDS, SCH1A_FIELDS, fmtMoney, plainDecimal } from './labels';
 import { PeopleCard, peopleDraftFromYear, peopleDraftInvalid, peoplePayload } from './PeopleCard';
 import { Sch1aDialog, SCH1A_MFS_NOTICE, sch1aAmountBad, seniorByYearEnd } from './Sch1aDialog';
+import { NumericField } from '../../../components/forms/NumericField';
 
 const SCH1A_CHIP_LABELS: Record<string, string> = { qualifiedTips: 'Tips', qualifiedOvertime: 'Overtime', carLoanInterest: 'Car loan interest' };
 
@@ -122,19 +123,19 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
             </select>
           </div>
           {rateMode === 'effective' && (
-            <Input label="Effective rate %" inputMode="decimal" value={ratePct} disabled={!canWrite}
-              error={rateBad ? '0 to 100' : undefined} onChange={(e) => setRatePct(e.target.value)} />
+            <NumericField label="Effective rate %" value={ratePct} disabled={!canWrite}
+              error={rateBad ? '0 to 100' : undefined} onChange={(v) => setRatePct(v)} />
           )}
-          <Input label="Other nonrefundable credits" inputMode="decimal" value={nonref} disabled={!canWrite}
-            error={moneyBad(nonref) ? 'Enter an amount' : undefined} onChange={(e) => setNonref(e.target.value)} />
-          <Input label="Other refundable credits" inputMode="decimal" value={ref} disabled={!canWrite}
-            error={moneyBad(ref) ? 'Enter an amount' : undefined} onChange={(e) => setRef(e.target.value)} />
-          <Input label="Child and dependent care expenses paid" inputMode="decimal" value={care} disabled={!canWrite}
-            error={moneyBad(care) ? 'Enter an amount' : undefined} onChange={(e) => setCare(e.target.value)} />
-          <Input label="Unrecaptured §1250 gain (25%)" inputMode="decimal" value={u1250} disabled={!canWrite}
-            error={moneyBad(u1250) ? 'Enter an amount' : undefined} onChange={(e) => setU1250(e.target.value)} />
-          <Input label="Collectibles gain (28%)" inputMode="decimal" value={collectibles} disabled={!canWrite}
-            error={moneyBad(collectibles) ? 'Enter an amount' : undefined} onChange={(e) => setCollectibles(e.target.value)} />
+          <NumericField label="Other nonrefundable credits" value={nonref} disabled={!canWrite}
+            error={moneyBad(nonref) ? 'Enter an amount' : undefined} onChange={(v) => setNonref(v)} />
+          <NumericField label="Other refundable credits" value={ref} disabled={!canWrite}
+            error={moneyBad(ref) ? 'Enter an amount' : undefined} onChange={(v) => setRef(v)} />
+          <NumericField label="Child and dependent care expenses paid" value={care} disabled={!canWrite}
+            error={moneyBad(care) ? 'Enter an amount' : undefined} onChange={(v) => setCare(v)} />
+          <NumericField label="Unrecaptured §1250 gain (25%)" min={0} decimals={4} value={u1250} disabled={!canWrite}
+            error={moneyBad(u1250) ? 'Enter an amount' : undefined} onChange={(v) => setU1250(v)} />
+          <NumericField label="Collectibles gain (28%)" min={0} decimals={4} value={collectibles} disabled={!canWrite}
+            error={moneyBad(collectibles) ? 'Enter an amount' : undefined} onChange={(v) => setCollectibles(v)} />
         </div>
         <p className="text-xs text-gray-500">Unrecaptured §1250 and collectibles gains are PARTS of the long-term gains already in the estimate (they are not added to income); they move that part to the 25% / 28% worksheet rates. Accounts treated &quot;Long-term gain: unrecaptured §1250&quot; / &quot;collectibles&quot; add the books&apos; amounts automatically.</p>
         <p className="text-xs text-gray-500">Other credits = credits not tied to dependents (education, energy, foreign tax and so on); nonrefundable ones cannot reduce regular tax below zero. The child tax credit, the credit for other dependents, the additional child tax credit and the care credit are computed from the taxpayer&apos;s dependents and the care expenses — do not enter them here.</p>
@@ -160,8 +161,8 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {ITEMIZED_FIELDS.map(([k, label]) => (
-            <Input key={k} label={label} inputMode="decimal" value={itemized[k] ?? ''} disabled={!canWrite}
-              onChange={(e) => setItemized((cur) => ({ ...cur, [k]: e.target.value }))} />
+            <NumericField key={k} label={label} value={itemized[k] ?? ''} disabled={!canWrite}
+              onChange={(v) => setItemized((cur) => ({ ...cur, [k]: v }))} />
           ))}
         </div>
         <p className="text-sm text-gray-700" data-testid="itemized-total">
@@ -206,10 +207,10 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
 
       <Card title="Prior year · safe harbor" note="Prior-year tax and AGI are tax return information. They are stored encrypted and shown only to firm staff on this screen.">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Input label="Prior-year total tax" inputMode="decimal" value={priorTax} disabled={!canWrite}
-            error={moneyBad(priorTax) ? 'Enter an amount' : undefined} onChange={(e) => setPriorTax(e.target.value)} />
-          <Input label="Prior-year AGI" inputMode="decimal" value={priorAgi} disabled={!canWrite}
-            error={moneyBad(priorAgi) ? 'Enter an amount' : undefined} onChange={(e) => setPriorAgi(e.target.value)} />
+          <NumericField label="Prior-year total tax" value={priorTax} disabled={!canWrite}
+            error={moneyBad(priorTax) ? 'Enter an amount' : undefined} onChange={(v) => setPriorTax(v)} />
+          <NumericField label="Prior-year AGI" value={priorAgi} disabled={!canWrite}
+            error={moneyBad(priorAgi) ? 'Enter an amount' : undefined} onChange={(v) => setPriorAgi(v)} />
           <div>
             <label htmlFor="ye-rule" className="block text-sm font-medium text-gray-700 mb-1">Recommended rule</label>
             <select id="ye-rule" className={SELECT_CLASS} value={rule} disabled={!canWrite} onChange={(e) => setRule(e.target.value as SafeHarborOverride | '')}>
@@ -234,7 +235,7 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
 
       <Card title="Withholding" note="Treated as paid evenly through the year. State entries look like MO=2000, AR=500.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input label="Federal withholding (annual)" inputMode="decimal" value={fedWh} disabled={!canWrite} onChange={(e) => setFedWh(e.target.value)} />
+          <NumericField label="Federal withholding (annual)" value={fedWh} disabled={!canWrite} onChange={(v) => setFedWh(v)} />
           <div>
             {/* QA D27: the format error is tied to the field. */}
             <Input label="State withholding (annual)" value={stateWh} disabled={!canWrite} placeholder="MO=2000"

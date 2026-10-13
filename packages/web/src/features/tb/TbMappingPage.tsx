@@ -36,6 +36,7 @@ import { useTbYearOverride,
 import { TbCopyMappingsDialog } from './TbCopyMappingsDialog';
 import clsx from 'clsx';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { NumericInput } from '../../components/forms/NumericInput';
 
 interface AiSuggestion {
   accountId: string;
@@ -805,7 +806,7 @@ function TbAiPanel({ periodEnd, basis, unitMode, units, defaultUnitId, initialUn
           <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-200">
             <label className="flex items-center gap-2 text-sm text-gray-700">
               Accept all at ≥
-              <input type="number" min={0} max={100} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))}
+              <NumericInput min={0} max={100} value={threshold} onChange={(v) => setThreshold(Number(v))}
                 className="w-16 rounded border border-gray-300 px-2 py-1 text-sm" />%
             </label>
             <Button onClick={acceptAll} disabled={accept.isPending}>

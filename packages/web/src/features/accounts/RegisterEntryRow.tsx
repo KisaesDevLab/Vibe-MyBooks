@@ -10,6 +10,7 @@ import { useCreateTransaction } from '../../api/hooks/useTransactions';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
+import { NumericInput } from '../../components/forms/NumericInput';
 import { Button } from '../../components/ui/Button';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
@@ -230,12 +231,13 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
               </label>
               <div className="relative">
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                <NumericInput
+                  decimals={2}
+                  padDecimals
+                  min={0}
+                  aria-label={isBankOrCC ? 'Payment' : 'Decrease'}
                   value={payment}
-                  onChange={(e) => { setPayment(e.target.value); if (!showBothAmounts) setDeposit(''); }}
+                  onChange={(v) => { setPayment(v); if (!showBothAmounts) setDeposit(''); }}
                   placeholder="0.00"
                   className="w-full rounded border border-gray-300 pl-6 pr-2.5 py-1.5 text-sm text-right font-mono focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
@@ -251,12 +253,13 @@ export function RegisterEntryRow({ accountId, accountType, allowedEntryTypes, is
               </label>
               <div className="relative">
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                <NumericInput
+                  decimals={2}
+                  padDecimals
+                  min={0}
+                  aria-label={isBankOrCC ? 'Deposit' : 'Increase'}
                   value={deposit}
-                  onChange={(e) => { setDeposit(e.target.value); if (!showBothAmounts) setPayment(''); }}
+                  onChange={(v) => { setDeposit(v); if (!showBothAmounts) setPayment(''); }}
                   placeholder="0.00"
                   className="w-full rounded border border-gray-300 pl-6 pr-2.5 py-1.5 text-sm text-right font-mono focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
