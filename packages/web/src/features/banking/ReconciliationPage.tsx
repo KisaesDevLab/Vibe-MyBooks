@@ -12,7 +12,7 @@ import {
   useReconciliations, useUpdateReconciliation, useCancelReconciliation, useRefreshReconciliation,
   useBankStatements, useAutoClearStatement, type BankStatementRow,
   useDismissStatementGaps, useRestoreStatementGaps, type StatementGapInfo,
-  useMatchStatement, useStatementMatches, useConfirmStatementLine, useRejectStatementLine,
+  useMatchStatement, useStatementMatches, useReconciliationProof, useConfirmStatementLine, useRejectStatementLine,
   useExcludeStatementLine, useCreateFromStatementLine,
   type StatementMatchResult, type StatementMatchCandidate, type StatementMatchSuggestion,
   type StatementLineSummary, type StatementGroupCandidate, type ConfirmStatementLinePayload,
@@ -38,6 +38,9 @@ import { useToast } from '../../components/ui/Toaster';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, RefreshCw, ChevronUp, ChevronDown, FileUp, Ban } from 'lucide-react';
 import { CommitInput } from '../../components/forms/CommitInput';
+import type { ReconItemFlag } from '@kis-books/shared';
+import { ReconProofPanel } from './ReconProofPanel';
+import { ReconFlagBadge } from '../reports/reconciliation/ReconProofSections';
 
 const money = (v: string | number | null | undefined) =>
   v == null || v === '' ? '—' : `$${parseFloat(String(v)).toFixed(2)}`;
@@ -1170,6 +1173,19 @@ export function ReconciliationPage() {
 
   const startRecon = useStartReconciliation();
   const { data: reconData, isLoading, isError, refetch } = useReconciliation(reconId);
+  // Bank-to-books proof (Section A + aged-item flags + book-side check),
+  // refreshed with the worksheet on every clear/un-clear.
+  const { data: proofData } = useReconciliationProof(reconId);
+  const proof = proofData?.proof;
+  const flagByLine = useMemo(() => {
+    const m = new Map<string, { flag: ReconItemFlag; flagLabel: string | null }>();
+    if (proof) {
+      for (const i of [...proof.schedules.increases.items, ...proof.schedules.decreases.items]) {
+        if (i.flag) m.set(i.journalLineId, { flag: i.flag, flagLabel: i.flagLabel });
+      }
+    }
+    return m;
+  }, [proof]);
   const updateLines = useUpdateReconciliationLines();
   const completeRecon = useCompleteReconciliation();
   const updateRecon = useUpdateReconciliation();
@@ -1435,6 +1451,9 @@ export function ReconciliationPage() {
         </div>
       )}
 
+      {/* Bank-to-books summary (professional reconciliation, Section A). */}
+      {proof && <ReconProofPanel proof={proof} reconId={reconId} />}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="bg-white rounded-lg border p-4 text-center">
           <p className="text-xs text-gray-500 uppercase">Statement Balance</p>
@@ -1606,6 +1625,9 @@ export function ReconciliationPage() {
                     >
                       <AlertTriangle className="h-3 w-3" /> Likely duplicate
                     </span>
+                  )}
+                  {!line.is_cleared && flagByLine.has(line.journal_line_id) && (
+                    <ReconFlagBadge item={flagByLine.get(line.journal_line_id)!} />
                   )}
                 </td>
                 <td className="px-4 py-2 text-right font-mono">{parseFloat(line.credit) > 0 ? `$${parseFloat(line.credit).toFixed(2)}` : ''}</td>

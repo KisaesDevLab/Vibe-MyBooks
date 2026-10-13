@@ -90,6 +90,14 @@ export function ReconciliationHistoryPage() {
                         Report
                       </Link>
                     )}
+                    {r.status === 'complete' && (
+                      <Link
+                        to={`/reports/bank-reconciliation-summary?reconciliation_id=${r.id}`}
+                        className="text-sm text-primary-600 hover:underline mr-3"
+                      >
+                        Summary
+                      </Link>
+                    )}
                     {r.status === 'complete' && r.id === latestCompleteId ? (
                       <Button variant="ghost" size="sm" onClick={() => onUndo(r.id)} loading={undoRecon.isPending}>Undo</Button>
                     ) : r.status === 'complete' ? (

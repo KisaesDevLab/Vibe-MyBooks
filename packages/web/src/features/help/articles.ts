@@ -778,6 +778,38 @@ There are three ways to start, all from **Banking > Reconcile**:
 ### Keeping the Worksheet Current
 - **Refresh transactions** adds anything you entered after starting the reconciliation and removes transactions that were voided in the meantime
 
+### Bank-to-Books Reconciliation (the professional format)
+Above the Statement / Beginning / Cleared / Difference tiles, the **Bank-to-books reconciliation** panel carries the statement all the way to your general ledger, live while you clear items — the same layout CPAs use:
+
+| Line | What it means |
+|---|---|
+| Balance per bank statement | The statement's ending balance |
+| Add: Deposits in transit | Deposits in your books, dated on or before the statement date, that the bank hasn't shown yet |
+| Less: Outstanding checks and payments | Checks / payments in your books the bank hasn't paid yet |
+| **Adjusted bank balance** | What the bank balance will be once those items reach it |
+| Balance per books (general ledger) | The account's GL balance at the statement date — **every** posted transaction dated on or before it, cleared or not (voided ones excluded) |
+| Add/(less): Unrecorded bank items | Statement lines (fees, interest, NSF) with no matching transaction in your books — shown only on an in-progress reconciliation that has an imported statement |
+| **Adjusted book balance** | Your books once those items are recorded |
+| **Unreconciled difference** | Adjusted bank − adjusted book. **0.00** shows *Reconciled to books* in green |
+
+For a **credit card** (or line of credit) the same layout prints balances as **amounts owed**, and the adjustments read *Charges recorded in books, not yet on statement* and *Payments and credits recorded in books, not yet on statement*.
+
+**Aged items** are flagged in the worksheet and the reports: an outstanding check or payment over **90 days** is *Stale*, over **180 days** *Stale-dated — review / void / escheat*; a deposit in transit over **10 days** is *Investigate*; a credit-card item missing from the statement for over **30 days** is *Investigate*.
+
+### Reading Discrepancies
+The **book-side proof** checks that *beginning balance + items cleared on this reconciliation + outstanding items = balance per books*. If it doesn't, a red banner appears on the Reconcile screen (click **Show discrepancy details**) and the reports list the cause:
+- **Changes to previously reconciled transactions** — a transaction cleared on an earlier reconciliation was edited, voided or deleted afterwards (the QuickBooks "reconciliation discrepancy"). Each earlier reconciliation shows what it cleared at completion vs. what those same items total now, and the changed items are listed (deleted, voided, moved to another account, re-dated, or edited per the audit log) with links to the transaction.
+- **Previously reconciled items now dated after the statement date** — someone re-dated a reconciled transaction.
+- **Cleared on this reconciliation but dated after the statement date, voided or moved.**
+- **Beginning balance not supported by prior reconciliations** — the opening balance doesn't match the books (e.g. the first reconciliation's beginning balance, or a prior reconciliation's balances were changed).
+
+Fix the cause (restore the original entry, or undo and redo the affected reconciliation) and the difference returns to 0.00.
+
+### Reconciliation Reports
+- **Reconciliation Detail** (from Reconciliation History → *Report*, or the Reconcile screen) — the bank-to-books summary, the cleared-activity roll (beginning balance + cleared deposits − cleared payments = cleared balance vs. statement), the supporting schedules (date, type, number, payee, age, amount, flags), the cleared transactions, **subsequent activity** (activity dated after the statement date and today's register balance), the book-side proof, and a **sign-off** block (prepared by / reviewed by / dates, plus the statement file reference).
+- **Bank Reconciliation Summary** (Reports → Banking, or History → *Summary*) — per account, the same summary for its latest completed reconciliation with schedule totals and the oldest items.
+- Both export to **PDF** and **CSV** in the same order, and the **Report Pack**'s Bank Reconciliations section prints the detail layout for each reconciliation.
+
 ### Handling Duplicates
 - An uncleared row with the same amount as an already-cleared transaction (same check number, or dated within a few days) gets a **Likely duplicate** badge — the cleared one matched the statement, so its twin is probably a double entry
 - Click the **void icon** on any uncleared row to void it right from the worksheet — a reason is pre-filled, the void posts reversing entries (nothing is deleted), and the row disappears with totals recalculated
@@ -786,6 +818,7 @@ There are three ways to start, all from **Banking > Reconcile**:
 
 ### Tips
 - Start with the most recent statement and work backwards if you've never reconciled
+- Watch **Unreconciled difference** in the bank-to-books panel, not just the worksheet difference — it also catches problems in the books (see *Reading Discrepancies*)
 - If the difference isn't zero, look for:
   - Transactions in your books that aren't on the statement (timing differences)
   - Transactions on the statement that aren't in your books (missing entries)

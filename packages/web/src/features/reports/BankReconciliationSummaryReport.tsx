@@ -5,17 +5,26 @@
 // Bank Reconciliation Summary — per bank account: last completed
 // reconciliation, latest statement on file, statement coverage gaps,
 // uncleared posted lines, plus a stale-outstanding-checks (>90 days)
-// sub-list. Dedicated component (two sections) following GenericReport's
-// conventions: ReportShell + ReportTable, session-persisted criteria,
-// CSV/PDF via the shared export flow.
+// sub-list; then, per account, the bank-to-books reconciliation of its latest
+// completed reconciliation (statement → adjusted bank balance → balance per
+// books → unreconciled difference, cleared roll, schedule totals with the
+// oldest items, subsequent activity, book-side proof, sign-off). With
+// ?reconciliation_id= it summarizes that one reconciliation instead.
+// ReportShell + ReportTable, CSV/PDF via the shared export flow.
 
 import { useQuery } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router-dom';
+import type { ReconProof } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../../api/client';
 import { useCompanyContext } from '../../providers/CompanyProvider';
 import { ReportShell } from './ReportShell';
 import { ReportTable } from './ReportTable';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import {
+  ReconBookProofSection, ReconClearedRollSection, ReconSchedulesSection, ReconSignOffSection,
+  ReconSubsequentSection, ReconSummarySection,
+} from './reconciliation/ReconProofSections';
 
 interface SummaryAccountRow {
   accountId: string;
@@ -44,17 +53,41 @@ interface SummaryResponse {
   title: string;
   accounts: SummaryAccountRow[];
   staleChecks: StaleCheckRow[];
+  proofs: ReconProof[];
+}
+
+function ProofBlock({ proof }: { proof: ReconProof }) {
+  const label = proof.accountNumber ? `${proof.accountNumber} · ${proof.accountName}` : proof.accountName;
+  return (
+    <div className="space-y-4 border-t pt-6" data-testid="recon-proof-block">
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <h2 className="text-xl font-semibold text-gray-900">{label} — reconciliation as of {proof.statementDate}</h2>
+        <Link to={`/reports/reconciliation-detail?reconciliation_id=${proof.reconciliationId}`} className="text-sm text-primary-600 hover:underline">
+          Detail report
+        </Link>
+      </div>
+      <ReconSummarySection proof={proof} />
+      <ReconClearedRollSection proof={proof} />
+      <ReconSchedulesSection proof={proof} mode="summary" />
+      <ReconSubsequentSection proof={proof} />
+      <ReconBookProofSection proof={proof} />
+      <ReconSignOffSection proof={proof} />
+    </div>
+  );
 }
 
 export function BankReconciliationSummaryReport() {
   const { activeCompanyId } = useCompanyContext();
+  const [searchParams] = useSearchParams();
+  const reconciliationId = searchParams.get('reconciliation_id') ?? '';
+  const qs = reconciliationId ? `?reconciliation_id=${encodeURIComponent(reconciliationId)}` : '';
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['reports', 'bank-reconciliation-summary', activeCompanyId],
-    queryFn: () => apiClient<SummaryResponse>('/reports/bank-reconciliation-summary'),
+    queryKey: ['reports', 'bank-reconciliation-summary', activeCompanyId, reconciliationId],
+    queryFn: () => apiClient<SummaryResponse>(`/reports/bank-reconciliation-summary${qs}`),
   });
 
-  const exportBaseUrl = `${API_BASE}/reports/bank-reconciliation-summary`;
+  const exportBaseUrl = `${API_BASE}/reports/bank-reconciliation-summary${qs}`;
 
   const accountRows = (data?.accounts ?? []).map((a) => ({
     account: a.accountNumber ? `${a.accountNumber} · ${a.name}` : a.name,
@@ -120,6 +153,14 @@ export function BankReconciliationSummaryReport() {
               />
             )}
           </div>
+
+          {(data.proofs ?? []).length === 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-6 text-sm text-gray-500">
+              No completed reconciliations yet — the bank-to-books reconciliation appears here once an account has one.
+            </div>
+          ) : (
+            (data.proofs ?? []).map((p) => <ProofBlock key={p.reconciliationId} proof={p} />)
+          )}
         </div>
       )}
     </ReportShell>
