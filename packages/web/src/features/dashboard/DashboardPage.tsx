@@ -12,6 +12,7 @@ import type { ResourceKey, PermissionAction } from '@kis-books/shared';
 import { usePermissions } from '../../api/hooks/usePermissions';
 import { DashboardAiFooter } from '../../components/ui/DashboardAiFooter';
 import { OnboardingBanner } from './OnboardingBanner';
+import { TaxEstimateCards } from './TaxEstimateCards';
 import { useMe } from '../../api/hooks/useAuth';
 import { useFirms } from '../../api/hooks/useFirms';
 import { useFirmInvites } from '../../api/hooks/useFirmInvites';
@@ -518,6 +519,10 @@ export function DashboardPage() {
           subtitle={cash?.totalCC ? `CC: ${fmt(cash.totalCC)}` : undefined}
           icon={DollarSign} color="bg-primary-600" />
       </div>
+
+      {/* Tax Estimator cards (Q52) — renders nothing unless the server returns cards
+          for this company (flag on, linked taxpayers, staff or the owner themself). */}
+      <TaxEstimateCards />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue vs Expense Chart */}

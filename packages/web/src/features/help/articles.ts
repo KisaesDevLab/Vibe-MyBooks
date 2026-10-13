@@ -3584,6 +3584,35 @@ If any item fails the portal says no estimate is shared, and it never reveals wh
 Set **Client portal shows** on the taxpayer (or the firm default in Firm settings): **Live estimate** (recomputed on request and cached briefly) or **Latest finalized snapshot** (shows only after you finalize). With snapshot mode and no finalized snapshot, the client sees "No tax estimate shared yet".`,
   },
   {
+    id: 'tax-estimator-dashboard-cards',
+    title: 'Tax Estimator cards on the dashboards',
+    category: 'Tax Estimator',
+    summary: 'Next estimated payment, projected tax and paid vs required on the company dashboard; vouchers due and taxpayers behind on the Tax Estimator home.',
+    body: `The Tax Estimator adds cards to two dashboards. Opening a dashboard never runs an estimate: the cards show figures that were already computed, and each one says where they came from (**Live estimate** or **Finalized estimate**) and **as of** when.
+
+## Company dashboard
+
+For each taxpayer linked to the company you are working in, three cards appear under the financial snapshot:
+- **Next estimated payment**: the next federal and state voucher (installment, due date, amount, and Paid or Unpaid).
+- **Projected tax for the year**: the projected federal plus state total, the change since the last finalized estimate, and the month the books were read through.
+- **Paid vs required to date**: estimated payments made against the vouchers due so far, and how far behind the taxpayer is. Firm staff also see the estimated underpayment penalty.
+
+**Who sees them.** The cards appear only when TAX_ESTIMATOR_V1 is on for the client's own tenant and a taxpayer is linked to the company.
+- **Firm staff** with Tax Estimator access see every linked taxpayer they are allowed to see (the same visibility rules as the taxpayer list), a **Refresh** button that computes that taxpayer now, and **Not computed yet — Open taxpayer** when there is nothing to show yet.
+- The company **owner** sees only their own estimate: the taxpayer linked to the client-portal contact that has the owner's e-mail address and **Tax estimates** access on this company. They see the same figures the client portal shows (no penalty, no other owners, rates or calculation details). If the taxpayer is set to show the latest finalized snapshot in the portal, so do the cards.
+- Nobody else sees them.
+
+**Where the figures come from.** The live estimate when it was computed today and nothing has changed since; otherwise the last finalized snapshot; otherwise nothing yet. Open the taxpayer's estimate, finalize it, or use **Refresh** to fill the cards.
+
+## Tax Estimator home
+
+Above the taxpayer list, firm staff see two cards across every taxpayer they can see:
+- **Vouchers due in the next 30 days**: taxpayer, jurisdiction, installment, due date, amount and whether it is paid.
+- **Behind on payments**: taxpayers whose estimated payments are short of the vouchers due so far, with the shortfall and the estimated penalty.
+
+Click a row to open the taxpayer's estimate; the small refresh icon recomputes that taxpayer only. Taxpayers with a current-year setup but no estimate yet are listed under **Not computed yet**. A colleague's estimate that includes client companies you cannot reach is never shown to you; refresh to compute your own.`,
+  },
+  {
     id: 'tax-estimator-admin',
     title: 'Tax Estimator — enabling it and super-admin parameters',
     category: 'Tax Estimator',

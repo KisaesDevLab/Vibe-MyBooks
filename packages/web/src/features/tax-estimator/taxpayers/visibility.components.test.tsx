@@ -28,6 +28,8 @@ vi.mock('../../../api/hooks/useTaxEstimatorTaxpayers', () => ({
   setTaxEstimatorFirmId: vi.fn(),
 }));
 vi.mock('../../../api/hooks/useFirms', () => ({ useFirms: () => ({ data: { firms: [] } }) }));
+// Q52 firm cards fetch on their own; covered by FirmDashboardCards.test.tsx.
+vi.mock('./FirmDashboardCards', () => ({ FirmDashboardCards: () => null }));
 
 import { TaxpayerAccessCard } from './TaxpayerAccessCard';
 import { TaxpayerListPage } from './TaxpayerListPage';

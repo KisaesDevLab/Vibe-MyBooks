@@ -68,3 +68,15 @@ Operator notes:
 - Migration `0207_tax_est_projection_method.sql` (+ rollback; part `parts/projection-method.sql`; journal idx 207, `when` 1784800000290): new column `tax_est_entity_year_inputs.projection_method` (default `run_rate`, CHECK). Additive; every estimate is unchanged until a method is chosen.
 - Engine 1.0.0-rc.6 and estimate cache version `te-estimate-v6` re-key every live estimate once on deploy (no figure changes for run-rate entities). A selected prior-year method reads 12 more months per company (Redis-cached by the GL stamp).
 - Kurt's review list (prior-year definition and flags, completeness rule, dollar method guardrails, C corp restriction): OPEN-QUESTIONS.md Q46.
+
+## Dashboard cards (Q52, migration 0212_tax_est_dashboard_summaries)
+
+User-facing:
+- **Company dashboard**: three Tax Estimator cards per taxpayer linked to the company — **Next estimated payment** (next federal and state voucher: date, amount, paid or unpaid), **Projected tax for the year** (federal + state, change since the last finalized estimate, books-through month) and **Paid vs required to date** (shortfall; staff also see the estimated underpayment penalty). Firm staff see every taxpayer they may see with a **Refresh** button and a "Not computed yet — Open taxpayer" line where nothing is computed; the company **owner** sees only their own estimate (the taxpayer mapped to the client-portal contact with their e-mail and Tax estimates access on the company), with the same figures the client portal shows. Nobody else sees the cards.
+- **Tax Estimator home**: **Vouchers due in the next 30 days** and **Behind on payments** across every taxpayer you can see, each row opening the taxpayer and with its own Refresh, plus the taxpayers not computed yet.
+- Every card says where its figures come from (live estimate or finalized estimate) and as of when. Opening a dashboard never runs an estimate.
+
+Operator notes:
+- Shown only where `TAX_ESTIMATOR_V1` is ON: for the company cards, on the **client's own tenant** (the practice tenant alone is not enough).
+- **Migration** `0212_tax_est_dashboard_summaries` (additive, one table; journal idx 212 — renumber at merge if 0209-0211 land differently). Rollback `0212_tax_est_dashboard_summaries.rollback.sql` drops the table (a derived cache, rebuilt by the next estimate). The table's `summary_encrypted` column is covered by the credential re-encryption sweep.
+- No backfill: the firm cards fill as estimates are viewed, finalized or refreshed; until then they show finalized snapshots or "Not computed yet".

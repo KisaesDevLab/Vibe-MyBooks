@@ -39,6 +39,9 @@ vi.mock('../../api/hooks/usePermissions', () => ({
   usePermissions: () => ({ can: canMock, permissions: undefined, ready: true }),
 }));
 
+// The Tax Estimator cards (Q52) fetch on their own; tested in TaxEstimateCards.test.tsx.
+vi.mock('./TaxEstimateCards', () => ({ TaxEstimateCards: () => null }));
+
 import { DashboardPage } from './DashboardPage';
 
 // Renders the current pathname so tests can assert where a shortcut
