@@ -66,7 +66,7 @@ describe('YearInputsForm — Schedule 1-A chips + dialog', () => {
   };
   const detail: YearDetailDTO = {
     exists: true, year: y, taxpayerSafeHarborOverride: null, firmSafeHarborDefault: 'lesser_of', effectiveSafeHarborRule: 'lesser_of',
-    scenarios: [{ id: 's1', taxpayerId: 'tp', taxYear: 2026, name: 'Base', isBase: true, sortOrder: 0, sourceScenarioId: null, createdAt: '', updatedAt: '' }],
+    scenarios: [{ id: 's1', taxpayerId: 'tp', taxYear: 2026, name: 'Base', isBase: true, showInPortal: false, sortOrder: 0, sourceScenarioId: null, createdAt: '', updatedAt: '' }],
   };
 
   it('shows the chips summary, edits through the dialog, and saves the year-level sch1a', () => {

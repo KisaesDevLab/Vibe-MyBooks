@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   candidates: { data: { data: [] as unknown[], total: 0 }, isLoading: false, isError: false },
   link: { mutate: vi.fn(), isPending: false, isError: false, error: null },
   unlink: { mutate: vi.fn(), isPending: false, isError: false, error: null },
+  setOptions: { mutate: vi.fn(), isPending: false, isError: false, error: null },
 }));
 
 vi.mock('../../../api/hooks/useTaxEstimatorTaxpayers', () => ({
@@ -22,6 +23,7 @@ vi.mock('../../../api/hooks/useTaxEstimatorTaxpayers', () => ({
   useTaxpayerContactCandidates: () => h.candidates,
   useLinkContact: () => h.link,
   useUnlinkContact: () => h.unlink,
+  useSetContactPortalOptions: () => h.setOptions,
 }));
 
 import { CompanyPicker } from './CompanyPicker';
@@ -176,7 +178,7 @@ describe('StateSelect (QA D3)', () => {
 
 describe('ContactsPanel (QA D11 / D30)', () => {
   it('offers the linked client companies\' contacts (works from the practice tenant) and confirms Remove', () => {
-    h.contacts.data = { data: [{ portalContactId: 'pc1', tenantId: 't2', email: 'maria@x.test', firstName: 'Maria', lastName: 'Rivera', outOfScope: false, taxEstimatesAccess: true, createdAt: '' }], total: 1 };
+    h.contacts.data = { data: [{ portalContactId: 'pc1', tenantId: 't2', email: 'maria@x.test', firstName: 'Maria', lastName: 'Rivera', outOfScope: false, taxEstimatesAccess: true, portalOptions: null, createdAt: '' }], total: 1 };
     h.candidates.data = { data: [
       { portalContactId: 'pc1', tenantId: 't2', email: 'maria@x.test', firstName: 'Maria', lastName: 'Rivera', companyNames: ['Maria Designs'] },
       { portalContactId: 'pc2', tenantId: 't3', email: 'carlos@x.test', firstName: 'Carlos', lastName: null, companyNames: ['Rivera Plumbing LLC'] },
@@ -190,5 +192,37 @@ describe('ContactsPanel (QA D11 / D30)', () => {
     expect(screen.getByText(/will no longer see this taxpayer/)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: 'Remove' }).at(-1)!);
     expect(h.unlink.mutate).toHaveBeenCalledWith({ portalContactId: 'pc1', revokeAccess: true });
+  });
+});
+
+describe('ContactsPanel — what the contact sees in the portal (Q51)', () => {
+  const contact = (over: Record<string, unknown> = {}) => ({
+    portalContactId: 'pc1', tenantId: 't2', email: 'maria@x.test', firstName: 'Maria', lastName: 'Rivera', outOfScope: false, taxEstimatesAccess: true,
+    portalOptions: { calculationSummary: false, quarterlyEstimates: true, paymentsOnRecord: true, pdfDownload: false }, createdAt: '', ...over,
+  });
+
+  it('opens the per-contact options and saves one section at a time', () => {
+    h.contacts.data = { data: [contact()], total: 1 };
+    h.candidates.data = { data: [], total: 0 };
+    h.setOptions.mutate.mockReset();
+    render(<ContactsPanel taxpayerId="tp" canWrite />);
+    expect(screen.queryByLabelText(/Calculation summary/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'What they see' }));
+    const summary = screen.getByLabelText(/Calculation summary/) as HTMLInputElement;
+    expect(summary.checked).toBe(false);
+    expect((screen.getByLabelText(/Quarterly estimates and vouchers/) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText(/Payments on record/) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText(/Download the estimate PDF/) as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(summary);
+    expect(h.setOptions.mutate).toHaveBeenCalledWith({ portalContactId: 'pc1', options: { calculationSummary: true } });
+  });
+
+  it('read-only staff see the options but cannot change them; an out-of-scope contact has none', () => {
+    h.contacts.data = { data: [contact(), contact({ portalContactId: 'pc2', outOfScope: true, email: '', portalOptions: null })], total: 2 };
+    render(<ContactsPanel taxpayerId="tp" canWrite={false} />);
+    expect(screen.getAllByRole('button', { name: 'What they see' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'What they see' }));
+    expect(screen.getByLabelText(/Quarterly estimates and vouchers/)).toBeDisabled();
+    expect(screen.getByLabelText(/Calculation summary/)).toBeDisabled();
   });
 });

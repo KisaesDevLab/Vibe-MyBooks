@@ -7,6 +7,7 @@
 // in several firms (the server 404s a firm the caller does not belong to).
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import type {
+  PortalContactTaxOptionsDTO, TaxpayerContactDTO,
   TaxpayerListDTO, TaxpayerDetailDTO, TaxpayerDTO, PersonDTO, LinkListDTO, LinkUpsertResultDTO,
   CompanyOptionListDTO, TaxpayerContactListDTO, TaxpayerContactCandidateListDTO, LinkContactResultDTO, UnlinkContactResultDTO,
   CreateTaxpayerInput, UpdateTaxpayerInput, UpsertPersonInput, UpsertLinkInput, PersonRole,
@@ -251,6 +252,16 @@ export function useLinkContact(taxpayerId: string) {
   return useMutation({
     mutationFn: async (v: { portalContactId: string; grantAccess: boolean }) =>
       (await call<{ data: LinkContactResultDTO }>(`/${taxpayerId}/contacts`, { method: 'POST', body: JSON.stringify(v) })).data,
+    onSuccess: invalidate,
+  });
+}
+
+/** Q51: what a linked contact may see in the portal (one setting per contact). */
+export function useSetContactPortalOptions(taxpayerId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (v: { portalContactId: string; options: Partial<PortalContactTaxOptionsDTO> }) =>
+      (await call<{ data: TaxpayerContactDTO }>(`/${taxpayerId}/contacts/${v.portalContactId}/portal-options`, { method: 'PUT', body: JSON.stringify(v.options) })).data,
     onSuccess: invalidate,
   });
 }

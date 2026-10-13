@@ -56,8 +56,10 @@ firm + D17 / D18 visibility checks, cascading with the taxpayer (and with the ow
 audited (definition and year rows, amounts included, like links and adjustments). Figures
 copied from a FILED K-1 or return can be §7216 tax return information: they are not exported,
 emailed or logged outside the estimator, and every estimate / snapshot that contains them is
-encrypted like the rest of the result (Redis cache, `tax_est_snapshots.payload_encrypted`). The
-client portal shows only the taxpayer-level totals (no business names or amounts). Whether to
+encrypted like the rest of the result (Redis cache, `tax_est_snapshots.payload_encrypted`). By
+default the client portal shows only the taxpayer-level totals (no business names or amounts);
+a contact whose Q51 `calculation_summary` option is on also sees each business's name with the
+taxpayer's own share of its projected income (never the entity total or other owners). Whether to
 encrypt the year amounts at rest is open for Kurt (OPEN-QUESTIONS Q45).
 
 Projection method (Q46, migration `0207_tax_est_projection_method`):
@@ -110,6 +112,16 @@ payment ledger. A booked (GL) payment is credited to **exactly one** tax year:
 - `return_due_date` is no longer the GL read limit; it is reported as
   `window.returnDueDate` and still ends penalty accrual.
 
+Portal view options (Q51, migration `0211_tax_est_portal_options`):
+`tax_est_portal_contact_options` — one row per portal contact (`portal_contact_id` PK, cascades
+with the contact; `tenant_id` = the contact's tenant, cascades with the tenant): four booleans
+`calculation_summary` (default false), `quarterly_estimates` (true), `payments_on_record` (true),
+`pdf_download` (false), `updated_by`, timestamps. Access-control settings, not tax return
+information; no row = the defaults. `tax_est_scenarios.show_in_portal` (boolean, default false):
+the what-if is offered to portal contacts (Base always is). Neither holds figures; what the
+options reveal is described in MODULE.md "Client portal" and is computed per request, never
+stored per contact (the cached estimate is shared, the options are applied after it).
+
 ## Disclosure audit (R3-06 / R3-16)
 
 Every estimate PDF that leaves the system — the standalone Print / Download (snapshot
@@ -121,6 +133,12 @@ snapshot — writes one `audit_log` row: action `download`, entity type
 `payloadSha256`. Never figures. The snapshot id leads to the frozen, encrypted payload.
 Screen views (the single-year GET, the snapshot view) are not audited per view; the
 snapshot itself records what was issued.
+
+Q51 portal-safe estimate PDF (rendered only from the option-filtered portal DTO, never the engine result): every download by a portal contact (or a "View as Client" preview)
+writes `download` / `tax_est_portal_pdf` (entity id = taxpayer id) on the contact's tenant with
+metadata only (contact, year, scenario, live / snapshot, snapshot id, inputs hash, engine
+version, computed-at). A live download is NOT frozen into a snapshot (the contact has no user);
+the inputs hash identifies the inputs it was computed from.
 
 ## Money carried as JSON numbers (R3-13)
 

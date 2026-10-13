@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useTaxpayer, useTaxEstimatorScope, useTaxpayerLinks } from '../../../api/hooks/useTaxEstimatorTaxpayers';
 import {
-  useYear, useYearList, useSaveYear, useCreateScenario, useCloneScenario, useRenameScenario, useDeleteScenario,
+  useYear, useYearList, useSaveYear, useCreateScenario, useCloneScenario, useRenameScenario, useDeleteScenario, useScenarioPortalShare,
   useAdjustments, useCreateAdjustment, useUpdateAdjustment, useDeleteAdjustment, useAdjustmentTypes,
   useStateRows, useReplaceStateRows, useFirmSettings, useSaveFirmSettings,
 } from '../../../api/hooks/useTaxEstimatorYears';
@@ -86,6 +86,7 @@ export function AnnualSettingsPage() {
   const createScenario = useCreateScenario(id ?? '', taxYear);
   const clone = useCloneScenario();
   const rename = useRenameScenario();
+  const share = useScenarioPortalShare();
   const del = useDeleteScenario();
   const [selected, setSelected] = useState<string | undefined>();
   const [firmOpen, setFirmOpen] = useState(false);
@@ -111,7 +112,7 @@ export function AnnualSettingsPage() {
 
   const { taxpayer: tp, persons } = taxpayer.data;
   const detail = year.data;
-  const scenarioError = [createScenario, clone, rename, del].find((m) => m.isError);
+  const scenarioError = [createScenario, clone, rename, del, share].find((m) => m.isError);
   const savedYears = (years.data ?? []).map((y) => y.taxYear);
 
   return (
@@ -143,11 +144,12 @@ export function AnnualSettingsPage() {
       ) : (
         <>
           <ScenarioTabs scenarios={scenarios} selectedId={selected} canWrite={canWrite}
-            busy={createScenario.isPending || clone.isPending || rename.isPending || del.isPending}
+            busy={createScenario.isPending || clone.isPending || rename.isPending || del.isPending || share.isPending}
             error={scenarioError ? errMsg(scenarioError.error) : undefined}
             onSelect={setSelected}
             onClone={(sid, name) => clone.mutate({ id: sid, name }, { onSuccess: (s) => setSelected(s.id) })}
             onRename={(sid, name) => rename.mutate({ id: sid, name })}
+            onShareInPortal={(sid, on) => share.mutate({ id: sid, showInPortal: on })}
             // QA D22: leave the scenario BEFORE deleting it, so no mounted adjustments / state-rows
             // query re-creates and refetches the deleted id (404) while the year list reloads.
             onDelete={(sid) => { if (sid === selected) setSelected(scenarios.find((s) => s.isBase)?.id); del.mutate(sid); }} />

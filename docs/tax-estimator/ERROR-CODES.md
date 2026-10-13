@@ -27,7 +27,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 
 | Code | Type | Where emitted | Meaning |
 |---|---|---|---|
-| `TE_ACCESS_GRANT_FORBIDDEN` | HTTP 403 | `svc/portal-contact.service.ts:219` | Granting tax estimate access needs Tax Estimator access for this client (firm staff) |
+| `TE_ACCESS_GRANT_FORBIDDEN` | HTTP 403 | `svc/portal-contact.service.ts:219`, `svc/tax-estimator/portal-options.service.ts` (Q51) | Granting tax estimate access needs Tax Estimator access for this client (firm staff); Q51: "Turning on a tax estimate section needs Tax Estimator access for this client (firm staff)" — a portal view option switched ON by a caller outside the gates (a request mixing a grant with revokes is refused whole) |
 | `TE_ACCOUNT_NOT_FOUND` | HTTP 404 | `svc/adjustments.service.ts:84`, `svc/treatments.service.ts:192` | Account not found |
 | `TE_ACTC_ALT_FORMULA_NOT_MODELLED` | warning | `engine/dependents.ts` | With 3+ qualifying children and the earned-income figure binding, the Schedule 8812 Part II-B alternative (Social Security / Medicare taxes less EIC) may give a larger additional child tax credit; not modelled (Q44). |
 | `TE_ADDL_MEDICARE_MANUAL_OVERRIDE` | warning | `engine/other-taxes.ts:64` | Additional Medicare tax is overridden to … (engine computed …). |
@@ -180,7 +180,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_PERSON_NOT_FOUND` | HTTP 404 | `svc/taxpayers.service.ts:258`, `svc/taxpayers.service.ts:396`, `svc/treatments.service.ts:143` | Person not found |
 | `TE_PERSON_REQUIRED` | HTTP 422 | `svc/treatments.service.ts:178` | A guaranteed payment needs the partner it is paid to (partnership); an S corp owner SEHI / retirement treatment needs the officer (person) it belongs to. `details` carries `accountId` and `treatment`. |
 | `TE_PERSON_TAXPAYER_MISMATCH` | HTTP 400 | `svc/treatments.service.ts:145` | The person does not belong to the payment taxpayer |
-| `TE_PORTAL_FORBIDDEN` | HTTP 404 | `routes/portal-tax-estimates-public.routes.ts:57`, `svc/portal-estimates.service.ts:56` | Uniform portal miss: unknown taxpayer, not mapped to this contact, no tax_estimates_access, flag off, no annual settings, or a PDF with no estimate. Never says why. |
+| `TE_PORTAL_FORBIDDEN` | HTTP 404 | `routes/portal-tax-estimates-public.routes.ts:57`, `svc/portal-estimates.service.ts:56` | Uniform portal miss: unknown taxpayer, not mapped to this contact, no tax_estimates_access, flag off, no annual settings, or a PDF with no estimate; Q51: a malformed query, a `scenarioId` the firm did not share (or, in snapshot mode, one without its own finalized snapshot), the voucher PDF with `quarterly_estimates` off, the estimate PDF with `pdf_download` off. Never says why. |
 | `TE_PRIMARY_REQUIRED` | HTTP 422 | `svc/taxpayers.service.ts:235`, `svc/taxpayers.service.ts:260` | Add the primary person before the spouse / Also: Remove the spouse before the primary person |
 | `TE_PROJECTION_METHOD_NOT_SUPPORTED` | HTTP 422 | `svc/entity-settings.service.ts` (upsertYearInputs) | Prior-year trend projection applies to pass-through and Schedule C / F businesses only, not C corporations (Q46). |
 | `TE_PY_TREND_CAPPED` | info | `engine/income.ts` (traceTrend) | …: the prior-year scale factor … was capped at … (Q46: CY recurring YTD ÷ PY same months outside [`PY_TREND_FACTOR_MIN` 0.25, `PY_TREND_FACTOR_MAX` 4]; `details`: rawFactor, factor, bound `min` / `max`). |
@@ -325,7 +325,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_PAYMENT_OTHER_YEAR` / `TE_PAYMENT_DUPLICATE` 409 | The GL transaction is already recorded for another year / this year. | One transaction is credited to one tax year; edit or delete the existing payment row. |
 | `TE_SNAPSHOT_UNREADABLE` / `TE_SNAPSHOT_INTEGRITY` 500 | The snapshot ciphertext cannot be decrypted with this server's key, or its plaintext sha256 no longer matches. | Check key rotation / cross-host restore (`*_encrypted` re-encryption sweep); do not edit the row (the trigger forbids it). |
 | `TE_PORTAL_FORBIDDEN` 404 | Any portal refusal; it never says why. | Check the portal visibility conditions in MODULE.md "Client portal". |
-| `TE_ACCESS_GRANT_FORBIDDEN` 403 | A caller outside the Tax Estimator gates tried to grant `tax_estimates_access`. | A firm user with the `tax_estimator` resource must grant it; revoking is always allowed. |
+| `TE_ACCESS_GRANT_FORBIDDEN` 403 | A caller outside the Tax Estimator gates tried to grant `tax_estimates_access`, or (Q51) to switch a portal view section on. | A firm user with the `tax_estimator` resource must grant it; revoking / switching off is always allowed. |
 
 ## Regenerating
 
