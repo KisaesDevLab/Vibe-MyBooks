@@ -20,6 +20,7 @@ import { openAttachmentInTab } from '../attachments/openAttachmentInTab';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { OcrQualityNotice } from '../../components/ui/OcrQualityNotice';
 import { AccountSelector } from '../../components/forms/AccountSelector';
+import { NumericInput } from '../../components/forms/NumericInput';
 
 interface ParsedTransaction {
   date: string;
@@ -1013,11 +1014,11 @@ export function StatementUploadPage() {
                       {/* Editable: extractors misread digits. Commit on blur / Enter. */}
                       <span className="inline-flex items-center gap-1 justify-end">
                         <span className={`font-mono ${txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>{txn.type === 'credit' ? '+' : '-'}$</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
+                        <NumericInput
+                          decimals={2}
+                          allowNegative={false}
                           value={txn.amount}
-                          onChange={(e) => setRowAmount(idx, e.target.value)}
+                          onChange={(v) => setRowAmount(idx, v)}
                           onBlur={() => commitAmount(idx)}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
                           disabled={!!imported}

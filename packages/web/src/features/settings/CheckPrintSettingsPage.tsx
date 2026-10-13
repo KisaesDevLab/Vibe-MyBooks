@@ -13,6 +13,7 @@ import { validateRoutingNumber, CHECK_LAYOUTS, type CheckLayout } from '@kis-boo
 import { Printer } from 'lucide-react';
 import { useFirmCapabilities } from '../../api/hooks/useFirmCapabilities';
 import { CheckSignaturesSection } from './CheckSignaturesSection';
+import { NumericField } from '../../components/forms/NumericField';
 
 export function CheckPrintSettingsPage() {
   const { data, isLoading, isError, refetch } = useCheckSettings();
@@ -267,19 +268,19 @@ export function CheckPrintSettingsPage() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">Alignment</h2>
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <NumericField
               label="X Offset (pixels)"
-              type="number"
-              step="1"
+              integer
+              allowNegative
               value={form.alignmentOffsetX}
-              onChange={(e) => setForm((prev) => ({ ...prev, alignmentOffsetX: e.target.value }))}
+              onChange={(v) => setForm((prev) => ({ ...prev, alignmentOffsetX: v }))}
             />
-            <Input
+            <NumericField
               label="Y Offset (pixels)"
-              type="number"
-              step="1"
+              integer
+              allowNegative
               value={form.alignmentOffsetY}
-              onChange={(e) => setForm((prev) => ({ ...prev, alignmentOffsetY: e.target.value }))}
+              onChange={(v) => setForm((prev) => ({ ...prev, alignmentOffsetY: v }))}
             />
           </div>
           <Button

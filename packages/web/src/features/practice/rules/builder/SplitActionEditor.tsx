@@ -5,6 +5,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { Action } from '@kis-books/shared';
 import { AccountSelector } from '../../../../components/forms/AccountSelector';
+import { NumericInput } from '../../../../components/forms/NumericInput';
 
 interface Props {
   action: Extract<Action, { type: 'split_by_percentage' | 'split_by_fixed' }>;
@@ -61,22 +62,22 @@ export function SplitActionEditor({ action, onChange }: Props) {
           </div>
           {isPercentage ? (
             <div className="flex items-center gap-1">
-              <input
-                type="number"
-                step="0.01"
+              <NumericInput
+                decimals={2}
                 min={0}
                 max={100}
                 value={String((row as { percent: number }).percent ?? 0)}
-                onChange={(e) => updateRow(i, { percent: Number(e.target.value) })}
+                onChange={(v) => updateRow(i, { percent: Number(v) })}
                 className="w-20 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-mono"
               />
               <span className="text-xs text-gray-500">%</span>
             </div>
           ) : (
-            <input
-              type="text"
+            <NumericInput
+              decimals={4}
+              aria-label={`Split ${i + 1} amount`}
               value={(row as { amount: string }).amount ?? '0.0000'}
-              onChange={(e) => updateRow(i, { amount: e.target.value })}
+              onChange={(v) => updateRow(i, { amount: v })}
               className="w-28 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-mono"
               placeholder="0.0000"
             />

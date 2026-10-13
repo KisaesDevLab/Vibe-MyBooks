@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type KeyboardEvent } from 'react';
 import { useValidateBatch, useSaveBatch, useParseCsv, useSuggestAccountForContact } from '../../api/hooks/useBatch';
 import { AccountSelector } from '../../components/forms/AccountSelector';
+import { NumericInput } from '../../components/forms/NumericInput';
 import { ContactSelector, type ContactSelection } from '../../components/forms/ContactSelector';
 import { LineTagPicker } from '../../components/forms/SplitRowV2/LineTagPicker';
 import { Button } from '../../components/ui/Button';
@@ -580,6 +581,28 @@ export function BatchEntryPage() {
                     }
 
                     const isDateCell = col.key === 'date' || col.key === 'dueDate';
+                    // Amount cells take calculator math ("145.15-50"); Enter
+                    // on an expression evaluates in place, otherwise the grid
+                    // keys (Enter / Tab / arrows) navigate exactly as before.
+                    if (col.key === 'amount' || col.key === 'debit' || col.key === 'credit') {
+                      return (
+                        <td key={col.key} className="px-px" title={cellError?.message}>
+                          <NumericInput
+                            data-cell={`${rowIdx}-${colIdx}`}
+                            aria-label={`Row ${rowIdx + 1} ${col.label}`}
+                            decimals={2}
+                            padDecimals
+                            allowNegative
+                            inputMode="decimal"
+                            value={row[col.key] || ''}
+                            onChange={(v) => updateCell(rowIdx, col.key, v)}
+                            onKeyDown={(e) => handleCellKey(e, rowIdx, colIdx, false)}
+                            className={`w-full px-1.5 py-1 rounded border text-xs ${cellBorder}
+                            focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 text-right font-mono`}
+                          />
+                        </td>
+                      );
+                    }
                     return (
                       <td key={col.key} className="px-px" title={cellError?.message}>
                         <input
@@ -598,9 +621,7 @@ export function BatchEntryPage() {
                           type={isDateCell ? 'date' : 'text'}
                           title={isDateCell ? 'Shortcuts: t=today, +/− day, m/h month start/end, y/r year start/end, w/k week start/end' : undefined}
                           className={`w-full px-1.5 py-1 rounded border text-xs ${cellBorder}
-                          focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 ${
-                            col.key === 'amount' || col.key === 'debit' || col.key === 'credit' ? 'text-right font-mono' : ''
-                          }`}
+                          focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500`}
                         />
                       </td>
                     );

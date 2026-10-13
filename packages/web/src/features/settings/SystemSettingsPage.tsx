@@ -8,6 +8,8 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { CheckCircle, Loader2, Eye, EyeOff, Info, Smartphone, Cloud, HardDrive } from 'lucide-react';
 import { BackupHistorySection } from './BackupHistorySection';
+import { NumericInput } from '../../components/forms/NumericInput';
+import { NumericField } from '../../components/forms/NumericField';
 
 export function SystemSettingsPage() {
   const queryClient = useQueryClient();
@@ -988,8 +990,8 @@ export function SystemSettingsPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Keep local backups for</label>
             <div className="flex items-center gap-2">
-              <input type="number" min="1" max="365" value={backupRemote.localRetentionDays}
-                onChange={setBackup('localRetentionDays')}
+              <NumericInput integer min={1} max={365} value={backupRemote.localRetentionDays}
+                onChange={(v) => setBackupRemote((b) => ({ ...b, localRetentionDays: v }))}
                 className="block w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
               <span className="text-sm text-gray-500">days</span>
             </div>
@@ -1153,8 +1155,8 @@ export function SystemSettingsPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Daily backups</label>
                   <div className="flex items-center gap-1">
-                    <input type="number" min="0" value={backupRemote.retentionDaily}
-                      onChange={(e) => setBackupRemote((b) => ({ ...b, retentionDaily: e.target.value, retentionPreset: 'custom' }))}
+                    <NumericInput integer min={0} value={backupRemote.retentionDaily}
+                      onChange={(v) => setBackupRemote((b) => ({ ...b, retentionDaily: v, retentionPreset: 'custom' }))}
                       disabled={backupRemote.retentionPreset !== 'custom'}
                       className="block w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm disabled:bg-gray-50" />
                     <span className="text-xs text-gray-500">days</span>
@@ -1163,8 +1165,8 @@ export function SystemSettingsPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Weekly backups</label>
                   <div className="flex items-center gap-1">
-                    <input type="number" min="0" value={backupRemote.retentionWeekly}
-                      onChange={(e) => setBackupRemote((b) => ({ ...b, retentionWeekly: e.target.value, retentionPreset: 'custom' }))}
+                    <NumericInput integer min={0} value={backupRemote.retentionWeekly}
+                      onChange={(v) => setBackupRemote((b) => ({ ...b, retentionWeekly: v, retentionPreset: 'custom' }))}
                       disabled={backupRemote.retentionPreset !== 'custom'}
                       className="block w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm disabled:bg-gray-50" />
                     <span className="text-xs text-gray-500">weeks</span>
@@ -1173,8 +1175,8 @@ export function SystemSettingsPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Monthly backups</label>
                   <div className="flex items-center gap-1">
-                    <input type="number" min="0" value={backupRemote.retentionMonthly}
-                      onChange={(e) => setBackupRemote((b) => ({ ...b, retentionMonthly: e.target.value, retentionPreset: 'custom' }))}
+                    <NumericInput integer min={0} value={backupRemote.retentionMonthly}
+                      onChange={(v) => setBackupRemote((b) => ({ ...b, retentionMonthly: v, retentionPreset: 'custom' }))}
                       disabled={backupRemote.retentionPreset !== 'custom'}
                       className="block w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm disabled:bg-gray-50" />
                     <span className="text-xs text-gray-500">months</span>
@@ -1183,8 +1185,8 @@ export function SystemSettingsPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Yearly backups</label>
                   <div className="flex items-center gap-1">
-                    <input type="number" min="0" value={backupRemote.retentionYearly}
-                      onChange={(e) => setBackupRemote((b) => ({ ...b, retentionYearly: e.target.value, retentionPreset: 'custom' }))}
+                    <NumericInput integer min={0} value={backupRemote.retentionYearly}
+                      onChange={(v) => setBackupRemote((b) => ({ ...b, retentionYearly: v, retentionPreset: 'custom' }))}
                       disabled={backupRemote.retentionPreset !== 'custom'}
                       className="block w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm disabled:bg-gray-50" />
                     <span className="text-xs text-gray-500">years</span>
@@ -1259,7 +1261,7 @@ export function SystemSettingsPage() {
             </p>
           </div>
           <Input label="Application URL" value={form.applicationUrl} onChange={set('applicationUrl')} placeholder="https://books.example.com" />
-          <Input label="Max File Upload Size (MB)" value={form.maxFileSizeMb} onChange={set('maxFileSizeMb')} type="number" />
+          <NumericField label="Max File Upload Size (MB)" integer value={form.maxFileSizeMb} onChange={(v) => setForm((f) => ({ ...f, maxFileSizeMb: v }))} />
         </div>
 
         {/* CLI-only notice */}

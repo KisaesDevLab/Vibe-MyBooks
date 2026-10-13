@@ -19,6 +19,7 @@ import {
   allNodes, combineLines, deleteNodeFromStatement, effectiveScheduleLines, findNode, insertNode, moveLine, moveNode, newNodeId,
   splitLine, updateNode, type DropPosition,
 } from './fsTreeOps';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 type Props = {
   statement: FsStatementConfig;
@@ -311,8 +312,8 @@ function NodeInspector({ node, statement, source, readOnly, onPatch, onStatement
             <Field label="Bold"><TriSelect value={style.bold} onChange={(bold) => setStyle({ bold })} /></Field>
             <Field label="Italic"><TriSelect value={style.italic} onChange={(italic) => setStyle({ italic })} /></Field>
             <Field label="All caps"><TriSelect value={style.caps} onChange={(caps) => setStyle({ caps })} /></Field>
-            <Field label="Extra indent"><input type="number" min={-4} max={6} className={input} value={style.indent ?? 0} onChange={(e) => setStyle({ indent: Number(e.target.value) || undefined })} /></Field>
-            <Field label="Size +/− pt"><input type="number" min={-4} max={8} step={0.5} className={input} value={style.sizeDelta ?? 0} onChange={(e) => setStyle({ sizeDelta: Number(e.target.value) || undefined })} /></Field>
+            <Field label="Extra indent"><NumericInput integer min={-4} max={6} className={input} value={style.indent ?? 0} onChange={(v) => setStyle({ indent: Number(v) || undefined })} /></Field>
+            <Field label="Size +/− pt"><NumericInput decimals={1} min={-4} max={8} className={input} value={style.sizeDelta ?? 0} onChange={(v) => setStyle({ sizeDelta: Number(v) || undefined })} /></Field>
             <Field label="Hide when zero"><TriSelect value={node.hideWhenZero} onChange={(hideWhenZero) => patch({ hideWhenZero })} /></Field>
             {node.type !== 'section' && (
               <>

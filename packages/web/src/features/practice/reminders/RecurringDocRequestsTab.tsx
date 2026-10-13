@@ -27,6 +27,7 @@ import {
   useBankConnectionOptions,
   useStaffUserOptions,
 } from './docRequestFormParts';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 // RECURRING_DOC_REQUESTS_V1 — standing-rule list + create/edit form.
 
@@ -578,12 +579,12 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
             <div className="grid grid-cols-3 gap-3">
               <label className="block text-sm">
                 <span className="block text-gray-800 mb-1">Every</span>
-                <input
-                  type="number"
+                <NumericInput
+                  integer
                   min={1}
                   max={12}
                   value={intervalValue}
-                  onChange={(e) => setIntervalValue(parseInt(e.target.value, 10) || 1)}
+                  onChange={(v) => setIntervalValue(parseInt(v, 10) || 1)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
               </label>
@@ -603,12 +604,12 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
               )}
               <label className="block text-sm">
                 <span className="block text-gray-800 mb-1">Due (days after)</span>
-                <input
-                  type="number"
+                <NumericInput
+                  integer
                   min={0}
                   max={365}
                   value={dueDays}
-                  onChange={(e) => setDueDays(parseInt(e.target.value, 10) || 0)}
+                  onChange={(v) => setDueDays(parseInt(v, 10) || 0)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
               </label>
@@ -664,12 +665,12 @@ function RuleEditorModal({ mode, initial, onClose, onSaved }: RuleEditorModalPro
                 </label>
                 <label className="block text-sm">
                   <span className="block text-gray-800 mb-1">Due (days after)</span>
-                  <input
-                    type="number"
+                  <NumericInput
+                    integer
                     min={0}
                     max={365}
                     value={dueDays}
-                    onChange={(e) => setDueDays(parseInt(e.target.value, 10) || 0)}
+                    onChange={(v) => setDueDays(parseInt(v, 10) || 0)}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   />
                 </label>

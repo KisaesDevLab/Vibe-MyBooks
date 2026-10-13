@@ -28,6 +28,7 @@ import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { focusSelector } from '../../components/forms/focusNav';
 import { SplitRowV2, LineTagPicker } from '../../components/forms/SplitRowV2';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
 import { useFormShortcuts } from '../../hooks/useFormShortcuts';
@@ -245,15 +246,15 @@ export function JournalEntryForm() {
                           next row (with labels); md+: the dense single row. */}
                       <div className="w-full md:w-auto md:flex-1 min-w-0">
                         <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Account</span>
-                        <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
+                        <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} onAdvance={() => focusSelector(`[data-je-debit="${i}"]`, formRef.current)} />
                       </div>
                       <div className="flex-1 min-w-0 md:flex-none md:w-32">
                         <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Debit</span>
-                        <MoneyInput value={line.debit} onChange={(v) => updateLine(i, 'debit', v)} />
+                        <MoneyInput value={line.debit} onChange={(v) => updateLine(i, 'debit', v)} data-je-debit={i} aria-label={`Line ${i + 1} debit`} />
                       </div>
                       <div className="flex-1 min-w-0 md:flex-none md:w-32">
                         <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Credit</span>
-                        <MoneyInput value={line.credit} onChange={(v) => updateLine(i, 'credit', v)} />
+                        <MoneyInput value={line.credit} onChange={(v) => updateLine(i, 'credit', v)} aria-label={`Line ${i + 1} credit`} />
                       </div>
                     </>
                   }
@@ -297,7 +298,7 @@ export function JournalEntryForm() {
                   <tr key={i} className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3 md:table-row md:border-0 md:bg-transparent md:p-0">
                     <td className="col-span-2 md:table-cell md:pr-2 md:py-1">
                       <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Account</span>
-                      <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} />
+                      <AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} onAdvance={() => focusSelector(`[data-je-debit="${i}"]`, formRef.current)} />
                     </td>
                     <td className="col-span-2 order-last md:order-none md:table-cell md:px-2 md:py-1">
                       <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Description</span>
@@ -306,11 +307,11 @@ export function JournalEntryForm() {
                     </td>
                     <td className="col-span-1 md:table-cell md:px-2 md:py-1">
                       <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Debit</span>
-                      <MoneyInput value={line.debit} onChange={(v) => updateLine(i, 'debit', v)} />
+                      <MoneyInput value={line.debit} onChange={(v) => updateLine(i, 'debit', v)} data-je-debit={i} aria-label={`Line ${i + 1} debit`} />
                     </td>
                     <td className="col-span-1 md:table-cell md:px-2 md:py-1">
                       <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Credit</span>
-                      <MoneyInput value={line.credit} onChange={(v) => updateLine(i, 'credit', v)} />
+                      <MoneyInput value={line.credit} onChange={(v) => updateLine(i, 'credit', v)} aria-label={`Line ${i + 1} credit`} />
                     </td>
                     <td className="col-span-2 order-first flex items-center justify-between md:order-none md:table-cell md:pl-2 md:py-1">
                       <span className="md:hidden text-xs font-semibold text-gray-700">Line {i + 1}</span>

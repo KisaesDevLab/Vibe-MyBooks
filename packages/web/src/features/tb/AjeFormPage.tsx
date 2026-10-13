@@ -21,6 +21,7 @@ import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { focusSelector } from '../../components/forms/focusNav';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -151,7 +152,7 @@ export function AjeFormPage() {
             <tbody>
               {lines.map((line, i) => (
                 <tr key={i}>
-                  <td className="pr-2 py-1"><AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} /></td>
+                  <td className="pr-2 py-1"><AccountSelector value={line.accountId} onChange={(v) => updateLine(i, 'accountId', v)} onAdvance={() => focusSelector(`[data-aje-debit="${i}"]`)} /></td>
                   <td className="px-2 py-1">
                     <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
                       className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
@@ -159,8 +160,8 @@ export function AjeFormPage() {
                   <td className="px-2 py-1">
                     <LineTagPicker value={line.tagId} onChange={(tagId) => updateLine(i, 'tagId', tagId)} compact />
                   </td>
-                  <td className="px-2 py-1"><MoneyInput value={line.debit} onChange={(v) => updateLine(i, 'debit', v)} /></td>
-                  <td className="px-2 py-1"><MoneyInput value={line.credit} onChange={(v) => updateLine(i, 'credit', v)} /></td>
+                  <td className="px-2 py-1"><MoneyInput value={line.debit} onChange={(v) => updateLine(i, 'debit', v)} data-aje-debit={i} aria-label={`Line ${i + 1} debit`} /></td>
+                  <td className="px-2 py-1"><MoneyInput value={line.credit} onChange={(v) => updateLine(i, 'credit', v)} aria-label={`Line ${i + 1} credit`} /></td>
                   <td className="pl-2 py-1">
                     {lines.length > 2 && (
                       <button type="button" onClick={() => removeLine(i)} aria-label="Remove line"

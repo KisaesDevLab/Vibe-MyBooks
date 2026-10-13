@@ -16,6 +16,7 @@ import {
 } from '@kis-books/shared';
 import { RichTextEditor } from '../../admin/RichTextEditor';
 import type { FsLibrary } from '../../../api/hooks/useFinancialStatements';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 const input = 'w-full rounded-md border border-gray-300 px-2 text-sm py-1';
 
@@ -156,9 +157,9 @@ export function StylePanel({ style, onChange, readOnly, library, onApplyPreset, 
               {FS_FONTS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
             </select>
           </Field>
-          <Field label="Base size (pt)"><input type="number" step={0.5} min={7} max={16} className={input} value={style.baseSizePt} onChange={(e) => onChange({ ...style, baseSizePt: Number(e.target.value) })} /></Field>
-          <Field label="Line spacing"><input type="number" step={0.05} min={1} max={2.2} className={input} value={style.lineHeight} onChange={(e) => onChange({ ...style, lineHeight: Number(e.target.value) })} /></Field>
-          <Field label="Indent step (pt)"><input type="number" min={4} max={36} className={input} value={style.indentPt} onChange={(e) => onChange({ ...style, indentPt: Number(e.target.value) })} /></Field>
+          <Field label="Base size (pt)"><NumericInput decimals={1} min={7} max={16} className={input} value={style.baseSizePt} onChange={(v) => onChange({ ...style, baseSizePt: Number(v) })} /></Field>
+          <Field label="Line spacing"><NumericInput decimals={2} min={1} max={2.2} className={input} value={style.lineHeight} onChange={(v) => onChange({ ...style, lineHeight: Number(v) })} /></Field>
+          <Field label="Indent step (pt)"><NumericInput integer min={4} max={36} className={input} value={style.indentPt} onChange={(v) => onChange({ ...style, indentPt: Number(v) })} /></Field>
         </div>
         <table className="w-full text-xs mt-2">
           <thead><tr className="text-gray-500"><th className="text-left font-medium">Element</th><th className="font-medium">Size</th><th className="font-medium">B</th><th className="font-medium">I</th><th className="font-medium">CAPS</th></tr></thead>
@@ -166,7 +167,7 @@ export function StylePanel({ style, onChange, readOnly, library, onApplyPreset, 
             {FS_STYLE_ELEMENTS.map((k) => (
               <tr key={k}>
                 <td className="py-0.5 text-gray-700">{ELEMENT_LABEL[k]}</td>
-                <td className="py-0.5 w-16"><input type="number" step={0.5} min={6} max={28} className="w-14 rounded border border-gray-300 px-1 text-xs py-0.5" value={style.elements[k].sizePt} onChange={(e) => setEl(k, { sizePt: Number(e.target.value) })} aria-label={`${ELEMENT_LABEL[k]} size`} /></td>
+                <td className="py-0.5 w-16"><NumericInput decimals={1} min={6} max={28} className="w-14 rounded border border-gray-300 px-1 text-xs py-0.5" value={style.elements[k].sizePt} onChange={(v) => setEl(k, { sizePt: Number(v) })} aria-label={`${ELEMENT_LABEL[k]} size`} /></td>
                 <td className="text-center"><input type="checkbox" checked={style.elements[k].bold} onChange={(e) => setEl(k, { bold: e.target.checked })} aria-label={`${ELEMENT_LABEL[k]} bold`} /></td>
                 <td className="text-center"><input type="checkbox" checked={style.elements[k].italic} onChange={(e) => setEl(k, { italic: e.target.checked })} aria-label={`${ELEMENT_LABEL[k]} italic`} /></td>
                 <td className="text-center"><input type="checkbox" checked={!!style.elements[k].caps} onChange={(e) => setEl(k, { caps: e.target.checked })} aria-label={`${ELEMENT_LABEL[k]} caps`} /></td>
@@ -203,7 +204,7 @@ export function StylePanel({ style, onChange, readOnly, library, onApplyPreset, 
               <option value="dash">—</option><option value="zero">0</option>
             </select>
           </Field>
-          <Field label="Amount column width (in)"><input type="number" step={0.05} min={0.6} max={2.5} className={input} value={style.amountColumnWidthIn} onChange={(e) => onChange({ ...style, amountColumnWidthIn: Number(e.target.value) })} /></Field>
+          <Field label="Amount column width (in)"><NumericInput decimals={2} min={0.6} max={2.5} className={input} value={style.amountColumnWidthIn} onChange={(v) => onChange({ ...style, amountColumnWidthIn: Number(v) })} /></Field>
           <label className="flex items-end gap-1.5 text-xs pb-1.5"><input type="checkbox" checked={style.number.hideZeroLines} onChange={(e) => onChange({ ...style, number: { ...style.number, hideZeroLines: e.target.checked } })} />Hide zero lines</label>
         </div>
       </Section>
@@ -222,7 +223,7 @@ export function StylePanel({ style, onChange, readOnly, library, onApplyPreset, 
           </Field>
           {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
             <Field key={side} label={`${side[0]!.toUpperCase()}${side.slice(1)} margin (in)`}>
-              <input type="number" step={0.05} min={0.25} max={3} className={input} value={m[side]} onChange={(e) => onChange({ ...style, page: { ...style.page, margins: { ...m, [side]: Number(e.target.value) } } })} />
+              <NumericInput decimals={2} min={0.25} max={3} className={input} value={m[side]} onChange={(v) => onChange({ ...style, page: { ...style.page, margins: { ...m, [side]: Number(v) } } })} />
             </Field>
           ))}
         </div>

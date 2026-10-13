@@ -11,6 +11,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { Upload, FileSpreadsheet, CheckCircle } from 'lucide-react';
+import { NumericInput } from '../../components/forms/NumericInput';
 
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', 'all'];
 
@@ -371,12 +372,12 @@ export function OpeningBalancesPage() {
                         <td className="px-4 py-2 text-gray-900">{acct.name}</td>
                         <td className="px-4 py-2 text-gray-500">{acct.accountType}</td>
                         <td className="px-4 py-2 text-right">
-                          <input
-                            type="number"
-                            step="0.01"
+                          <NumericInput
+                            decimals={2}
+                            allowNegative
                             placeholder="0.00"
                             value={manualBalances[acct.id] || ''}
-                            onChange={(e) => handleManualBalanceChange(acct.id, e.target.value)}
+                            onChange={(v) => handleManualBalanceChange(acct.id, v)}
                             className="w-32 text-right rounded-lg border border-gray-300 px-3 py-1 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                           />
                         </td>

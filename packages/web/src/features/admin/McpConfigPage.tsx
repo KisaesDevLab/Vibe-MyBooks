@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
 import { Plug, CheckCircle, AlertCircle } from 'lucide-react';
+import { NumericField } from '../../components/forms/NumericField';
 
 // Request log is paginated server-side (max limit 500) — no 'all' option.
 const LOG_PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
@@ -147,8 +148,8 @@ export function McpConfigPage() {
         {/* Key Policies */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">Key Policies</h2>
-          <Input label="Max API keys per user" type="number" value={String(form.maxKeysPerUser)}
-            onChange={(e) => setForm((f) => ({ ...f, maxKeysPerUser: parseInt(e.target.value) || 5 }))} />
+          <NumericField label="Max API keys per user" integer value={String(form.maxKeysPerUser)}
+            onChange={(v) => setForm((f) => ({ ...f, maxKeysPerUser: parseInt(v) || 5 }))} />
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" checked={form.requireKeyExpiration}
               onChange={(e) => setForm((f) => ({ ...f, requireKeyExpiration: e.target.checked }))}
@@ -156,8 +157,8 @@ export function McpConfigPage() {
             <span className="text-sm text-gray-700">Require expiration on all API keys</span>
           </label>
           {form.requireKeyExpiration && (
-            <Input label="Max key lifetime (days)" type="number" value={form.maxKeyLifetimeDays}
-              onChange={(e) => setForm((f) => ({ ...f, maxKeyLifetimeDays: e.target.value }))}
+            <NumericField label="Max key lifetime (days)" integer value={form.maxKeyLifetimeDays}
+              onChange={(v) => setForm((f) => ({ ...f, maxKeyLifetimeDays: v }))}
               placeholder="Leave empty for unlimited" />
           )}
         </div>
@@ -165,8 +166,8 @@ export function McpConfigPage() {
         {/* Rate Limits */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">Rate Limits</h2>
-          <Input label="System-wide max requests per minute" type="number" value={String(form.systemRateLimitPerMinute)}
-            onChange={(e) => setForm((f) => ({ ...f, systemRateLimitPerMinute: parseInt(e.target.value) || 500 }))} />
+          <NumericField label="System-wide max requests per minute" integer value={String(form.systemRateLimitPerMinute)}
+            onChange={(v) => setForm((f) => ({ ...f, systemRateLimitPerMinute: parseInt(v) || 500 }))} />
         </div>
 
         {/* OAuth */}

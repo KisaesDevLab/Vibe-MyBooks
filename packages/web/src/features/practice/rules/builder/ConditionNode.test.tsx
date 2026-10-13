@@ -79,14 +79,17 @@ describe('ConditionNode', () => {
     expect(screen.getByText(/Empty group/)).toBeInTheDocument();
   });
 
-  it('renders a number input for amount fields', () => {
+  it('renders a numeric (calculator) input for amount fields', () => {
     const numericNode: ConditionAST = {
       type: 'group', op: 'AND',
       children: [{ type: 'leaf', field: 'amount', operator: 'gt', value: 100 }],
     };
     render(<ConditionNode node={numericNode} onChange={vi.fn()} isRoot />);
     const input = screen.getByDisplayValue('100') as HTMLInputElement;
-    expect(input.type).toBe('number');
+    // Calculator field: a text box with a decimal keyboard hint that only
+    // ever commits plain numbers (negatives allowed — deposits).
+    expect(input.type).toBe('text');
+    expect(input.getAttribute('title')).toMatch(/math/i);
   });
 
   it('renders a date input for date.before', () => {

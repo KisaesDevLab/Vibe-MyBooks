@@ -15,6 +15,7 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { NumericInput } from '../../components/forms/NumericInput';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { ShortcutTooltip } from '../../components/ui/ShortcutTooltip';
@@ -210,8 +211,8 @@ export function CashSaleForm() {
                     </td>
                     <td className="col-span-1 lg:table-cell lg:px-2 lg:py-1">
                       <span className={lbl}>Qty</span>
-                      <input value={line.quantity} onChange={(e) => updateLine(i, 'quantity', e.target.value)}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" type="number" min="1" />
+                      <NumericInput value={line.quantity} onChange={(v) => updateLine(i, 'quantity', v)}
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-center shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" integer min={1} />
                     </td>
                     <td className="col-span-1 lg:table-cell lg:px-2 lg:py-1">
                       <span className={lbl}>Rate</span>
@@ -229,7 +230,7 @@ export function CashSaleForm() {
                       {line.isTaxable && (
                         <>
                           <span className={lbl}>Tax %</span>
-                          <input type="number" step="0.0001" value={line.taxRate} onChange={(e) => updateLine(i, 'taxRate', e.target.value)}
+                          <NumericInput decimals={4} value={line.taxRate} onChange={(v) => updateLine(i, 'taxRate', v)}
                             className="block w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-right shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
                         </>
                       )}

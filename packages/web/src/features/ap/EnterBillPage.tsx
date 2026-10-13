@@ -25,6 +25,7 @@ import { Sparkles, AlertTriangle } from 'lucide-react';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
 import { type BillLine, type OcrExtraction, VALID_TERMS, emptyLine, calcDueDate } from './billFormShared';
 import { BillLinesTable } from './BillLinesTable';
+import { NumericField } from '../../components/forms/NumericField';
 
 export function EnterBillPage() {
   const navigate = useNavigate();
@@ -585,12 +586,12 @@ export function EnterBillPage() {
           </div>
           {paymentTerms === 'custom' && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Input
+              <NumericField
                 label="Custom Days"
-                type="number"
-                min="0"
+                integer
+                min={0}
                 value={customDays}
-                onChange={(e) => { setCustomDays(e.target.value); setDueDateManual(false); }}
+                onChange={(v) => { setCustomDays(v); setDueDateManual(false); }}
               />
             </div>
           )}

@@ -10,6 +10,7 @@ import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
+import { NumericInput } from '../../components/forms/NumericInput';
 import { X } from 'lucide-react';
 
 export interface EditableSchedule {
@@ -122,8 +123,8 @@ export function RecurringScheduleModal({ transactionId, schedule, onClose }: Rec
           {supportsInterval(frequency) && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Every</label>
-              <input type="number" min={1} value={intervalValue}
-                onChange={(e) => setIntervalValue(Math.max(1, Number(e.target.value) || 1))}
+              <NumericInput integer min={1} value={intervalValue}
+                onChange={(v) => setIntervalValue(Math.max(1, Number(v) || 1))}
                 className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             </div>
           )}

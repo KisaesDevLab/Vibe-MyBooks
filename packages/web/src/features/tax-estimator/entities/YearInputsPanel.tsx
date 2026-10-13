@@ -10,6 +10,7 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { formatMoney } from '../../../utils/money';
 import { ENTITY_TYPE_LABELS } from './labels';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 const MONEY_RE = /^\d{1,15}(\.\d{1,4})?$/;
 
@@ -70,15 +71,15 @@ export function YearInputsPanel({ taxYear, inputs, booksW2Wages, entityType, bas
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm text-gray-700">
           W-2 wages override
-          <input aria-label="W-2 wages override" inputMode="decimal" placeholder="Use computed total" disabled={!canWrite}
+          <NumericInput aria-label="W-2 wages override" placeholder="Use computed total" disabled={!canWrite}
             className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50" value={override}
-            onChange={(e) => setOverride(e.target.value)} />
+            onChange={(v) => setOverride(v)} />
         </label>
         <label className="block text-sm text-gray-700">
           UBIA (unadjusted basis of qualified property)
-          <input aria-label="UBIA" inputMode="decimal" disabled={!canWrite}
+          <NumericInput aria-label="UBIA" disabled={!canWrite}
             className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50" value={ubia}
-            onChange={(e) => setUbia(e.target.value)} />
+            onChange={(v) => setUbia(v)} />
         </label>
       </div>
       {override.trim() !== '' && (

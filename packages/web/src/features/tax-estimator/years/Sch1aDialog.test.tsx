@@ -23,9 +23,15 @@ describe('Sch1aDialog (UI-SPEC §02 Schedule 1-A per-person entry)', () => {
     expect(within(dialog).getByTestId('senior-primary')).toHaveTextContent('65 or older at the end of 2026');
     expect(within(dialog).getByTestId('senior-spouse')).toHaveTextContent('Under 65');
     fireEvent.change(within(dialog).getByLabelText('Maria — Qualified overtime'), { target: { value: '5000' } });
-    fireEvent.change(within(dialog).getByLabelText('Carlos — Car loan interest'), { target: { value: '3,700' } });
-    expect(within(dialog).getByRole('button', { name: 'Apply' })).toBeDisabled(); // "3,700" is not an amount
-    fireEvent.change(within(dialog).getByLabelText('Carlos — Car loan interest'), { target: { value: '3700' } });
+    // Not an amount: the calculator field refuses it (red, never committed).
+    const carLoan = within(dialog).getByLabelText('Carlos — Car loan interest');
+    fireEvent.change(carLoan, { target: { value: '3.7.0' } });
+    fireEvent.blur(carLoan);
+    expect(carLoan).toHaveAttribute('aria-invalid', 'true');
+    // "3,700" is accepted calculator input and commits as the plain "3700".
+    fireEvent.change(carLoan, { target: { value: '3,700' } });
+    fireEvent.blur(carLoan);
+    expect(carLoan).toHaveValue('3700');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Apply' }));
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({
       'primary.qualifiedTips': '1200', 'spouse.qualifiedOvertime': '5000', 'primary.carLoanInterest': '3700',

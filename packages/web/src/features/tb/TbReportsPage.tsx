@@ -19,6 +19,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
 import { Download } from 'lucide-react';
+import { NumericInput } from '../../components/forms/NumericInput';
 
 // Reports that accept the tag view (workpaper-derived).
 const TAG_CAPABLE = new Set(['tb-workpaper', 'tb-grouped', 'tb-leadsheets', 'tb-tax-basis-pl', 'tb-flux']);
@@ -149,11 +150,11 @@ export function TbReportsPage() {
         {reportId === 'tb-flux' && (
           <>
             <label className="text-gray-600">Threshold $
-              <input type="number" value={thresholdAmount} onChange={(e) => setThresholdAmount(e.target.value)}
+              <NumericInput value={thresholdAmount} onChange={(v) => setThresholdAmount(v)}
                 className="ml-1 w-24 rounded-lg border border-gray-300 px-2 py-1.5" />
             </label>
             <label className="text-gray-600">Threshold %
-              <input type="number" value={thresholdPct} onChange={(e) => setThresholdPct(e.target.value)}
+              <NumericInput value={thresholdPct} onChange={(v) => setThresholdPct(v)}
                 className="ml-1 w-20 rounded-lg border border-gray-300 px-2 py-1.5" />
             </label>
           </>

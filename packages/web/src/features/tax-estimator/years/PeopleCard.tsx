@@ -12,8 +12,8 @@ import {
   RETIREMENT_PLAN_TYPES,
   type FarmerGrossDTO, type FilingStatus, type PersonDTO, type PersonInputsDTO, type RetirementPlanTypeDTO, type YearSettingsDTO,
 } from '@kis-books/shared';
-import { Input } from '../../../components/ui/Input';
 import { SELECT_CLASS } from '../taxpayers/labels';
+import { NumericField } from '../../../components/forms/NumericField';
 
 type Role = PersonDTO['role'];
 const ROLES: readonly Role[] = ['primary', 'spouse'];
@@ -109,11 +109,11 @@ export function PeopleCard({ draft, onChange, persons, filingStatus, canWrite }:
           <fieldset key={p.id} className="space-y-2 border-t border-gray-100 pt-3 first-of-type:border-0 first-of-type:pt-0" aria-label={`${p.firstName} ${p.lastName}`}>
             <legend className="text-sm font-medium text-gray-800">{p.firstName} {p.lastName}</legend>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <Input label={`${p.firstName} — W-2 wages (box 1)`} inputMode="decimal" value={d.w2Wages} disabled={!canWrite}
-                error={bad(d.w2Wages) ? 'Enter an amount' : undefined} onChange={(e) => setPerson(p.role, { w2Wages: e.target.value })} />
-              <Input label={`${p.firstName} — Social Security wages (box 3)`} inputMode="decimal" value={d.ssWages} disabled={!canWrite}
+              <NumericField label={`${p.firstName} — W-2 wages (box 1)`} value={d.w2Wages} disabled={!canWrite}
+                error={bad(d.w2Wages) ? 'Enter an amount' : undefined} onChange={(v) => setPerson(p.role, { w2Wages: v })} />
+              <NumericField label={`${p.firstName} — Social Security wages (box 3)`} value={d.ssWages} disabled={!canWrite}
                 placeholder="Same as box 1" error={bad(d.ssWages) ? 'Enter an amount' : undefined}
-                onChange={(e) => setPerson(p.role, { ssWages: e.target.value })} />
+                onChange={(v) => setPerson(p.role, { ssWages: v })} />
               <div>
                 <label htmlFor={`plan-${p.role}`} className="block text-sm font-medium text-gray-700 mb-1">{p.firstName} — retirement plan</label>
                 <select id={`plan-${p.role}`} className={SELECT_CLASS} value={d.plan} disabled={!canWrite}
@@ -123,9 +123,9 @@ export function PeopleCard({ draft, onChange, persons, filingStatus, canWrite }:
                 </select>
               </div>
               {deferralPlan && (
-                <Input label={`${p.firstName} — employee deferral`} inputMode="decimal" value={d.deferral} disabled={!canWrite}
+                <NumericField label={`${p.firstName} — employee deferral`} value={d.deferral} disabled={!canWrite}
                   placeholder="Maximum assumed" error={bad(d.deferral) ? 'Enter an amount' : undefined}
-                  onChange={(e) => setPerson(p.role, { deferral: e.target.value })} />
+                  onChange={(v) => setPerson(p.role, { deferral: v })} />
               )}
             </div>
             <p className="text-xs text-gray-500">
@@ -136,8 +136,8 @@ export function PeopleCard({ draft, onChange, persons, filingStatus, canWrite }:
         );
       })}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-gray-100 pt-3">
-        <Input label="Deductions allocable to investment income (Form 8960)" inputMode="decimal" value={draft.niiAllocable} disabled={!canWrite}
-          error={bad(draft.niiAllocable) ? 'Enter an amount' : undefined} onChange={(e) => onChange({ ...draft, niiAllocable: e.target.value })} />
+        <NumericField label="Deductions allocable to investment income (Form 8960)" value={draft.niiAllocable} disabled={!canWrite}
+          error={bad(draft.niiAllocable) ? 'Enter an amount' : undefined} onChange={(v) => onChange({ ...draft, niiAllocable: v })} />
         {filingStatus === 'mfs' && (
           <label className="flex items-center gap-2 text-sm text-gray-700 sm:mt-6">
             <input type="checkbox" checked={draft.mfsLivedApart} disabled={!canWrite} onChange={(e) => onChange({ ...draft, mfsLivedApart: e.target.checked })} />
@@ -157,10 +157,10 @@ export function PeopleCard({ draft, onChange, persons, filingStatus, canWrite }:
             {FARMER_FIELDS.map(([f, label]) => {
               const k = `${yr}.${p.role}.${f}`;
               return (
-                <Input key={k} id={`farmer-${k.replace(/\./g, '-')}`} label={`${yrLabel} — ${p.firstName} — ${label}`} aria-label={`${yrLabel} — ${p.firstName} — ${label}`}
-                  inputMode="decimal" value={draft.farmer[k] ?? ''} disabled={!canWrite}
+                <NumericField key={k} id={`farmer-${k.replace(/\./g, '-')}`} label={`${yrLabel} — ${p.firstName} — ${label}`} aria-label={`${yrLabel} — ${p.firstName} — ${label}`}
+                  value={draft.farmer[k] ?? ''} disabled={!canWrite}
                   error={bad(draft.farmer[k] ?? '') ? 'Enter an amount' : undefined}
-                  onChange={(e) => onChange({ ...draft, farmer: { ...draft.farmer, [k]: e.target.value } })} />
+                  onChange={(v) => onChange({ ...draft, farmer: { ...draft.farmer, [k]: v } })} />
               );
             })}
           </div>

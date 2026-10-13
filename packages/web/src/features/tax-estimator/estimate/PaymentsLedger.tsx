@@ -14,6 +14,7 @@ import { usePaymentLedger, useCreatePayment, useUpdatePayment, useDeletePayment 
 import { SELECT_CLASS } from '../taxpayers/labels';
 import { formatMoney } from '../../../utils/money';
 import { errMsg, fmtDate, JURISDICTION_LABEL } from './format';
+import { NumericField } from '../../../components/forms/NumericField';
 
 const SOURCE_LABEL: Record<string, string> = { gl: 'Books (GL)', manual: 'Manual', prior_year_overpayment: 'Prior-year overpayment' };
 
@@ -61,7 +62,7 @@ export function PaymentsLedger({ taxpayerId, taxYear, jurisdictions, canWrite }:
             </select>
           </div>
           <Input label="Date paid" type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
-          <Input label="Amount" inputMode="decimal" placeholder="0.00" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} />
+          <NumericField label="Amount" placeholder="0.00" value={draft.amount} onChange={(v) => setDraft({ ...draft, amount: v })} />
           <Input label="Memo" maxLength={200} value={draft.memo} onChange={(e) => setDraft({ ...draft, memo: e.target.value })} />
           <div className="flex gap-2">
             <Button type="submit" size="sm" loading={saving} disabled={!valid(draft)}>Save payment</Button>

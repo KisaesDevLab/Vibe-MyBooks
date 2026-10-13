@@ -12,6 +12,7 @@ import {
   Cloud, Server, Mail, Eye, EyeOff, CheckCircle, XCircle, Clock,
   RefreshCw, Lock,
 } from 'lucide-react';
+import { NumericInput } from '../../components/forms/NumericInput';
 
 interface RemoteConfig {
   enabled: boolean;
@@ -344,7 +345,7 @@ export function RemoteBackupSettingsPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Max Attachment Size (MB)</label>
-                    <input type="number" value={emailMaxSize} onChange={(e) => setEmailMaxSize(Number(e.target.value))}
+                    <NumericInput integer value={emailMaxSize} onChange={(v) => setEmailMaxSize(Number(v))}
                       min={1} max={50}
                       className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                     <p className="text-xs text-gray-500 mt-0.5">For larger installations, use SFTP or WebDAV.</p>

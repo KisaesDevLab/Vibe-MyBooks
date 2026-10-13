@@ -15,6 +15,7 @@ import {
 } from '../../../api/hooks/useReviewChecks';
 import { Button } from '../../../components/ui/Button';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 // Owner-only surface to override the four classification
 // thresholds. PracticeLayout already gates this route by
@@ -326,13 +327,12 @@ function ReviewCheckThresholds() {
                   </p>
                 )}
               </div>
-              <input
-                type="number"
-                min="0"
-                step="1"
+              <NumericInput
+                integer
+                min={0}
                 value={inputValue(entry.checkKey)}
-                onChange={(e) =>
-                  setDrafts((d) => ({ ...d, [entry.checkKey]: e.target.value }))
+                onChange={(v) =>
+                  setDrafts((d) => ({ ...d, [entry.checkKey]: v }))
                 }
                 className="w-36 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-mono"
               />
@@ -380,13 +380,12 @@ function Field({
     <label className="flex flex-col gap-1">
       <span className="text-sm font-medium text-gray-900">{label}</span>
       <span className="text-xs text-gray-500">{hint}</span>
-      <input
-        type="number"
-        step="0.01"
-        min="0"
-        max="1"
+      <NumericInput
+        decimals={2}
+        min={0}
+        max={1}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
         className="w-32 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-mono"
       />
     </label>

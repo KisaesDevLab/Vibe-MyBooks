@@ -9,6 +9,8 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Shield, CheckCircle, AlertTriangle } from 'lucide-react';
+import { NumericField } from '../../components/forms/NumericField';
+import { NumericInput } from '../../components/forms/NumericInput';
 
 export function TfaConfigPage() {
   const queryClient = useQueryClient();
@@ -211,8 +213,8 @@ export function TfaConfigPage() {
             <span className="text-sm text-gray-700">Allow users to trust devices and skip 2FA</span>
           </label>
           {form.trustDeviceEnabled && (
-            <Input label="Trust duration (days)" type="number" value={String(form.trustDeviceDurationDays)}
-              onChange={(e) => setForm((f) => ({ ...f, trustDeviceDurationDays: parseInt(e.target.value) || 30 }))} />
+            <NumericField label="Trust duration (days)" integer value={String(form.trustDeviceDurationDays)}
+              onChange={(v) => setForm((f) => ({ ...f, trustDeviceDurationDays: parseInt(v) || 30 }))} />
           )}
         </div>
 
@@ -321,9 +323,10 @@ export function TfaConfigPage() {
           {(tenantCreationCfg?.selfServiceTenantCreation ?? false) && (
             <div className="flex items-center gap-2 pl-7">
               <label className="text-sm text-gray-700">Max businesses per user</label>
-              <input type="number" min={0} max={1000}
+              <NumericInput integer min={0}
+                aria-label="Max businesses per user"
                 value={tenantLimitDraft ?? String(tenantCreationCfg?.selfServiceTenantLimit ?? 3)}
-                onChange={(e) => setTenantLimitDraft(e.target.value)}
+                onChange={(v) => setTenantLimitDraft(v)}
                 onBlur={() => {
                   const n = Number.parseInt(tenantLimitDraft ?? '', 10);
                   if (tenantLimitDraft === null || !Number.isInteger(n) || n < 0) { setTenantLimitDraft(null); return; }

@@ -11,6 +11,7 @@ import { Button } from '../../../components/ui/Button';
 import { formatMoney } from '../../../utils/money';
 import { LINK_OWNER_HELP, linkedTaxpayers, ownerLabel } from './PaymentTargetPicker';
 import { SELECT_CLASS } from './labels';
+import { NumericInput } from '../../../components/forms/NumericInput';
 
 export interface SplitDraftRow {
   taxpayerId: string | null;
@@ -126,15 +127,15 @@ export function OwnerSplitEditor({ mode, rows, isPayment, taxYear, candidates, d
           )}
           {mode === 'pct' ? (
             <span className="inline-flex items-center gap-1">
-              <input aria-label={`Split % ${i + 1}`} inputMode="decimal" disabled={disabled} value={r.pct}
-                className="w-24 rounded-lg border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-50" onChange={(e) => patchRow(i, { pct: e.target.value })} />
+              <NumericInput aria-label={`Split % ${i + 1}`} disabled={disabled} value={r.pct}
+                className="w-24 rounded-lg border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-50" onChange={(v) => patchRow(i, { pct: v })} />
               <span className="text-xs text-gray-500">%</span>
             </span>
           ) : (
             <span className="inline-flex items-center gap-1">
               <span className="text-xs text-gray-500">$</span>
-              <input aria-label={`Fixed annual amount ${i + 1}`} inputMode="decimal" disabled={disabled} value={r.amount}
-                className="w-32 rounded-lg border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-50" onChange={(e) => patchRow(i, { amount: e.target.value })} />
+              <NumericInput aria-label={`Fixed annual amount ${i + 1}`} disabled={disabled} value={r.amount}
+                className="w-32 rounded-lg border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-50" onChange={(v) => patchRow(i, { amount: v })} />
             </span>
           )}
           <Button size="sm" variant="ghost" disabled={disabled} aria-label={`Remove split row ${i + 1}`}

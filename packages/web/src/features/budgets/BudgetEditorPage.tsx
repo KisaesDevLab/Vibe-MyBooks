@@ -12,6 +12,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { Plus, Save, Calendar, Copy, Percent, ArrowRight, EyeOff, Eye, Grid3X3, DollarSign, Sparkles } from 'lucide-react';
+import { NumericInput } from '../../components/forms/NumericInput';
 
 interface Budget {
   id: string;
@@ -479,11 +480,11 @@ export function BudgetEditorPage() {
                     <p className="text-sm font-semibold text-gray-900">Actuals + Growth</p>
                     <p className="text-xs text-gray-500 mt-0.5 mb-2">Use {fiscalYear - 1} actuals, adjusted by a percentage</p>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        step="0.1"
+                      <NumericInput
+                        decimals={1}
+                        allowNegative
                         value={setupGrowthPct}
-                        onChange={(e) => setSetupGrowthPct(e.target.value)}
+                        onChange={(v) => setSetupGrowthPct(v)}
                         className="w-20 border border-gray-300 rounded px-2 py-1 text-sm text-right"
                         onClick={(e) => e.stopPropagation()}
                       />
@@ -511,7 +512,7 @@ export function BudgetEditorPage() {
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Adjust All Amounts</h3>
             <p className="text-sm text-gray-600 mb-3">Enter a percentage to increase or decrease all budget amounts.</p>
             <div className="flex items-center gap-2 mb-4">
-              <input type="number" step="0.1" value={percentValue} onChange={(e) => setPercentValue(e.target.value)}
+              <NumericInput decimals={1} allowNegative value={percentValue} onChange={(v) => setPercentValue(v)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" autoFocus />
               <span className="text-sm text-gray-500">%</span>
             </div>
@@ -602,11 +603,11 @@ function AnnualView({ budgetAccounts, lines, hideZero, getAnnualTotal, setAnnual
           {acct.accountNumber ? `${acct.accountNumber} — ` : ''}{acct.name}
         </td>
         <td className="px-4 py-2 w-48">
-          <input
-            type="number"
-            step="0.01"
+          <NumericInput
+            decimals={2}
+            allowNegative
             value={annual === 0 ? '' : annual.toFixed(2)}
-            onChange={(e) => setAnnualAmount(acct.id, parseFloat(e.target.value) || 0)}
+            onChange={(v) => setAnnualAmount(acct.id, parseFloat(v) || 0)}
             placeholder="0.00"
             className="w-full text-right text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           />
@@ -723,10 +724,10 @@ function MonthlyView({ budgetAccounts, lines, hideZero, getAnnualTotal, setAnnua
         </td>
         {MONTH_KEYS.map((mk) => (
           <td key={mk} className="px-1 py-1">
-            <input
-              type="number" step="0.01"
+            <NumericInput
+              decimals={2} allowNegative
               value={lines[acct.id]?.[mk] ?? '0'}
-              onChange={(e) => handleCellChange(acct.id, mk, e.target.value)}
+              onChange={(v) => handleCellChange(acct.id, mk, v)}
               onDoubleClick={() => handleApplyToAll(acct.id, mk)}
               title="Double-click to apply to all months"
               className="w-full text-right text-sm border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
@@ -734,10 +735,10 @@ function MonthlyView({ budgetAccounts, lines, hideZero, getAnnualTotal, setAnnua
           </td>
         ))}
         <td className="px-1 py-1 bg-gray-50">
-          <input
-            type="number" step="0.01"
+          <NumericInput
+            decimals={2} allowNegative
             value={annual === 0 ? '' : annual.toFixed(2)}
-            onChange={(e) => setAnnualAmount(acct.id, parseFloat(e.target.value) || 0)}
+            onChange={(v) => setAnnualAmount(acct.id, parseFloat(v) || 0)}
             placeholder="0.00"
             className="w-full text-right text-sm border border-gray-200 rounded px-2 py-1 font-semibold focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
           />

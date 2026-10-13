@@ -21,6 +21,7 @@ import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
 import { StateSelect } from './StateSelect';
 import { ACTIVITY_LABELS, MONTH_LABELS, SE_STATUS_LABELS, SELECT_CLASS } from './labels';
+import { NumericField } from '../../../components/forms/NumericField';
 
 export const OUTSIDE_TYPE_LABELS: Record<EntityTaxType, string> = {
   sch_c: 'Schedule C (sole proprietor)', sch_f: 'Schedule F (farm)', s_corp: 'S corporation', partnership: 'Partnership', c_corp: 'C corporation',
@@ -92,8 +93,8 @@ export function OutsideEntityForm({ initial, persons, saving, error, onSave, onC
             {persons.map((p) => <option key={p.role} value={p.role}>{p.firstName} {p.lastName} ({p.role})</option>)}
           </select>
         </div>
-        <Input label="Profit %" type="number" min={0} max={100} step="0.0001" value={d.profitPct} onChange={(e) => set('profitPct', e.target.value)} />
-        <Input label="Loss % (blank = profit %)" type="number" min={0} max={100} step="0.0001" value={d.lossPct} onChange={(e) => set('lossPct', e.target.value)} />
+        <NumericField label="Profit %" min={0} max={100} decimals={4} value={d.profitPct} onChange={(v) => set('profitPct', v)} />
+        <NumericField label="Loss % (blank = profit %)" min={0} max={100} decimals={4} value={d.lossPct} onChange={(v) => set('lossPct', v)} />
         <div>
           <label htmlFor="ob-activity" className="block text-sm font-medium text-gray-700 mb-1">Activity type</label>
           <select id="ob-activity" className={SELECT_CLASS} value={d.activityType} onChange={(e) => set('activityType', e.target.value as ActivityType)}>
@@ -188,7 +189,7 @@ export function OutsideYearForm({ entity, taxYear, saving, error, onSave, onCanc
     w2Wages: ccorp ? null : m('w2Wages'), ubia: ccorp ? null : m('ubia'), includeSehiInW2Wages: t === 's_corp' && d.includeSehiInW2Wages,
     allowedLossOverride: ccorp ? null : m('allowedLossOverride'),
   });
-  const moneyInput = (k: MoneyField, label: string) => <Input key={k} label={label} inputMode="decimal" value={d.money[k]} onChange={(e) => setMoney(k, e.target.value)} />;
+  const moneyInput = (k: MoneyField, label: string) => <NumericField key={k} label={label} value={d.money[k]} onChange={(v) => setMoney(k, v)} />;
   return (
     <div className="rounded-lg border border-primary-200 bg-primary-50/30 p-4 space-y-3" role="form" aria-label={`${entity.name} ${taxYear} amounts`}>
       <p className="text-sm font-medium text-gray-900">{entity.name} &mdash; {taxYear} amounts</p>
@@ -224,7 +225,7 @@ export function OutsideYearForm({ entity, taxYear, saving, error, onSave, onCanc
         {ccorp ? ' A C corporation is estimated at the entity level on its taxable income (enter it as ordinary income); it is not in the individual totals.' : ''}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-        {INCOME_CHARACTERS.map((k) => <Input key={k} label={CHARACTER_LABELS[k]} inputMode="decimal" value={d.amounts[k]} onChange={(e) => setAmt(k, e.target.value)} />)}
+        {INCOME_CHARACTERS.map((k) => <NumericField key={k} label={CHARACTER_LABELS[k]} value={d.amounts[k]} onChange={(v) => setAmt(k, v)} />)}
       </div>
       {!ccorp && (
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">

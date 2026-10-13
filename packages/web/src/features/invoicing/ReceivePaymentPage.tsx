@@ -16,6 +16,7 @@ import { PaymentMethodSelect } from '../../components/forms/PaymentMethodSelect'
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
+import { NumericInput } from '../../components/forms/NumericInput';
 
 interface InvoicePaymentRow {
   invoiceId: string;
@@ -221,13 +222,12 @@ export function ReceivePaymentPage() {
                           ${parseFloat(row.invoice.balanceDue).toFixed(2)}
                         </td>
                         <td className="px-6 py-3 text-right w-40">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max={row.invoice.balanceDue}
+                          <NumericInput
+                            decimals={2}
+                            min={0}
+                            max={Number(row.invoice.balanceDue)}
                             value={row.payment}
-                            onChange={(e) => handlePaymentChange(idx, e.target.value)}
+                            onChange={(v) => handlePaymentChange(idx, v)}
                             className="block w-full rounded border border-gray-300 px-2 py-1 text-sm text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary-500"
                           />
                         </td>

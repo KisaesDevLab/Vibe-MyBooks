@@ -5,8 +5,8 @@
 import { useEffect, useState } from 'react';
 import type { FilingStatus, PersonDTO } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
 import { SCH1A_FIELDS } from './labels';
+import { NumericField } from '../../../components/forms/NumericField';
 
 /** Draft values keyed `${role}.${field}` (strings as typed). */
 export type Sch1aDraft = Record<string, string>;
@@ -74,9 +74,9 @@ export function Sch1aDialog({ open, taxYear, filingStatus, persons, canWrite, va
                 {SCH1A_FIELDS.map(([k, label]) => {
                   const key = `${p.role}.${k}`;
                   return (
-                    <Input key={k} label={`${p.firstName} — ${label}`} inputMode="decimal" value={draft[key] ?? ''} disabled={!canWrite}
+                    <NumericField key={k} label={`${p.firstName} — ${label}`} value={draft[key] ?? ''} disabled={!canWrite}
                       error={sch1aAmountBad(draft[key]) ? 'Enter an amount' : undefined}
-                      onChange={(e) => setDraft((cur) => ({ ...cur, [key]: e.target.value }))} />
+                      onChange={(v) => setDraft((cur) => ({ ...cur, [key]: v }))} />
                   );
                 })}
               </div>
