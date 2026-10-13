@@ -32,7 +32,7 @@ estimator, and do not add them to analytics, AI prompts or support bundles.
 | `tax_est_snapshots.payload_encrypted` | Frozen estimate: inputs (incl. the four values above), engine result, resolved federal parameters and state rules with statuses, readiness, assumptions, disclaimer | §7216 tax return information (contains and derives from the prior-year figures) | AES-256-GCM; `payload_sha256` (hash of the plaintext) verified on every read; immutable (no update path; BEFORE UPDATE trigger, `TE_SNAPSHOT_IMMUTABLE`); the read-only view withholds the raw prior-year inputs |
 | `tax_est_snapshots.summary_encrypted` | Snapshot totals for the history list | §7216 tax return information (derived) | AES-256-GCM; `summary_sha256` verified on read; returned only to callers who still reach every tenant in `tenant_ids` (D1) |
 | `tax_est_dashboard_summaries.summary_encrypted` | Q52 (migration `0212_tax_est_dashboard_summaries`): compact copy of the latest LIVE Base-scenario estimate per taxpayer-year and tenant set — voucher schedule with the engine's payment-application record, payment ledger (id / jurisdiction / date / amount), totals, per-jurisdiction penalty total and return due date, entities' path / books-through month — read by the firm-wide dashboard cards | §7216 tax return information (derived from the prior-year figures through the safe-harbor amounts) | AES-256-GCM (enrolled in the re-encryption sweep by its name); written only by the estimate service (`dashboard-summaries.service.ts recordDashboardSummary`), read only by `dashboard-cards.service.ts`; shown only to a viewer whose D17 / D18 scope covers every tenant in `tenant_ids` (the snapshot rule) and who reaches no linked tenant the row did not read; cascades with the taxpayer and the scenario; a row that does not decrypt is ignored (fallback to the snapshot / "not computed"); never audited, never exported |
-| Redis `te:estimate:te-estimate-v3:*` | Cached live estimate (6 h TTL, key embeds the inputs hash, which covers the caller's tenant scope and every company's reconciliation state — R3-01 / R3-03) | §7216 tax return information (derived) | value is `{ enc: <AES-256-GCM ciphertext> }`; a value that does not decrypt is a cache miss |
+| Redis `te:estimate:te-estimate-v10:*` (v0.9.229 integration of Q49–Q53; earlier versions expire) | Cached live estimate (6 h TTL, key embeds the inputs hash, which covers the caller's tenant scope and every company's reconciliation state — R3-01 / R3-03) | §7216 tax return information (derived) | value is `{ enc: <AES-256-GCM ciphertext> }`; a value that does not decrypt is a cache miss |
 
 Dependents (Q44, migration `0204_tax_est_dependents`): `tax_est_dependents` holds a
 dependent's display name, date of birth, relationship, qualifying-child / relative kind,
@@ -45,6 +45,16 @@ number is stored. The engine result, the PDF and the assumptions page carry only
 dependent's age at year end and age group (the assumptions page prints initials); the
 client portal shows none of it. `tax_est_years.care_expenses` (child and dependent care
 expenses paid) is a plain money input like the manual credits.
+
+State rate schedules (Q53, migration `0213_tax_est_state_brackets`): `tax_est_state_rows.rate_mode`
+(`brackets` default | `effective`) and `nonresident_mode` (`ratio` default | `sourced_rate`) are plain
+settings (audited with the row set, like `effective_rate`); `tax_est_years.unrecaptured_1250_gain` and
+`collectibles_gain` (NUMERIC(19,4), default 0, CHECK ≥ 0) are plain money inputs like the manual credits
+(the parts of the long-term gains taxed at up to 25% / 28%). The account treatments `unrecaptured_1250` /
+`collectibles_gain` join the `tax_est_account_treatments.treatment` CHECK. The new state rule keys
+(`starting_point`, `brackets`, `standard_deduction`, `capital_gains`, `federal_tax_deduction`,
+`capital_gains_excise`) are reference data in `state_estimate_rules` (no client data). The P&L cache
+(`te:pl:v5` on the Q53 branch, `te:pl:v6` since the v0.9.229 integration) gains `ltcgSubsets` (books figures, plain JSON as before).
 
 Businesses outside MyBooks (Q45, migration `0206_tax_est_outside_entities`):
 `tax_est_outside_entities` holds the business name, entity type, owner (person), ownership

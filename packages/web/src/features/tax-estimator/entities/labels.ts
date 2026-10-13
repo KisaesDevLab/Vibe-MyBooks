@@ -19,6 +19,7 @@ export const TREATMENT_LABELS: Record<AccountTreatment, string> = {
   capital_gain_lt: 'Character: long-term capital gain', capital_gain_st: 'Character: short-term capital gain',
   section_1231: 'Character: Section 1231', interest: 'Character: interest',
   dividends_ordinary: 'Character: ordinary dividends', dividends_qualified: 'Character: qualified dividends',
+  unrecaptured_1250: 'Long-term gain: unrecaptured §1250 (25%)', collectibles_gain: 'Long-term gain: collectibles (28%)',
 };
 
 export function entityTypeSourceLabel(source: EntityTypeSource, returnForm: string | null, override?: EntityTypeOverrideInfo): string {

@@ -126,3 +126,19 @@ Operator notes:
 - Shown only where `TAX_ESTIMATOR_V1` is ON: for the company cards, on the **client's own tenant** (the practice tenant alone is not enough).
 - **Migration** `0212_tax_est_dashboard_summaries` (additive, one table; journal idx 212 — renumber at merge if 0209-0211 land differently). Rollback `0212_tax_est_dashboard_summaries.rollback.sql` drops the table (a derived cache, rebuilt by the next estimate). The table's `summary_encrypted` column is covered by the credential re-encryption sweep.
 - No backfill: the firm cards fill as estimates are viewed, finalized or refreshed; until then they show finalized snapshots or "Not computed yet".
+
+## State rate schedules, state capital gains and the 25% / 28% gains (Q53, engine 1.0.0-rc.9)
+
+User-facing:
+- **State tax now uses each state's rate schedule** (all income-tax states and DC, 2025 and 2026): the state's starting point, capital gains rule, federal-tax deduction (Missouri, Alabama, Oregon), standard deduction, exemptions and tax brackets for the filing status. Each state row has **Tax computed by**: *State rate schedule* (default) or *Effective-rate override* (the previous method, labelled as such everywhere). With no schedule on file the row's rate is used and the estimate warns.
+- **Nonresident states** default to the state's own method: the tax as if a resident on all income × the income sourced there ÷ federal AGI (ratio states), or the schedule on the sourced income less prorated deductions (states that tax only in-state income). *Sourced income × rate* stays available per row. The resident state's credit is limited to its tax × the sourced income ÷ its AGI.
+- **State capital gains**: Missouri's 100% capital gain subtraction (HB 594, from 2025), Arkansas's 50% net long-term gain exclusion (all of it over $10 million), Wisconsin 30%, North Dakota 40%, South Carolina 44%, Arizona 25%, Vermont and New Mexico flat exclusions, Hawaii's 7.25% maximum rate, Montana's separate long-term rates, Massachusetts' 8.5% short-term rate, Maryland's 2% surtax over $350,000 federal AGI. Deductions limited to in-state or long-held assets are noted, not applied. **Washington's capital gains tax** is computed for a Washington resident row.
+- **Unrecaptured §1250 gain and collectibles gain** on Annual settings, and account treatments *Long-term gain: unrecaptured §1250 (25%)* / *collectibles (28%)*, feed the 25% / 28% Schedule D worksheet rates.
+- The Calculation view, assumptions page and PDF show the schedule computation per state (and the ratio for nonresident rows), or "Effective-rate override".
+- Admin > Tax parameters > States shows the new rules (bracket tables per filing status) with override, verify and the AI check like every other rule. Every new value is **unverified** — Kurt verifies MO and AR first.
+
+Operator notes:
+- Migration `0213_tax_est_state_brackets.sql` (+ rollback; part `parts/state-brackets.sql`; journal idx 213, `when` 1784800000350): state-row modes, the two year inputs, and the account-treatment CHECK re-created with the two new treatments (non-additive exception: DROP + ADD of the same constraint). The new state rules (344 rows) arrive through the startup seed re-sync.
+- **Live estimate numbers change on deploy** for every scenario with state rows: existing rows switch to the rate schedule (the previously entered rate stays as the override value — flip a row back to *Effective-rate override* to restore the old figure). Snapshots already issued are unchanged.
+- Engine 1.0.0-rc.9. Estimate cache `te-estimate-v10`, P&L cache `te:pl:v6` (v0.9.229 integration: above the Q49–Q52 `v8` / `v4` and the Q53 branch's own `v9` / `v5`) re-key every live estimate once.
+- Kurt's review list (defaults, simplifications, carried-forward 2026 states): OPEN-QUESTIONS.md Q53.

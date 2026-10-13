@@ -259,20 +259,44 @@ describe('StateRowsEditor', () => {
     expect(validateDrafts([{ ...mo, ratePct: '25' }])).toMatch(/between 0 and 20/);
   });
 
-  it('shows the effective-rate label on nonresident rows, saves rate as a decimal and blocks an invalid set', () => {
+  it('shows the effective-rate label on sourced × rate nonresident rows, saves rate as a decimal and blocks an invalid set', () => {
     const onSave = vi.fn();
-    render(<StateRowsEditor rows={[row(), row({ id: 'r2', residency: 'nonresident', state: 'AR', effectiveRate: 0.039 })]} canWrite onSave={onSave} />);
+    render(<StateRowsEditor rows={[row(), row({ id: 'r2', residency: 'nonresident', state: 'AR', effectiveRate: 0.039, nonresidentMode: 'sourced_rate' })]} canWrite onSave={onSave} />);
     expect(within(screen.getByTestId('state-row-nonresident')).getByText('Effective-rate estimate')).toBeInTheDocument();
+    expect(within(screen.getByTestId('state-row-resident')).getByText('Rate schedule')).toBeInTheDocument();
     expect(screen.getByText(/Derived from each entity/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save states' }));
     const input = onSave.mock.calls[0]![0];
     expect(input.rows).toHaveLength(2);
     expect(input.rows[0]).toMatchObject({ residency: 'resident', state: 'MO', effectiveRate: 0.04 });
-    expect(input.rows[1]).toMatchObject({ residency: 'nonresident', state: 'AR', effectiveRate: 0.039, sourcedManual: false, sourcedIncome: null });
+    expect(input.rows[1]).toMatchObject({ residency: 'nonresident', state: 'AR', effectiveRate: 0.039, sourcedManual: false, sourcedIncome: null, rateMode: 'brackets', nonresidentMode: 'sourced_rate' });
+    expect(input.rows[0]).toMatchObject({ rateMode: 'brackets' });
+    expect(input.rows[0].nonresidentMode).toBeUndefined();
 
     fireEvent.click(screen.getByRole('button', { name: '+ Add state' }));
     expect(screen.getByTestId('state-problem')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save states' })).toBeDisabled();
+  });
+
+  it('Q53: rate mode and nonresident method controls; the rate is optional on the schedule and required for the override', () => {
+    const onSave = vi.fn();
+    render(<StateRowsEditor rows={[row({ effectiveRate: 0 }), row({ id: 'r2', residency: 'nonresident', state: 'KS', effectiveRate: 0 })]} canWrite onSave={onSave} />);
+    expect(screen.getByLabelText('Resident MO tax computed by')).toHaveValue('brackets');
+    expect(screen.getByLabelText('Nonresident KS nonresident tax')).toHaveValue('ratio');
+    expect(within(screen.getByTestId('state-row-nonresident')).getByText('Rate schedule, state method')).toBeInTheDocument();
+    expect(screen.getByLabelText('Resident MO fallback rate %')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Resident MO fallback rate %'), { target: { value: '' } });
+    expect(screen.queryByTestId('state-problem')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Resident MO tax computed by'), { target: { value: 'effective' } });
+    expect(within(screen.getByTestId('state-row-resident')).getAllByText('Effective-rate override').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('state-problem')).toHaveTextContent(/Rate for MO/);
+    fireEvent.change(screen.getByLabelText('Resident MO rate %'), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText('Nonresident KS nonresident tax'), { target: { value: 'sourced_rate' } });
+    fireEvent.change(screen.getByLabelText('Nonresident KS rate %'), { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save states' }));
+    const sent = onSave.mock.calls[0]![0];
+    expect(sent.rows[0]).toMatchObject({ state: 'MO', rateMode: 'effective', effectiveRate: 0.04 });
+    expect(sent.rows[1]).toMatchObject({ state: 'KS', rateMode: 'brackets', nonresidentMode: 'sourced_rate', effectiveRate: 0.05 });
   });
 
   it('seeds an empty scenario with the taxpayer resident state and asks for manual sourced income', () => {
@@ -336,6 +360,15 @@ describe('YearInputsForm — People card (R7-01)', () => {
       spouse: { w2Wages: 150000, w2SocialSecurityWages: 173500, retirementPlanType: 'none', employeeDeferral: null },
     });
     expect(input).toMatchObject({ niiAllocableDeductions: '1200.50', mfsLivedApartAllYear: false, farmerGross: {}, isFisherman: false });
+  });
+
+  it('Q53 / Q39: unrecaptured §1250 and collectibles gain inputs round-trip and save', () => {
+    const onSave = vi.fn();
+    render(<YearInputsForm detail={detail(settings({ unrecaptured1250Gain: '15000.0000', collectiblesGain: '0.0000' }))} persons={persons} filingStatus="mfj" canWrite onSave={onSave} />);
+    expect(screen.getByLabelText('Unrecaptured §1250 gain (25%)')).toHaveValue('15000');
+    fireEvent.change(screen.getByLabelText('Collectibles gain (28%)'), { target: { value: '5000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annual settings' }));
+    expect(onSave.mock.calls[0]![0]).toMatchObject({ unrecaptured1250Gain: '15000', collectiblesGain: '5000' });
   });
 
   it('round-trips saved values, shows the MFS lived-apart flag for MFS, and saves farmer gross figures', () => {
