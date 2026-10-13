@@ -55,11 +55,24 @@ describe('FirmMemberCapabilitiesDrawer', () => {
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ capabilities: null })));
   });
 
-  it('firm_readonly member: everything disabled with an explanation', () => {
+  // Q54: a readonly member may hold the view-only "Tax Estimator: view taxpayers" right; every
+  // owner / admin right stays disabled.
+  it('firm_readonly member: only the Tax Estimator view right is editable, with an explanation', async () => {
     renderRoute(<FirmMemberCapabilitiesDrawer firmId="f1" firmUser={member('firm_readonly')} superAdminManaged={false} onClose={vi.fn()} />);
-    for (const cb of screen.getAllByRole('checkbox')) expect(cb).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    expect(screen.getByText(/Read-only firm members can/)).toBeInTheDocument();
+    const te = screen.getByRole('checkbox', { name: 'Tax Estimator: view taxpayers' });
+    expect(te).toBeEnabled();
+    for (const cb of screen.getAllByRole('checkbox')) if (cb !== te) expect(cb).toBeDisabled();
+    expect(screen.getByText(/Read-only firm members can hold only/)).toBeInTheDocument();
+    fireEvent.click(te);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ capabilities: expect.objectContaining({ tax_estimator_view_taxpayers: true, team_management: false }) })));
+  });
+
+  it('Q54: the Tax Estimator group shows the view right with its help text, OFF by default', () => {
+    renderRoute(<FirmMemberCapabilitiesDrawer firmId="f1" firmUser={member('firm_staff')} superAdminManaged={false} onClose={vi.fn()} />);
+    expect(screen.getByText('Tax Estimator')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Tax Estimator: view taxpayers' })).not.toBeChecked();
+    expect(screen.getByText(/Client access alone no longer reveals a taxpayer/)).toBeInTheDocument();
   });
 
   it('super-admin-managed firm locks the editor for a non-super-admin', () => {

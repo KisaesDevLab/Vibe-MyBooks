@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import type { FirmCapabilityKey, FirmCapabilityMap, FirmUserWithProfile } from '@kis-books/shared';
-import { FIRM_CAPABILITIES, FIRM_CAPABILITY_GROUPS } from '@kis-books/shared';
+import { FIRM_CAPABILITIES, FIRM_CAPABILITY_GROUPS, isCapabilityKeyEligibleForRole } from '@kis-books/shared';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { isApiError } from '../../api/client';
@@ -15,9 +15,11 @@ import { useFirmUserCapabilities, useSetFirmUserCapabilities } from '../../api/h
 // Per-member access rights editor (Firm → Staff → Access rights; Admin →
 // Firms → Members). Renders the shared FIRM_CAPABILITIES catalog grouped
 // into "Client settings" (owner parity on managed clients the member can
-// already reach) and "Administration" (a firm-scoped slice of Admin).
+// already reach), "Administration" (a firm-scoped slice of Admin) and
+// "Tax Estimator" (Q54: view-only firm data).
 //
-//   - firm_readonly members are ineligible: everything disabled + notice
+//   - firm_readonly members may hold only the view-only Tax Estimator right;
+//     every other checkbox is disabled + notice
 //   - on a super-admin-managed firm only a super admin may edit
 //   - "Using role defaults" vs "Customized" badge; "Reset to role defaults"
 //     PUTs null so the member follows their firm role again
@@ -46,14 +48,15 @@ export function FirmMemberCapabilitiesDrawer({
 
   const ineligible = firmUser.firmRole === 'firm_readonly';
   const locked = superAdminManaged && !isSuperAdmin;
-  const canEdit = !ineligible && !locked;
+  const canEdit = !locked; // Q54: a readonly member may still hold the view-only keys
+  const keyEditable = (key: string) => canEdit && isCapabilityKeyEligibleForRole(key, firmUser.firmRole);
 
   const friendly = (err: unknown): string => {
     if (isApiError(err) && err.code === 'FIRM_SUPER_ADMIN_MANAGED') {
       return 'This firm is managed by the system administrator; only they can change member access rights.';
     }
     if (isApiError(err) && err.code === 'FIRM_ROLE_INELIGIBLE') {
-      return 'Read-only firm members can\'t hold access rights. Change their firm role to firm_staff first.';
+      return 'Read-only firm members can hold only "Tax Estimator: view taxpayers". Change their firm role to firm_staff for the others.';
     }
     return err instanceof Error ? err.message : 'Could not save access rights';
   };
@@ -95,10 +98,11 @@ export function FirmMemberCapabilitiesDrawer({
           <p className="mt-1 text-xs text-gray-500">
             Client settings apply on companies the firm manages <em>and</em> this member already has access to.
             Administration rights open a slice of the Admin area limited to the firm&apos;s own clients.
+            Tax Estimator rights decide which taxpayers this member can see.
           </p>
           {ineligible && (
             <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-              Read-only firm members can&apos;t hold access rights. Change their firm role to firm_staff first.
+              Read-only firm members can hold only the Tax Estimator view right. Change their firm role to firm_staff for the others.
             </div>
           )}
           {!ineligible && locked && (
@@ -123,7 +127,7 @@ export function FirmMemberCapabilitiesDrawer({
                       type="checkbox"
                       className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300"
                       checked={draft[c.key] === true}
-                      disabled={!canEdit || save.isPending}
+                      disabled={!keyEditable(c.key) || save.isPending}
                       onChange={(e) => toggle(c.key, e.target.checked)}
                       aria-label={c.label}
                     />

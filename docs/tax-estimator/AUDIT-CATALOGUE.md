@@ -37,7 +37,7 @@ classification in [DATA-DICTIONARY.md](./DATA-DICTIONARY.md).
 | Entity type | Actions | entity_id | What the data holds |
 |---|---|---|---|
 | `tax_est_taxpayer` | `create` | taxpayer id | after = taxpayer DTO (display name, filing status, resident state, safe-harbor override, `portalShows`, active flag) + `firmId` |
-| `tax_est_taxpayer` | `update` | taxpayer id | before / after = taxpayer DTO |
+| `tax_est_taxpayer` | `update` | taxpayer id | before / after = taxpayer DTO (Q54: includes `showOnCompanyDashboard`, so turning "Show on linked company dashboards" on / off is this row) |
 | `tax_est_taxpayer` | `delete` | taxpayer id | **Archive** (`is_active = false`), not a row delete; before / after = taxpayer DTO |
 | `tax_est_taxpayer` | `update` with `after_data.op = 'link_contact'` | taxpayer id | `{ op, portalContactId, grantAccess, grantedCompanies }`: a portal contact mapped to the taxpayer, optionally turning on `tax_estimates_access` for the contact's linked companies |
 | `tax_est_taxpayer` | `update` with `after_data.op = 'unlink_contact'` | taxpayer id | before `{ op: 'link_contact', portalContactId }`; after `{ op, portalContactId, revokeAccess, revokedCompanies }` |
@@ -66,7 +66,8 @@ classification in [DATA-DICTIONARY.md](./DATA-DICTIONARY.md).
 
 | Entity type | Actions | entity_id | What the data holds |
 |---|---|---|---|
-| `tax_est_taxpayer_staff` | `update` | **taxpayer id** | One row per effective change of a taxpayer's staff allow-list (an unchanged PUT writes nothing; since D18 a non-empty list REPLACES the firm rule and grants its members that taxpayer's full data): before `{ userIds: [...] }`, after `{ userIds: [...], added: [...], removed: [...] }` (+ `firmId`). User ids only — no names, emails or taxpayer data. Tenant = the admin's active tenant. Firm admins / super admins only |
+| `tax_est_taxpayer_staff` | `update` | **taxpayer id** | One row per effective change of a taxpayer's staff allow-list (an unchanged PUT writes nothing; since D18 a non-empty list REPLACES the firm rule and grants its members that taxpayer's full data): before `{ userIds: [...] }`, after `{ userIds: [...], added: [...], removed: [...] }` (+ `firmId`). User ids only — no names, emails or taxpayer data. Tenant = the admin's active tenant. Firm admins who can see the taxpayer / super admins only (Q54) |
+| `firm_user_capabilities` | `update` | firm_users id | Written by `PUT /firms/:firmId/users/:firmUserId/capabilities` (firms.routes.ts, outside the module): before `{ capabilities, customized }`, after `{ capabilities, customized, firmId, userId }` — the full effective map, so granting / revoking Q54 "Tax Estimator: view taxpayers" (`tax_estimator_view_taxpayers`) is visible as that key's before / after. Tenant = the admin's active tenant |
 
 ### Payments and Schedule AI (`payments`, `sch-ai-snapshots`)
 

@@ -134,20 +134,30 @@ they get the firm's full managed set.
   belongs to another firm is shown with `targetOtherFirm: true` and the foreign ids withheld, and cannot be
   changed (`TE_TREATMENT_OTHER_FIRM` 409).
 
-### 2.1 Taxpayer visibility (D17, migration 0202; D18 staff-list override)
+### 2.1 Taxpayer visibility (D17, migration 0202; D18 staff-list override; Q54 strict visibility)
 
 On top of the firm scope, **which taxpayers** a member sees is decided by one predicate,
 `visibleTaxpayerFilter(scope)` in `firm-scope.service.ts` (SQL on `tax_est_taxpayers`, includes
-`firm_id`). `resolveScope` resolves the viewer with the scope: user id, **bypass** (`firm_admin` in
-the firm, or super admin) and the firm switch `tax_est_firm_settings.restrict_taxpayers_to_linked_tenants`
-(default ON; a firm with no settings row is ON).
+`firm_id`). `resolveScope` resolves the viewer with the scope, every input from the database on every
+request: user id, **bypass** (super admin only since Q54), **firmAdmin** (`firm_admin` in the firm),
+**canViewUnlisted** (the member's firm capability `tax_estimator_view_taxpayers`, "Tax Estimator: view
+taxpayers", read from `firm_users.capabilities` through the shared resolver — default OFF) and the firm
+switch `tax_est_firm_settings.restrict_taxpayers_to_linked_tenants` (default ON; a firm with no
+settings row is ON).
 
 | Viewer | Sees a taxpayer when |
 |---|---|
-| bypass (firm admin, super admin) | always (any firm taxpayer) |
-| anyone else, taxpayer HAS a staff list (D18) | they are on it — nothing else (tenant reach and the switch play no part) |
-| anyone else, no staff list, switch ON | a link of the taxpayer, any year, points into their `allowedTenantIds` OR the taxpayer has no **active** link — none into a tenant the firm still actively manages — and `created_by` is them |
-| anyone else, no staff list, switch OFF | always |
+| bypass (super admin; `UNRESTRICTED_VIEWER` for the portal / tests) | always (any firm taxpayer) |
+| anyone else, taxpayer HAS a staff list (D18, Q54) | they are on it — nothing else (firm admin role, tenant reach, the capability and the switch play no part) |
+| firm admin, no staff list | always |
+| staff / readonly, no staff list, WITH the capability, switch ON | a link of the taxpayer, any year, points into their `allowedTenantIds` OR the unlinked-own rule below |
+| staff / readonly, no staff list, WITH the capability, switch OFF | always |
+| staff / readonly, no staff list, WITHOUT the capability | only the unlinked-own rule: the taxpayer has no **active** link — none into a tenant the firm still actively manages — and `created_by` is them |
+
+`GET /tax-estimator/scope` returns `canViewUnlistedTaxpayers` (bypass, firm admin or the capability);
+the taxpayer list shows "Ask a firm admin for Tax Estimator access" when it is false and nothing is
+visible. No cache is keyed on visibility: the predicate runs before every cache read, and the estimate
+cache key carries the effective tenant set and `elevated`.
 
 - The predicate is in the list query's WHERE (the `total` counts only visible rows; the lock flag
   `staffRestricted` is a row-local EXISTS, no N+1) and in every by-id loader: `loadTaxpayerForFirm`,
@@ -160,7 +170,7 @@ the firm, or super admin) and the firm switch `tax_est_firm_settings.restrict_ta
   their figures left out).
 - **D18 full data for listed users** (OPEN-QUESTIONS.md Q43). `scopeForTaxpayer(scope, taxpayerId)`
   (`firm-scope.service.ts`) returns the scope for reads / computations OF that taxpayer: for a
-  non-bypass viewer on its staff list, `allowedTenantIds` gains every tenant the firm still actively
+  non-bypass viewer on its staff list (Q54: firm admins included), `allowedTenantIds` gains every tenant the firm still actively
   manages that the taxpayer links into (any year), and the scope carries `elevation { taxpayerId,
   baseTenantIds }`; otherwise it is unchanged. It checks the list membership itself. Used by: the
   estimate (`computeEstimateWithInputs`, cache key adds `elevated`), estimate readiness, `listLinks`
@@ -182,12 +192,18 @@ the firm, or super admin) and the firm switch `tax_est_firm_settings.restrict_ta
 - Account treatments (entity setup) stay firm-checked only (OPEN-QUESTIONS.md Q42 (d)).
 - **Staff list** (`tax_est_taxpayer_staff`): `GET /taxpayers/:id/staff` (anyone who sees the
   taxpayer; `canEdit` for firm admins with `tax_estimator` update), `GET /taxpayers/:id/staff-candidates`
-  and `PUT /taxpayers/:id/staff` `{ userIds }` (firm admins / super admins only, else 403
-  `TE_FIRM_ADMIN_REQUIRED`; a caller who cannot see the taxpayer gets 404 first). Candidates: active
-  `firm_staff` / `firm_readonly` members, active staff users, holding `tax_estimator` read in the
-  admin's ACTIVE tenant. Additions outside that set: 422 `TE_STAFF_NOT_ELIGIBLE`; members already on
-  the list may stay. Changing the list writes one `tax_est_taxpayer_staff` audit row (user ids
+  and `PUT /taxpayers/:id/staff` `{ userIds }` (firm admins who can SEE the taxpayer / super admins only,
+  else 403 `TE_FIRM_ADMIN_REQUIRED`; a caller who cannot see the taxpayer gets 404 first). Candidates
+  (Q54): active `firm_admin` / `firm_staff` / `firm_readonly` members, active staff users, holding
+  `tax_estimator` read in the admin's ACTIVE tenant. Additions outside that set: 422 `TE_STAFF_NOT_ELIGIBLE`;
+  members already on the list may stay. A non-empty list must name an active firm admin of the firm
+  or an active super admin: 422 `TE_STAFF_LIST_NO_MANAGER`. A PUT that removes the caller's own access
+  (not a super admin, non-empty list without them) answers `callerLostAccess: true` with no members. Changing the list writes one `tax_est_taxpayer_staff` audit row (user ids
   before / after / added / removed); flipping the switch writes `tax_est_visibility_switch`.
+- **Company dashboard switch** (Q54, migration 0215): `tax_est_taxpayers.show_on_company_dashboard`
+  (default false) — the Q52 company cards (`GET /api/v1/dashboard/tax-estimates`, staff and owner)
+  include a taxpayer only when it is true; a staff Refresh of a switched-off taxpayer is 404. The
+  firm-wide cards ignore it. Set through `PATCH /taxpayers/:id` `{ showOnCompanyDashboard }`.
 - Unlinked taxpayers created before D17 keep their `created_by` (every service-created taxpayer has
   it); a row with NULL `created_by` is visible to firm admins only while unlinked.
 
@@ -247,6 +263,8 @@ Kurt's decisions of 2026-10-13 (OPEN-QUESTIONS.md Q52). Loading a dashboard neve
 |---|---|---|---|
 | Company dashboard (`features/dashboard/TaxEstimateCards.tsx`, under the Financial Snapshot row) | `GET /api/v1/dashboard/tax-estimates` (`routes/dashboard-tax-estimates.routes.ts`, inside the dashboard router: `authenticate` + `dashboard:read` + `companyContext`); `POST .../:taxpayerId/refresh` (staff) | session only; `TAX_ESTIMATOR_V1` ON for the company's **own** tenant; then **staff** = the Report Pack gate (`taxEstimateReportScope`: not a client user, `tax_estimator` read, member of the firm managing the tenant, tenant in their D1 scope) seeing every D17 / D18-visible taxpayer linked to the active company; else the tenant **owner** (active-tenant role `owner`) seeing only the taxpayers they personally are; anyone else `{ data: null }` | per taxpayer: Next estimated payment (next federal / state voucher: date, amount, paid / unpaid), Projected tax for the year (total, federal / state, change since the latest finalized snapshot, books-through month), Paid vs required to date (per jurisdiction, shortfall; staff also the engine's penalty estimate) |
 | Tax Estimator home (`features/tax-estimator/taxpayers/FirmDashboardCards.tsx`, above the taxpayer list — there is no Practice dashboard page) | `GET /api/v1/tax-estimator/dashboard`, `POST .../dashboard/taxpayers/:id/years/:taxYear/refresh` (a read-POST like `/estimate`, R3-07) | the staff router's guard chain; every taxpayer through `visibleTaxpayerFilter`; `null` when the caller sees no active taxpayer | Vouchers due in the next 30 days (today through today + 30, both inclusive; taxpayer, jurisdiction, installment, due date, amount, paid status, as-of), Behind on payments (as-of shortfall > $0 on installments due to date, engine penalty), Not computed yet (current-year setups with no figures) |
+
+**Q54 switch.** Both company-card audiences include a taxpayer only when its `show_on_company_dashboard` ("Show on linked company dashboards", taxpayer page, migration 0215) is ON — default OFF for every existing and new taxpayer; no qualifying taxpayer → `{ data: null }` (the section disappears); a staff Refresh of a switched-off taxpayer is the uniform 404. The firm-wide cards are not affected. Staff visibility follows Q54 (section 2.1): a listed taxpayer only for the people on its list (firm admins included), an unlisted one for firm admins and for staff holding "Tax Estimator: view taxpayers".
 
 **Owner linkage.** "The taxpayer they personally are" = a taxpayer mapped (`tax_est_taxpayer_contacts`) to an **active** portal contact of the tenant whose e-mail equals the owner user's e-mail (case-insensitive) and who holds `tax_estimates_access` on the active company, the taxpayer belonging to the firm that actively manages the tenant, linked to that company for the year, with annual settings: the portal access predicate keyed by e-mail. That contact can already open the same figures in the portal, so the card discloses nothing new. No new schema. The owner sees the portal allow-list projection only (no penalty, other owners, rates, traces, adjustments, "not computed" rows, links or Refresh).
 

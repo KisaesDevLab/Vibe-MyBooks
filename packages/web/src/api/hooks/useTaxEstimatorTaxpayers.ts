@@ -306,6 +306,8 @@ export function useReplaceTaxpayerStaff(taxpayerId: string) {
 
 export interface TaxEstimatorScopeInfo {
   firmId: string; firmRole: 'firm_admin' | 'firm_staff' | 'firm_readonly'; managedTenantCount: number;
+  /** Q54: false = no "Tax Estimator: view taxpayers" capability (only listed / own unlinked taxpayers). */
+  canViewUnlistedTaxpayers?: boolean;
   /** QA D2: firm admin/staff AND the tax_estimator update permission in the active tenant. */
   canWrite?: boolean;
 }
