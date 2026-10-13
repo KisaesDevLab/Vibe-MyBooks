@@ -5,8 +5,10 @@
 // Cell-level tickmark popup shared by the popout live view (click an
 // Adjusted/Tax amount) and the workpaper's Tickmark column. Lists the
 // firm's tickmark library, applies/removes marks for one account +
-// workpaper column + tax year, and invalidates the shared queries so
-// chips update everywhere (workpaper, popout, leadsheets, reports).
+// workpaper column + workpaper PERIOD END (marks are period-scoped —
+// migration 0208: a mark on 08/31 never shows on 07/31), and invalidates
+// the shared queries so chips update everywhere (workpaper, popout,
+// leadsheets, reports).
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -23,10 +25,11 @@ const COLUMN_LABELS: Record<string, string> = {
   unadjusted: 'Unadjusted', aje: 'AJE', adjusted: 'Adjusted', tax_rje: 'Tax RJE', tax: 'Tax',
 };
 
-export function TickmarkCellPicker({ accountId, accountName, taxYear, initialColumn, allowColumnChange = false, onClose }: {
+export function TickmarkCellPicker({ accountId, accountName, periodEnd, initialColumn, allowColumnChange = false, onClose }: {
   accountId: string;
   accountName: string;
-  taxYear: number;
+  // Workpaper period end (YYYY-MM-DD) the marks belong to.
+  periodEnd: string;
   initialColumn: 'unadjusted' | 'aje' | 'adjusted' | 'tax_rje' | 'tax';
   allowColumnChange?: boolean;
   onClose: () => void;
@@ -40,8 +43,8 @@ export function TickmarkCellPicker({ accountId, accountName, taxYear, initialCol
     queryFn: () => apiClient<{ tickmarks: Tickmark[] }>('/tb/tickmarks'),
   });
   const { data: appsData } = useQuery({
-    queryKey: ['tb', 'tickmark-applications', taxYear],
-    queryFn: () => apiClient<{ applications: TickmarkApplication[] }>(`/tb/tickmark-applications?taxYear=${taxYear}`),
+    queryKey: ['tb', 'tickmark-applications', periodEnd],
+    queryFn: () => apiClient<{ applications: TickmarkApplication[] }>(`/tb/tickmark-applications?periodEnd=${periodEnd}`),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['tb', 'tickmark-applications'] });
@@ -51,7 +54,7 @@ export function TickmarkCellPicker({ accountId, accountName, taxYear, initialCol
     mutationFn: (tickmarkId: string) =>
       apiClient('/tb/tickmark-applications', {
         method: 'POST',
-        body: JSON.stringify({ accountId, column, tickmarkId, taxYear }),
+        body: JSON.stringify({ accountId, column, tickmarkId, periodEnd }),
       }),
     onSuccess: invalidate,
     onError: err,
@@ -83,7 +86,7 @@ export function TickmarkCellPicker({ accountId, accountName, taxYear, initialCol
                   className="mt-1 rounded border border-gray-300 px-1.5 py-0.5 text-xs">
                   {Object.entries(COLUMN_LABELS).map(([k, label]) => <option key={k} value={k}>{label} column</option>)}
                 </select>
-              ) : `${COLUMN_LABELS[column] ?? column} column · TY${taxYear}`}
+              ) : `${COLUMN_LABELS[column] ?? column} column · period end ${periodEnd}`}
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">✕</button>
