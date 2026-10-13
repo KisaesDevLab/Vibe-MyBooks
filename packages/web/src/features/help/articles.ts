@@ -418,7 +418,7 @@ Batch Entry lets you enter multiple transactions quickly in a spreadsheet-like g
     id: 'entry-templates',
     title: 'Journal Entry & Daily Sales Templates',
     category: 'Transactions',
-    summary: 'Reusable line layouts for recurring journal entries and daily POS sales: tags, renaming, and duplicating.',
+    summary: 'Reusable line layouts for recurring journal entries and daily POS sales: tags, renaming, duplicating, and attaching files.',
     body: `
 ## Journal Entry & Daily Sales Templates
 
@@ -436,6 +436,13 @@ A template saves the lines of an entry you post again and again: the accounts, d
 - Change the **Template name** field and click **Save template**.
 - Click **Duplicate** to copy the saved template, with its lines, accounts, tags and memo, under a new name. This is handy for a second store or a variation of the same entry.
 - **Deactivate** hides a template. Entries you already posted from it are not affected.
+
+### Attaching files
+Both entry screens have an **Attachments** section at the bottom, the same one the Journal Entry form has. Drag in or browse to a file (images, PDFs, spreadsheets and documents up to 10 MB), or use **Attach Existing** to pick one from the attachment library.
+- **Journal from a template** (Transactions → Journal Templates → Enter journal): files you attach before posting are linked to the journal entry when you click **Post journal entry**. They then show on that transaction, in its Transaction Report and in the attachment library. To add or remove files later, open the posted entry.
+- **Daily sales** (Daily Sales → New daily entry): attach the day's Z report, deposit slip or till count. **Save draft** keeps the files with the draft. When the entry is posted, its files move to the posted journal entry, so they show on that transaction and in its Transaction Report. Opening the entry again from the Daily Sales list shows its files, and you can add or remove them there, even after it is posted.
+- The Daily Sales list shows a paperclip with the number of files on each day's entry.
+- Deleting a draft daily entry does not delete its files. They go back to the attachment library as unfiled files.
 `,
   },
   {

@@ -8,7 +8,8 @@
 // chip), amounts are typed per use, required lines are enforced, and
 // the live footer shows debits/credits/difference. Posting goes
 // through the normal journal-entry path (balance + lock-date checks
-// unchanged).
+// unchanged). Files attached here ride along like the JE form's: they
+// upload as drafts and link to the created journal entry on post.
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -22,6 +23,7 @@ import { DatePicker } from '../../components/forms/DatePicker';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { useToast } from '../../components/ui/Toaster';
+import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { Check, AlertTriangle, Send } from 'lucide-react';
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
@@ -47,6 +49,9 @@ export function JournalTemplateEntryPage() {
   // template tag keep it.
   const [tagId, setTagId] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  // Same draft-attachment flow as the Journal Entry form: files upload
+  // under this id and the server moves them onto the posted entry.
+  const [draftId] = useState(() => crypto.randomUUID());
 
   const { data: tplList } = useJeTemplates();
   const { data: tplData } = useJeTemplate(templateId || undefined);
@@ -102,6 +107,7 @@ export function JournalTemplateEntryPage() {
         txnDate,
         memo,
         basis: 'both',
+        draftAttachmentId: draftId,
         lines: lines
           .filter((l) => l.accountId && parseFloat(values[l.id] || '0') > 0)
           .map((l) => {
@@ -227,6 +233,10 @@ export function JournalTemplateEntryPage() {
             <Button onClick={onPost} loading={createTxn.isPending} disabled={!balanced || missingRequired.length > 0 || totals.unmapped.length > 0}>
               <Send className="h-4 w-4 mr-1" /> Post journal entry
             </Button>
+          </div>
+
+          <div className="mt-6">
+            <AttachmentPanel attachableType="draft" attachableId={draftId} />
           </div>
         </>
       )}
