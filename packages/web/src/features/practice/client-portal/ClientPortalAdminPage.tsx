@@ -31,6 +31,8 @@ import {
   useDeletePortalContact,
   useSetPortalContactCompanies,
   usePortalContact,
+  usePortalContactTaxOptions,
+  useSetPortalContactTaxOptions,
   usePortalPracticeSettings,
   useUpdatePortalPracticeSettings,
   usePortalCompanySettings,
@@ -55,6 +57,8 @@ import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { Pagination } from '../../../components/ui/Pagination';
 import { apiClient } from '../../../api/client';
 import { PortalContactDocumentsPanel } from '../reminders/PortalContactDocumentsPanel';
+import { PortalOptionsFields } from '../../tax-estimator/portal/PortalOptionsFields';
+import { PORTAL_CONTACT_TAX_OPTION_KEYS, type PortalContactTaxOptionsDTO } from '@kis-books/shared';
 import { CommitInput } from '../../../components/forms/CommitInput';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 8 — bookkeeper-side
@@ -747,6 +751,11 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
   const { data, isLoading } = usePortalContact(contactId);
   const update = useUpdatePortalContact();
   const setCos = useSetPortalContactCompanies();
+  // Tax Estimator Q51: what this contact sees of the tax estimates shared with them.
+  const taxOptsQuery = usePortalContactTaxOptions(contactId);
+  const setTaxOpts = useSetPortalContactTaxOptions();
+  const [taxOpts, setTaxOptsDraft] = useState<PortalContactTaxOptionsDTO | null>(null);
+  if (taxOptsQuery.data && taxOpts === null) setTaxOptsDraft(taxOptsQuery.data.options);
 
   const contact = data?.contact;
   const [email, setEmail] = useState('');
@@ -867,6 +876,12 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
           taxEstimatesAccess: a.taxEstimatesAccess,
         })),
       });
+      // Q51: send only the sections that changed (turning one on needs firm staff).
+      const loaded = taxOptsQuery.data?.options;
+      if (taxOpts && loaded) {
+        const changed = Object.fromEntries(PORTAL_CONTACT_TAX_OPTION_KEYS.filter((k) => taxOpts[k] !== loaded[k]).map((k) => [k, taxOpts[k]]));
+        if (Object.keys(changed).length > 0) await setTaxOpts.mutateAsync({ id: contact.id, options: changed });
+      }
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save changes.');
@@ -1002,6 +1017,16 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
             </p>
           </Field>
 
+          {taxOpts && taxOptsQuery.data && assignments.some((a) => a.taxEstimatesAccess) && (
+            <Field label="Tax estimates in the portal">
+              <div className="border border-gray-300 rounded-md px-3 py-2">
+                <PortalOptionsFields idPrefix={`cpo-${contactId}`} value={taxOpts} canGrant={taxOptsQuery.data.canGrant}
+                  disabled={setTaxOpts.isPending}
+                  onChange={(k, on) => setTaxOptsDraft({ ...taxOpts, [k]: on })} />
+              </div>
+            </Field>
+          )}
+
           {error && (
             <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
               {error}
@@ -1020,7 +1045,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
             </button>
             <button
               type="submit"
-              disabled={update.isPending || setCos.isPending}
+              disabled={update.isPending || setCos.isPending || setTaxOpts.isPending}
               className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-50"
             >
               {update.isPending || setCos.isPending ? 'Saving…' : 'Save'}

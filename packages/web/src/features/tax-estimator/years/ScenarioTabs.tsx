@@ -18,10 +18,12 @@ interface Props {
   onClone: (id: string, name: string) => void;
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
+  /** Q51: share a what-if scenario in the client portal (Base is always shown). */
+  onShareInPortal?: (id: string, on: boolean) => void;
 }
 
 /** Scenario pills (Base + clones) with Clone / Rename and Delete (never Base). */
-export function ScenarioTabs({ scenarios, selectedId, canWrite, busy, error, onSelect, onClone, onRename, onDelete }: Props) {
+export function ScenarioTabs({ scenarios, selectedId, canWrite, busy, error, onSelect, onClone, onRename, onDelete, onShareInPortal }: Props) {
   const [renaming, setRenaming] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [name, setName] = useState('');
@@ -37,6 +39,7 @@ export function ScenarioTabs({ scenarios, selectedId, canWrite, busy, error, onS
             className={`rounded-full border px-3 py-1 text-sm ${s.id === selectedId ? 'border-primary-600 bg-primary-50 text-primary-800 font-medium' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
             onClick={() => { setRenaming(false); setCloning(false); onSelect(s.id); }}>
             {s.name}{s.isBase && <span className="ml-1 text-xs text-gray-500">(base)</span>}
+            {!s.isBase && s.showInPortal && <span className="ml-1 text-xs text-emerald-700" title="Shared in the client portal">(portal)</span>}
           </button>
         ))}
         {canWrite && selected && (
@@ -49,6 +52,18 @@ export function ScenarioTabs({ scenarios, selectedId, canWrite, busy, error, onS
           </div>
         )}
       </div>
+      {selected && !selected.isBase && onShareInPortal && (
+        <div className="text-sm">
+          <label className="inline-flex items-center gap-2 text-gray-700">
+            <input type="checkbox" checked={selected.showInPortal} disabled={!canWrite || busy}
+              onChange={(e) => onShareInPortal(selected.id, e.target.checked)} />
+            Show this scenario in the client portal
+          </label>
+          <p className="text-xs text-gray-500 ml-6">
+            Clients see the scenario name exactly as written here, so name it for the client (for example &ldquo;If you buy the truck&rdquo;). The Base scenario is always shown.
+          </p>
+        </div>
+      )}
       {renaming && selected && (
         <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) { onRename(selected.id, name.trim()); setRenaming(false); } }}>
           <Input label="Scenario name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />

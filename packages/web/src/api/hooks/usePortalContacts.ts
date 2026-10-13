@@ -3,6 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { PortalContactTaxOptionsDTO, PortalContactTaxOptionsResponseDTO } from '@kis-books/shared';
 import { apiClient } from '../client';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 8 — bookkeeper-side
@@ -172,6 +173,29 @@ export function useSetPortalContactCompanies() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['practice', 'portal', 'contacts'] });
       qc.invalidateQueries({ queryKey: ['practice', 'portal', 'contacts', vars.id] });
+    },
+  });
+}
+
+// Tax Estimator Q51 — what this contact sees of the tax estimates shared with them.
+export function usePortalContactTaxOptions(id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ['portal-contacts', 'tax-estimate-options', id],
+    queryFn: () => apiClient<PortalContactTaxOptionsResponseDTO>(`/practice/portal/contacts/${id}/tax-estimate-options`),
+    enabled: !!id && enabled,
+  });
+}
+
+export function useSetPortalContactTaxOptions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, options }: { id: string; options: Partial<PortalContactTaxOptionsDTO> }) =>
+      apiClient<PortalContactTaxOptionsResponseDTO>(`/practice/portal/contacts/${id}/tax-estimate-options`, {
+        method: 'PUT',
+        body: JSON.stringify(options),
+      }),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['portal-contacts', 'tax-estimate-options', vars.id] });
     },
   });
 }

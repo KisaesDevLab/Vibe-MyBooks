@@ -27,7 +27,7 @@ classification in [DATA-DICTIONARY.md](./DATA-DICTIONARY.md).
   `priorYearTaxPresent` / `priorYearAgiPresent` (and, for a year update, `priorYearChanged: { changed: true }`).
   Snapshot rows record metadata only, never the payload or summary.
 - Not audited (reads and derived data): computing an estimate, the readiness endpoint, listing or
-  viewing or comparing snapshots, all portal reads, the portal vouchers PDF, the startup re-sync of shipped
+  viewing or comparing snapshots, all portal reads, the portal vouchers PDF (the portal ESTIMATE PDF is audited, Q51), the startup re-sync of shipped
   parameter and state-rule seeds, and the Redis caches.
 
 ## Catalogue by entity type
@@ -99,6 +99,17 @@ classification in [DATA-DICTIONARY.md](./DATA-DICTIONARY.md).
 | `tax_est_contact_access` | `update` | contact id | `{ granted: [...], revoked: [...] }`, only when the company assignment update actually grants or revokes (a payload that omits the field keeps the stored value and writes nothing) |
 
 Related rows that are **not** Tax Estimator entities but are written in the same operations: `portal_contact`, `portal_contact_companies` (existing portal audit).
+
+### Portal view options and downloads (Q51; `services/tax-estimator/portal-options.service.ts`, `routes/portal-tax-estimates-public.routes.ts`)
+
+Tenant = the portal contact's tenant (also when set from the taxpayer page in the practice tenant).
+
+| Entity type | Actions | entity_id | What the data holds |
+|---|---|---|---|
+| `tax_est_portal_options` | `update` | contact id | One row per effective change of the contact's portal view options (an unchanged PUT writes nothing; a refused grant writes nothing): before = the options `{ calculationSummary, quarterlyEstimates, paymentsOnRecord, pdfDownload }` (defaults when the contact had no row), after = the new options + `granted: [keys]`, `revoked: [keys]`, `via: 'portal_contact' \| 'taxpayer'` (+ `taxpayerId`, `firmId` from the taxpayer page). user_id = the staff user |
+| `tax_est_portal_pdf` | `download` | taxpayer id | Every client-estimate PDF a portal contact (or a "View as Client" preview) downloads: `{ portalContactId, taxYear, scenarioId, source: 'live' \| 'snapshot', snapshotId, inputsHash, engineVersion, computedAt, preview }`. Metadata only, never figures; a live download is reproducible from the inputs hash, a snapshot download from its id. user_id = the preview's initiating staff user, else null |
+
+Sharing a what-if scenario in the portal (`show_in_portal`) is an ordinary `tax_est_scenario` `update` row (before / after scenario DTO, which now carries `showInPortal`).
 
 ### Platform reference data (`tax-parameters.service.ts`, `tax-state-rules.service.ts`)
 

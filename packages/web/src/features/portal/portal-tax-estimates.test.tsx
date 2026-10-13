@@ -193,3 +193,69 @@ describe('noNextPaymentText (QA2-07)', () => {
   });
 });
 
+
+describe('PortalTaxEstimatesPage — per-contact options (Q51)', () => {
+  const summary = {
+    businesses: [{ name: 'Rivera Plumbing', amount: '70001' }], otherIncome: [{ label: 'Interest', amount: '2400' }],
+    totalIncome: '72401', adjustmentsTotal: '16413', agi: '55988', deduction: { kind: 'standard' as const, amount: '32200' },
+    additionalDeductions: '0', qbiDeduction: '12000', taxableIncome: '11788', regularTax: '1200', credits: '500',
+    selfEmploymentTax: '2826', additionalMedicareTax: '0', niit: '0', federalTotal: '3526',
+    states: [{ state: 'MO', label: 'Missouri', amount: '600' }], stateTotal: '600', total: '4126',
+  };
+
+  it('a section the server leaves out is not rendered (no installments, vouchers or payments)', async () => {
+    const { jurisdictions: _j, payments: _p, ...bare } = estimate;
+    route({ list: listOk, detail: () => res(200, { estimate: bare, unavailableReason: null }) });
+    render();
+    expect(await screen.findByRole('heading', { name: 'Your 2026 tax estimate' })).toBeTruthy();
+    expect(screen.getByText('$43,732')).toBeTruthy(); // the projected total always shows
+    expect(screen.queryByRole('region', { name: 'Next payments' })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Download payment vouchers/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Payments received' })).toBeNull();
+    expect(screen.queryByText('Federal estimates paid so far')).toBeNull();
+    expect(screen.queryByRole('link', { name: /Download estimate \(PDF\)/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'How your estimate is calculated' })).toBeNull();
+  });
+
+  it('renders the calculation summary and the estimate PDF link when shared', async () => {
+    route({ list: listOk, detail: () => res(200, { estimate: { ...estimate, calculationSummary: summary }, unavailableReason: null, pdfDownload: true }) });
+    render();
+    const section = await screen.findByRole('region', { name: 'How your estimate is calculated' });
+    expect(section.textContent).toContain('Rivera Plumbing');
+    expect(section.textContent).toContain('$70,001');
+    expect(section.textContent).toContain('Adjusted gross income');
+    expect(section.textContent).toContain('Standard deduction');
+    expect(section.textContent).toContain('Missouri');
+    expect(section.textContent).toContain('$4,126');
+    expect(section.textContent).not.toMatch(/%|marginal|rate/i);
+    const pdf = screen.getByRole('link', { name: /Download estimate \(PDF\)/ });
+    expect(pdf.getAttribute('href')).toBe(`/mb/api/portal/tax-estimates/${TP}/estimate.pdf?companyId=co1&year=2026`);
+  });
+
+  it('shows a scenario picker when more than one scenario is shared, and refetches the picked one', async () => {
+    const S2 = '22222222-2222-4222-8222-222222222222';
+    const scenarios = [{ id: 'base-1', name: 'Base', isBase: true }, { id: S2, name: 'If you buy the truck', isBase: false }];
+    fetchMock.mockImplementation((url: string) => {
+      if (/tax-estimates\?companyId=/.test(url)) return listOk();
+      if (url.includes(`scenarioId=${S2}`)) return res(200, { estimate: { ...estimate, totals: { ...estimate.totals, total: '39000' } }, unavailableReason: null, scenarios, scenarioId: S2 });
+      if (new RegExp(`tax-estimates/${TP}\\?`).test(url)) return res(200, { estimate, unavailableReason: null, scenarios, scenarioId: 'base-1' });
+      return res(404, {});
+    });
+    render();
+    const picker = await screen.findByRole('combobox', { name: 'Scenario' });
+    expect((picker as HTMLSelectElement).value).toBe('base-1');
+    expect(screen.getByRole('option', { name: 'If you buy the truck' })).toBeTruthy();
+    fireEvent.change(picker, { target: { value: S2 } });
+    expect(await screen.findByText('$39,000')).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(`/mb/api/portal/tax-estimates/${TP}?companyId=co1&year=2026&scenarioId=${S2}`, expect.anything());
+    expect(screen.getByRole('link', { name: /Download payment vouchers/ }).getAttribute('href'))
+      .toBe(`/mb/api/portal/tax-estimates/${TP}/vouchers.pdf?companyId=co1&year=2026&scenarioId=${S2}`);
+  });
+
+  it('no picker when only the Base scenario is offered (today\'s response)', async () => {
+    route({ list: listOk, detail: () => res(200, { estimate, unavailableReason: null }) });
+    render();
+    await screen.findByRole('heading', { name: 'Your 2026 tax estimate' });
+    expect(screen.queryByRole('combobox', { name: 'Scenario' })).toBeNull();
+  });
+});

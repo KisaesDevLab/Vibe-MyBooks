@@ -8,12 +8,16 @@
 // dates / amounts, payments and the firm disclaimer. Never other owners,
 // adjustments, rates, traces or readiness details — the server does not send
 // them and this page must not go looking for them.
+// Q51: what a section shows depends on the contact's options, decided on the SERVER —
+// a section whose key is absent is simply not rendered (installments / next payment and
+// vouchers, payments on record), the calculation summary and the estimate PDF appear when
+// the server sends them, and a scenario picker appears when more than one is shared.
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, MessageSquare, Receipt } from 'lucide-react';
+import { Download, FileText, MessageSquare, Receipt } from 'lucide-react';
 import type {
-  PortalTaxEstimateDTO, PortalTaxEstimateListDTO, PortalTaxEstimateResponseDTO, PortalTaxInstallmentDTO, PortalTaxJurisdictionDTO,
+  PortalTaxCalcSummaryDTO, PortalTaxEstimateDTO, PortalTaxEstimateListDTO, PortalTaxEstimateResponseDTO, PortalTaxInstallmentDTO, PortalTaxJurisdictionDTO,
 } from '@kis-books/shared';
 import { portalDefaultYear } from '@kis-books/shared';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -111,9 +115,58 @@ function History({ j }: { j: PortalTaxJurisdictionDTO }) {
   );
 }
 
-function EstimateView({ e, voucherHref }: { e: PortalTaxEstimateDTO; voucherHref: string }) {
-  const federal = e.jurisdictions.find((j) => j.jurisdiction === 'federal');
-  const nextDue = e.jurisdictions.map((j) => j.nextPayment?.dueDate).filter((d): d is string => !!d).sort()[0];
+/** Q51: the client-friendly calculation summary (sent only when the firm shares it). */
+function CalcSummary({ s, taxYear }: { s: PortalTaxCalcSummaryDTO; taxYear: number }) {
+  const Row = ({ label, value, bold, credit }: { label: string; value: string; bold?: boolean; credit?: boolean }) => (
+    <div className={`flex justify-between gap-3 py-1 ${bold ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+      <dt className="min-w-0">{label}</dt>
+      <dd className="tabular-nums shrink-0">{credit && Number(value) !== 0 ? `-${usd(value)}` : usd(value)}</dd>
+    </div>
+  );
+  const nz = (v: string) => Number(v) !== 0;
+  return (
+    <section className="bg-white border border-gray-200 rounded-lg p-4" aria-label="How your estimate is calculated">
+      <h2 className="text-sm font-semibold text-gray-900 mb-1">How your {taxYear} estimate is calculated</h2>
+      <p className="text-xs text-gray-500 mb-2">Full-year projection. Business amounts are your share.</p>
+      <dl className="text-sm divide-y divide-gray-100">
+        <div className="pb-1">
+          {s.businesses.map((b, i) => <Row key={`b${i}`} label={b.name || 'Business'} value={b.amount} />)}
+          {s.otherIncome.map((o) => <Row key={o.label} label={o.label} value={o.amount} />)}
+          <Row label="Total income" value={s.totalIncome} bold />
+        </div>
+        <div className="py-1">
+          {nz(s.adjustmentsTotal) && <Row label="Adjustments to income" value={s.adjustmentsTotal} credit />}
+          <Row label="Adjusted gross income" value={s.agi} bold />
+          <Row label={s.deduction.kind === 'itemized' ? 'Itemized deductions' : 'Standard deduction'} value={s.deduction.amount} credit />
+          {nz(s.additionalDeductions) && <Row label="Additional deductions" value={s.additionalDeductions} credit />}
+          {nz(s.qbiDeduction) && <Row label="Qualified business income deduction" value={s.qbiDeduction} credit />}
+          <Row label="Taxable income" value={s.taxableIncome} bold />
+        </div>
+        <div className="py-1">
+          <Row label="Income tax" value={s.regularTax} />
+          {nz(s.credits) && <Row label="Credits" value={s.credits} credit />}
+          {nz(s.selfEmploymentTax) && <Row label="Self-employment tax" value={s.selfEmploymentTax} />}
+          {nz(s.additionalMedicareTax) && <Row label="Additional Medicare tax" value={s.additionalMedicareTax} />}
+          {nz(s.niit) && <Row label="Net investment income tax" value={s.niit} />}
+          <Row label="Federal total" value={s.federalTotal} bold />
+        </div>
+        {s.states.length > 0 && (
+          <div className="py-1">
+            {s.states.map((st) => <Row key={st.state} label={st.label} value={st.amount} />)}
+            <Row label="State total" value={s.stateTotal} bold />
+          </div>
+        )}
+        <div className="pt-1"><Row label="Total estimated tax" value={s.total} bold /></div>
+      </dl>
+    </section>
+  );
+}
+
+function EstimateView({ e, voucherHref, pdfHref }: { e: PortalTaxEstimateDTO; voucherHref: string; pdfHref: string | null }) {
+  const jurisdictions = e.jurisdictions;
+  const federal = jurisdictions?.find((j) => j.jurisdiction === 'federal');
+  const nextDue = (jurisdictions ?? []).map((j) => j.nextPayment?.dueDate).filter((d): d is string => !!d).sort()[0];
+  const labelOf = (code: string) => jurisdictions?.find((j) => j.jurisdiction === code)?.label ?? (code === 'federal' ? 'Federal (IRS)' : code);
   return (
     <div className="space-y-4">
       <div>
@@ -125,28 +178,30 @@ function EstimateView({ e, voucherHref }: { e: PortalTaxEstimateDTO; voucherHref
         </p>
       </div>
 
-      <section className="bg-white border border-gray-200 rounded-lg p-4" aria-label="Next payments">
-        <h2 className="text-sm font-semibold text-gray-900 mb-2">Next payments{nextDue ? ` · due ${fmtDate(nextDue)}` : ''}</h2>
-        <ul className="divide-y divide-gray-100">
-          {e.jurisdictions.map((j) => (
-            <li key={j.jurisdiction} className="flex items-center justify-between py-2">
-              <span className="text-sm text-gray-800">{j.label}</span>
-              <span className="text-sm font-semibold tabular-nums text-gray-900">
-                {j.nextPayment ? (
-                  <>{usd(j.nextPayment.amount)}{j.nextPayment.dueDate !== nextDue && <span className="ml-1 text-xs font-normal text-gray-500">due {fmtShortDate(j.nextPayment.dueDate)}</span>}</>
-                ) : <span className="font-normal text-gray-500">{noNextPaymentText(j)}</span>}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <a
-          href={voucherHref}
-          download
-          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          <Download className="h-4 w-4" /> Download payment vouchers
-        </a>
-      </section>
+      {jurisdictions && (
+        <section className="bg-white border border-gray-200 rounded-lg p-4" aria-label="Next payments">
+          <h2 className="text-sm font-semibold text-gray-900 mb-2">Next payments{nextDue ? ` · due ${fmtDate(nextDue)}` : ''}</h2>
+          <ul className="divide-y divide-gray-100">
+            {jurisdictions.map((j) => (
+              <li key={j.jurisdiction} className="flex items-center justify-between py-2">
+                <span className="text-sm text-gray-800">{j.label}</span>
+                <span className="text-sm font-semibold tabular-nums text-gray-900">
+                  {j.nextPayment ? (
+                    <>{usd(j.nextPayment.amount)}{j.nextPayment.dueDate !== nextDue && <span className="ml-1 text-xs font-normal text-gray-500">due {fmtShortDate(j.nextPayment.dueDate)}</span>}</>
+                  ) : <span className="font-normal text-gray-500">{noNextPaymentText(j)}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <a
+            href={voucherHref}
+            download
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            <Download className="h-4 w-4" /> Download payment vouchers
+          </a>
+        </section>
+      )}
 
       <section className="bg-white border border-gray-200 rounded-lg p-4" aria-label="Projected total">
         <h2 className="text-sm font-semibold text-gray-900">Projected {e.taxYear} total</h2>
@@ -161,18 +216,29 @@ function EstimateView({ e, voucherHref }: { e: PortalTaxEstimateDTO; voucherHref
             </>
           )}
         </dl>
+        {pdfHref && (
+          <a
+            href={pdfHref}
+            download
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+          >
+            <FileText className="h-4 w-4" /> Download estimate (PDF)
+          </a>
+        )}
       </section>
 
-      {e.jurisdictions.map((j) => <History key={j.jurisdiction} j={j} />)}
+      {e.calculationSummary && <CalcSummary s={e.calculationSummary} taxYear={e.taxYear} />}
 
-      {e.payments.length > 0 && (
+      {(jurisdictions ?? []).map((j) => <History key={j.jurisdiction} j={j} />)}
+
+      {e.payments && e.payments.length > 0 && (
         <section className="bg-white border border-gray-200 rounded-lg p-4" aria-label="Payments received">
           <h2 className="text-sm font-semibold text-gray-900 mb-2">Payments on record</h2>
           <ul className="divide-y divide-gray-100">
             {e.payments.map((p, idx) => (
               <li key={`${p.jurisdiction}:${p.date ?? 'carry'}:${idx}`} className="flex justify-between py-1.5 text-sm">
                 <span className="text-gray-700">
-                  {e.jurisdictions.find((j) => j.jurisdiction === p.jurisdiction)?.label ?? p.jurisdiction}
+                  {labelOf(p.jurisdiction)}
                   {' · '}{p.date ? fmtDate(p.date) : 'Prior-year overpayment'}
                 </span>
                 <span className="tabular-nums text-gray-900">{usd(p.amount)}</span>
@@ -201,6 +267,11 @@ export function PortalTaxEstimatesPage() {
   const [listAttempt, setListAttempt] = useState(0);
   const [taxpayerId, setTaxpayerId] = useState<string | null>(null);
   const [year, setYear] = useState<number | null>(null);
+  // Q51: the picked scenario (null = the server's default, Base).
+  const [scenarioId, setScenarioId] = useState<string | null>(null);
+  // Kept while a picked scenario loads, so the picker does not blink away.
+  const [scenarioOptions, setScenarioOptions] = useState<NonNullable<PortalTaxEstimateResponseDTO['scenarios']>>([]);
+  const [shownScenarioId, setShownScenarioId] = useState<string>('');
   const [detail, setDetail] = useState<DetailState>({ kind: 'idle' });
   const [detailAttempt, setDetailAttempt] = useState(0);
 
@@ -237,17 +308,22 @@ export function PortalTaxEstimatesPage() {
     if (!activeCompanyId || !current) { setDetail({ kind: 'idle' }); return; }
     let cancelled = false;
     setDetail({ kind: 'loading' });
-    const q = `companyId=${activeCompanyId}${effectiveYear != null ? `&year=${effectiveYear}` : ''}`;
+    const q = `companyId=${activeCompanyId}${effectiveYear != null ? `&year=${effectiveYear}` : ''}${scenarioId ? `&scenarioId=${scenarioId}` : ''}`;
     fetch(`${base()}/${current.id}?${q}`, { credentials: 'include' })
       .then(async (r) => {
         if (r.status === 403 || r.status === 404) return { kind: 'unavailable' } as const;
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return { kind: 'ready', data: (await r.json()) as PortalTaxEstimateResponseDTO } as const;
       })
-      .then((s) => { if (!cancelled) setDetail(s); })
+      .then((s) => {
+        if (cancelled) return;
+        setDetail(s);
+        setScenarioOptions(s.kind === 'ready' ? s.data.scenarios ?? [] : []);
+        setShownScenarioId(s.kind === 'ready' ? s.data.scenarioId ?? '' : '');
+      })
       .catch(() => { if (!cancelled) setDetail({ kind: 'error' }); });
     return () => { cancelled = true; };
-  }, [activeCompanyId, current, effectiveYear, detailAttempt]);
+  }, [activeCompanyId, current, effectiveYear, scenarioId, detailAttempt]);
 
   const notice = (text: string, retry?: () => void) => (
     <div className="max-w-3xl mx-auto px-4 py-10">
@@ -274,19 +350,19 @@ export function PortalTaxEstimatesPage() {
     );
   }
 
-  const voucherHref = current
-    ? `${base()}/${current.id}/vouchers.pdf?companyId=${activeCompanyId ?? ''}${effectiveYear != null ? `&year=${effectiveYear}` : ''}`
-    : '#';
+  const query = `companyId=${activeCompanyId ?? ''}${effectiveYear != null ? `&year=${effectiveYear}` : ''}${scenarioId ? `&scenarioId=${scenarioId}` : ''}`;
+  const voucherHref = current ? `${base()}/${current.id}/vouchers.pdf?${query}` : '#';
+  const pdfHref = current && detail.kind === 'ready' && detail.data.pdfDownload ? `${base()}/${current.id}/estimate.pdf?${query}` : null;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-      {(taxpayers.length > 1 || years.length > 1) && (
+      {(taxpayers.length > 1 || years.length > 1 || scenarioOptions.length > 1) && (
         <div className="flex flex-wrap gap-2">
           {taxpayers.length > 1 && (
             <select
               aria-label="Taxpayer"
               value={current?.id ?? ''}
-              onChange={(ev) => { setTaxpayerId(ev.target.value); setYear(null); }}
+              onChange={(ev) => { setTaxpayerId(ev.target.value); setYear(null); setScenarioId(null); }}
               className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white"
             >
               {taxpayers.map((t) => <option key={t.id} value={t.id}>{t.displayName}</option>)}
@@ -296,10 +372,20 @@ export function PortalTaxEstimatesPage() {
             <select
               aria-label="Tax year"
               value={effectiveYear ?? ''}
-              onChange={(ev) => setYear(Number(ev.target.value))}
+              onChange={(ev) => { setYear(Number(ev.target.value)); setScenarioId(null); }}
               className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white"
             >
               {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          )}
+          {scenarioOptions.length > 1 && (
+            <select
+              aria-label="Scenario"
+              value={scenarioId ?? shownScenarioId}
+              onChange={(ev) => setScenarioId(ev.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white"
+            >
+              {scenarioOptions.map((sc) => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
             </select>
           )}
         </div>
@@ -313,7 +399,7 @@ export function PortalTaxEstimatesPage() {
           <div className="bg-white border border-dashed border-gray-300 rounded-lg p-6 text-center text-sm text-gray-600">
             Your accountant has not finalized an estimate for {effectiveYear ?? 'this year'} yet. Check back soon.
           </div>
-        ) : <EstimateView e={detail.data.estimate} voucherHref={voucherHref} />}
+        ) : <EstimateView e={detail.data.estimate} voucherHref={voucherHref} pdfHref={pdfHref} />}
     </div>
   );
 }

@@ -68,3 +68,16 @@ Operator notes:
 - Migration `0207_tax_est_projection_method.sql` (+ rollback; part `parts/projection-method.sql`; journal idx 207, `when` 1784800000290): new column `tax_est_entity_year_inputs.projection_method` (default `run_rate`, CHECK). Additive; every estimate is unchanged until a method is chosen.
 - Engine 1.0.0-rc.6 and estimate cache version `te-estimate-v6` re-key every live estimate once on deploy (no figure changes for run-rate entities). A selected prior-year method reads 12 more months per company (Redis-cached by the GL stamp).
 - Kurt's review list (prior-year definition and flags, completeness rule, dollar method guardrails, C corp restriction): OPEN-QUESTIONS.md Q46.
+
+## Portal view options (Q51)
+
+User-facing:
+- **Choose what each portal contact sees** of the tax estimates shared with them — a spouse or an in-house bookkeeper can see less. Four switches per contact: **Calculation summary** (new, off by default: income by business showing only the household's share, adjustments total, AGI, deduction, QBI deduction, taxable income, the federal tax lines, tax per state and the total — no rates, formulas or adjustment detail), **Quarterly estimates and vouchers** (on), **Payments on record** (on) and **Download the estimate PDF** (off; the client copy of the estimate PDF, the same document as the Report Pack section). The projected total always shows. Set them on the taxpayer page (Portal contacts > What they see) or in Practice > Client Portal > edit the contact > "Tax estimates in the portal". One setting per contact, for every taxpayer the contact can open.
+- **Share what-if scenarios**: on Annual settings, select a scenario and tick **Show this scenario in the client portal**. Base is always shown; when more than one is shared the client gets a scenario picker. Clients see the scenario name exactly as written, so name it for them. When the portal shows finalized snapshots, each shared scenario shows its own latest finalized snapshot and a scenario without one is not offered.
+- "View as Client" shows exactly what the previewed contact sees.
+
+Operator notes:
+- Migration `0211_tax_est_portal_options.sql` (+ rollback; part `parts/portal-options.sql`; journal idx 211, `when` 1784800000330 — 0209 / 0210 belong to parallel branches): new table `tax_est_portal_contact_options` and column `tax_est_scenarios.show_in_portal` (default false). Additive; with no rows every contact sees exactly what they saw before (byte-identical portal response).
+- Turning a section on needs firm staff with Tax Estimator access; tenant staff outside the firm may only switch sections off (`TE_ACCESS_GRANT_FORBIDDEN`). Changes audit `tax_est_portal_options`; every portal estimate-PDF download audits `tax_est_portal_pdf` (metadata only).
+- Behaviour change in snapshot mode: the portal used the latest finalized snapshot of ANY scenario; it now uses the shared scenario's own (Base unless a what-if is shared).
+- Kurt's review list (per-contact vs per-taxpayer, PDF content, no snapshot frozen per portal download, snapshot-mode change): OPEN-QUESTIONS.md Q51.

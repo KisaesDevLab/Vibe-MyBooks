@@ -71,6 +71,15 @@ export function useRenameScenario() {
     onSuccess: invalidate,
   });
 }
+/** Q51: share (or stop sharing) a what-if scenario in the client portal. */
+export function useScenarioPortalShare() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (v: { id: string; showInPortal: boolean }) =>
+      (await call<{ data: ScenarioDTO }>(`/scenarios/${v.id}`, { method: 'PATCH', ...json({ showInPortal: v.showInPortal }) })).data,
+    onSuccess: invalidate,
+  });
+}
 export function useCloneScenario() {
   const invalidate = useInvalidate();
   return useMutation({

@@ -20,7 +20,7 @@ import { StateRowsEditor, validateDrafts, draftFromRow } from './StateRowsEditor
 import { YearInputsForm } from './YearInputsForm';
 
 const scen = (over: Partial<ScenarioDTO> = {}): ScenarioDTO => ({
-  id: 's1', taxpayerId: 'tp', taxYear: 2026, name: 'Base', isBase: true, sortOrder: 0, sourceScenarioId: null,
+  id: 's1', taxpayerId: 'tp', taxYear: 2026, name: 'Base', isBase: true, showInPortal: false, sortOrder: 0, sourceScenarioId: null,
   createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', ...over,
 });
 const type = (over: Partial<AdjustmentTypeDTO> = {}): AdjustmentTypeDTO => ({
@@ -68,6 +68,22 @@ describe('ScenarioTabs', () => {
     expect(h.onDelete).not.toHaveBeenCalled();
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
     expect(h.onDelete).toHaveBeenCalledWith('s2');
+  });
+
+  it('Q51: shares a what-if scenario in the client portal (never offered for Base)', () => {
+    const h = { ...handlers(), onShareInPortal: vi.fn() };
+    const { rerender } = render(<ScenarioTabs scenarios={[scen(), scen({ id: 's2', name: 'Buy truck', isBase: false })]} selectedId="s1" canWrite {...h} />);
+    expect(screen.queryByLabelText('Show this scenario in the client portal')).toBeNull();
+    rerender(<ScenarioTabs scenarios={[scen(), scen({ id: 's2', name: 'Buy truck', isBase: false })]} selectedId="s2" canWrite {...h} />);
+    const box = screen.getByLabelText('Show this scenario in the client portal');
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/Clients see the scenario name exactly as written/)).toBeInTheDocument();
+    fireEvent.click(box);
+    expect(h.onShareInPortal).toHaveBeenCalledWith('s2', true);
+    rerender(<ScenarioTabs scenarios={[scen(), scen({ id: 's2', name: 'Buy truck', isBase: false, showInPortal: true })]} selectedId="s2" canWrite={false} {...h} />);
+    expect(screen.getByLabelText('Show this scenario in the client portal')).toBeChecked();
+    expect(screen.getByLabelText('Show this scenario in the client portal')).toBeDisabled();
+    expect(screen.getByRole('tab', { name: /Buy truck/ }).textContent).toContain('(portal)');
   });
 
   it('disables Clone at the six-scenario cap and hides actions for read-only users', () => {

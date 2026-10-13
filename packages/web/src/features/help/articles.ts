@@ -3445,7 +3445,7 @@ The **States** table has one row per state, with exactly one resident state. Oth
 
 ## Scenarios
 
-Every year has a **Base** scenario. Use the scenario tabs to clone, rename or delete scenarios (Base can never be deleted, and there is a cap on how many you can keep). A scenario holds its own adjustments, so "Buy truck in December" can change one thing without touching the base case.
+Every year has a **Base** scenario. Use the scenario tabs to clone, rename or delete scenarios (Base can never be deleted, and there is a cap on how many you can keep). A scenario holds its own adjustments, so "Buy truck in December" can change one thing without touching the base case. Tick **Show this scenario in the client portal** on a selected what-if to let portal contacts pick it (see "Tax Estimator in the client portal"); the client sees its name as written.
 
 ## Adjustments
 
@@ -3563,12 +3563,27 @@ In a Report Pack for a linked company, add **Tax Estimate** (group Tax). Pick th
     id: 'tax-estimator-client-portal',
     title: 'Tax Estimator in the client portal',
     category: 'Tax Estimator',
-    summary: 'Share a read-only estimate with the client, per contact and per company, and control live versus snapshot.',
+    summary: 'Share a read-only estimate with the client, choose per contact what they see (summary, quarterly estimates, payments, PDF) and which scenarios, and control live versus snapshot.',
     body: `Clients can see their own estimate and payment vouchers in the portal, on a phone or a desktop. Nothing is shared until you turn it on.
 
 ## What the client sees
 
-The portal home shows a **Tax estimate** tile. The page shows the projected total (federal and state), the next payments with due dates (a **Past due** badge when late), federal estimates paid and withheld, the payments on record, a **Download payment vouchers** button and the firm disclaimer. It is labeled "as of" a time for a live estimate, or "prepared" on a date for a snapshot. The client does **not** see persons, other owners, the linked companies, adjustments, rates, the calculation trace, parameters, safe-harbor workings or prior-year figures.
+The portal home shows a **Tax estimate** tile. The page shows the projected total (federal and state), the next payments with due dates (a **Past due** badge when late), federal estimates paid and withheld, the payments on record, a **Download payment vouchers** button and the firm disclaimer. It is labeled "as of" a time for a live estimate, or "prepared" on a date for a snapshot. The client does **not** see persons, other owners, adjustments, rates, the calculation trace, parameters, safe-harbor workings or prior-year figures. That is the default view; you can show each contact more or less (below).
+
+## Choosing what each contact sees
+
+Each portal contact has its own switches, so a spouse or a bookkeeper can see less than the owner. Open the taxpayer page > **Portal contacts > What they see**, or **Practice > Client Portal**, edit the contact and use **Tax estimates in the portal**. One setting covers every taxpayer the contact can open.
+
+- **Calculation summary** (off by default): income by business showing only the household's share (never the business's total or other owners), the adjustments total, adjusted gross income, the standard or itemized deduction, the QBI deduction, taxable income, income tax, credits, self-employment and other taxes, the federal total, the tax per state and the grand total. No rates, formulas or adjustment detail.
+- **Quarterly estimates and vouchers** (on): the installment schedule, the next payment and the voucher download.
+- **Payments on record** (on): the estimated-tax payments received.
+- **Download the estimate PDF** (off): the client copy of the estimate PDF, the same document as the Report Pack section. It shows business totals, owners, safe-harbor amounts and the detailed calculation, so turn it on only for contacts who may see that.
+
+The projected total always shows. A switched-off section is not sent to the portal at all. Turning a switch **on** needs firm staff with Tax Estimator access; the client's own staff can only turn switches off. Every change is recorded in the audit log, and so is every estimate-PDF download. **View as Client** shows exactly what the previewed contact sees.
+
+## Sharing scenarios
+
+The **Base** scenario is always shown. To share a what-if, open Annual settings, select the scenario and tick **Show this scenario in the client portal**. When more than one scenario is shared the client gets a scenario picker. Clients see the scenario name exactly as you wrote it, so name it for them ("If you buy the truck").
 
 ## What must all be true
 
@@ -3581,7 +3596,7 @@ If any item fails the portal says no estimate is shared, and it never reveals wh
 
 ## Live or snapshot
 
-Set **Client portal shows** on the taxpayer (or the firm default in Firm settings): **Live estimate** (recomputed on request and cached briefly) or **Latest finalized snapshot** (shows only after you finalize). With snapshot mode and no finalized snapshot, the client sees "No tax estimate shared yet".`,
+Set **Client portal shows** on the taxpayer (or the firm default in Firm settings): **Live estimate** (recomputed on request and cached briefly) or **Latest finalized snapshot** (shows only after you finalize). With snapshot mode and no finalized snapshot, the client sees "No tax estimate shared yet". In snapshot mode each shared scenario shows its own latest finalized snapshot, and a scenario without one is not offered.`,
   },
   {
     id: 'tax-estimator-admin',
