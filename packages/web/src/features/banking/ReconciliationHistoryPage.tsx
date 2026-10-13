@@ -13,6 +13,8 @@ import { useToast } from '../../components/ui/Toaster';
 import { SortableTh } from '../../components/ui/SortableTh';
 import { useColumnView } from '../../hooks/useColumnView';
 import { selectRows } from '../../utils/columnView';
+import { reconSignoffBadge } from '@kis-books/shared';
+import { ReconSignoffStatusBadge } from '../reports/reconciliation/ReconProofSections';
 
 type HistorySortKey = 'statementDate' | 'endingBalance' | 'status' | 'completed';
 
@@ -67,6 +69,7 @@ export function ReconciliationHistoryPage() {
                 <SortableTh padding="px-4 py-2" label="Ending Balance" align="right" {...view.thProps('endingBalance')} />
                 <SortableTh padding="px-4 py-2" label="Status" align="center" {...view.thProps('status')} />
                 <SortableTh padding="px-4 py-2" label="Completed" {...view.thProps('completed')} />
+                <th className="px-4 py-2 text-left">Sign-off</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -81,6 +84,9 @@ export function ReconciliationHistoryPage() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-500">{r.completedAt ? new Date(r.completedAt).toLocaleDateString() : '—'}</td>
+                  <td className="px-4 py-2">
+                    {r.signoffs && (r.status === 'complete' || reconSignoffBadge(r.signoffs) !== 'unsigned') ? <ReconSignoffStatusBadge signoffs={r.signoffs} /> : <span className="text-xs text-gray-400">—</span>}
+                  </td>
                   <td className="px-4 py-2 text-right whitespace-nowrap">
                     {r.status === 'complete' && (
                       <Link

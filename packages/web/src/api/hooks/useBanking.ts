@@ -3,7 +3,9 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { BankConnection, BankFeedItem, BankFeedFilters, Reconciliation, ReconProof } from '@kis-books/shared';
+import type {
+  BankConnection, BankFeedItem, BankFeedFilters, Reconciliation, ReconProof, ReconSignoffRole, ReconSignoffSummary, ReconSignoffView,
+} from '@kis-books/shared';
 import { apiClient, API_BASE } from '../client';
 
 export function useBankConnections() {
@@ -491,6 +493,44 @@ export function useReconciliationProof(id: string) {
     queryKey: ['reconciliation', id, 'proof'],
     queryFn: () => apiClient<{ proof: ReconProof }>(`/banking/reconciliations/${id}/proof`),
     enabled: !!id,
+  });
+}
+
+// Electronic sign-off (Preparer → Reviewer) on a completed reconciliation.
+// Keyed under ['reconciliation', id] so undo / complete refresh it too.
+export function useReconciliationSignoffs(id: string) {
+  return useQuery({
+    queryKey: ['reconciliation', id, 'signoffs'],
+    queryFn: () => apiClient<ReconSignoffView>(`/banking/reconciliations/${id}/signoffs`),
+    enabled: !!id,
+  });
+}
+
+function invalidateSignoffViews(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['reconciliation'] });
+  qc.invalidateQueries({ queryKey: ['reconciliations'] });
+  // Report pages embed the proof (Section E) — refetch them too.
+  qc.invalidateQueries({ queryKey: ['reports', 'reconciliation-detail'] });
+  qc.invalidateQueries({ queryKey: ['reports', 'bank-reconciliation-summary'] });
+}
+
+export function useSignReconciliation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, role }: { id: string; role: ReconSignoffRole }) =>
+      apiClient<{ signoffs: ReconSignoffSummary }>(`/banking/reconciliations/${id}/signoffs`, {
+        method: 'POST', body: JSON.stringify({ role }),
+      }),
+    onSuccess: () => invalidateSignoffViews(qc),
+  });
+}
+
+export function useRemoveReconciliationSignoff() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, role }: { id: string; role: ReconSignoffRole }) =>
+      apiClient<{ signoffs: ReconSignoffSummary }>(`/banking/reconciliations/${id}/signoffs/${role}`, { method: 'DELETE' }),
+    onSuccess: () => invalidateSignoffViews(qc),
   });
 }
 

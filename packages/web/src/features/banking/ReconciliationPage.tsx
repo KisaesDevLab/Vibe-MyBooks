@@ -41,6 +41,7 @@ import { AlertTriangle, FileText, Sparkles, Wand2, Check, X, Plus, Pencil, Refre
 import { CommitInput } from '../../components/forms/CommitInput';
 import type { ReconItemFlag } from '@kis-books/shared';
 import { ReconProofPanel } from './ReconProofPanel';
+import { ReconSignoffPanel } from './ReconSignoffPanel';
 import { ReconFlagBadge } from '../reports/reconciliation/ReconProofSections';
 
 const money = (v: string | number | null | undefined) =>
@@ -1680,6 +1681,12 @@ export function ReconciliationPage() {
           </Link>
         </div>
       )}
+
+      {/* Electronic sign-off: preparer, then a different firm-staff reviewer
+          (completed reconciliations; disabled with a hint while in progress). */}
+      <div className="mt-4">
+        <ReconSignoffPanel reconId={reconId} />
+      </div>
 
       {/* Void dialog (duplicate cleanup without leaving the worksheet) */}
       {voidTarget && (

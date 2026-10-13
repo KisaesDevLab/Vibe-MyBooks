@@ -25,6 +25,7 @@ import {
   ReconBookProofSection, ReconClearedRollSection, ReconSchedulesSection, ReconSignOffSection,
   ReconSubsequentSection, ReconSummarySection,
 } from './reconciliation/ReconProofSections';
+import { ReconSignoffPanel } from '../banking/ReconSignoffPanel';
 
 interface SummaryAccountRow {
   accountId: string;
@@ -56,7 +57,7 @@ interface SummaryResponse {
   proofs: ReconProof[];
 }
 
-function ProofBlock({ proof }: { proof: ReconProof }) {
+function ProofBlock({ proof, interactive }: { proof: ReconProof; interactive?: boolean }) {
   const label = proof.accountNumber ? `${proof.accountNumber} · ${proof.accountName}` : proof.accountName;
   return (
     <div className="space-y-4 border-t pt-6" data-testid="recon-proof-block">
@@ -72,6 +73,7 @@ function ProofBlock({ proof }: { proof: ReconProof }) {
       <ReconSubsequentSection proof={proof} />
       <ReconBookProofSection proof={proof} />
       <ReconSignOffSection proof={proof} />
+      {interactive && <ReconSignoffPanel reconId={proof.reconciliationId} />}
     </div>
   );
 }
@@ -87,7 +89,9 @@ export function BankReconciliationSummaryReport() {
     queryFn: () => apiClient<SummaryResponse>(`/reports/bank-reconciliation-summary${qs}`),
   });
 
-  const exportBaseUrl = `${API_BASE}/reports/bank-reconciliation-summary${qs}`;
+  // The browser's zone prints the sign-off times on the PDF / CSV.
+  const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return ''; } })();
+  const exportBaseUrl = `${API_BASE}/reports/bank-reconciliation-summary${qs}${tz ? `${qs ? '&' : '?'}tz=${encodeURIComponent(tz)}` : ''}`;
 
   const accountRows = (data?.accounts ?? []).map((a) => ({
     account: a.accountNumber ? `${a.accountNumber} · ${a.name}` : a.name,
@@ -159,7 +163,7 @@ export function BankReconciliationSummaryReport() {
               No completed reconciliations yet — the bank-to-books reconciliation appears here once an account has one.
             </div>
           ) : (
-            (data.proofs ?? []).map((p) => <ProofBlock key={p.reconciliationId} proof={p} />)
+            (data.proofs ?? []).map((p) => <ProofBlock key={p.reconciliationId} proof={p} interactive={!!reconciliationId} />)
           )}
         </div>
       )}
