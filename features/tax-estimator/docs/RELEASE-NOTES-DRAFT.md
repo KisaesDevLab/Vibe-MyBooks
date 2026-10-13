@@ -112,6 +112,7 @@ Operator notes:
 Operator notes:
 - Migrations 0209 → 0212 apply in this order (journal `when` 1784800000310 … 340); all additive.
 - Cache versions: Q49 and Q50 each bumped the estimate cache to `te-estimate-v7` and the P&L provider cache to `te:pl:v3` on their own branch; the merged release uses `te-estimate-v8` and `te:pl:v4` (the key carries both the entity-type override and the owner splits). Every live estimate re-keys once on deploy; no figure changes without an override or splits.
+- Fix: in a business owned by several households, each taxpayer's estimate now gets only its own persons' officer wages, owner / officer health and retirement and guaranteed payments (before, another owner's items were attributed to the taxpayer's primary person with a TE_UNKNOWN_PERSON warning — e.g. a 60 / 40 officer-wage split gave each shareholder 100%). Figures change for such businesses only.
 - The owner's company-dashboard card follows the owner's portal contact's Q51 options (Quarterly estimates off → projected total only) and the Base scenario (snapshot mode: Base's latest finalized snapshot). Several active contacts with the owner's e-mail → most restrictive options.
 
 ## Dashboard cards (Q52, migration 0212_tax_est_dashboard_summaries)
