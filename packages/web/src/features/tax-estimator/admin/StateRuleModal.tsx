@@ -67,6 +67,7 @@ const HINT: Partial<Record<StateRuleValueType, string>> = {
   date: 'One YYYY-MM-DD date.',
   rate_schedule: 'One period per line: from, to, annual rate as a decimal, e.g. 2025-01-01 2025-12-31 0.08. Periods in date order, no overlaps. These rates replace the single penalty rate on the days they cover.',
   high_agi_rule: 'JSON: {"threshold": 150000, "pct": 1.1} plus optional "threshold_mfs", "no_prior_year_agi", "no_prior_year_agi_mfs".',
+  exemptions: 'JSON: {"personal_exemption": 2000, "dependent_exemption": 2000, "personal_credit": 0, "dependent_credit": 0} plus optional "personal_exemption_by_status" / "personal_credit_by_status" ({"single": n, "mfj": n, ...}), "simplified": true, "note". null = not sourced.',
   farmer_rule: 'JSON: {"ratio": 0.667, "current_pct": 0.667, "due_date": "YYYY-MM-DD", "file_by": "YYYY-MM-DD"} plus optional "treatment": "single_installment" | "quarterly" | "exempt".',
 };
 

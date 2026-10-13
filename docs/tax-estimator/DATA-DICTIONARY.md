@@ -33,6 +33,18 @@ estimator, and do not add them to analytics, AI prompts or support bundles.
 | `tax_est_snapshots.summary_encrypted` | Snapshot totals for the history list | §7216 tax return information (derived) | AES-256-GCM; `summary_sha256` verified on read; returned only to callers who still reach every tenant in `tenant_ids` (D1) |
 | Redis `te:estimate:te-estimate-v3:*` | Cached live estimate (6 h TTL, key embeds the inputs hash, which covers the caller's tenant scope and every company's reconciliation state — R3-01 / R3-03) | §7216 tax return information (derived) | value is `{ enc: <AES-256-GCM ciphertext> }`; a value that does not decrypt is a cache miss |
 
+Dependents (Q44, migration `0204_tax_est_dependents`): `tax_est_dependents` holds a
+dependent's display name, date of birth, relationship, qualifying-child / relative kind,
+months lived with the taxpayer, student / disabled flags and the first / last tax year
+counted. It is client personal information (a minor's date of birth) entered for return
+preparation and is treated like `tax_est_persons`: read and written only through the
+taxpayer's firm + D17 / D18 visibility checks, cascades with the taxpayer, audited
+metadata-only (birth YEAR, never the name or full date of birth), and NO Social Security
+number is stored. The engine result, the PDF and the assumptions page carry only the
+dependent's age at year end and age group (the assumptions page prints initials); the
+client portal shows none of it. `tax_est_years.care_expenses` (child and dependent care
+expenses paid) is a plain money input like the manual credits.
+
 Not tax return information (books data, stored in clear): payment ledger rows
 (`tax_est_payments`), Schedule AI period figures (`tax_est_sch_ai_snapshots`), entity
 settings, treatments and adjustments. Snapshot metadata (`tax_year`, `scenario_name`,

@@ -9,7 +9,7 @@ import {
   type FilingStatus, type PersonRole, type SafeHarborOverride, type PortalShows, type TaxpayerDTO,
 } from '@kis-books/shared';
 import {
-  useTaxpayer, useUpdateTaxpayer, useArchiveTaxpayer, useUpsertPerson, useRemovePerson, useTaxEstimatorScope,
+  useTaxpayer, useUpdateTaxpayer, useArchiveTaxpayer, useUpsertPerson, useRemovePerson, useCreateDependent, useUpdateDependent, useRemoveDependent, useTaxEstimatorScope,
 } from '../../../api/hooks/useTaxEstimatorTaxpayers';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -17,6 +17,7 @@ import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { PersonsEditor } from './PersonsEditor';
+import { DependentsEditor } from './DependentsEditor';
 import { LinksSection } from './LinksSection';
 import { ContactsPanel } from './ContactsPanel';
 import { TaxpayerAccessCard } from './TaxpayerAccessCard';
@@ -105,6 +106,9 @@ export function TaxpayerDetailPage() {
   const scope = useTaxEstimatorScope();
   const upsertPerson = useUpsertPerson(id ?? '');
   const removePerson = useRemovePerson(id ?? '');
+  const createDependent = useCreateDependent(id ?? '');
+  const updateDependent = useUpdateDependent(id ?? '');
+  const removeDependent = useRemoveDependent(id ?? '');
   const archive = useArchiveTaxpayer();
   const [confirmArchive, setConfirmArchive] = useState(false);
   // UX only; the server enforces firm_admin / firm_staff on every mutation.
@@ -115,6 +119,8 @@ export function TaxpayerDetailPage() {
     return <ErrorMessage message={(error as { status?: number } | null)?.status === 404 ? 'Taxpayer not found.' : 'Could not load this taxpayer.'} onRetry={() => refetch()} />;
   }
   const { taxpayer, persons } = data;
+  const dependents = data.dependents ?? [];
+  const depError = [createDependent, updateDependent, removeDependent].find((m) => m.isError)?.error;
 
   return (
     <div className="space-y-6">
@@ -138,6 +144,12 @@ export function TaxpayerDetailPage() {
           error={upsertPerson.isError ? errMsg(upsertPerson.error) : removePerson.isError ? errMsg(removePerson.error) : undefined}
           onSave={(role: PersonRole, input) => upsertPerson.mutate({ role, input })}
           onRemove={(role: PersonRole) => removePerson.mutate(role)} />
+        <DependentsEditor dependents={dependents} canWrite={canWrite}
+          saving={createDependent.isPending || updateDependent.isPending || removeDependent.isPending}
+          error={depError ? errMsg(depError) : undefined}
+          onCreate={(input, done) => createDependent.mutate(input, { onSuccess: done })}
+          onUpdate={(depId, input, done) => updateDependent.mutate({ id: depId, input }, { onSuccess: done })}
+          onRemove={(depId) => removeDependent.mutate(depId)} />
       </section>
       <LinksSection taxpayerId={taxpayer.id} persons={persons} canWrite={canWrite} />
       <ContactsPanel taxpayerId={taxpayer.id} canWrite={canWrite} />

@@ -66,6 +66,7 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
   const [sch1aOpen, setSch1aOpen] = useState(false);
   const [nonref, setNonref] = useState(String(Number(y.creditsNonrefundable)));
   const [ref, setRef] = useState(String(Number(y.creditsRefundable)));
+  const [care, setCare] = useState(String(Number(y.careExpenses ?? 0)));
   const [hsa, setHsa] = useState<Record<string, HsaCoverage | ''>>({ primary: y.hsaCoverage.primary ?? '', spouse: y.hsaCoverage.spouse ?? '' });
   const [fedWh, setFedWh] = useState(str(y.withholding.federal));
   const [people, setPeople] = useState(() => peopleDraftFromYear(y));
@@ -78,7 +79,7 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
   const stateWhParsed = stateWh.split(',').map((t) => t.trim()).filter(Boolean).map((t) => t.split('=').map((p) => p.trim()));
   const stateWhBad = stateWhParsed.some(([s, v]) => !s || !/^[A-Za-z]{2}$/.test(s) || v === undefined || !Number.isFinite(Number(v)) || Number(v) < 0);
   const sch1aInvalid = Object.values(sch1a).some(sch1aAmountBad);
-  const invalid = sch1aInvalid || peopleDraftInvalid(people) || rateBad || moneyBad(priorTax) || moneyBad(priorAgi) || moneyBad(nonref) || moneyBad(ref) || stateWhBad
+  const invalid = sch1aInvalid || peopleDraftInvalid(people) || rateBad || moneyBad(priorTax) || moneyBad(priorAgi) || moneyBad(nonref) || moneyBad(ref) || moneyBad(care) || stateWhBad
     || ITEMIZED_FIELDS.some(([k]) => Number.isNaN(Number(itemized[k] || 0)));
 
   function submit() {
@@ -97,7 +98,7 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
       rateMode, effectiveRateOverride: rateMode === 'effective' ? Math.round(rateNum * 10000) / 1000000 : null,
       deductionMode: dedMode, itemized: itemizedOut,
       sch1a: { primary: sch['primary'], spouse: sch['spouse'] },
-      creditsNonrefundable: nonref.trim() || '0', creditsRefundable: ref.trim() || '0',
+      creditsNonrefundable: nonref.trim() || '0', creditsRefundable: ref.trim() || '0', careExpenses: care.trim() || '0',
       hsaCoverage: { ...(hsa['primary'] ? { primary: hsa['primary'] } : {}), ...(hsa['spouse'] ? { spouse: hsa['spouse'] } : {}) },
       withholding: { ...(num(fedWh) !== undefined ? { federal: num(fedWh)! } : {}), states },
       ...peoplePayload(people, persons.map((p) => p.role)),
@@ -120,12 +121,14 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
             <Input label="Effective rate %" inputMode="decimal" value={ratePct} disabled={!canWrite}
               error={rateBad ? '0 to 100' : undefined} onChange={(e) => setRatePct(e.target.value)} />
           )}
-          <Input label="Nonrefundable credits" inputMode="decimal" value={nonref} disabled={!canWrite}
+          <Input label="Other nonrefundable credits" inputMode="decimal" value={nonref} disabled={!canWrite}
             error={moneyBad(nonref) ? 'Enter an amount' : undefined} onChange={(e) => setNonref(e.target.value)} />
-          <Input label="Refundable credits" inputMode="decimal" value={ref} disabled={!canWrite}
+          <Input label="Other refundable credits" inputMode="decimal" value={ref} disabled={!canWrite}
             error={moneyBad(ref) ? 'Enter an amount' : undefined} onChange={(e) => setRef(e.target.value)} />
+          <Input label="Child and dependent care expenses paid" inputMode="decimal" value={care} disabled={!canWrite}
+            error={moneyBad(care) ? 'Enter an amount' : undefined} onChange={(e) => setCare(e.target.value)} />
         </div>
-        <p className="text-xs text-gray-500">Nonrefundable credits cannot reduce regular tax below zero.</p>
+        <p className="text-xs text-gray-500">Other credits = credits not tied to dependents (education, energy, foreign tax and so on); nonrefundable ones cannot reduce regular tax below zero. The child tax credit, the credit for other dependents, the additional child tax credit and the care credit are computed from the taxpayer&apos;s dependents and the care expenses — do not enter them here.</p>
         {roles.length > 0 && (
           <ul className="flex flex-wrap gap-2 text-xs text-gray-700" aria-label="People">
             {roles.map((p) => (

@@ -30,3 +30,17 @@ It is an estimate, not tax advice. Version 1 limits (even quarterly allocation, 
 - **Permissions**: staff need the `tax_estimator` permission; the module is firm-staff only; super admin only for Admin > Tax parameters.
 - **Before relying on it**: have a CPA verify the parameters/state rules marked unverified (PROGRESS.md sign-off checklists), especially MO and AR.
 - **Knowledge base**: nine Help articles (category "Tax Estimator") and `curated/47-tax-estimator.md`; `app-knowledge.json` and `app-knowledge-prompt.md` were regenerated.
+
+## Dependents and dependent credits (Q44, engine 1.0.0-rc.4)
+
+User-facing:
+- **Dependents** card on the taxpayer page (name, date of birth, relationship, qualifying child / relative, months lived with the taxpayer, student, disabled, first / last tax year). No Social Security number is collected.
+- **Child and dependent care expenses paid** on Annual settings; the manual credit fields are now **Other nonrefundable / Other refundable credits** (credits not tied to dependents).
+- The estimate computes the **child tax credit** (with the phase-out), the **credit for other dependents**, the refundable **additional child tax credit** and the **child and dependent care credit** (2026 OBBBA percentages), each with its own line and trace, in the calculation view, the PDF and the Schedule AI / safe-harbor figures. Warnings when the earned income credit may apply and when a single filer with a qualifying child may qualify as head of household.
+- **State personal / dependent exemptions and exemption credits** for the resident state (all 41 income-tax states and DC), e.g. Arkansas's $29 credits, Georgia's dependent exemption, Missouri's head-of-household exemption. Phase-outs are not modelled and say so.
+- The assumptions page lists the dependents by initials and age group (no date of birth).
+
+Operator notes:
+- Migration `0204_tax_est_dependents.sql` (+ rollback; part `parts/dependents.sql`): new table `tax_est_dependents`, new column `tax_est_years.care_expenses` (default 0). Additive; estimates without dependents or care expenses are unchanged.
+- New federal parameters (group "Credits", 2025 and 2026) and the state rule `exemptions` (84 rows) arrive through the startup seed re-sync, all **unverified** — Kurt verifies them in Admin > Tax parameters.
+- Live estimates for a taxpayer with dependents, care expenses or a resident state with exemptions change on the first request after deploy (engine version 1.0.0-rc.4 re-keys the cache). Frozen snapshots are untouched.

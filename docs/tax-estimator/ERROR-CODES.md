@@ -29,6 +29,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 |---|---|---|---|
 | `TE_ACCESS_GRANT_FORBIDDEN` | HTTP 403 | `svc/portal-contact.service.ts:219` | Granting tax estimate access needs Tax Estimator access for this client (firm staff) |
 | `TE_ACCOUNT_NOT_FOUND` | HTTP 404 | `svc/adjustments.service.ts:84`, `svc/treatments.service.ts:192` | Account not found |
+| `TE_ACTC_ALT_FORMULA_NOT_MODELLED` | warning | `engine/dependents.ts` | With 3+ qualifying children and the earned-income figure binding, the Schedule 8812 Part II-B alternative (Social Security / Medicare taxes less EIC) may give a larger additional child tax credit; not modelled (Q44). |
 | `TE_ADDL_MEDICARE_MANUAL_OVERRIDE` | warning | `engine/other-taxes.ts:64` | Additional Medicare tax is overridden to … (engine computed …). |
 | `TE_ADJUSTMENTS_TRUNCATED` | warning | `svc/estimate.service.ts:252` | Only the first … adjustments were used. |
 | `TE_ADJUSTMENT_ACCOUNT_UNREADABLE` | warning | `svc/estimate.service.ts:361` | Adjustment "…" reads an account whose company could not be read (…); only its manual amount is used. |
@@ -50,6 +51,12 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_AMT_NOT_MODELLED` | warning | `engine/federal.ts:241` | AMT exposure was flagged; the alternative minimum tax is out of scope and not included. |
 | `TE_BASE_SCENARIO_PROTECTED` | HTTP 422 | `svc/scenarios.service.ts` (delete, rename) | The Base scenario cannot be deleted / The Base scenario cannot be renamed (QA D21) |
 | `TE_CAPITAL_LOSS_LIMITED` | warning | `engine/income.ts:423` | Net capital loss … is limited to … this year (§1211); … carries forward (not tracked). |
+| `TE_CARE_CHILD_TURNS_13` | info | `engine/dependents.ts` | … turns 13 during the year and is counted as a care-credit qualifying person; only expenses before the birthday qualify (Q44 approximation). |
+| `TE_CARE_CREDIT_MFS` | warning | `engine/dependents.ts` | Married filing separately: no care credit computed (the lived-apart exception is not modelled). |
+| `TE_CARE_EMPLOYER_BENEFITS_NOT_MODELLED` | info | `engine/dependents.ts` | Employer dependent-care benefits (Form 2441 Part III) are not modelled; enter expenses net of excluded benefits. |
+| `TE_CARE_NO_QUALIFYING_PERSON` | warning | `engine/dependents.ts` | Care expenses were entered but no dependent is a qualifying person (child under 13 or disabled dependent); no care credit. |
+| `TE_CARE_SPOUSE_MISSING` | warning | `engine/dependents.ts` | Joint return with one person on file: the care credit's earned-income limit used that person alone. |
+| `TE_CARE_SPOUSE_NO_EARNED_INCOME` | warning | `engine/dependents.ts` | A spouse has no earned income, so the care credit is 0 (student / disabled spouse deemed income not modelled). |
 | `TE_CCORP_BELOW_MIN_TAX` | info | `engine/ccorp.ts:298` | Federal tax … is below …; no estimated-tax installments are required (IRC §6655(f)). The schedule is shown for reference. |
 | `TE_CCORP_FAILED` | warning | `svc/estimate.service.ts:662` | Fallback code when computing a linked C corporation fails with an AppError that carries no code; the message is `<company>: <error message>`; the entity is left out. |
 | `TE_CCORP_FISCAL_MONTH` | throws Error | `engine/ccorp.ts:213` | fiscal_year_start_month … is not 1..12 |
@@ -61,13 +68,19 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_COMPANY_NOT_FOUND` | HTTP 404 | `svc/adjustments.service.ts:80`, `svc/entity-type.service.ts:49`, `svc/taxpayers.service.ts:399` | Company not found |
 | `TE_COMPANY_NOT_LINKED` | HTTP 409 | `svc/register-flags.service.ts:67` | This company is not linked to a taxpayer in the Tax Estimator (register / transaction-detail non-recurring flag; only a company linked to one of the managing firm's active taxpayers can be flagged) |
 | `TE_CONTACT_NOT_FOUND` | HTTP 404 | `svc/taxpayers.service.ts:522`, `svc/taxpayers.service.ts:581` | Contact not found |
+| `TE_CTC_SSN_ASSUMED` | info | `engine/dependents.ts` | Child tax credit: valid SSNs for the children and the taxpayer (one spouse on a joint return) are assumed (§24(h)(7)). |
 | `TE_DEDUCTION_FORCED` | info | `engine/deductions.ts:159` | The … deduction was forced although the … deduction is larger. |
+| `TE_DEPENDENT_LIMIT` | HTTP 422 | `svc/taxpayers.service.ts` | A taxpayer has at most 20 dependents (Q44). |
+| `TE_DEPENDENT_NOT_FOUND` | HTTP 404 | `svc/taxpayers.service.ts` | Dependent not found (also for a dependent id of another taxpayer; a hidden / foreign taxpayer answers TE_TAXPAYER_NOT_FOUND first). |
+| `TE_DEPENDENT_QC_AGE` | warning | `engine/dependents.ts` | A dependent entered as a qualifying child fails the §152(c)(3) age test (19+, not a student under 24, not disabled); counted for the credit for other dependents. Confirm the qualifying-relative tests. |
+| `TE_DEPENDENT_RESIDENCY` | warning | `engine/dependents.ts` | A qualifying child lived with the taxpayer fewer than `dependents.residency_min_months` months; counted as an other dependent (exceptions not modelled). |
 | `TE_DOB_IN_FUTURE` | HTTP 422 | `svc/taxpayers.service.ts:116` | Date of birth cannot be in the future |
 | `TE_DUPLICATE_ACCOUNT` | HTTP 400 | `svc/treatments.service.ts:189` | Each account may appear once |
 | `TE_DUPLICATE_TRANSACTION` | HTTP 400 | `svc/treatments.service.ts:285` | Each transaction may appear once |
 | `TE_EBL_QBI_TIMING` | info | `engine/loss-limits.ts:252` | The §461(l) disallowed loss … still reduces this year's qualified business income; Reg. 1.199A-3(b)(1)(iv) takes it into QBI only in the year it is allowed, so the (untracked) QBI loss carryforward is overstated by up to that amount. |
 | `TE_EFFECTIVE_RATE_MISSING` | warning | `engine/bracket-tax.ts:134` | Rate mode is "effective" but no effective rate is set; the brackets were used. |
 | `TE_EFFECTIVE_RATE_OVERRIDE` | warning | `engine/bracket-tax.ts:139` | Regular tax uses an effective-rate override of … instead of the brackets (labelled on every surface). |
+| `TE_EITC_NOT_COMPUTED` | warning | `engine/dependents.ts` | AGI is under the EITC completed-phase-out amount for the number of qualifying children (`eitc.max_agi.*`); the earned income credit is not computed and may reduce the tax. |
 | `TE_ENTITY_1040_RENTAL` | warning | `svc/entity-type.service.ts:151` | The TB profile is a 1040 rental activity; the estimator treats it as Schedule C. Check the owner link activity type (rental) and the rental QBI setting. |
 | `TE_ENTITY_SKIPPED` | warning | `svc/estimate.service.ts:301` | Fallback code when a linked company cannot be read (an AppError without a code); message `<company>: <error>; left out of the estimate.` |
 | `TE_ENTITY_TYPE_FROM_COMPANY` | info | `svc/entity-type.service.ts:174` | Entity tax type taken from the company's entity type (…); set a TB tax profile or the estimator entity type to confirm it. |
@@ -87,6 +100,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_FIRM_ADMIN_REQUIRED` | HTTP 403 | `svc/firm-settings.service.ts:36`, `svc/taxpayer-staff.service.ts` | Firm administrator required / Also (D17): Only a firm administrator can change who can see a taxpayer (staff list PUT and staff-candidates; also the firm visibility switch, which rides firm settings) |
 | `TE_FIRM_REQUIRED` | HTTP 400 | `svc/firm-scope.service.ts:44`, `svc/firm-scope.service.ts:56` | Select a firm (X-Firm-Id) |
 | `TE_GP_CODE_WITHOUT_TREATMENT` | warning | `svc/pl-provider.service.ts:895` | … account(s) carry a TB guaranteed-payment code but no "Guaranteed payment" treatment: the amount is deducted from partnership profit and NOT allocated to any partner, so it is MISSING from every partner's income. Set the Guaranteed payment treatment and pick the partner. |
+| `TE_HOH_MAY_APPLY` | warning | `engine/dependents.ts` | Filing status is single and there is a qualifying child: head of household may apply; the filing status is not changed. |
 | `TE_HSA_CAPPED` | warning | `engine/owner-deductions.ts:233` | HSA contribution exceeds the coverage-type limit (only the limit is deducted), or a contribution is recorded but no HDHP coverage type is set (nothing is deducted). |
 | `TE_INSTALLMENT_LISTS` | throws Error | `engine/farmer.ts:272` | installments.due_dates (…) and installments.pcts (…) must be non-empty and the same length |
 | `TE_INSTALLMENT_POLICY` | throws Error | `engine/vouchers.ts:293`, `engine/vouchers.ts:297`, `engine/vouchers.ts:298` | no due dates / Also: no installment percentages |
@@ -101,7 +115,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_LOSS_PCT_ALL_ITEMS` | info | `engine/income.ts:218` | …: the entity has a net loss, so every item — including its positive items — is allocated by the loss %, not item by item (MODULE.md step 2). |
 | `TE_M1_CODE_ON_PL_ACCOUNT` | warning | `svc/pl-provider.service.ts:902` | P&L accounts carry a Schedule M-1 (book-tax reconciling) code; the BOOK amount is kept as ordinary. Set a character treatment (e.g. Section 1231) or enter the tax amount as an adjustment. |
 | `TE_NIIT_MANUAL_OVERRIDE` | warning | `engine/other-taxes.ts:84` | Net investment income tax is overridden to … (engine computed …). |
-| `TE_NONREFUNDABLE_CREDIT_CAPPED` | warning | `engine/federal.ts:229` | Nonrefundable credits … exceed the regular tax …; only … is used. |
+| `TE_NONREFUNDABLE_CREDIT_CAPPED` | warning | `engine/federal.ts` | Nonrefundable credits … exceed the regular tax … (Q44: the regular tax left after the care credit and the child tax credit / credit for other dependents); only … is used. |
 | `TE_NOT_FIRM_STAFF` | HTTP 403 | `mw/tax-estimator-scope.ts:37` | Firm staff role required |
 | `TE_NO_COMPLETE_MONTH` | HTTP 422 | `svc/periods.ts:74` | No complete month in the tax year starting … yet; pass "through" explicitly. |
 | `TE_NO_INCOME` | info | `engine/federal.ts:246` | No income was found for the year. |
@@ -203,6 +217,12 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_STATE_CUSTOM_BASE_MISSING` | warning | `engine/state.ts:102` | …: base is 'custom' but no custom base amount was entered; federal AGI was used. |
 | `TE_STATE_DUPLICATE` | HTTP 422 | `svc/state-rows.service.ts:82` | State … appears more than once |
 | `TE_STATE_DUPLICATE_ROW` | throws Error | `engine/state.ts:224` | … appears more than once |
+| `TE_STATE_EXEMPTIONS_COMPONENT_UNSOURCED` | warning | `engine/state.ts` | …: a component of the state `exemptions` rule the household needs is a cited null (could not be sourced); treated as 0. Verify. |
+| `TE_STATE_EXEMPTIONS_CUSTOM_BASE` | info | `engine/state.ts` | …: the resident base is a custom amount, so the exemptions were not subtracted (enter the base after exemptions); exemption credits still apply. |
+| `TE_STATE_EXEMPTIONS_MISSING` | info | `engine/state.ts` | …: no `exemptions` rule on file for the state-year; no personal / dependent exemption or exemption credit applied. |
+| `TE_STATE_EXEMPTIONS_SIMPLIFIED` | info | `engine/state.ts` | …: the state's exemptions use the base / maximum amount; phase-outs, tiers or age-based amounts are not modelled (the rule's note is quoted). |
+| `TE_STATE_EXEMPTIONS_UNSOURCED` | warning | `engine/state.ts` | …: the state's `exemptions` rule is an explicit cited null (amounts not sourced); none applied. Verify. |
+| `TE_STATE_GATE_EXEMPTIONS_COMPUTED` | info | `engine/state.ts` | …: the income-based estimate-requirement gate (GA) used the computed exemptions because none were entered on the state row. |
 | `TE_STATE_GATE_INPUT_MISSING` | warning | `engine/state-gates.ts:211` | … estimate-requirement gate (…) needs …; the plain threshold test was shown instead. Verify. |
 | `TE_STATE_GATE_NOT_EVALUATED` | warning | `engine/vouchers.ts:500` | …: no estimate-requirement gate was supplied; vouchers are shown. Verify. |
 | `TE_STATE_GATE_UNDETERMINED` | warning | `engine/vouchers.ts:497` | …: the estimate-requirement gate could not be decided; vouchers are shown. Verify. |

@@ -32,6 +32,12 @@ export function formatStateRuleValue(type: StateRuleValueType, v: unknown): stri
       if (o.treatment === 'quarterly') return `${formatScalar('rate', o.ratio)} farm income: ${formatScalar('rate', o.current_pct)} in the regular installments; no penalty if filed and paid by ${o.file_by}`;
       return `${formatScalar('rate', o.ratio)} farm income: ${formatScalar('rate', o.current_pct)} by ${o.due_date}, file by ${o.file_by}`;
     }
+    case 'exemptions': {
+      const o = v as { personal_exemption: number | null; dependent_exemption: number | null; personal_credit: number | null; dependent_credit: number | null; personal_exemption_by_status?: Record<string, number>; personal_credit_by_status?: Record<string, number>; simplified?: boolean };
+      const m = (n: number | null) => (n == null ? 'not sourced' : formatScalar('money', n));
+      const byStatus = (b?: Record<string, number>) => (b ? ` (by status: ${Object.entries(b).map(([k, n]) => `${k} ${formatScalar('money', n)}`).join(', ')})` : '');
+      return `Exemption ${m(o.personal_exemption)}/filer${byStatus(o.personal_exemption_by_status)}, ${m(o.dependent_exemption)}/dependent; credit ${m(o.personal_credit)}/filer${byStatus(o.personal_credit_by_status)}, ${m(o.dependent_credit)}/dependent${o.simplified ? ' (simplified)' : ''}`;
+    }
     default: return String(v);
   }
 }
@@ -45,7 +51,7 @@ export function stateRuleEditorText(type: StateRuleValueType, v: unknown): strin
     case 'rate_schedule': return Array.isArray(v)
       ? (v as Array<{ from: string; to: string; rate: number }>).map((p) => `${p.from} ${p.to} ${p.rate}`).join('\n')
       : '';
-    case 'high_agi_rule': case 'farmer_rule': return JSON.stringify(v, null, 2);
+    case 'high_agi_rule': case 'farmer_rule': case 'exemptions': return JSON.stringify(v, null, 2);
     default: return String(v);
   }
 }

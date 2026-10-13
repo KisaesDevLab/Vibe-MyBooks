@@ -3334,6 +3334,18 @@ A **link** ties one person to one company for the tax year and says how they sha
 
 The page warns when profit or loss percentages for a company do not add up to 100.
 
+## Dependents
+
+The **Dependents** card under Persons lists the household's children and other dependents. For each one enter the name, **date of birth**, relationship, whether they are a **qualifying child** or a **qualifying relative**, and, when they apply, the months they lived with the taxpayer (blank means all year), **full-time student** and **permanently disabled**. **First / last tax year counted** lets a dependent drop off (for example a child who will file on their own). No Social Security number is collected.
+
+The estimate works out each dependent's age at December 31 of the tax year and from it:
+- the **child tax credit** for a qualifying child under 17 (a child who turns 17 on December 31 no longer counts), with the refundable **additional child tax credit** limited by earned income;
+- the **credit for other dependents** for everyone else (17 and older, students, qualifying relatives);
+- the **child and dependent care credit** for a child under 13 (a child who turns 13 during the year still counts; enter only the care expenses before the birthday) or a disabled dependent, using the care expenses entered on **Annual settings**;
+- the **state** personal and dependent exemptions or exemption credits for the resident state.
+
+A qualifying child who fails the age test (19 or older, not a student under 24, not disabled) or lived with the taxpayer six months or less is counted as an other dependent with a warning. The earned income credit is not computed (a warning shows when the income is low enough that it may apply), and **head of household** is not chosen for you: a single filer with a qualifying child gets a reminder to check the filing status.
+
 ## Portal contacts
 
 The **Portal contacts** panel on the taxpayer page links client portal contacts to the taxpayer. Linking does not by itself show them anything; see "Tax Estimator in the client portal".
@@ -3401,7 +3413,9 @@ The readiness panel lists what would make the estimate unreliable: unreconciled 
 
 - **Deduction method**: automatic (larger of standard and itemized), standard forced, or itemized forced, with the itemized detail (SALT is capped and phased down by the platform parameters, enter what was actually paid).
 - **Federal tax method**: bracket computation or an **Effective-rate override** when you only want to apply a rate you provide.
-- **Nonrefundable and refundable credits**, **Federal withholding (annual)** and **State withholding (annual)**.
+- **Other nonrefundable and other refundable credits**: credits NOT tied to dependents (education, energy, foreign tax and so on). The child tax credit, the credit for other dependents, the additional child tax credit and the care credit are computed from the taxpayer's dependents; do not enter them here. Nonrefundable credits are taken in this order: care credit, child tax credit / credit for other dependents, then these other credits, never below zero.
+- **Child and dependent care expenses paid** for the year (Form 2441). The credit is figured on up to $3,000 for one qualifying person or $6,000 for two or more, limited to the earned income of the lower-earning spouse on a joint return, times the percentage for the year (2025: 35 percent stepping down to 20 percent; 2026 and later: 50 percent stepping down to 35 percent, then to 20 percent at higher incomes). Married filing separately gets no care credit in the estimate.
+- **Federal withholding (annual)** and **State withholding (annual)**.
 - **People**: for each person, **W-2 wages (box 1)** and **Social Security wages (box 3)** from jobs outside the linked businesses, the **retirement plan** (SEP, solo 401(k), SIMPLE or no plan) and, for a solo 401(k) or SIMPLE, the **employee deferral**. Leave box 3 blank to use box 1; box 3 is usually higher when there are 401(k) deferrals, and the estimate warns how much SE tax that may overstate. Also here: deductions allocable to investment income (Form 8960), the **lived apart all year** flag for married filing separately, and the farmer or fisherman gross-income figures (this year and prior year) when the farmer rules apply.
 - **HSA coverage** per person, and **Schedule 1-A**: the chips show the senior deduction (from each person's date of birth) and the totals for tips, overtime and car loan interest; **Edit Schedule 1-A** opens a dialog for the per-person amounts. Schedule 1-A is not allowed when married filing separately, and the screen says so.
 - **Prior-year total tax and prior-year AGI**, used for the prior-year safe harbor. They are stored encrypted and only decrypted when an estimate is computed. The 110 percent prior-year test applies above $150,000 of prior-year AGI ($75,000 if married filing separately).
@@ -3409,7 +3423,7 @@ The readiness panel lists what would make the estimate unreliable: unreconciled 
 
 ## States
 
-The **States** table has one row per state, with exactly one resident state. Other states are used for nonresident tax; the rate is an effective-rate estimate you supply. Per-state inputs such as withholding, credits and prior-year state figures live here too, and there is an optional other-state credit override.
+The **States** table has one row per state, with exactly one resident state. Other states are used for nonresident tax; the rate is an effective-rate estimate you supply. For the resident state the estimate subtracts the state's **personal and dependent exemptions** from the base (when the base is federal AGI or federal taxable income; a custom base is taken as entered) and its **personal and dependent exemption credits** from the tax, using the platform's state rules (for example Arkansas's $29 credits, Georgia's dependent exemption, Missouri's head-of-household exemption). Phase-outs and income tiers are not modelled; the estimate says so for the states that have them. Nonresident rows take no exemptions. Per-state inputs such as withholding, credits and prior-year state figures live here too, and there is an optional other-state credit override.
 
 ## Scenarios
 

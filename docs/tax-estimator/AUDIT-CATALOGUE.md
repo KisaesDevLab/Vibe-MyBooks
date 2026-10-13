@@ -43,6 +43,7 @@ classification in [DATA-DICTIONARY.md](./DATA-DICTIONARY.md).
 | `tax_est_taxpayer` | `update` with `after_data.op = 'unlink_contact'` | taxpayer id | before `{ op: 'link_contact', portalContactId }`; after `{ op, portalContactId, revokeAccess, revokedCompanies }` |
 | `tax_est_person` | `create`, `update` | person id | person DTO (role, name, date of birth, blind flag, SEHI eligible months) |
 | `tax_est_person` | `delete` | person id | before = person DTO; after = `{ removedLinks: n }` (the person's links cascade) |
+| `tax_est_dependent` | `create`, `update`, `delete` | dependent id | Q44, metadata only: `{ id, taxpayerId, kind, relationship, birthYear, monthsLivedWith, isStudent, isDisabled, firstTaxYear, lastTaxYear }` — never the name or the full date of birth (create: before null; delete: after null) |
 | `tax_est_link` | `create`, `update` | link id | the full `tax_est_links` row (tenant, company, tax year, percentages, partner SE status, officer flag, activity type, QBI eligibility and override reason, allowed-loss override and reason) |
 | `tax_est_link` | `delete` | link id | before = the link row |
 
@@ -121,7 +122,7 @@ Verification is audited (`signoff` / `verified`, with the verifier in `user_id` 
 
 | Entity type string | Written under tenant | Source file |
 |---|---|---|
-| `tax_est_taxpayer`, `tax_est_person`, `tax_est_link` | active tenant | `taxpayers.service.ts` |
+| `tax_est_taxpayer`, `tax_est_person`, `tax_est_dependent`, `tax_est_link` | active tenant | `taxpayers.service.ts` |
 | `tax_est_year`, `tax_est_scenario`, `tax_est_adjustment`, `tax_est_adjustment_type`, `tax_est_state_rows`, `tax_est_firm_settings`, `tax_est_payment`, `tax_est_sch_ai_snapshots`, `tax_est_snapshot` | active tenant | `years`, `scenarios`, `adjustments`, `adjustment-types`, `state-rows`, `firm-settings`, `payments`, `sch-ai-snapshots`, `estimate-snapshots`, `estimate-documents` services |
 | `tax_est_entity_settings`, `tax_est_entity_year_inputs`, `tax_est_treatment` | the company's tenant | `entity-settings.service.ts`, `treatments.service.ts` |
 | `tax_est_contact_access` | the contact's tenant | `portal-contact.service.ts` |

@@ -16,7 +16,7 @@ vi.mock('../../../api/hooks/useTaxEstimatorTaxpayers', () => ({
     isLoading: false, isError: false, refetch: vi.fn(),
   }),
   useTaxEstimatorScope: () => ({ data: { firmRole: 'firm_readonly' } }),
-  useUpdateTaxpayer: () => mut, useArchiveTaxpayer: () => mut, useUpsertPerson: () => mut, useRemovePerson: () => mut,
+  useUpdateTaxpayer: () => mut, useArchiveTaxpayer: () => mut, useUpsertPerson: () => mut, useRemovePerson: () => mut, useCreateDependent: () => mut, useUpdateDependent: () => mut, useRemoveDependent: () => mut,
 }));
 vi.mock('../../../api/hooks/useTaxEstimatorYears', () => ({ useYear: () => h.year }));
 vi.mock('../../../api/hooks/useTaxEstimatorEstimate', () => ({ downloadEstimatePdf: (...a: unknown[]) => h.download(...a) }));

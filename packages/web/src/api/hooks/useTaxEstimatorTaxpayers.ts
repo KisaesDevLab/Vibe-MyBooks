@@ -10,7 +10,7 @@ import type {
   TaxpayerListDTO, TaxpayerDetailDTO, TaxpayerDTO, PersonDTO, LinkListDTO, LinkUpsertResultDTO,
   CompanyOptionListDTO, TaxpayerContactListDTO, TaxpayerContactCandidateListDTO, LinkContactResultDTO, UnlinkContactResultDTO,
   CreateTaxpayerInput, UpdateTaxpayerInput, UpsertPersonInput, UpsertLinkInput, PersonRole,
-  TaxpayerStaffDTO, TaxpayerStaffCandidateListDTO,
+  TaxpayerStaffDTO, TaxpayerStaffCandidateListDTO, DependentDTO, UpsertDependentInput,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
 
@@ -115,6 +115,34 @@ export function useRemovePerson(taxpayerId: string) {
   return useMutation({
     mutationFn: async (role: PersonRole) =>
       (await call<{ data: { removedLinks: number } }>(`/${taxpayerId}/persons/${role}`, { method: 'DELETE' })).data,
+    onSuccess: invalidate,
+  });
+}
+
+// ── Q44 dependents (part of the taxpayer detail; the list comes back on GET /:id) ──
+export function useCreateDependent(taxpayerId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (input: UpsertDependentInput) =>
+      (await call<{ data: DependentDTO }>(`/${taxpayerId}/dependents`, { method: 'POST', body: JSON.stringify(input) })).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateDependent(taxpayerId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (v: { id: string; input: UpsertDependentInput }) =>
+      (await call<{ data: DependentDTO }>(`/${taxpayerId}/dependents/${v.id}`, { method: 'PUT', body: JSON.stringify(v.input) })).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useRemoveDependent(taxpayerId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      (await call<{ data: { removed: true } }>(`/${taxpayerId}/dependents/${id}`, { method: 'DELETE' })).data,
     onSuccess: invalidate,
   });
 }

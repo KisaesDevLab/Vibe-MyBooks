@@ -92,8 +92,13 @@ enforces this). Everything numeric comes from the parameter registry.
 
 Order inside the engine, per `engine/federal.ts`: loss limitations (a §469(i) MAGI probe pass, then
 the real pass), SE tax per person, owner deductions (SEP / 401(k) / SIMPLE, SEHI, HSA), AGI, standard
-vs itemized deduction, Schedule 1-A, QBI, regular tax with the QD / LTCG worksheet, credits,
-Additional Medicare, NIIT, federal total. The kit file lists the same steps with the legal basis.
+vs itemized deduction, Schedule 1-A, QBI, regular tax with the QD / LTCG worksheet, credits
+(Q44, `engine/dependents.ts`: §21 care credit, then §24 child tax credit / credit for other
+dependents with the phase-out, then the manual other credits; additional child tax credit
+refundable), Additional Medicare, NIIT, federal total. The state engine subtracts the resident
+state's personal / dependent exemptions (`exemptions` state rule) from a federal-AGI or
+federal-taxable base and its exemption credits from the tax (custom base: credits only;
+nonresident rows: none). The kit file lists the same steps with the legal basis.
 
 ---
 
@@ -252,6 +257,7 @@ Migration `0201_tax_estimator.sql` creates **21 tables** (each with a matching `
 | Books-scoped (tenant_id) | `tax_est_entity_settings`, `tax_est_entity_year_inputs`, `tax_est_account_treatments`, `tax_est_transaction_flags` |
 | Per taxpayer and year | `tax_est_years`, `tax_est_scenarios`, `tax_est_adjustments`, `tax_est_state_rows`, `tax_est_payments`, `tax_est_sch_ai_snapshots` |
 | Frozen output | `tax_est_snapshots` (trigger `trg_tax_est_snapshots_immutable`) |
+| Q44 dependents (migration `0204_tax_est_dependents`) | `tax_est_dependents` (taxpayer_id ON DELETE CASCADE; display name, date of birth, relationship, kind `qualifying_child` / `qualifying_relative`, months lived with, student / disabled, first / last tax year; no SSN) and the column `tax_est_years.care_expenses` (NUMERIC(19,4), default 0) |
 | D17 visibility (migration `0202_tax_est_taxpayer_visibility`) | `tax_est_taxpayer_staff` (firm_id, taxpayer_id, user_id, created_by, created_at; unique per firm + taxpayer + user; cascades with the taxpayer) and the column `tax_est_firm_settings.restrict_taxpayers_to_linked_tenants` (default TRUE) |
 
 Columns added to existing tables: `portal_contact_companies.tax_estimates_access` (default false) and
@@ -493,6 +499,7 @@ To disable: turn the flag off per tenant; all data stays. Disabling hides the sc
 - Rolling the application back without the DB: the flag is the control (turn it off first). Older code was not tested against the 0201 tables; do not roll the DB back and leave newer code running.
 - Verification columns: the `verification.sql` part adds `verified_by`, `verified_at`, `verification_note` to the four parameter tables (additive; its rollback drops them). Rolling back drops the sign-off history (the audit rows stay in `audit_log`).
 - `0202_tax_est_taxpayer_visibility.sql` (D17; part `parts/taxpayer-visibility.sql`) is a SEPARATE migration because 0201 is applied in production and is never edited: it adds `tax_est_firm_settings.restrict_taxpayers_to_linked_tenants BOOLEAN NOT NULL DEFAULT TRUE` (every firm ON, existing rows included) and `tax_est_taxpayer_staff`. Additive. Its rollback drops the table and the column; after a rollback the code must also be rolled back (the predicate reads both).
+- `0204_tax_est_dependents.sql` (Q44; part `parts/dependents.sql`) is a SEPARATE migration (0201–0203 are applied in production): it creates `tax_est_dependents` and adds `tax_est_years.care_expenses NUMERIC(19,4) NOT NULL DEFAULT 0`. Additive (existing estimates are unchanged: no dependents, no care expenses). Its rollback drops both; the code that reads them must be rolled back with it. The new federal `Credits` parameters and the state `exemptions` rule rows arrive through the startup seed re-sync, not the migration.
 - `r6-lifecycle.sql` adds `tax_parameter_overrides.citation` (R6-06) and `sehi-w2-wages.sql` adds `tax_est_entity_year_inputs.include_sehi_in_w2_wages` (Q41); both additive with defaults, appended after the verification part, dropped first by the rollback.
 - Because the seeds re-sync on every boot, rolling back to an older build that ships fewer seed years leaves the extra rows alone (it only prunes keys of years it ships).
 - Backup and restore: every `*_encrypted` column follows the credential re-encryption sweep; after a key rotation or a cross-host restore, snapshots that fail with `TE_SNAPSHOT_UNREADABLE` indicate the sweep did not run or the key is wrong. Redis cache entries do not need migration.
@@ -523,6 +530,7 @@ From `docs/reviews/R7-final.md`; consult it for detail and status. Items that ch
 - The Redis P&L cache holds clear JSON of book figures; only the estimate cache and snapshots are encrypted.
 - `TE_GP_PERSON_MISSING` is documented in a type comment but never emitted (ERROR-CODES.md).
 - Transaction-level non-recurring flags and GL-account pickers for GL-linked adjustments are API-only.
+- Dependents (Q44): EITC not computed (warning), the 3+ children ACTC alternative, employer dependent-care benefits, the student / disabled spouse deemed income, the §24 SSN rules and head-of-household eligibility are not modelled; state exemption phase-outs / tiers use the base or maximum amount (CT, NM and OH store 0 for low-income-only amounts — see OPEN-QUESTIONS Q44).
 - Independent oracles missing for: C corp large-corporation recapture, §469(i) with EBL, farmer on the prior year, a senior couple with Schedule 1-A, multistate with a higher-rate source state (R7-06).
 
 ---
