@@ -57,6 +57,21 @@ describe('MoneyInput calculator', () => {
     expect(el.value).toBe('30.00');
   });
 
+  it('uses calculator-style percent for + / − and literal percent for *', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<ControlledMoney onChange={onChange} />);
+    const el = screen.getByRole('textbox', { name: 'amt' }) as HTMLInputElement;
+    await user.type(el, '200+15%{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith('230.00');
+    await user.clear(el);
+    await user.type(el, '200-15%{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith('170.00');
+    await user.clear(el);
+    await user.type(el, '200*15%{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith('30.00');
+  });
+
   it('evaluates on Tab', async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();

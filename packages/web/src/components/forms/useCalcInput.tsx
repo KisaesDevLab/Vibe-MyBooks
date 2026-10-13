@@ -4,7 +4,7 @@
 //
 // Shared behaviour for calculator-style numeric fields (MoneyInput and
 // NumericInput). The field is a text input so people can type math —
-// "145.15-50", "200*15%", "(1200+300)/12" — which is evaluated with the
+// "145.15-50", "200+15%", "(1200+300)/12" — which is evaluated with the
 // shared safe parser (no eval) when they press Enter, Tab or leave it.
 //
 // Value contract for callers is unchanged from the old type="number"
@@ -20,7 +20,7 @@ import {
 import { createPortal, flushSync } from 'react-dom';
 import { evaluateExpression, isPlainNumberText } from '@kis-books/shared';
 
-export const CALC_HINT = 'You can type math, e.g. 145.15-50';
+export const CALC_HINT = 'You can type math, e.g. 145.15-50 or 200+15% (= 230)';
 
 export interface CalcOptions {
   /** Round evaluated results to this many places (half away from zero). */

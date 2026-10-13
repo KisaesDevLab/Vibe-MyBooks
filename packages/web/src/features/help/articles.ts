@@ -306,11 +306,13 @@ Every amount field (journal entry debits and credits, expense, check, bill, depo
 - \`145.15-50\` → **95.15**
 - \`1200/12\` → **100.00**
 - \`(250+75.50)*2\` → **651.00**
-- \`200*15%\` → **30.00** (\`%\` means "divide by 100")
+- \`200+15%\` → **230.00** and \`200-15%\` → **170.00** (adding or subtracting a percent works like a calculator: 15% *of* 200)
+- \`200*15%\` → **30.00** and \`200/50%\` → **400.00** (with \`*\` and \`/\`, and on its own, \`%\` just means "divide by 100": \`15%\` = 0.15)
 - \`$1,234.50 + 10\` → **1244.50** (dollar signs and thousands commas are fine; a leading \`=\` is optional)
 
 Operators: \`+\` \`-\` \`*\` (or \`x\`, \`×\`) \`/\` (or \`÷\`), parentheses and \`%\`. While you type, a small **= result** preview appears under the field.
 
+- The "percent of" rule only applies when the percent is the whole amount being added or subtracted: \`200+10*15%\` is 200 + 1.5 = **201.50**, and \`200+(15%)\` is **200.15**.
 - Money amounts are rounded to the cent (half a cent rounds up); other fields keep their own precision.
 - **Enter** only works out the math — it does not save the form. Press **Enter** again (or your usual save shortcut) once the result is shown. **Escape** discards the expression.
 - If the math can't be worked out (for example dividing by zero, or a typo), the field turns red with the reason and nothing is saved from it until you fix it.
