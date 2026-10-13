@@ -3577,7 +3577,7 @@ Each portal contact has its own switches, so a spouse or a bookkeeper can see le
 - **Calculation summary** (off by default): income by business showing only the household's share (never the business's total or other owners), the adjustments total, adjusted gross income, the standard or itemized deduction, the QBI deduction, taxable income, income tax, credits, self-employment and other taxes, the federal total, the tax per state and the grand total. No rates, formulas or adjustment detail.
 - **Quarterly estimates and vouchers** (on): the installment schedule, the next payment and the voucher download.
 - **Payments on record** (on): the estimated-tax payments received.
-- **Download the estimate PDF** (off): the client copy of the estimate PDF, the same document as the Report Pack section. It shows business totals, owners, safe-harbor amounts and the detailed calculation, so turn it on only for contacts who may see that.
+- **Download the estimate PDF** (off): a PDF of exactly what this contact sees in the portal — the projected total plus the sections switched on above. It never shows business totals, other owners, rates or adjustment detail (it is not the Report Pack client copy).
 
 The projected total always shows. A switched-off section is not sent to the portal at all. Turning a switch **on** needs firm staff with Tax Estimator access; the client's own staff can only turn switches off. Every change is recorded in the audit log, and so is every estimate-PDF download. **View as Client** shows exactly what the previewed contact sees.
 

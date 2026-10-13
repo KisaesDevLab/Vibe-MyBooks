@@ -107,7 +107,7 @@ Tenant = the portal contact's tenant (also when set from the taxpayer page in th
 | Entity type | Actions | entity_id | What the data holds |
 |---|---|---|---|
 | `tax_est_portal_options` | `update` | contact id | One row per effective change of the contact's portal view options (an unchanged PUT writes nothing; a refused grant writes nothing): before = the options `{ calculationSummary, quarterlyEstimates, paymentsOnRecord, pdfDownload }` (defaults when the contact had no row), after = the new options + `granted: [keys]`, `revoked: [keys]`, `via: 'portal_contact' \| 'taxpayer'` (+ `taxpayerId`, `firmId` from the taxpayer page). user_id = the staff user |
-| `tax_est_portal_pdf` | `download` | taxpayer id | Every client-estimate PDF a portal contact (or a "View as Client" preview) downloads: `{ portalContactId, taxYear, scenarioId, source: 'live' \| 'snapshot', snapshotId, inputsHash, engineVersion, computedAt, preview }`. Metadata only, never figures; a live download is reproducible from the inputs hash, a snapshot download from its id. user_id = the preview's initiating staff user, else null |
+| `tax_est_portal_pdf` | `download` | taxpayer id | Every portal-safe estimate PDF a portal contact (or a "View as Client" preview) downloads: `{ portalContactId, taxYear, scenarioId, source: 'live' \| 'snapshot', snapshotId, inputsHash, engineVersion, computedAt, preview }`. Metadata only, never figures; a live download is reproducible from the inputs hash, a snapshot download from its id. user_id = the preview's initiating staff user, else null |
 
 Sharing a what-if scenario in the portal (`show_in_portal`) is an ordinary `tax_est_scenario` `update` row (before / after scenario DTO, which now carries `showInPortal`).
 

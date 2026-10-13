@@ -123,7 +123,7 @@ snapshot — writes one `audit_log` row: action `download`, entity type
 Screen views (the single-year GET, the snapshot view) are not audited per view; the
 snapshot itself records what was issued.
 
-Q51 portal estimate PDF: every download by a portal contact (or a "View as Client" preview)
+Q51 portal-safe estimate PDF (rendered only from the option-filtered portal DTO, never the engine result): every download by a portal contact (or a "View as Client" preview)
 writes `download` / `tax_est_portal_pdf` (entity id = taxpayer id) on the contact's tenant with
 metadata only (contact, year, scenario, live / snapshot, snapshot id, inputs hash, engine
 version, computed-at). A live download is NOT frozen into a snapshot (the contact has no user);

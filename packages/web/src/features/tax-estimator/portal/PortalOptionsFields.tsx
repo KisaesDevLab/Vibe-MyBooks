@@ -16,7 +16,7 @@ const HINTS: Record<PortalContactTaxOptionKey, string> = {
   calculationSummary: 'Income by business (their share only), AGI, deductions, taxable income and the federal and state tax lines. No rates, formulas or adjustment detail.',
   quarterlyEstimates: 'Installment schedule, next payment and the payment-voucher PDF.',
   paymentsOnRecord: 'Estimated-tax payments received so far.',
-  pdfDownload: 'The client copy of the estimate PDF (the same document as the Report Pack section: business totals, safe-harbor amounts, vouchers and the detailed calculation).',
+  pdfDownload: 'A PDF of exactly what this contact sees here (the projected total plus the sections switched on above). Nothing more.',
 };
 
 interface Props {
