@@ -8,7 +8,7 @@ import type { AccountTreatmentInput, TreatmentSuggestion } from '@kis-books/shar
 import { useTaxEstimatorScope } from '../../../api/hooks/useTaxEstimatorTaxpayers';
 import {
   useEntitySettings, useSaveEntitySettings, useEntityYearInputs, useSaveEntityYearInputs, useEntityTreatments,
-  useSaveEntityTreatments, useTreatmentSuggestions, useEntityReadiness, useTaxBasisPl,
+  useSaveEntityTreatments, useTreatmentSuggestions, useEntityReadiness, useTaxBasisPl, useOwnerCandidates,
 } from '../../../api/hooks/useTaxEstimatorEntities';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
@@ -47,6 +47,8 @@ export function EntityTaxSetupPage() {
   const saveSettings = useSaveEntitySettings(tenantId, companyId, taxYear);
   const saveYear = useSaveEntityYearInputs(tenantId, companyId, taxYear);
   const saveTreatments = useSaveEntityTreatments(tenantId, companyId);
+  // Q50: the person / payment pickers offer only owners linked to this business (staff / admin only).
+  const owners = useOwnerCandidates(tenantId, companyId, taxYear, canWrite);
 
   const rows = useMemo(
     () => buildRows(pl.data?.accounts ?? [], treatments.data?.items ?? [], suggestions.data ?? []),
@@ -118,6 +120,7 @@ export function EntityTaxSetupPage() {
           : treatments.isError || pl.isError ? <ErrorMessage message="Could not load the GL treatment map." onRetry={() => { void treatments.refetch(); void pl.refetch(); }} />
           : (
             <TreatmentTable key={treatments.dataUpdatedAt} rows={rows} canWrite={canWrite} saving={saveTreatments.isPending} entityType={r.entityType}
+              ownerCandidates={canWrite ? owners.data?.candidates ?? [] : undefined} taxYear={taxYear}
               error={saveTreatments.isError ? errMsg(saveTreatments.error) : undefined} onSave={(i) => saveTreatments.mutate(i)} />
           )}
       </section>

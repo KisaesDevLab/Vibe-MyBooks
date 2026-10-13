@@ -3,7 +3,9 @@
 // Free for small businesses; see LICENSE for terms.
 
 import Decimal from 'decimal.js';
-import type { AccountTreatmentDto, AccountTreatment, TaxBasisAccountLine, TaxCodeRef, TreatmentSuggestion } from '@kis-books/shared';
+import type {
+  AccountTreatmentDto, AccountTreatment, SplitMode, TaxBasisAccountLine, TaxCodeRef, TreatmentSplitDto, TreatmentSuggestion,
+} from '@kis-books/shared';
 
 export interface TreatmentRow {
   accountId: string;
@@ -24,6 +26,9 @@ export interface TreatmentRow {
   unmappedWithActivity: boolean;
   /** R3-17: the treatment's taxpayer / person belongs to another firm sharing these books (read-only here). */
   otherFirm?: boolean;
+  /** Q50: owner split (empty = the single target takes 100%). */
+  splitMode: SplitMode;
+  splits: TreatmentSplitDto[];
 }
 
 const isZero = (v: string) => { try { return new Decimal(v).isZero(); } catch { return true; } };
@@ -45,6 +50,7 @@ export function buildRows(
       bookAmount: l.bookAmount, taxAmount: l.taxAmount, suggestion: treatment ? null : sById.get(l.accountId) ?? null,
       unmappedWithActivity: !l.taxCode && !treatment && !isZero(l.bookAmount),
       otherFirm: t?.targetOtherFirm === true,
+      splitMode: t?.splitMode ?? 'pct', splits: t?.splits ?? [],
     };
   });
   const seen = new Set(lines.map((l) => l.accountId));
@@ -55,6 +61,7 @@ export function buildRows(
       taxCode: null, treatment: t.treatment, pct: t.pct, paymentTaxpayerId: t.paymentTaxpayerId,
       paymentPersonId: t.paymentPersonId, paymentJurisdiction: t.paymentJurisdiction, nonRecurring: t.nonRecurring,
       bookAmount: '0.0000', taxAmount: '0.0000', suggestion: null, unmappedWithActivity: false, otherFirm: t.targetOtherFirm === true,
+      splitMode: t.splitMode ?? 'pct', splits: t.splits ?? [],
     });
   }
   return rows;

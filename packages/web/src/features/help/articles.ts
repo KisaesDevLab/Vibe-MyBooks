@@ -3414,6 +3414,14 @@ The estimator reads the company's profit and loss accounts and needs to know wha
 - **Non-recurring** marks one-off items so they are not projected forward.
 - Where an item belongs to a specific person, pick the person.
 
+**Owners linked to this business only.** The person and taxpayer lists for W-2 wages (officer wages), owner or officer health insurance, owner or officer retirement, guaranteed payments and estimated tax payments show only the owners linked to this business (and that you may see). If the list is empty, link the owner to this business first: **Taxpayers > the taxpayer > Linked businesses**. Saving a person who is not linked is refused; a row saved earlier with an unlinked person keeps working but the estimate and the readiness list warn about it.
+
+**Split between owners.** One account can be shared between several owners:
+- **By %**: the rows must total exactly 100%. **Default from ownership** fills each owner's profit percentage from their link (rescaled to 100% across the owners listed). Each month is split by these percentages.
+- **By $ (year)**: a fixed annual amount per owner for the tax year. Each owner gets the fixed amount and the **last** owner in the list takes the difference between the books' total and the fixed amounts (the estimate warns about the difference). Until the year is complete, the year-to-date books amount is shared in proportion to the fixed amounts.
+
+Example: **6800 Salaries - Officers** of 101,640.24 split 60% / 40% gives one shareholder 60,984.14 of officer wages and the other 40,656.10. S corporation shareholder health insurance split the same way is added to each shareholder's W-2 box 1 (not Social Security or Medicare wages) with their health insurance deduction. Estimated tax payment accounts can be split between taxpayers: each taxpayer's payment ledger gets its share of every payment. The calculation trace shows every share ("6800 Salaries - Officers 101,640.24 x 60% -> Kurt"). **Use one owner** goes back to a single person.
+
 A single transaction can be marked non-recurring too: open it (from Transactions or an account register) and use **Mark non-recurring** on the **Tax Estimator** card. The card appears for firm staff when the Tax Estimator is on for that client and the company is linked to a taxpayer; the register shows an **NR** badge on flagged transactions. Mark recurring undoes it.
 
 An account with activity and no mapping is treated as ordinary and raises a warning. **Suggestions are never applied automatically**: review each one and accept or dismiss it. A treatment mapped by another firm that shares the same books is shown read-only.

@@ -140,6 +140,23 @@ that firm's mapping: other firms see it with `targetOtherFirm: true` and the for
 withheld, and cannot change or delete it (409 `TE_TREATMENT_OTHER_FIRM`). The firm that
 owns the target edits it as usual.
 
+## Owner splits (migration 0210, OPEN-QUESTIONS Q50)
+
+`tax_est_account_treatment_splits` (treatment_id → `tax_est_account_treatments` ON DELETE
+CASCADE, tenant_id, company_id, taxpayer_id / person_id → ON DELETE SET NULL, `pct`
+NUMERIC(9,6) or `amount` NUMERIC(19,4) + `tax_year`, `sort_order`) and
+`tax_est_account_treatments.split_mode` (`pct` default | `amount`) share a person-target
+treatment (W-2 wages, owner / officer SEHI and retirement, guaranteed payment, estimated-tax
+payments) between the owners linked to the business. Contents: who owns what share of an
+owner item, and fixed annual amounts per owner (officer pay, GPs). Bookkeeping /
+planning data, not return information: plain NUMERIC like the other current-year inputs.
+Books-scoped like the treatment row (read and written only through `treatments.service.ts`
+after the D1 scope guard and the providers); the R3-17 shared-books rule covers split
+targets too (a row with any split target in another firm is that firm's mapping). No rows =
+the treatment's single target takes 100%. Every change is audited with the treatment row
+(`tax_est_treatment`, `splits[]` in before / after). Finalized snapshots copy the splits as
+read into the encrypted payload (`inputs.companies[].ownerSplits`).
+
 ## Key rotation and restore
 
 Every column above is a top-level `TEXT` column named `*_encrypted`, so the credential

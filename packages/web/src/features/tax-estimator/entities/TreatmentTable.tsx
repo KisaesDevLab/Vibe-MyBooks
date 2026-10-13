@@ -3,14 +3,15 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useMemo, useState } from 'react';
-import type { AccountTreatment, AccountTreatmentInput, EntityTaxType } from '@kis-books/shared';
+import type { AccountTreatment, AccountTreatmentInput, EntityTaxType, OwnerCandidateDto, SplitMode } from '@kis-books/shared';
 import { ACCOUNT_TREATMENTS, allowsPersonTarget, personRequiredFor, treatmentAllowedFor } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { SortableTh } from '../../../components/ui/SortableTh';
 import { useColumnView } from '../../../hooks/useColumnView';
 import { formatMoney } from '../../../utils/money';
 import { PaymentTargetPicker } from './PaymentTargetPicker';
-import { SELECT_CLASS, TREATMENT_LABELS } from './labels';
+import { OwnerSplitEditor, defaultSplitRows, splitProblem, type SplitDraftRow } from './OwnerSplitEditor';
+import { SELECT_CLASS, TREATMENT_LABELS, US_STATES } from './labels';
 import { plainDecimal } from '../years/labels';
 import type { TreatmentRow } from './rows';
 
@@ -21,6 +22,8 @@ const PCT_RE = /^\d{1,3}(\.\d{1,4})?$/;
 interface Draft {
   treatment: AccountTreatment | null; pct: string; paymentTaxpayerId: string | null; paymentPersonId: string | null;
   paymentJurisdiction: string | null; nonRecurring: boolean;
+  /** Q50: owner split rows ([] = the single target above takes 100%). */
+  splitMode: SplitMode; splits: SplitDraftRow[];
 }
 
 const statusOf = (r: TreatmentRow) => (r.unmappedWithActivity ? 'unmapped' : r.suggestion ? 'suggested' : 'ok');
@@ -28,6 +31,15 @@ const num = (v: string) => Number(v) || 0;
 
 function toInput(accountId: string, d: Draft): AccountTreatmentInput {
   const pay = d.treatment === 'estimated_tax_payment';
+  if (allowsPersonTarget(d.treatment) && d.splits.length > 0) {
+    return {
+      accountId, treatment: d.treatment, nonRecurring: d.nonRecurring, pct: null, splitMode: d.splitMode,
+      splits: d.splits.map((r) => (d.splitMode === 'pct'
+        ? { taxpayerId: r.taxpayerId, personId: r.personId, pct: r.pct }
+        : { taxpayerId: r.taxpayerId, personId: r.personId, amount: r.amount, taxYear: r.taxYear })),
+      ...(pay ? { paymentJurisdiction: d.paymentJurisdiction } : {}),
+    };
+  }
   return {
     accountId, treatment: d.treatment, nonRecurring: d.nonRecurring,
     pct: d.treatment === 'nondeductible_pct' ? d.pct : null,
@@ -36,11 +48,18 @@ function toInput(accountId: string, d: Draft): AccountTreatmentInput {
   };
 }
 
-/** GL tax-treatment map: TB tax code (read-only chip) beside the estimator treatment. Edits are staged and saved together. */
-export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityType = null }: {
+/**
+ * GL tax-treatment map: TB tax code (read-only chip) beside the estimator treatment. Edits are staged and saved together.
+ * Q50: `ownerCandidates` (firm admin / staff) limits every person / payment picker to the owners linked to this
+ * business and enables "Split between owners"; without it (read-only members) the stored targets are displayed only.
+ */
+export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityType = null, ownerCandidates, taxYear = new Date().getFullYear() }: {
   rows: TreatmentRow[]; canWrite: boolean; saving: boolean; error?: string; onSave: (inputs: AccountTreatmentInput[]) => void;
   /** Resolved entity tax type: limits the treatment list and decides when a person is required. */
   entityType?: EntityTaxType | null;
+  ownerCandidates?: OwnerCandidateDto[];
+  /** The page's tax year: fixed-amount splits are entered per year. */
+  taxYear?: number;
 }) {
   const view = useColumnView<SortKey>('vibe:te-entity-treatments:view', { sortKeys: SORT_KEYS, defaultSort: { col: 'account', dir: 'asc' } });
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -50,6 +69,10 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
   const draftOf = (r: TreatmentRow): Draft => drafts[r.accountId] ?? {
     treatment: r.treatment, pct: plainDecimal(r.pct), paymentTaxpayerId: r.paymentTaxpayerId, paymentPersonId: r.paymentPersonId,
     paymentJurisdiction: r.paymentJurisdiction, nonRecurring: r.nonRecurring,
+    splitMode: r.splitMode ?? 'pct',
+    splits: (r.splits ?? []).map((x) => ({
+      taxpayerId: x.taxpayerId, personId: x.personId, pct: plainDecimal(x.pct), amount: plainDecimal(x.amount), taxYear: x.taxYear,
+    })),
   };
   const patch = (r: TreatmentRow, p: Partial<Draft>) => setDrafts((d) => ({ ...d, [r.accountId]: { ...draftOf(r), ...p } }));
 
@@ -76,8 +99,13 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
   const byId = new Map(rows.map((r) => [r.accountId, r]));
   const dirtyIds = Object.keys(drafts);
   const pctBad = (id: string) => { const d = drafts[id]; return !!d && d.treatment === 'nondeductible_pct' && (!PCT_RE.test(d.pct) || Number(d.pct) > 100); };
-  const personBad = (id: string) => { const d = drafts[id]; return !!d && personRequiredFor(d.treatment, entityType) && !d.paymentPersonId; };
-  const anyBad = dirtyIds.some((id) => pctBad(id) || personBad(id));
+  const personBad = (id: string) => { const d = drafts[id]; return !!d && personRequiredFor(d.treatment, entityType) && !d.paymentPersonId && d.splits.length === 0; };
+  const splitBad = (id: string) => {
+    const d = drafts[id];
+    return !!d && allowsPersonTarget(d.treatment) && d.splits.length > 0
+      && splitProblem(d.splitMode, d.splits, d.treatment === 'estimated_tax_payment', taxYear) !== null;
+  };
+  const anyBad = dirtyIds.some((id) => pctBad(id) || personBad(id) || splitBad(id));
 
   if (rows.length === 0) {
     return <p className="text-sm text-gray-500 py-6 text-center border border-dashed rounded-lg">No P&amp;L accounts with activity in the selected range. Accounts appear here once they have activity or a saved treatment.</p>;
@@ -123,20 +151,64 @@ export function TreatmentTable({ rows, canWrite, saving, error, onSave, entityTy
                   </td>
                   <td className="px-3 py-2 space-y-1">
                     <select aria-label={`Treatment for ${r.name}`} className={SELECT_CLASS} disabled={!rowWrite} value={d.treatment ?? ''}
-                      onChange={(e) => patch(r, { treatment: (e.target.value || null) as AccountTreatment | null })}>
+                      onChange={(e) => {
+                        const next = (e.target.value || null) as AccountTreatment | null;
+                        // Split rows name persons for owner items but taxpayers for payments: switching kinds starts over.
+                        const kindChanged = (next === 'estimated_tax_payment') !== (d.treatment === 'estimated_tax_payment');
+                        patch(r, { treatment: next, ...(kindChanged ? { splits: [], splitMode: 'pct' as const } : {}) });
+                      }}>
                       <option value="">None</option>
                       {ACCOUNT_TREATMENTS.filter((t) => t === d.treatment || treatmentAllowedFor(t, r.accountType, entityType))
                         .map((t) => <option key={t} value={t}>{TREATMENT_LABELS[t]}</option>)}
                     </select>
-                    {d.treatment === 'estimated_tax_payment' && (
-                      <PaymentTargetPicker disabled={!rowWrite}
+                    {allowsPersonTarget(d.treatment) && d.splits.length === 0 && d.treatment === 'estimated_tax_payment' && (
+                      <PaymentTargetPicker disabled={!rowWrite} candidates={ownerCandidates}
                         value={{ paymentTaxpayerId: d.paymentTaxpayerId, paymentPersonId: d.paymentPersonId, paymentJurisdiction: d.paymentJurisdiction }}
                         onChange={(v) => patch(r, v)} />
                     )}
-                    {d.treatment !== 'estimated_tax_payment' && allowsPersonTarget(d.treatment) && (
-                      <PaymentTargetPicker personOnly disabled={!rowWrite}
+                    {allowsPersonTarget(d.treatment) && d.splits.length === 0 && d.treatment !== 'estimated_tax_payment' && (
+                      <PaymentTargetPicker personOnly disabled={!rowWrite} candidates={ownerCandidates}
                         value={{ paymentTaxpayerId: d.paymentTaxpayerId, paymentPersonId: d.paymentPersonId, paymentJurisdiction: null }}
                         onChange={(v) => patch(r, { paymentTaxpayerId: v.paymentTaxpayerId, paymentPersonId: v.paymentPersonId })} />
+                    )}
+                    {allowsPersonTarget(d.treatment) && d.splits.length === 0 && rowWrite && ownerCandidates && ownerCandidates.length > 0 && (
+                      <Button size="sm" variant="ghost" onClick={() => patch(r, {
+                        splitMode: 'pct', paymentTaxpayerId: null, paymentPersonId: null,
+                        splits: (() => {
+                          const def = defaultSplitRows(ownerCandidates, d.treatment === 'estimated_tax_payment');
+                          return def.length > 0 ? def : [{ taxpayerId: null, personId: null, pct: '', amount: '', taxYear: null }];
+                        })(),
+                      })}>
+                        Split between owners
+                      </Button>
+                    )}
+                    {allowsPersonTarget(d.treatment) && d.splits.length > 0 && ownerCandidates && (
+                      <>
+                        {d.treatment === 'estimated_tax_payment' && (
+                          <select aria-label="Payment jurisdiction" className={`${SELECT_CLASS} !w-auto`} disabled={!rowWrite} value={d.paymentJurisdiction ?? ''}
+                            onChange={(e) => patch(r, { paymentJurisdiction: e.target.value || null })}>
+                            <option value="">Jurisdiction...</option>
+                            <option value="federal">Federal</option>
+                            {US_STATES.map((st) => <option key={st} value={st}>{st}</option>)}
+                          </select>
+                        )}
+                        <OwnerSplitEditor mode={d.splitMode} rows={d.splits} isPayment={d.treatment === 'estimated_tax_payment'} taxYear={taxYear}
+                          candidates={ownerCandidates} disabled={!rowWrite} accountName={r.name}
+                          onChange={(mode, splits) => patch(r, { splitMode: mode, splits })} />
+                        {rowWrite && (
+                          <Button size="sm" variant="ghost" onClick={() => {
+                            const first = d.splits[0];
+                            patch(r, { splits: [], splitMode: 'pct', paymentTaxpayerId: first?.taxpayerId ?? null, paymentPersonId: first?.personId ?? null });
+                          }}>
+                            Use one owner
+                          </Button>
+                        )}
+                      </>
+                    )}
+                    {allowsPersonTarget(d.treatment) && d.splits.length > 0 && !ownerCandidates && (
+                      <div className="text-xs text-gray-700" data-testid="split-summary">
+                        Split between {d.splits.length} owner{d.splits.length === 1 ? '' : 's'} ({d.splitMode === 'pct' ? 'by %' : 'by fixed annual $'})
+                      </div>
                     )}
                     {r.otherFirm && <div className="text-xs text-gray-600">Mapped by another firm that shares these books; read-only here.</div>}
                     {personBad(r.accountId) && <div className="text-xs text-red-600" role="alert">Pick the person this belongs to</div>}

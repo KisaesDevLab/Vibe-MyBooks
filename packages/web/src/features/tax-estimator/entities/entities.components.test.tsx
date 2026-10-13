@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, within } from '@testing-library/react';
 import { renderRoute } from '../../../test-utils';
-import type { TaxBasisAccountLine, TaxBasisPl, BooksReadiness, TreatmentSuggestion, EntityYearInputsDto } from '@kis-books/shared';
+import type { TaxBasisAccountLine, TaxBasisPl, BooksReadiness, TreatmentSuggestion, EntityYearInputsDto, OwnerCandidateDto } from '@kis-books/shared';
 
 vi.mock('../../../api/hooks/useTaxEstimatorTaxpayers', () => ({
   useTaxpayers: () => ({ data: { data: [{ id: 'tp1', displayName: 'Rivera' }] } }),
@@ -111,6 +111,79 @@ describe('TreatmentTable', () => {
   it('shows an empty state', () => {
     renderRoute(<TreatmentTable rows={[]} canWrite saving={false} onSave={vi.fn()} />);
     expect(screen.getByText(/No P&L accounts/)).toBeInTheDocument();
+  });
+});
+
+describe('TreatmentTable — Q50 owner pickers and splits', () => {
+  const owners: OwnerCandidateDto[] = [
+    { taxpayerId: 'tpK', taxpayerName: 'Kurt Krueger', personId: 'pK', personRole: 'primary', firstName: 'Kurt', lastName: 'Krueger', years: [2026], profitPct: '60.0000', isOfficer: true, defaultPct: '60' },
+    { taxpayerId: 'tpJ', taxpayerName: 'Jonathan & Irene', personId: 'pI', personRole: 'spouse', firstName: 'Irene', lastName: 'Smith', years: [2026], profitPct: '40.0000', isOfficer: true, defaultPct: '40' },
+  ];
+  const wages = [line({ accountId: 'w1', accountNumber: '6800', name: 'Salaries - Officers', taxCode: null, treatment: 'w2_wages', bookAmount: '-101640.2400', taxAmount: '-101640.2400' })];
+  const opts = (label: string) => Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((o) => o.textContent);
+
+  it('the owner picker lists only the owners linked to this business (never every firm taxpayer)', () => {
+    renderRoute(<TreatmentTable rows={buildRows(wages, [], [])} canWrite saving={false} onSave={vi.fn()} entityType="s_corp" ownerCandidates={owners} taxYear={2026} />);
+    expect(opts('Owner')).toEqual(['Owner...', 'Kurt Krueger (Kurt Krueger)', 'Irene Smith (Jonathan & Irene)']);
+    expect(screen.queryByText('Rivera')).not.toBeInTheDocument(); // the firm-wide taxpayer list is not used
+  });
+
+  it('no linked owner: help note to link the owner first', () => {
+    renderRoute(<TreatmentTable rows={buildRows(wages, [], [])} canWrite saving={false} onSave={vi.fn()} entityType="s_corp" ownerCandidates={[]} taxYear={2026} />);
+    expect(screen.getByText(/Link the owner to this business first/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Split between owners' })).not.toBeInTheDocument();
+  });
+
+  it('% split: defaults from ownership, live total check, saves splits', () => {
+    const onSave = vi.fn();
+    renderRoute(<TreatmentTable rows={buildRows(wages, [], [])} canWrite saving={false} onSave={onSave} entityType="s_corp" ownerCandidates={owners} taxYear={2026} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Split between owners' }));
+    expect(screen.getAllByTestId('split-row')).toHaveLength(2);
+    expect(screen.getByLabelText('Split % 1')).toHaveValue('60');
+    expect(screen.getByTestId('split-total')).toHaveTextContent('Total 100%');
+    fireEvent.change(screen.getByLabelText('Split % 2'), { target: { value: '30' } });
+    expect(screen.getByTestId('split-total')).toHaveTextContent('Total 90%');
+    expect(screen.getByRole('alert')).toHaveTextContent(/must total exactly 100%/);
+    expect(screen.getByRole('button', { name: /Save 1 change/ })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Split % 2'), { target: { value: '40' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));
+    expect(onSave).toHaveBeenCalledWith([{
+      accountId: 'w1', treatment: 'w2_wages', nonRecurring: false, pct: null, splitMode: 'pct',
+      splits: [{ taxpayerId: 'tpK', personId: 'pK', pct: '60' }, { taxpayerId: 'tpJ', personId: 'pI', pct: '40' }],
+    }]);
+  });
+
+  it('$ split: fixed annual amounts for the page year, remainder note names the last owner', () => {
+    const onSave = vi.fn();
+    renderRoute(<TreatmentTable rows={buildRows(wages, [], [])} canWrite saving={false} onSave={onSave} entityType="s_corp" ownerCandidates={owners} taxYear={2026} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Split between owners' }));
+    fireEvent.click(screen.getByRole('button', { name: '$ (2026)' }));
+    fireEvent.change(screen.getByLabelText('Fixed annual amount 1'), { target: { value: '60000' } });
+    fireEvent.change(screen.getByLabelText('Fixed annual amount 2'), { target: { value: '30000' } });
+    expect(screen.getByText(/goes to Irene Smith \(the last row\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));
+    expect(onSave).toHaveBeenCalledWith([expect.objectContaining({
+      splitMode: 'amount',
+      splits: [{ taxpayerId: 'tpK', personId: 'pK', amount: '60000', taxYear: 2026 }, { taxpayerId: 'tpJ', personId: 'pI', amount: '30000', taxYear: 2026 }],
+    })]);
+  });
+
+  it('payments split between linked taxpayers; read-only members see a summary', () => {
+    const est = [line({ accountId: 'e1', accountNumber: '3030', name: 'Estimated taxes', accountType: 'equity', taxCode: null, treatment: 'estimated_tax_payment' })];
+    const stored = {
+      id: 't9', accountId: 'e1', accountNumber: '3030', accountName: 'Estimated taxes', accountType: 'equity', treatment: 'estimated_tax_payment' as const,
+      pct: null, paymentTaxpayerId: 'tpK', paymentPersonId: null, paymentJurisdiction: 'federal' as const, nonRecurring: false, updatedAt: '2026-10-01T00:00:00.000Z',
+      splitMode: 'pct' as const, splits: [
+        { taxpayerId: 'tpK', personId: null, pct: '70.000000', amount: null, taxYear: null, sortOrder: 0 },
+        { taxpayerId: 'tpJ', personId: null, pct: '30.000000', amount: null, taxYear: null, sortOrder: 1 },
+      ],
+    };
+    const { unmount } = renderRoute(<TreatmentTable rows={buildRows(est, [stored], [])} canWrite saving={false} onSave={vi.fn()} ownerCandidates={owners} taxYear={2026} />);
+    expect(opts('Split taxpayer 1')).toEqual(['Taxpayer...', 'Kurt Krueger', 'Jonathan & Irene']);
+    expect(screen.getByLabelText('Split % 2')).toHaveValue('30');
+    unmount();
+    renderRoute(<TreatmentTable rows={buildRows(est, [stored], [])} canWrite={false} saving={false} onSave={vi.fn()} />);
+    expect(screen.getByTestId('split-summary')).toHaveTextContent('Split between 2 owners (by %)');
   });
 });
 

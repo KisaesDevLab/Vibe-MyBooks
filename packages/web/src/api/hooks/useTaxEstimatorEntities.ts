@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   EntitySettingsResponse, EntityYearInputsDto, AccountTreatmentDto, TreatmentSuggestion, PagedList,
   BooksReadiness, TaxBasisPl, UpsertEntitySettingsInput, UpsertEntityYearInputsInput, AccountTreatmentInput,
+  OwnerCandidatesDto,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
 import { getTaxEstimatorFirmId } from './useTaxEstimatorTaxpayers';
@@ -72,6 +73,19 @@ export function useSaveEntityTreatments(t: string, c: string) {
     mutationFn: async (treatments: AccountTreatmentInput[]) =>
       (await call<{ data: PagedList<AccountTreatmentDto> }>(`${base(t, c)}/treatments`, { method: 'PUT', body: JSON.stringify({ treatments }) })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  });
+}
+
+/**
+ * Q50: owners linked to this business (visible to the caller), for the treatment person /
+ * payment pickers and the default split. Firm admin / staff only — pass `enabled: false` for
+ * a read-only member (the server answers 403).
+ */
+export function useOwnerCandidates(t: string, c: string, taxYear: number, enabled = true) {
+  return useQuery({
+    queryKey: [KEY, 'owner-candidates', t, c, taxYear],
+    queryFn: async () => (await call<{ data: OwnerCandidatesDto }>(`${base(t, c)}/owner-candidates?taxYear=${taxYear}`)).data,
+    enabled: enabled && !!t && !!c,
   });
 }
 
