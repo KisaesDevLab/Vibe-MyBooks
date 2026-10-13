@@ -2,8 +2,12 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-// Completed-reconciliation detail report. Reached from the Reconciliation
-// History page (and the completed worksheet) via
+// Reconciliation detail report — the professional bank-to-books
+// reconciliation: summary (statement → adjusted bank balance → balance per
+// books → unreconciled difference), cleared-activity roll, supporting
+// schedules with aged-item flags, the cleared list, subsequent activity, the
+// book-side proof (reconciliation discrepancies) and a sign-off block.
+// Reached from the Reconciliation History page and the Reconcile screen via
 // /reports/reconciliation-detail?reconciliation_id=<id> — it needs an id,
 // so it is deliberately NOT on the reports landing page.
 
@@ -14,6 +18,11 @@ import { ReportShell } from './ReportShell';
 import { ReportTable } from './ReportTable';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import type { ReconProof } from '@kis-books/shared';
+import {
+  ReconBookProofSection, ReconClearedRollSection, ReconSchedulesSection, ReconSignOffSection,
+  ReconSubsequentSection, ReconSummarySection,
+} from './reconciliation/ReconProofSections';
 
 interface DetailLine {
   txnDate: string;
@@ -51,6 +60,7 @@ interface DetailResponse {
   } | null;
   cleared: DetailLine[];
   uncleared: DetailLine[];
+  proof: ReconProof;
   totals: {
     clearedPayments: number;
     clearedDeposits: number;
@@ -115,6 +125,14 @@ export function ReconciliationDetailReport() {
         <ErrorMessage message="Couldn't load this reconciliation report." onRetry={refetch} />
       ) : (
         <div className="space-y-6">
+          <div className="flex gap-4 text-sm">
+            <Link to={`/reports/bank-reconciliation-summary?reconciliation_id=${reconciliationId}`} className="text-primary-600 hover:underline">
+              Reconciliation summary
+            </Link>
+            {rec.status !== 'complete' && (
+              <span className="text-amber-700">In progress — figures update as items are cleared.</span>
+            )}
+          </div>
           {/* Header cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg border p-4">
@@ -132,8 +150,13 @@ export function ReconciliationDetailReport() {
               <p className="text-lg font-mono">{money(rec.beginningBalance)} → {money(rec.statementEndingBalance)}</p>
             </div>
             <div className="bg-white rounded-lg border p-4">
-              <p className="text-xs text-gray-500 uppercase">Cleared / Difference</p>
-              <p className="text-lg font-mono">{money(rec.clearedBalance)} / {money(rec.difference)}</p>
+              <p className="text-xs text-gray-500 uppercase">Balance per books / Unreconciled</p>
+              <p className="text-lg font-mono">
+                {money(data.proof.summary.bookBalance)} /{' '}
+                <span className={data.proof.summary.reconciledToBooks ? 'text-green-700' : 'text-red-700'}>
+                  {money(data.proof.summary.unreconciledDifference)}
+                </span>
+              </p>
             </div>
             <div className="bg-white rounded-lg border p-4">
               <p className="text-xs text-gray-500 uppercase">Completed</p>
@@ -146,6 +169,10 @@ export function ReconciliationDetailReport() {
               </span>
             </div>
           </div>
+
+          <ReconSummarySection proof={data.proof} />
+          <ReconClearedRollSection proof={data.proof} />
+          <ReconSchedulesSection proof={data.proof} mode="detail" />
 
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
@@ -161,21 +188,9 @@ export function ReconciliationDetailReport() {
             )}
           </div>
 
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              Uncleared as of {rec.statementDate} ({data.uncleared.length})
-              <span className="ml-3 text-sm font-normal text-gray-500 font-mono">
-                Payments {money(data.totals.unclearedPayments)} · Deposits {money(data.totals.unclearedDeposits)}
-              </span>
-            </h2>
-            {data.uncleared.length === 0 ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-6 text-sm text-gray-500">
-                Everything on the worksheet was cleared.
-              </div>
-            ) : (
-              <ReportTable columns={lineColumns} data={data.uncleared.map(toRow)} />
-            )}
-          </div>
+          <ReconSubsequentSection proof={data.proof} />
+          <ReconBookProofSection proof={data.proof} />
+          <ReconSignOffSection proof={data.proof} />
         </div>
       )}
     </ReportShell>

@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { BankConnection, BankFeedItem, BankFeedFilters, Reconciliation } from '@kis-books/shared';
+import type { BankConnection, BankFeedItem, BankFeedFilters, Reconciliation, ReconProof } from '@kis-books/shared';
 import { apiClient, API_BASE } from '../client';
 
 export function useBankConnections() {
@@ -478,6 +478,18 @@ export function useReconciliation(id: string) {
   return useQuery({
     queryKey: ['reconciliation', id],
     queryFn: () => apiClient<{ reconciliation: ReconciliationWithLines }>(`/banking/reconciliations/${id}`),
+    enabled: !!id,
+  });
+}
+
+// Professional bank-to-books reconciliation for the worksheet. Keyed under
+// ['reconciliation', id] so every mutation that refreshes the worksheet
+// (clear/un-clear, refresh, void, auto-clear, statement match, complete)
+// refreshes the proof with it.
+export function useReconciliationProof(id: string) {
+  return useQuery({
+    queryKey: ['reconciliation', id, 'proof'],
+    queryFn: () => apiClient<{ proof: ReconProof }>(`/banking/reconciliations/${id}/proof`),
     enabled: !!id,
   });
 }
