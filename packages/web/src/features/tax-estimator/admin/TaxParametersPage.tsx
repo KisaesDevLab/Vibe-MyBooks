@@ -5,7 +5,7 @@
 // Super-admin Tax Parameters screen (features/tax-estimator/MODULE.md "Tax parameters").
 import { useEffect, useMemo, useState } from 'react';
 import { PARAMETER_GROUPS, FEDERAL_INSTALLMENT_PAIRS, installmentPartnerKey } from '@kis-books/shared';
-import type { ParameterSource, ParameterStatus, TaxParameterRowDTO } from '@kis-books/shared';
+import type { AiCheckDTO, ParameterSource, ParameterStatus, TaxParameterRowDTO } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
@@ -20,6 +20,8 @@ import { ParameterValue } from './ParameterValue';
 import { DiffPanel, ChangesPanel } from './ParameterPanels';
 import { shortCitation } from './format';
 import { StatesView } from './StatesView';
+import { AiCheckCell, AiCheckDrawer, AiCheckRunBar } from './AiCheck';
+import { useAiCheckAvailability, useAiCheckLatest } from '../../../api/hooks/useTaxParamAiChecks';
 
 const STATUS_STYLE: Record<ParameterStatus, string> = {
   verified: 'bg-green-100 text-green-800', unverified: 'bg-amber-100 text-amber-800', provisional: 'bg-blue-100 text-blue-800',
@@ -51,6 +53,7 @@ export function TaxParametersPage() {
   const [search, setSearch] = useState('');
   const [verifyRow, setVerifyRow] = useState<TaxParameterRowDTO | null>(null);
   const [verifyAllOpen, setVerifyAllOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState<AiCheckDTO | null>(null);
 
   const years = yearsQ.data?.years ?? [];
   const latest = years.length ? Math.max(...years) : null;
@@ -62,6 +65,9 @@ export function TaxParametersPage() {
   const createYear = useCreateTaxYearFromPrior();
   const verify = useVerifyTaxParameter(selected ?? 0);
   const verifyAll = useVerifyAllTaxParameters(selected ?? 0);
+  // Q44 AI parameter check (advisory; super admin).
+  const aiAvail = useAiCheckAvailability();
+  const aiLatest = useAiCheckLatest(scope === 'federal' ? selected : null);
   const nextYear = latest != null ? latest + 1 : null;
   const canCreateNext = nextYear != null && !years.includes(nextYear);
 
@@ -149,6 +155,7 @@ export function TaxParametersPage() {
                   Verify all unverified in {data.year} ({unverified.length})
                 </Button>
               )}
+              <AiCheckRunBar year={data.year} scope={{ kind: 'federal' }} unverifiedCount={unverified.length} availability={aiAvail.data} />
             </div>
             {showMissing && (
               data.completeness.missing.length === 0
@@ -174,7 +181,7 @@ export function TaxParametersPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead><tr className="text-left text-gray-500 border-t border-gray-100">
-                          <th className="px-4 py-2">Parameter</th><th className="py-2 pr-3">Value</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Source</th><th className="py-2 pr-3">Citation</th><th />
+                          <th className="px-4 py-2">Parameter</th><th className="py-2 pr-3">Value</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Source</th><th className="py-2 pr-3">Citation</th><th className="py-2 pr-3">AI check</th><th />
                         </tr></thead>
                         <tbody>
                           {rows.map((r) => {
@@ -190,6 +197,12 @@ export function TaxParametersPage() {
                                 <td className="py-2"><Badge cls={STATUS_STYLE[r.status]}>{r.status}</Badge><VerifiedLine row={r} /></td>
                                 <td className="py-2"><Badge cls={SOURCE_STYLE[r.source]}>{r.source}</Badge></td>
                                 <td className="py-2 pr-2 max-w-xs text-gray-600" title={r.citation}>{shortCitation(r.citation)}</td>
+                                <td className="py-2 pr-2">
+                                  {r.source !== 'fallback' && (
+                                    <AiCheckCell year={data.year} scope={{ kind: 'federal' }} rowKey={r.key} check={aiLatest.data?.checks[r.key]}
+                                      availability={aiAvail.data} onOpen={setAiOpen} />
+                                  )}
+                                </td>
                                 <td className="py-2 pr-4 whitespace-nowrap text-right">
                                   {r.status !== 'verified' && r.source !== 'fallback' && (
                                     <Button size="sm" variant="ghost" onClick={() => setVerifyRow(r)} aria-label={`Mark ${r.key} verified`}>Mark verified</Button>
@@ -231,6 +244,14 @@ export function TaxParametersPage() {
           })}
         />
       )}
+      {aiOpen && (() => {
+        const row = data?.parameters.find((p) => p.key === aiOpen.key);
+        return (
+          <AiCheckDrawer check={aiLatest.data?.checks[aiOpen.key] ?? aiOpen} label={row?.label ?? aiOpen.key} currentValue={row?.value}
+            renderValue={(v) => (row ? <ParameterValue type={row.type} value={v} /> : JSON.stringify(v))}
+            onClose={() => setAiOpen(null)} />
+        );
+      })()}
       {verifyRow && (
         <VerifyDialog
           title={`Mark ${verifyRow.key} verified`}

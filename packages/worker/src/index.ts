@@ -44,6 +44,7 @@ import { startDocExtractWorker } from './processors/doc-extract.processor.js';
 import { startStatementParseWorker } from './processors/statement-parse.processor.js';
 import { startBillCaptureWorker } from './processors/bill-capture.processor.js';
 import { startReportPackWorker } from './processors/report-pack.processor.js';
+import { startTaxParamAiCheckWorker } from './processors/tax-param-ai-check.processor.js';
 import { checkPdftoppmAvailable } from '../../api/src/services/extraction/pdf-render.service.js';
 import { healthCheck as extractionHealthCheck } from '../../api/src/services/extraction/qwen-client.service.js';
 import type { Worker } from 'bullmq';
@@ -58,6 +59,7 @@ let docExtractWorker: Worker | null = null;
 let statementParseWorker: Worker | null = null;
 let billCaptureWorker: Worker | null = null;
 let reportPackWorker: Worker | null = null;
+let taxParamAiCheckWorker: Worker | null = null;
 
 try {
   startBackupScheduler();
@@ -79,6 +81,11 @@ try {
   // as a transient artifact swept by report-pack-sweep-scheduler.
   reportPackWorker = startReportPackWorker();
   console.log('[Worker] Report-pack worker registered: report-pack');
+
+  // Tax Estimator AI parameter check runs (super admin, OPEN-QUESTIONS Q44). Always on; idle
+  // unless a super admin starts a check. The API runs a run in-process if no worker claims it.
+  taxParamAiCheckWorker = startTaxParamAiCheckWorker();
+  console.log('[Worker] Tax-param AI check worker registered: tax-param-ai-check');
 
   // Statement-parse BullMQ worker — always on (statement import is a core
   // feature). Running the detect→OCR→extract→reconcile pipeline here means it
@@ -176,6 +183,7 @@ const shutdown = async (signal: string) => {
     docExtractWorker?.close().catch((err) => console.error('[Worker] doc-extract close error:', err)),
     statementParseWorker?.close().catch((err) => console.error('[Worker] statement-parse close error:', err)),
     reportPackWorker?.close().catch((err) => console.error('[Worker] report-pack close error:', err)),
+    taxParamAiCheckWorker?.close().catch((err) => console.error('[Worker] tax-param-ai-check close error:', err)),
     billCaptureWorker?.close().catch((err) => console.error('[Worker] bill-capture close error:', err)),
   ]);
   stopCloudflaredAlerter();
