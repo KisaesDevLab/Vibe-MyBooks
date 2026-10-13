@@ -99,6 +99,9 @@ export function TaxpayerListPage() {
 
   if ((error as { code?: string } | null)?.code === 'TE_FIRM_REQUIRED') return <FirmChooser />;
   const rows = data?.data ?? [];
+  // Q54: a firm_staff / firm_readonly member without "Tax Estimator: view taxpayers" sees only
+  // taxpayers whose list names them (and unlinked ones they created) — explain, not a blank list.
+  const restricted = scope.data?.canViewUnlistedTaxpayers === false;
 
   return (
     <div>
@@ -120,9 +123,19 @@ export function TaxpayerListPage() {
         {isLoading ? <LoadingSpinner className="py-12" />
           : isError ? <ErrorMessage message="Could not load taxpayers." onRetry={() => refetch()} />
           : rows.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-12">
-              {q || view.anyFilterActive ? 'No taxpayers match your search.' : 'No taxpayers yet. Create one to start an estimate.'}
-            </p>
+            q || view.anyFilterActive ? (
+              <p className="text-sm text-gray-500 text-center py-12">No taxpayers match your search.</p>
+            ) : restricted ? (
+              <div className="text-center py-12 px-4" data-testid="te-access-needed">
+                <p className="text-sm font-medium text-gray-700">Ask a firm admin for Tax Estimator access</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  You see a taxpayer only when a firm admin adds you to its &ldquo;Who can see this taxpayer&rdquo; list or grants you
+                  &ldquo;Tax Estimator: view taxpayers&rdquo; in Firm &rarr; Staff &rarr; Access rights. Access to a client company alone does not show its taxpayers.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-12">No taxpayers yet. Create one to start an estimate.</p>
+            )
           ) : (
             <table className="min-w-full">
               <thead className="bg-gray-50 border-b">
@@ -142,7 +155,7 @@ export function TaxpayerListPage() {
                     <td className="py-2 px-3 text-sm">
                       <Link className="text-primary-700 hover:underline" to={`/tax-estimator/taxpayers/${t.id}`}>{t.displayName}</Link>
                       {t.staffRestricted && (
-                        <span className="ml-1.5 inline-flex align-middle text-gray-500" title="Access list set: only the listed staff and firm administrators can see this taxpayer, and listed staff see all of its linked companies" data-testid="staff-lock">
+                        <span className="ml-1.5 inline-flex align-middle text-gray-500" title="Access list set: only the listed people and super admins (including firm administrators) can see this taxpayer, and listed staff see all of its linked companies" data-testid="staff-lock">
                           <Lock className="h-3.5 w-3.5" aria-label="Access list set" />
                         </span>
                       )}

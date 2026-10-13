@@ -7,15 +7,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderRoute } from '../../../test-utils';
 
-const h = vi.hoisted(() => ({ year: null as unknown, download: vi.fn() }));
+const h = vi.hoisted(() => ({ year: null as unknown, download: vi.fn(), scope: { firmRole: 'firm_readonly' } as Record<string, unknown>, show: false }));
 const mut = { mutate: vi.fn(), isPending: false, isError: false, isSuccess: false, error: null };
 
 vi.mock('../../../api/hooks/useTaxEstimatorTaxpayers', () => ({
   useTaxpayer: () => ({
-    data: { taxpayer: { id: 'tp1', displayName: 'Rivera Family', filingStatus: 'mfj', residentState: 'MO', safeHarborOverride: null, portalShows: null, isActive: true, updatedAt: 'x' }, persons: [] },
+    data: { taxpayer: { id: 'tp1', displayName: 'Rivera Family', filingStatus: 'mfj', residentState: 'MO', safeHarborOverride: null, portalShows: null, showOnCompanyDashboard: h.show, isActive: true, updatedAt: 'x' }, persons: [] },
     isLoading: false, isError: false, refetch: vi.fn(),
   }),
-  useTaxEstimatorScope: () => ({ data: { firmRole: 'firm_readonly' } }),
+  useTaxEstimatorScope: () => ({ data: h.scope }),
   useUpdateTaxpayer: () => mut, useArchiveTaxpayer: () => mut, useUpsertPerson: () => mut, useRemovePerson: () => mut, useCreateDependent: () => mut, useUpdateDependent: () => mut, useRemoveDependent: () => mut,
 }));
 vi.mock('../../../api/hooks/useTaxEstimatorYears', () => ({ useYear: () => h.year }));
@@ -30,7 +30,27 @@ import { TaxpayerDetailPage } from './TaxpayerDetailPage';
 const render = () => renderRoute(<TaxpayerDetailPage />, { path: '/tp/:id', route: '/tp/tp1' });
 const THIS_YEAR = new Date().getFullYear();
 
-beforeEach(() => { vi.clearAllMocks(); });
+beforeEach(() => { vi.clearAllMocks(); h.scope = { firmRole: 'firm_readonly' }; h.show = false; h.year = { data: { exists: false, scenarios: [] }, isLoading: false }; });
+
+// Q54: per-taxpayer "Show on linked company dashboards" (default OFF).
+describe('TaxpayerDetailPage company-dashboard switch', () => {
+  it('shows the switch OFF with its help text and saves ON for a writer', () => {
+    h.scope = { firmRole: 'firm_staff', canWrite: true };
+    render();
+    const box = screen.getByRole('checkbox', { name: /Show on linked company dashboards/ }) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    expect(screen.getByText(/Shows this taxpayer.s Next payment \/ Projected tax \/ Paid vs required cards on the dashboards of its linked companies \(staff with access; owners only via their portal contact\)\./)).toBeTruthy();
+    fireEvent.click(box);
+    expect(mut.mutate).toHaveBeenCalledWith({ showOnCompanyDashboard: true });
+  });
+  it('is read-only for a read-only member', () => {
+    h.show = true;
+    render();
+    const box = screen.getByRole('checkbox', { name: /Show on linked company dashboards/ }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(box.disabled).toBe(true);
+  });
+});
 
 describe('TaxpayerDetailPage Print / Download PDF', () => {
   it('downloads the current year Base scenario (read-only staff too)', async () => {

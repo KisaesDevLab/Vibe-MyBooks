@@ -76,6 +76,31 @@ function CoreForm({ taxpayer, canWrite }: { taxpayer: TaxpayerDTO; canWrite: boo
 }
 
 /**
+ * Q54: per-taxpayer switch "Show on linked company dashboards" (default OFF). Saves on change
+ * (a taxpayer PATCH: firm admin / staff with write, audited); read-only otherwise.
+ */
+function CompanyDashboardSwitch({ taxpayer, canWrite }: { taxpayer: TaxpayerDTO; canWrite: boolean }) {
+  const update = useUpdateTaxpayer(taxpayer.id);
+  const on = update.isPending ? !!update.variables?.showOnCompanyDashboard : taxpayer.showOnCompanyDashboard === true;
+  return (
+    <section className="rounded-lg border border-gray-200 bg-white p-4" aria-label="Company dashboards">
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-0.5" checked={on} disabled={!canWrite || update.isPending}
+          onChange={(e) => update.mutate({ showOnCompanyDashboard: e.target.checked })} />
+        <span>
+          <span className="font-medium text-gray-900">Show on linked company dashboards</span>
+          <span className="block text-xs text-gray-500">
+            Shows this taxpayer&apos;s Next payment / Projected tax / Paid vs required cards on the dashboards of its linked companies
+            (staff with access; owners only via their portal contact).
+          </span>
+        </span>
+      </label>
+      {update.isError && <p className="mt-1 text-sm text-red-600" role="alert">{errMsg(update.error)}</p>}
+    </section>
+  );
+}
+
+/**
  * D15: the standalone Print / Download of the current year's Base scenario — the same PDF
  * the estimate screen and the Report Pack section produce (the server freezes a snapshot).
  */
@@ -139,6 +164,7 @@ export function TaxpayerDetailPage() {
         </div>
       </div>
       <CoreForm key={taxpayer.updatedAt} taxpayer={taxpayer} canWrite={canWrite} />
+      <CompanyDashboardSwitch taxpayer={taxpayer} canWrite={canWrite} />
       <section aria-label="Persons" className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Persons</h2>
         <PersonsEditor persons={persons} canWrite={canWrite} saving={upsertPerson.isPending || removePerson.isPending}
