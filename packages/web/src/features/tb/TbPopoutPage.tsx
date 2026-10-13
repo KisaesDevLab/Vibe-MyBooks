@@ -29,7 +29,12 @@ export function TbPopoutPage() {
   const queryClient = useQueryClient();
   const companyId = activeCompanyId();
   const { data: profileData } = useTbProfile();
-  const periodEnd = profileData?.fiscal.currentFiscalYearEnd ?? `${new Date().getFullYear()}-12-31`;
+  // Period end handed over by the main window (?periodEnd=), else the
+  // current fiscal-year end. Tickmarks shown/applied here belong to it.
+  const urlPeriodEnd = new URLSearchParams(window.location.search).get('periodEnd');
+  const periodEnd = urlPeriodEnd && /^\d{4}-\d{2}-\d{2}$/.test(urlPeriodEnd)
+    ? urlPeriodEnd
+    : profileData?.fiscal.currentFiscalYearEnd ?? `${new Date().getFullYear()}-12-31`;
 
   const [prefs, setPrefs] = useState<TbGridPrefs>({
     drCrMode: false, showPy: false, showTax: true, nonZeroOnly: false, activityView: '',
@@ -41,17 +46,16 @@ export function TbPopoutPage() {
   const { data: wpData, isLoading } = useWorkpaper(periodEnd, 'accrual');
   const { data: unitsData } = useActivityUnits();
 
-  // Tickmark popup on Adjusted/Tax amount clicks.
-  const taxYear = wpData?.workpaper.taxYear ?? new Date().getFullYear();
+  // Tickmark popup on Adjusted/Tax amount clicks (period-scoped marks).
   const [pickCell, setPickCell] = useState<{ accountId: string; accountName: string; column: 'adjusted' | 'tax' } | null>(null);
   const { data: marksLib } = useQuery({
     queryKey: ['tb', 'tickmarks'],
     queryFn: () => apiClient<{ tickmarks: Array<{ id: string; symbol: string; description: string; color: string | null }> }>('/tb/tickmarks'),
   });
   const { data: appsData } = useQuery({
-    queryKey: ['tb', 'tickmark-applications', taxYear],
+    queryKey: ['tb', 'tickmark-applications', periodEnd],
     enabled: !!wpData,
-    queryFn: () => apiClient<{ applications: Array<{ id: string; accountId: string; column: string; tickmarkId: string }> }>(`/tb/tickmark-applications?taxYear=${taxYear}`),
+    queryFn: () => apiClient<{ applications: Array<{ id: string; accountId: string; column: string; tickmarkId: string }> }>(`/tb/tickmark-applications?periodEnd=${periodEnd}`),
   });
   const cellMarks = useMemo(
     () => buildCellMarks(appsData?.applications, marksLib?.tickmarks),
@@ -271,7 +275,7 @@ export function TbPopoutPage() {
         <TickmarkCellPicker
           accountId={pickCell.accountId}
           accountName={pickCell.accountName}
-          taxYear={taxYear}
+          periodEnd={periodEnd}
           initialColumn={pickCell.column}
           onClose={() => setPickCell(null)}
         />

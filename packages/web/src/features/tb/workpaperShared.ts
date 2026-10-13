@@ -216,10 +216,13 @@ export function activeCompanyId(): string | null {
   }
 }
 
-// Named popout window (6B.1): re-open focuses the existing one.
-export function openTbPopout(companyId: string | null) {
+// Named popout window (6B.1): re-open focuses the existing one. The
+// main window's period end rides along so the popout shows (and marks)
+// the same workpaper period — tickmarks are period-scoped (0208).
+export function openTbPopout(companyId: string | null, periodEnd?: string) {
   const name = `tb-popout-${companyId ?? 'default'}`;
-  const url = `${import.meta.env.BASE_URL}tb/popout`;
+  const qs = periodEnd && /^\d{4}-\d{2}-\d{2}$/.test(periodEnd) ? `?periodEnd=${periodEnd}` : '';
+  const url = `${import.meta.env.BASE_URL}tb/popout${qs}`;
   const win = window.open(url, name, 'width=1400,height=900,noopener=no');
   win?.focus();
 }

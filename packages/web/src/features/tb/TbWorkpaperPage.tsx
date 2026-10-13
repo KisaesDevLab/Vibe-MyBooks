@@ -116,8 +116,8 @@ export function TbWorkpaperPage() {
     (unitsData?.units ?? []).map((u) => [u.id, u.instanceNumber]),
   ), [unitsData]);
 
-  // LS Ref + Tickmark columns: leadsheet membership and the tax year's
-  // applied tickmarks (assignment moved to the Tax Mapping screen).
+  // LS Ref + Tickmark columns: leadsheet membership and the tickmarks
+  // applied on THIS period end (period-scoped, migration 0208) (assignment moved to the Tax Mapping screen).
   const { data: groupData } = useQuery({
     queryKey: ['tb', 'groupings'],
     queryFn: () => apiClient<{ groupings: Array<{ id: string; name: string; leadsheetCode: string | null; accountIds: string[] }> }>('/tb/groupings'),
@@ -127,9 +127,8 @@ export function TbWorkpaperPage() {
     queryFn: () => apiClient<{ tickmarks: Array<{ id: string; symbol: string; description: string; color: string | null }> }>('/tb/tickmarks'),
   });
   const { data: appsData } = useQuery({
-    queryKey: ['tb', 'tickmark-applications', taxYear],
-    enabled: !!wpData,
-    queryFn: () => apiClient<{ applications: Array<{ id: string; accountId: string; column: string; tickmarkId: string }> }>(`/tb/tickmark-applications?taxYear=${taxYear}`),
+    queryKey: ['tb', 'tickmark-applications', effPeriodEnd],
+    queryFn: () => apiClient<{ applications: Array<{ id: string; accountId: string; column: string; tickmarkId: string }> }>(`/tb/tickmark-applications?periodEnd=${effPeriodEnd}`),
   });
   const cellMarks = useMemo(
     () => buildCellMarks(appsData?.applications, marksData?.tickmarks as Array<{ id: string; symbol: string; description: string; color: string | null }> | undefined),
@@ -268,7 +267,7 @@ export function TbWorkpaperPage() {
               </div>
             )}
           </div>
-          <Button variant="secondary" onClick={() => openTbPopout(companyId)} title="Open a live read-only popout window">
+          <Button variant="secondary" onClick={() => openTbPopout(companyId, effPeriodEnd)} title="Open a live read-only popout window">
             <ExternalLink className="h-4 w-4" />
           </Button>
         </div>
@@ -421,7 +420,7 @@ export function TbWorkpaperPage() {
         <TickmarkCellPicker
           accountId={pickAccount.accountId}
           accountName={pickAccount.accountName}
-          taxYear={taxYear}
+          periodEnd={effPeriodEnd}
           initialColumn="adjusted"
           allowColumnChange
           onClose={() => setPickAccount(null)}

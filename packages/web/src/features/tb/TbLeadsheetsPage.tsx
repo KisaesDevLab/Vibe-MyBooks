@@ -62,8 +62,9 @@ export function TbLeadsheetsPage() {
     queryFn: () => apiClient<{ groupings: Grouping[] }>('/tb/groupings'),
   });
   const { data: wpData } = useWorkpaper(periodEnd, basis);
-  // Tax year the chosen date falls in (server-derived, as on the TB page);
-  // tickmarks, notes, sign-offs and attachments are kept per tax year.
+  // Tax year the chosen date falls in (server-derived, as on the TB page).
+  // Tickmarks, notes, sign-offs and row attachments are kept per PERIOD
+  // END (migration 0208) — 07/31 and 08/31 are separate workpapers.
   const taxYear = wpData?.workpaper.taxYear ?? defaultTaxYear;
   // Membership editing (Move to… column + Add account) shows only in
   // edit mode so the workpaper view stays clean.
@@ -73,16 +74,16 @@ export function TbLeadsheetsPage() {
     queryFn: () => apiClient<{ tickmarks: Tickmark[] }>('/tb/tickmarks'),
   });
   const { data: appsData } = useQuery({
-    queryKey: ['tb', 'tickmark-applications', taxYear],
-    queryFn: () => apiClient<{ applications: TickmarkApplication[] }>(`/tb/tickmark-applications?taxYear=${taxYear}`),
+    queryKey: ['tb', 'tickmark-applications', periodEnd],
+    queryFn: () => apiClient<{ applications: TickmarkApplication[] }>(`/tb/tickmark-applications?periodEnd=${periodEnd}`),
   });
   const { data: notesData } = useQuery({
-    queryKey: ['tb', 'notes', taxYear],
-    queryFn: () => apiClient<{ notes: Note[] }>(`/tb/notes?taxYear=${taxYear}`),
+    queryKey: ['tb', 'notes', periodEnd],
+    queryFn: () => apiClient<{ notes: Note[] }>(`/tb/notes?periodEnd=${periodEnd}`),
   });
   const { data: signoffData } = useQuery({
-    queryKey: ['tb', 'signoffs', taxYear],
-    queryFn: () => apiClient<{ signoffs: Signoff[] }>(`/tb/signoffs?taxYear=${taxYear}`),
+    queryKey: ['tb', 'signoffs', periodEnd],
+    queryFn: () => apiClient<{ signoffs: Signoff[] }>(`/tb/signoffs?periodEnd=${periodEnd}`),
   });
 
   const invalidate = (...keys: string[]) => keys.forEach((k) => queryClient.invalidateQueries({ queryKey: ['tb', k] }));
@@ -100,7 +101,7 @@ export function TbLeadsheetsPage() {
   });
   const signMutation = useMutation({
     mutationFn: (input: { groupingId: string; role: 'preparer' | 'reviewer' }) =>
-      apiClient('/tb/signoffs', { method: 'POST', body: JSON.stringify({ ...input, taxYear }) }),
+      apiClient('/tb/signoffs', { method: 'POST', body: JSON.stringify({ ...input, periodEnd }) }),
     onSuccess: () => invalidate('signoffs'),
     onError: err,
   });
@@ -166,7 +167,7 @@ export function TbLeadsheetsPage() {
   });
   const applyMark = useMutation({
     mutationFn: (input: { accountId: string; column: string; tickmarkId: string }) =>
-      apiClient('/tb/tickmark-applications', { method: 'POST', body: JSON.stringify({ ...input, taxYear }) }),
+      apiClient('/tb/tickmark-applications', { method: 'POST', body: JSON.stringify({ ...input, periodEnd }) }),
     onSuccess: () => { invalidate('tickmark-applications'); setMarkPicker(null); },
     onError: err,
   });
@@ -177,7 +178,7 @@ export function TbLeadsheetsPage() {
   });
   const addNote = useMutation({
     mutationFn: (input: { accountId: string | null; body: string }) =>
-      apiClient('/tb/notes', { method: 'POST', body: JSON.stringify({ ...input, taxYear }) }),
+      apiClient('/tb/notes', { method: 'POST', body: JSON.stringify({ ...input, periodEnd }) }),
     onSuccess: () => invalidate('notes'),
     onError: err,
   });
@@ -320,7 +321,7 @@ export function TbLeadsheetsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Leadsheets</h1>
-          <p className="text-sm text-gray-500">TY{taxYear} workpapers by grouping — sign-offs stamp the GL version and flag stale on later changes.</p>
+          <p className="text-sm text-gray-500">TY{taxYear} workpapers by grouping as of {periodEnd} — tickmarks, notes and sign-offs belong to this period end; sign-offs stamp the GL version and flag stale on later changes.</p>
         </div>
         <div className="flex items-center gap-2">
           <input type="date" value={periodEnd} aria-label="Period end"
@@ -665,7 +666,7 @@ export function TbLeadsheetsPage() {
                         </span>
                       </li>
                     ))}
-                  {notes.length === 0 && <li className="text-sm text-gray-400">No notes for TY{taxYear}.</li>}
+                  {notes.length === 0 && <li className="text-sm text-gray-400">No notes for period end {periodEnd}.</li>}
                 </ul>
                 <form className="flex gap-2" onSubmit={(e) => {
                   e.preventDefault();
