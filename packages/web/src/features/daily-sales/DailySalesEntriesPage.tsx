@@ -10,7 +10,7 @@ import { useColumnView } from '../../hooks/useColumnView';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
-import { Plus, Settings, AlertTriangle, RefreshCw, FileText } from 'lucide-react';
+import { Plus, Settings, AlertTriangle, RefreshCw, FileText, Paperclip } from 'lucide-react';
 
 // Rows-per-page choices — GET /daily-sales/entries caps limit at 500.
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '250', '500'];
@@ -97,6 +97,9 @@ export function DailySalesEntriesPage() {
                 <SortableTh padding="px-4 py-3" className={TH} align="right" label="Tax" {...view.thProps('totalTax')} />
                 <SortableTh padding="px-4 py-3" className={TH} align="right" label="Over/Short" {...view.thProps('overShortAmount')} />
                 <SortableTh padding="px-4 py-3" className={TH} label="Status" {...view.thProps('status')} />
+                <th className="px-4 py-3 text-center font-medium text-gray-600" title="Attachments">
+                  <Paperclip className="h-4 w-4 inline" aria-label="Attachments" />
+                </th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600"></th>
               </tr>
             </thead>
@@ -114,6 +117,18 @@ export function DailySalesEntriesPage() {
                       {os === 0 ? '—' : money(e.overShortAmount)}
                     </td>
                     <td className="px-4 py-2"><span className={`text-xs px-2 py-0.5 rounded-full ${b.cls}`}>{b.label}</span></td>
+                    <td className="px-4 py-2 text-center">
+                      {(e.attachmentCount ?? 0) > 0 ? (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs text-gray-600"
+                          title={`${e.attachmentCount} file(s) attached`}
+                          data-testid={`attachments-${e.id}`}
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                          <span className="tabular-nums">{e.attachmentCount}</span>
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="px-4 py-2 text-right">
                       <Button size="sm" variant="secondary" onClick={() => navigate(`/daily-sales/entries/${e.id}`)}>
                         {e.status === 'draft' ? 'Review & post' : 'View'}

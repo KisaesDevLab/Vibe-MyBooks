@@ -46,6 +46,8 @@ export interface DailySalesEntrySummary {
   totalPayments: string;
   postedAt: string | null;
   createdAt: string | null;
+  /** Files on the entry (draft) or its posted journal entry. List rows only. */
+  attachmentCount?: number;
 }
 export interface DailySalesEntryValue { templateLineId: string; amount: string; tagId: string | null }
 export interface DailySalesEntry extends DailySalesEntrySummary {
@@ -164,7 +166,11 @@ export function usePostDailySalesEntry() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient<{ entry: DailySalesEntry }>(`/daily-sales/entries/${id}/post`, { method: 'POST' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEY });
+      // Posting moves the draft's files onto the journal entry.
+      qc.invalidateQueries({ queryKey: ['attachments'] });
+    },
   });
 }
 export function useVoidDailySalesEntry() {

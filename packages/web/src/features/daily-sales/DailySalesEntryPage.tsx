@@ -16,6 +16,7 @@ import { MoneyInput } from '../../components/forms/MoneyInput';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../components/ui/Toaster';
+import { AttachmentPanel } from '../attachments/AttachmentPanel';
 import { Check, AlertTriangle, Save, Send, Ban } from 'lucide-react';
 
 function compute(lines: DailySalesTemplateLine[], values: Record<string, string>) {
@@ -56,6 +57,10 @@ export function DailySalesEntryPage() {
   // Entry-level tag (location/department); new entries start from the
   // template default. Lines tagged on the template keep their own tag.
   const [tagId, setTagId] = useState<string | null>(null);
+  // Files attached before the entry is first saved sit under this draft
+  // id; the server moves them onto the entry when the draft is created
+  // (and onto the journal entry when it posts).
+  const [draftId] = useState(() => crypto.randomUUID());
 
   const { data: selectedTplData } = useDailySalesTemplate(!isEdit && templateId ? templateId : undefined);
 
@@ -99,7 +104,7 @@ export function DailySalesEntryPage() {
       await updateDraft.mutateAsync({ id: id!, input: { businessDate, notes, tagId, values: valuesPayload() } });
       return id!;
     }
-    const res = await createDraft.mutateAsync({ templateId, businessDate, notes, tagId, values: valuesPayload() });
+    const res = await createDraft.mutateAsync({ templateId, businessDate, notes, tagId, values: valuesPayload(), draftAttachmentId: draftId });
     return res.entry.id;
   };
 
@@ -110,12 +115,19 @@ export function DailySalesEntryPage() {
 
   const onPost = async () => {
     if (c.unmapped.length) { toast.error(`Map an account for: ${c.unmapped.join(', ')}`); return; }
+    let eid: string | undefined;
     try {
-      const eid = await persistDraft();
+      eid = await persistDraft();
       await postEntry.mutateAsync(eid);
       toast.success(`Posted${Math.abs(c.overShort) >= 0.005 ? ` (Cash Over/Short ${usd(c.overShort)})` : ''}.`);
       navigate('/daily-sales');
-    } catch (err) { toast.error(err instanceof Error ? err.message : 'Could not post entry.'); }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not post entry.');
+      // The draft was saved (and took the attached files with it) but the
+      // post failed — continue on the saved draft rather than this blank
+      // new-entry screen, so a retry doesn't create a second draft.
+      if (!isEdit && eid) navigate(`/daily-sales/entries/${eid}`, { replace: true });
+    }
   };
 
   const onVoid = async () => {
@@ -126,6 +138,17 @@ export function DailySalesEntryPage() {
   if (isEdit && entryLoading) return <div className="flex justify-center p-12"><LoadingSpinner /></div>;
 
   const busy = createDraft.isPending || updateDraft.isPending || postEntry.isPending;
+
+  // Where this entry's files live: unsaved → the draft id; saved draft →
+  // the entry; posted (or voided) → its journal entry, so they are the
+  // same files the transaction detail and Transaction Report show.
+  const attachTarget: { type: string; id: string } | null = !isEdit
+    ? { type: 'draft', id: draftId }
+    : status === 'draft'
+      ? { type: 'daily_sales_entry', id: id! }
+      : entryData?.entry.transactionId
+        ? { type: 'daily_sales', id: entryData.entry.transactionId }
+        : null;
 
   return (
     <div className="max-w-4xl">
@@ -239,6 +262,12 @@ export function DailySalesEntryPage() {
               </>
             )}
           </div>
+
+          {attachTarget && (
+            <div className="mt-6">
+              <AttachmentPanel attachableType={attachTarget.type} attachableId={attachTarget.id} />
+            </div>
+          )}
         </>
       )}
     </div>

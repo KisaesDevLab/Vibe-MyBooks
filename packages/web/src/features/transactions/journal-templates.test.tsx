@@ -34,6 +34,14 @@ vi.mock('../../api/hooks/useTransactions', () => ({
   useCreateTransaction: () => ({ mutate: createTxnMutate, isPending: false }),
 }));
 
+// AttachmentPanel has its own tests; render where it points so the draft
+// attachment hand-off can be asserted without network.
+vi.mock('../attachments/AttachmentPanel', () => ({
+  AttachmentPanel: ({ attachableType, attachableId }: { attachableType: string; attachableId: string }) => (
+    <div data-testid="attachments" data-type={attachableType} data-id={attachableId} />
+  ),
+}));
+
 import { JournalTemplatesPage } from './JournalTemplatesPage';
 import { JournalTemplateEntryPage } from './JournalTemplateEntryPage';
 
@@ -214,5 +222,30 @@ describe('JournalTemplateEntryPage', () => {
     expect(payload.lines).toHaveLength(2);
     expect(payload.lines[0]).toMatchObject({ accountId: 'acct-exp', debit: '1000.0000', credit: '0', description: 'Gross wages' });
     expect(payload.lines[1]).toMatchObject({ accountId: 'acct-liab', debit: '0', credit: '1000.0000', description: 'Accrued payroll' });
+  });
+
+  it('attaches files as a draft and hands the draft id to the post so they link to the new entry', async () => {
+    templateStore.data = PAYROLL_TEMPLATE;
+    renderRoute(<JournalTemplateEntryPage />, { route: '/transactions/journal-templates/enter?template=tpl-1' });
+    await screen.findByText('Debit lines');
+
+    const panel = screen.getByTestId('attachments');
+    expect(panel.dataset['type']).toBe('draft');
+    const draftId = panel.dataset['id']!;
+    expect(draftId).toMatch(/^[0-9a-f-]{36}$/);
+
+    fireEvent.change(screen.getByLabelText(/Gross wages/), { target: { value: '250' } });
+    fireEvent.change(screen.getByLabelText(/Accrued payroll/), { target: { value: '250' } });
+    const post = screen.getByRole('button', { name: /post journal entry/i });
+    await waitFor(() => expect(post).not.toBeDisabled());
+    fireEvent.click(post);
+
+    await waitFor(() => expect(createTxnMutate).toHaveBeenCalledTimes(1));
+    expect(createTxnMutate.mock.calls[0]![0]).toMatchObject({ txnType: 'journal_entry', draftAttachmentId: draftId });
+  });
+
+  it('shows no attachment panel until a template is chosen', () => {
+    renderRoute(<JournalTemplateEntryPage />, { route: '/transactions/journal-templates/enter' });
+    expect(screen.queryByTestId('attachments')).not.toBeInTheDocument();
   });
 });
