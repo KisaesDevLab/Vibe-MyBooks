@@ -3387,14 +3387,16 @@ A taxpayer you may not see is simply "Taxpayer not found", everywhere: the list,
 
 ## Tax profile
 
-- **Entity type** comes from the company's Trial Balance tax profile (1040, 1065, 1120-S, 1120). If the company has no Trial Balance profile you can set the type here; once a profile exists it wins.
+- **Entity type** comes from the company's Trial Balance tax profile (1040, 1065, 1120-S, 1120). If the company has no Trial Balance profile you can set the type here; once a profile exists it wins. To use a different type for one tax year (for example an LLC that files 1065 but elected S corporation status for 2026), use **Entity type for <year>** in the year inputs below — the card then shows "Overridden for 2026 (TB profile says 1065)".
 - **Tax accounting method** defaults to the company's accounting method; override it only if the return uses a different method.
 - **State sourcing** records which states the entity's income is sourced to, used for nonresident partners and shareholders.
 - Flags for **Specified service trade or business (SSTB)**, **Rental is a trade or business (QBI)**, **Large corporation** and **Farmer** (or not) change which rules apply.
 
 ## Year inputs
 
-Per entity and year: an optional **W-2 wages override** (with a required reason) and **UBIA**. The QBI wage limit uses the W-2 wages from accounts treated as W-2 wages in the books unless you override them. If UBIA is blank, the UBIA part of the QBI limit is not computed and the estimate says so.
+**Entity type for <year>** (per entity and year): "Use TB profile" (the default) or Schedule C, Schedule F, S corporation, Partnership or C corporation. The chosen type wins over the Trial Balance tax profile and the setting above for that tax year only; the Trial Balance profile and other years are not changed. The estimate follows it: an S corporation has no self-employment tax on the owner's share and can have officer wages (owner links for that year can be marked officer); a partnership has guaranteed payments and partner self-employment tax; a C corporation is estimated at the entity level and leaves the owners' individual totals. Treatments or link settings that only fit the other type are ignored with a warning, never an error. The Calculation tab shows "Entity type overridden: S corp (TB profile says 1065)" on the company line and the preparer assumptions page states it; the client copy shows only the type used.
+
+Also per entity and year: an optional **W-2 wages override** (with a required reason) and **UBIA**. The QBI wage limit uses the W-2 wages from accounts treated as W-2 wages in the books unless you override them. If UBIA is blank, the UBIA part of the QBI limit is not computed and the estimate says so.
 
 **Projection method** (per entity and year) decides how the rest of the year's **ordinary** income is projected:
 - **Run rate** (the default): the year-to-date recurring income per month times the months left.

@@ -68,3 +68,16 @@ Operator notes:
 - Migration `0207_tax_est_projection_method.sql` (+ rollback; part `parts/projection-method.sql`; journal idx 207, `when` 1784800000290): new column `tax_est_entity_year_inputs.projection_method` (default `run_rate`, CHECK). Additive; every estimate is unchanged until a method is chosen.
 - Engine 1.0.0-rc.6 and estimate cache version `te-estimate-v6` re-key every live estimate once on deploy (no figure changes for run-rate entities). A selected prior-year method reads 12 more months per company (Redis-cached by the GL stamp).
 - Kurt's review list (prior-year definition and flags, completeness rule, dollar method guardrails, C corp restriction): OPEN-QUESTIONS.md Q46.
+
+## Per-year entity type override (Q49)
+
+User-facing:
+- **Entity type for <year>** on Entity tax setup > year inputs (per company and tax year): "Use TB profile (1065 → Partnership)" (the default, unchanged) or one of Schedule C, Schedule F, S corporation, Partnership, C corporation. Use it when the return for that year differs from the Trial Balance tax profile — e.g. an LLC filing 1065 that elected S corporation status for 2026. The override wins for that year only; the Trial Balance tax profile and other years are not changed.
+- The estimate follows the chosen type: S corporation (no self-employment tax on the K-1, officer wages, officer links allowed for that year), partnership (guaranteed payments, partner SE tax), or C corporation (estimated at the entity level, out of the owners' individual totals). Inputs left over from the other type (a guaranteed-payment treatment on an S corp, an officer link on a partnership) are ignored with a warning — the estimate still computes.
+- Entity tax setup shows the effective type with "Overridden for 2026 (TB profile says 1065)"; the Calculation view shows "Entity type overridden: S corp (TB profile says 1065)" on the business line, and the preparer assumptions page states it. The client PDF / portal show only the type used.
+- The "estimator setting is ignored" note under a TB profile now points to the per-year override.
+
+Operator notes:
+- Migration `0209_tax_est_entity_type_override.sql` (+ rollback; part `parts/entity-type-override.sql`; journal idx 209, `when` 1784800000310): new nullable column `tax_est_entity_year_inputs.entity_type_override` (CHECK: the five entity tax types). Additive; every estimate is unchanged until an override is set.
+- No engine change (engine stays 1.0.0-rc.6). Estimate cache version `te-estimate-v7` and P&L provider cache `te:pl:v3` re-key live estimates once on deploy (no figure changes without an override).
+- Kurt's review list (treatments not per year, link-kind follows the year, prior-year trend uses the current year's type, display wording): OPEN-QUESTIONS.md Q49.

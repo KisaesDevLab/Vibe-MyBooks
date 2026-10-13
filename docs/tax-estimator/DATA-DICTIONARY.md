@@ -69,6 +69,17 @@ audited with the row. The prior-year monthly figures it reads are books data der
 estimate cache value and snapshot payload (`inputs.companies[].priorYear`,
 `result.federal.entities[].projection`).
 
+Entity type override (Q49, migration `0209_tax_est_entity_type_override`):
+`tax_est_entity_year_inputs.entity_type_override` (TEXT NULL; CHECK NULL or one of `sch_c`,
+`sch_f`, `s_corp`, `partnership`, `c_corp` — the shared `ENTITY_TAX_TYPES`) is an entity-year
+setting like the projection method: books-scoped (tenant_id), written only through the entity
+routes (tenant check, `requireTaxEstimatorWrite`), audited with the row. When set it decides the
+entity type for that tax year over the TB profile, the estimator setting and the company type
+(MODULE.md D3 amendment); the TB profile is never written. The effective type and its source
+(`estimator_override` + what the type would otherwise have been) are frozen in the encrypted
+estimate cache value and snapshot payload (`result.entities[].entityTypeSource` /
+`entityTypeOverride`, `inputs.companies[].settings.resolved`).
+
 Not tax return information (books data, stored in clear): payment ledger rows
 (`tax_est_payments`), Schedule AI period figures (`tax_est_sch_ai_snapshots`), entity
 settings, treatments and adjustments. Snapshot metadata (`tax_year`, `scenario_name`,

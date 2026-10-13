@@ -125,6 +125,29 @@ describe('buildCalcSections — prior-year trend projection (Q46)', () => {
   });
 });
 
+describe('buildCalcSections — per-year entity type override (Q49)', () => {
+  const override = { taxYear: 2026, overrideType: 's_corp', baseEntityType: 'partnership', baseEntityTypeSource: 'tb_profile', tbReturnForm: '1065' } as const;
+  const overridden = () => {
+    const base = makeEstimate();
+    return makeEstimate({
+      entities: [{ ...base.entities[0]!, entityType: 's_corp', entityTypeSource: 'estimator_override', entityTypeOverride: override }],
+      federal: { ...base.federal, entities: [{ ...base.federal.entities[0]!, entityType: 's_corp' }] },
+    });
+  };
+
+  it('the business row carries a preparer-only info chip naming the TB profile; the sub-label shows the effective type', () => {
+    const entity = buildCalcSections(overridden()).flatMap((s) => s.lines).find((l) => l.key === 'inc.c1')!;
+    expect(entity.chips).toEqual([{ text: 'Entity type overridden: S corp (TB profile says 1065)', tone: 'info', review: true }]);
+    expect(entity.sub).toMatch(/^S corp · /);
+    wrap(<CalculationTable estimate={overridden()} />);
+    expect(screen.getByText('Entity type overridden: S corp (TB profile says 1065)')).toBeInTheDocument();
+  });
+
+  it('no override, no chip', () => {
+    expect(buildCalcSections(makeEstimate()).flatMap((s) => s.lines).find((l) => l.key === 'inc.c1')!.chips).toBeUndefined();
+  });
+});
+
 describe('buildCalcSections — businesses outside MyBooks (Q45)', () => {
   const outsideEstimate = (basis: 'owner_share' | 'entity_total', mode: 'full_year' | 'ytd') => {
     const base = makeEstimate();

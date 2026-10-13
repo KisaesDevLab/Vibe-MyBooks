@@ -2,7 +2,8 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import type { AccountTreatment, EntityTaxType, EntityTypeSource, TaxMethodSource } from '@kis-books/shared';
+import type { AccountTreatment, EntityTaxType, EntityTypeOverrideInfo, EntityTypeSource, ResolvedEntityTax, TaxMethodSource } from '@kis-books/shared';
+import { entityTypeOverrideBaseText } from '@kis-books/shared';
 
 export const ENTITY_TYPE_LABELS: Record<EntityTaxType, string> = {
   sch_c: 'Schedule C (sole proprietor)', sch_f: 'Schedule F (farm)', s_corp: 'S corporation',
@@ -20,8 +21,12 @@ export const TREATMENT_LABELS: Record<AccountTreatment, string> = {
   dividends_ordinary: 'Character: ordinary dividends', dividends_qualified: 'Character: qualified dividends',
 };
 
-export function entityTypeSourceLabel(source: EntityTypeSource, returnForm: string | null): string {
+export function entityTypeSourceLabel(source: EntityTypeSource, returnForm: string | null, override?: EntityTypeOverrideInfo): string {
   switch (source) {
+    // Q49: the entity year's override decided the type.
+    case 'estimator_override': return override
+      ? `Overridden for ${override.taxYear} (${entityTypeOverrideBaseText(override)})`
+      : 'Overridden for this tax year';
     case 'tb_profile': return `From Trial Balance return form ${returnForm ?? ''}`.trim();
     case 'estimator_setting': return 'Estimator override';
     case 'company_entity_type': return 'Company entity type';
@@ -36,3 +41,25 @@ export const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA'
 
 export const SELECT_CLASS = 'block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500';
 export const errMsg = (e: unknown) => (e instanceof Error ? e.message : 'Request failed');
+
+/**
+ * Q49: the default option of "Entity type for <year>" — what the D3 precedence gives without the
+ * per-year override ("Use TB profile (1065 → Partnership)").
+ */
+export function baseEntityTypeOptionLabel(r: ResolvedEntityTax): string {
+  const o = r.entityTypeOverride;
+  const type = o ? o.baseEntityType : r.entityType;
+  const source = o ? o.baseEntityTypeSource : r.entityTypeSource;
+  const name = type ? ENTITY_TYPE_LABELS[type] : 'not set';
+  switch (source) {
+    case 'tb_profile': return `Use TB profile (${r.tbReturnForm ?? '?'} → ${name})`;
+    case 'estimator_setting': return `Use estimator setting (${name})`;
+    case 'company_entity_type': return `Use company entity type (${name})`;
+    default: return 'Use TB profile (none set: no entity type)';
+  }
+}
+
+/** Q49: the entity type the D3 precedence gives without the per-year override. */
+export function baseEntityType(r: ResolvedEntityTax): EntityTaxType | null {
+  return r.entityTypeOverride ? r.entityTypeOverride.baseEntityType : r.entityType;
+}

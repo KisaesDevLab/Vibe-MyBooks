@@ -24,18 +24,21 @@ function call<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 const base = (t: string, c: string) => `/${t}/${c}`;
 
-export function useEntitySettings(t: string, c: string) {
+/** Q49: `?taxYear=` resolves the entity type for that year (the entity year's override applies). */
+const yearQuery = (taxYear?: number) => (taxYear ? `?taxYear=${taxYear}` : '');
+
+export function useEntitySettings(t: string, c: string, taxYear?: number) {
   return useQuery({
-    queryKey: [KEY, 'settings', t, c],
-    queryFn: async () => (await call<{ data: EntitySettingsResponse }>(`${base(t, c)}/settings`)).data,
+    queryKey: [KEY, 'settings', t, c, taxYear ?? null],
+    queryFn: async () => (await call<{ data: EntitySettingsResponse }>(`${base(t, c)}/settings${yearQuery(taxYear)}`)).data,
   });
 }
 
-export function useSaveEntitySettings(t: string, c: string) {
+export function useSaveEntitySettings(t: string, c: string, taxYear?: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: UpsertEntitySettingsInput) =>
-      (await call<{ data: unknown }>(`${base(t, c)}/settings`, { method: 'PUT', body: JSON.stringify(input) })).data,
+      (await call<{ data: unknown }>(`${base(t, c)}/settings${yearQuery(taxYear)}`, { method: 'PUT', body: JSON.stringify(input) })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   });
 }
@@ -72,10 +75,10 @@ export function useSaveEntityTreatments(t: string, c: string) {
   });
 }
 
-export function useTreatmentSuggestions(t: string, c: string) {
+export function useTreatmentSuggestions(t: string, c: string, taxYear?: number) {
   return useQuery({
-    queryKey: [KEY, 'suggestions', t, c],
-    queryFn: async () => (await call<{ data: TreatmentSuggestion[] }>(`${base(t, c)}/treatment-suggestions`)).data,
+    queryKey: [KEY, 'suggestions', t, c, taxYear ?? null],
+    queryFn: async () => (await call<{ data: TreatmentSuggestion[] }>(`${base(t, c)}/treatment-suggestions${yearQuery(taxYear)}`)).data,
   });
 }
 
