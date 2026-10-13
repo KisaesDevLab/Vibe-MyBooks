@@ -40,7 +40,7 @@ function CardShell({ title, icon: Icon, children }: { title: string; icon: React
 }
 
 function NextPaymentCard({ t }: { t: TaxEstDashboardTaxpayerDTO }) {
-  const rows = t.jurisdictions.filter((j) => j.estimatesRequired);
+  const rows = (t.jurisdictions ?? []).filter((j) => j.estimatesRequired);
   return (
     <CardShell title="Next estimated payment" icon={CalendarClock}>
       {rows.length === 0 ? <p className="text-sm text-gray-500">No estimated payments are required for {t.taxYear}.</p> : (
@@ -81,8 +81,8 @@ function ProjectedCard({ t }: { t: TaxEstDashboardTaxpayerDTO }) {
 }
 
 function PaidVsRequiredCard({ t, audience }: { t: TaxEstDashboardTaxpayerDTO; audience: TaxEstDashboardAudience }) {
-  const rows = t.jurisdictions.filter((j) => j.estimatesRequired);
-  const behind = Number(t.shortfall) > 0;
+  const rows = (t.jurisdictions ?? []).filter((j) => j.estimatesRequired);
+  const behind = Number(t.shortfall ?? '0') > 0;
   return (
     <CardShell title="Paid vs required to date" icon={Scale}>
       {rows.length === 0 ? <p className="text-sm text-gray-500">Nothing required yet.</p> : (
@@ -131,11 +131,19 @@ function TaxpayerBlock({ t, audience }: { t: TaxEstDashboardTaxpayerDTO; audienc
           Not computed yet — <Link className="text-primary-700 hover:underline" to={href}>Open taxpayer</Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <NextPaymentCard t={t} />
-          <ProjectedCard t={t} />
-          <PaidVsRequiredCard t={t} audience={audience} />
-        </div>
+        // Q51: the owner's portal contact may not see quarterly estimates — then the server sends no
+        // `jurisdictions` and only the projected total is shown (as in the portal).
+        t.jurisdictions ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <NextPaymentCard t={t} />
+            <ProjectedCard t={t} />
+            <PaidVsRequiredCard t={t} audience={audience} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ProjectedCard t={t} />
+          </div>
+        )
       )}
     </div>
   );

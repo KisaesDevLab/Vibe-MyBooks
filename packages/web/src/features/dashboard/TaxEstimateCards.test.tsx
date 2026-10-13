@@ -67,7 +67,7 @@ describe('TaxEstimateCards (company dashboard)', () => {
   });
 
   it('owner: no link, no Refresh, no penalty', () => {
-    state.data = { audience: 'owner', today: '2026-12-16', taxpayers: [{ ...rivera, source: 'snapshot', penalty: null, jurisdictions: rivera.jurisdictions.map((j) => ({ ...j, penalty: null })) }] };
+    state.data = { audience: 'owner', today: '2026-12-16', taxpayers: [{ ...rivera, source: 'snapshot', penalty: null, jurisdictions: rivera.jurisdictions!.map((j) => ({ ...j, penalty: null })) }] };
     renderIt();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Refresh/ })).not.toBeInTheDocument();
@@ -76,8 +76,18 @@ describe('TaxEstimateCards (company dashboard)', () => {
     expect(screen.getByText('Finalized estimate as of Dec 16, 2026')).toBeInTheDocument();
   });
 
+  it('owner whose portal contact has Quarterly estimates off (Q51): only the projected total, no voucher / paid-vs-required', () => {
+    const { jurisdictions: _j, shortfall: _s, ...noInstallments } = rivera;
+    state.data = { audience: 'owner', today: '2026-12-16', taxpayers: [{ ...noInstallments, source: 'snapshot', penalty: null }] };
+    renderIt();
+    expect(screen.getByText(/Projected tax for/)).toBeInTheDocument();
+    expect(screen.queryByText('Next estimated payment')).not.toBeInTheDocument();
+    expect(screen.queryByText('Paid vs required to date')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('shortfall')).not.toBeInTheDocument();
+  });
+
   it('on track when nothing is short', () => {
-    state.data = { audience: 'staff', today: '2026-12-16', taxpayers: [{ ...rivera, shortfall: '0', penalty: '0', jurisdictions: rivera.jurisdictions.map((j) => ({ ...j, shortfall: '0' })) }] };
+    state.data = { audience: 'staff', today: '2026-12-16', taxpayers: [{ ...rivera, shortfall: '0', penalty: '0', jurisdictions: rivera.jurisdictions!.map((j) => ({ ...j, shortfall: '0' })) }] };
     renderIt();
     expect(screen.getByText('On track')).toBeInTheDocument();
     expect(screen.queryByTestId('shortfall')).not.toBeInTheDocument();
