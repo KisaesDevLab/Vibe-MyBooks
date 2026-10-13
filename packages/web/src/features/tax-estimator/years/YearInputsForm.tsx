@@ -67,6 +67,9 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
   const [nonref, setNonref] = useState(String(Number(y.creditsNonrefundable)));
   const [ref, setRef] = useState(String(Number(y.creditsRefundable)));
   const [care, setCare] = useState(String(Number(y.careExpenses ?? 0)));
+  // Q53 / Q39: the 25% / 28% worksheet buckets (parts of the long-term gains).
+  const [u1250, setU1250] = useState(String(Number(y.unrecaptured1250Gain ?? 0)));
+  const [collectibles, setCollectibles] = useState(String(Number(y.collectiblesGain ?? 0)));
   const [hsa, setHsa] = useState<Record<string, HsaCoverage | ''>>({ primary: y.hsaCoverage.primary ?? '', spouse: y.hsaCoverage.spouse ?? '' });
   const [fedWh, setFedWh] = useState(str(y.withholding.federal));
   const [people, setPeople] = useState(() => peopleDraftFromYear(y));
@@ -79,7 +82,7 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
   const stateWhParsed = stateWh.split(',').map((t) => t.trim()).filter(Boolean).map((t) => t.split('=').map((p) => p.trim()));
   const stateWhBad = stateWhParsed.some(([s, v]) => !s || !/^[A-Za-z]{2}$/.test(s) || v === undefined || !Number.isFinite(Number(v)) || Number(v) < 0);
   const sch1aInvalid = Object.values(sch1a).some(sch1aAmountBad);
-  const invalid = sch1aInvalid || peopleDraftInvalid(people) || rateBad || moneyBad(priorTax) || moneyBad(priorAgi) || moneyBad(nonref) || moneyBad(ref) || moneyBad(care) || stateWhBad
+  const invalid = sch1aInvalid || peopleDraftInvalid(people) || rateBad || moneyBad(priorTax) || moneyBad(priorAgi) || moneyBad(nonref) || moneyBad(ref) || moneyBad(care) || moneyBad(u1250) || moneyBad(collectibles) || stateWhBad
     || ITEMIZED_FIELDS.some(([k]) => Number.isNaN(Number(itemized[k] || 0)));
 
   function submit() {
@@ -99,6 +102,7 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
       deductionMode: dedMode, itemized: itemizedOut,
       sch1a: { primary: sch['primary'], spouse: sch['spouse'] },
       creditsNonrefundable: nonref.trim() || '0', creditsRefundable: ref.trim() || '0', careExpenses: care.trim() || '0',
+      unrecaptured1250Gain: u1250.trim() || '0', collectiblesGain: collectibles.trim() || '0',
       hsaCoverage: { ...(hsa['primary'] ? { primary: hsa['primary'] } : {}), ...(hsa['spouse'] ? { spouse: hsa['spouse'] } : {}) },
       withholding: { ...(num(fedWh) !== undefined ? { federal: num(fedWh)! } : {}), states },
       ...peoplePayload(people, persons.map((p) => p.role)),
@@ -127,7 +131,12 @@ export function YearInputsForm({ detail, persons, filingStatus, canWrite, saving
             error={moneyBad(ref) ? 'Enter an amount' : undefined} onChange={(e) => setRef(e.target.value)} />
           <Input label="Child and dependent care expenses paid" inputMode="decimal" value={care} disabled={!canWrite}
             error={moneyBad(care) ? 'Enter an amount' : undefined} onChange={(e) => setCare(e.target.value)} />
+          <Input label="Unrecaptured §1250 gain (25%)" inputMode="decimal" value={u1250} disabled={!canWrite}
+            error={moneyBad(u1250) ? 'Enter an amount' : undefined} onChange={(e) => setU1250(e.target.value)} />
+          <Input label="Collectibles gain (28%)" inputMode="decimal" value={collectibles} disabled={!canWrite}
+            error={moneyBad(collectibles) ? 'Enter an amount' : undefined} onChange={(e) => setCollectibles(e.target.value)} />
         </div>
+        <p className="text-xs text-gray-500">Unrecaptured §1250 and collectibles gains are PARTS of the long-term gains already in the estimate (they are not added to income); they move that part to the 25% / 28% worksheet rates. Accounts treated &quot;Long-term gain: unrecaptured §1250&quot; / &quot;collectibles&quot; add the books&apos; amounts automatically.</p>
         <p className="text-xs text-gray-500">Other credits = credits not tied to dependents (education, energy, foreign tax and so on); nonrefundable ones cannot reduce regular tax below zero. The child tax credit, the credit for other dependents, the additional child tax credit and the care credit are computed from the taxpayer&apos;s dependents and the care expenses — do not enter them here.</p>
         {roles.length > 0 && (
           <ul className="flex flex-wrap gap-2 text-xs text-gray-700" aria-label="People">

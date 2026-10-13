@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useState } from 'react';
-import type { StateBase, StateRowDTO, StateRowInput, ReplaceStateRowsInput } from '@kis-books/shared';
+import type { StateBase, StateRowDTO, StateRowInput, ReplaceStateRowsInput, StateRowRateMode, StateRowNonresidentMode } from '@kis-books/shared';
 import { STATE_BASES, STATE_CODES } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -18,6 +18,10 @@ export interface StateDraft {
   /** Percent as typed, e.g. "4.00". Stored rate = percent / 100. */
   ratePct: string;
   base: StateBase;
+  /** Q53: the state's rate schedule (default) or the effective-rate override. */
+  rateMode: StateRowRateMode;
+  /** Q53 nonresident rows: the state's method on the schedule (default) or sourced income × rate. */
+  nonresidentMode: StateRowNonresidentMode;
   customBase: string;
   sourcedManual: boolean;
   sourcedIncome: string;
@@ -32,7 +36,8 @@ const nextKey = () => `row-${++seq}`;
 export function draftFromRow(r: StateRowDTO): StateDraft {
   return {
     key: r.id, residency: r.residency, state: r.state, ratePct: String(Number((r.effectiveRate * 100).toFixed(4))),
-    base: r.base, customBase: plainDecimal(r.customBase), sourcedManual: r.sourcedManual, sourcedIncome: plainDecimal(r.sourcedIncome),
+    base: r.base, rateMode: r.rateMode ?? 'brackets', nonresidentMode: r.nonresidentMode ?? 'ratio',
+    customBase: plainDecimal(r.customBase), sourcedManual: r.sourcedManual, sourcedIncome: plainDecimal(r.sourcedIncome),
     creditOverride: plainDecimal(r.creditOverride), memo: r.memo ?? '',
   };
 }
@@ -49,18 +54,28 @@ export function validateDrafts(rows: StateDraft[]): string | null {
       ? 'A nonresident state cannot be the resident state.' : `${code} appears more than once.`;
     seen.add(code);
     const rate = Number(r.ratePct);
-    if (r.ratePct.trim() === '' || !Number.isFinite(rate) || rate < 0 || rate > MAX_RATE_PCT) return `Rate for ${code} must be between 0 and ${MAX_RATE_PCT}%.`;
+    // Q53: on the rate schedule the effective rate is only the fallback, so it may be left blank (0).
+    const rateRequired = usesEffectiveRate(r);
+    if (rateRequired && r.ratePct.trim() === '') return `Rate for ${code} must be between 0 and ${MAX_RATE_PCT}%.`;
+    if (r.ratePct.trim() !== '' && (!Number.isFinite(rate) || rate < 0 || rate > MAX_RATE_PCT)) return `Rate for ${code} must be between 0 and ${MAX_RATE_PCT}%.`;
     if (r.base === 'custom' && r.customBase.trim() === '') return `Enter a custom base for ${code}.`;
     if (r.residency === 'nonresident' && r.sourcedManual && r.sourcedIncome.trim() === '') return `Enter sourced income for ${code}.`;
   }
   return null;
 }
 
+/** Q53: whether the row's tax is the effective rate (override, or a nonresident sourced × rate). */
+export function usesEffectiveRate(r: Pick<StateDraft, 'rateMode' | 'nonresidentMode' | 'residency'>): boolean {
+  return r.rateMode === 'effective' || (r.residency === 'nonresident' && r.nonresidentMode === 'sourced_rate');
+}
+
 export function draftsToInput(rows: StateDraft[]): ReplaceStateRowsInput {
   return {
     rows: rows.map((r): StateRowInput => ({
       residency: r.residency, state: r.state.toUpperCase(),
-      effectiveRate: Math.round(Number(r.ratePct) * 10000) / 1000000,
+      effectiveRate: r.ratePct.trim() === '' ? 0 : Math.round(Number(r.ratePct) * 10000) / 1000000,
+      rateMode: r.rateMode,
+      ...(r.residency === 'nonresident' ? { nonresidentMode: r.nonresidentMode } : {}),
       base: r.base, customBase: r.base === 'custom' ? r.customBase.trim() : null,
       sourcedManual: r.residency === 'nonresident' && r.sourcedManual,
       sourcedIncome: r.residency === 'nonresident' && r.sourcedManual ? r.sourcedIncome.trim() : null,
@@ -92,13 +107,22 @@ function RowCard({ d, canWrite, onChange, onRemove }: {
     <section className="rounded-lg border border-gray-200 bg-white p-3 space-y-2" aria-label={label} data-testid={`state-row-${d.residency}`}>
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold text-gray-900">{nonres ? 'Nonresident' : 'Resident'}</h4>
-        {nonres && <span className="rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800">Effective-rate estimate</span>}
+        {usesEffectiveRate(d)
+          ? <span className="rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800">{d.rateMode === 'effective' ? 'Effective-rate override' : 'Effective-rate estimate'}</span>
+          : <span className="rounded bg-sky-50 px-2 py-0.5 text-xs text-sky-800">{nonres ? 'Rate schedule, state method' : 'Rate schedule'}</span>}
         {nonres && canWrite && onRemove && <Button size="sm" variant="ghost" onClick={onRemove}>Remove</Button>}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StateSelect id={`state-${d.key}`} label="State" ariaLabel={stateLabel} value={d.state} disabled={!canWrite}
           allowEmpty={false} onChange={(code) => onChange({ state: code })} />
-        <Input label={`${label} rate %`} inputMode="decimal" value={d.ratePct} disabled={!canWrite} onChange={(e) => onChange({ ratePct: e.target.value })} />
+        <div>
+          <label htmlFor={`mode-${d.key}`} className="block text-sm font-medium text-gray-700 mb-1">Tax computed by</label>
+          <select id={`mode-${d.key}`} aria-label={`${label} tax computed by`} className={SELECT_CLASS} value={d.rateMode} disabled={!canWrite} onChange={(e) => onChange({ rateMode: e.target.value as StateRowRateMode })}>
+            <option value="brackets">State rate schedule</option>
+            <option value="effective">Effective-rate override</option>
+          </select>
+        </div>
+        <Input label={usesEffectiveRate(d) ? `${label} rate %` : `${label} fallback rate %`} inputMode="decimal" value={d.ratePct} disabled={!canWrite} onChange={(e) => onChange({ ratePct: e.target.value })} />
         <div>
           <label htmlFor={`base-${d.key}`} className="block text-sm font-medium text-gray-700 mb-1">Base</label>
           <select id={`base-${d.key}`} className={SELECT_CLASS} value={d.base} disabled={!canWrite} onChange={(e) => onChange({ base: e.target.value as StateBase })}>
@@ -108,8 +132,22 @@ function RowCard({ d, canWrite, onChange, onRemove }: {
         {d.base === 'custom' && <Input label={`${label} custom base`} inputMode="decimal" value={d.customBase} disabled={!canWrite} onChange={(e) => onChange({ customBase: e.target.value })} />}
         {!nonres && <Input label="Other-state credit override" inputMode="decimal" value={d.creditOverride} disabled={!canWrite} onChange={(e) => onChange({ creditOverride: e.target.value })} />}
       </div>
+      {!usesEffectiveRate(d) && (
+        <p className="text-xs text-gray-500">
+          The state&apos;s {nonres ? 'own nonresident method on its' : ''} rate schedule, standard deduction, exemptions and capital gain rules apply (the base selector is used only when the state has no starting point on file, or &quot;Custom&quot; = your state taxable income). The rate is used only if no schedule is on file for the year.
+        </p>
+      )}
       {nonres && (
         <div className="space-y-2">
+          {d.rateMode === 'brackets' && (
+            <div className="max-w-sm">
+              <label htmlFor={`nrmode-${d.key}`} className="block text-sm font-medium text-gray-700 mb-1">Nonresident tax</label>
+              <select id={`nrmode-${d.key}`} aria-label={`${label} nonresident tax`} className={SELECT_CLASS} value={d.nonresidentMode} disabled={!canWrite} onChange={(e) => onChange({ nonresidentMode: e.target.value as StateRowNonresidentMode })}>
+                <option value="ratio">State&apos;s method (ratio of the full return)</option>
+                <option value="sourced_rate">Sourced income × rate</option>
+              </select>
+            </div>
+          )}
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={d.sourcedManual} disabled={!canWrite} onChange={(e) => onChange({ sourcedManual: e.target.checked })} />
             Enter sourced income manually
@@ -128,7 +166,7 @@ function RowCard({ d, canWrite, onChange, onRemove }: {
 export function StateRowsEditor({ rows, canWrite, saving, error, defaultResidentState, onSave }: Props) {
   const [drafts, setDrafts] = useState<StateDraft[]>(() => rows.length > 0
     ? rows.map(draftFromRow)
-    : [{ key: nextKey(), residency: 'resident', state: defaultResidentState ?? '', ratePct: '', base: 'federal_agi', customBase: '', sourcedManual: false, sourcedIncome: '', creditOverride: '', memo: '' }]);
+    : [{ key: nextKey(), residency: 'resident', state: defaultResidentState ?? '', ratePct: '', base: 'federal_agi', rateMode: 'brackets', nonresidentMode: 'ratio', customBase: '', sourcedManual: false, sourcedIncome: '', creditOverride: '', memo: '' }]);
   const problem = validateDrafts(drafts);
   const patch = (key: string, p: Partial<StateDraft>) => setDrafts((cur) => cur.map((d) => (d.key === key ? { ...d, ...p } : d)));
   const ordered = [...drafts].sort((a, b) => (a.residency === b.residency ? 0 : a.residency === 'resident' ? -1 : 1));
@@ -144,7 +182,7 @@ export function StateRowsEditor({ rows, canWrite, saving, error, defaultResident
         <div className="flex items-center gap-3">
           <Button size="sm" variant="secondary" onClick={() => setDrafts((cur) => [...cur, {
             key: nextKey(), residency: cur.some((d) => d.residency === 'resident') ? 'nonresident' : 'resident', state: '', ratePct: '',
-            base: 'federal_agi', customBase: '', sourcedManual: false, sourcedIncome: '', creditOverride: '', memo: '' }])}>+ Add state</Button>
+            base: 'federal_agi', rateMode: 'brackets', nonresidentMode: 'ratio', customBase: '', sourcedManual: false, sourcedIncome: '', creditOverride: '', memo: '' }])}>+ Add state</Button>
           <Button size="sm" disabled={!!problem} loading={saving} onClick={() => onSave(draftsToInput(drafts))}>Save states</Button>
         </div>
       )}

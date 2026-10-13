@@ -234,6 +234,28 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_STATE_CUSTOM_BASE_MISSING` | warning | `engine/state.ts:102` | …: base is 'custom' but no custom base amount was entered; federal AGI was used. |
 | `TE_STATE_DUPLICATE` | HTTP 422 | `svc/state-rows.service.ts:82` | State … appears more than once |
 | `TE_STATE_DUPLICATE_ROW` | throws Error | `engine/state.ts:224` | … appears more than once |
+| `TE_LTCG_SUBSETS_FROM_BOOKS` | info | `services/tax-estimator/estimate.service.ts` | Unrecaptured §1250 / collectibles gain from accounts treated `unrecaptured_1250` / `collectibles_gain` (projected, × the links' profit %) were added to the year inputs for the 25% / 28% worksheet buckets (Q53 / Q39). |
+| `TE_STATE_BRACKETS_UNAVAILABLE` | warning | `engine/state.ts` | …: no rate schedule (`brackets`) on file for the year and filing status (missing, cited null, or the federal-pattern fallback); the row's effective rate was used instead. Verify (Q53). |
+| `TE_STATE_BRACKETS_SIMPLIFIED` | info | `engine/state-schedule.ts` | …: the state's rate schedule is simplified (recapture, tax-table midpoints, adjustment credits, status mapping); `note` quoted. The estimate may differ. |
+| `TE_STATE_STARTING_POINT_APPROX` | info | `engine/state-schedule.ts` | …: the state computes its own gross income (`starting_point` state_specific); federal AGI was used as the starting point. |
+| `TE_STATE_STARTING_POINT_MISSING` | info | `engine/state-schedule.ts` | …: no `starting_point` rule on file; the row's base selector (federal AGI / taxable income) was used. |
+| `TE_STATE_STARTING_POINT_UNSOURCED` | warning | `engine/state-schedule.ts` | …: `starting_point` is a cited null; the row's base was used. Verify. |
+| `TE_STATE_CUSTOM_BASE_AS_ENTERED` | info | `engine/state-schedule.ts` | …: rate-schedule row with a custom base — taken as the state taxable income (no standard deduction, exemptions, capital gain or federal tax adjustments). |
+| `TE_STATE_STD_DEDUCTION_MISSING` | info | `engine/state-schedule.ts` | …: no `standard_deduction` rule on file; none applied. |
+| `TE_STATE_STD_DEDUCTION_UNSOURCED` | warning | `engine/state-schedule.ts` | …: `standard_deduction` is a cited null; none applied. Verify. |
+| `TE_STATE_STD_DEDUCTION_SIMPLIFIED` | info | `engine/state-schedule.ts` | …: the base standard deduction is used; phase-outs, sliding scales and 65+ / blind amounts are not modelled (`note`). |
+| `TE_STATE_CAPITAL_GAINS_MISSING` | info | `engine/state-schedule.ts` | …: no `capital_gains` rule on file; gains taxed as ordinary income. |
+| `TE_STATE_CAPITAL_GAINS_UNSOURCED` | warning | `engine/state-schedule.ts` | …: `capital_gains` is a cited null; gains taxed as ordinary income. Verify. |
+| `TE_STATE_CAPITAL_GAINS_QUALIFYING_ONLY` | info | `engine/state-schedule.ts` | …: the state's capital gain deduction applies only to qualifying assets (in-state property, holding period, business sale) the estimator cannot identify; none applied — enter a custom base to include it. |
+| `TE_STATE_CAPITAL_GAINS_SIMPLIFIED` | info | `engine/state-schedule.ts` | …: the capital gains treatment is simplified (`note`). |
+| `TE_STATE_FEDERAL_TAX_DEDUCTION_UNSOURCED` | warning | `engine/state-schedule.ts` | …: `federal_tax_deduction` is a cited null; none applied. Verify. |
+| `TE_STATE_FEDERAL_TAX_DEDUCTION_SIMPLIFIED` | info | `engine/state-schedule.ts` | …: the federal income tax deduction is simplified (`note`; e.g. MO's federal tax definition, OR 2026 derived tiers). |
+| `TE_STATE_FEDERAL_TAX_UNKNOWN` | warning | `engine/state-schedule.ts` | …: the federal income tax figure was not supplied to the state engine; the federal tax deduction was not applied. |
+| `TE_STATE_NONRESIDENT_METHOD_ASSUMED` | info | `engine/state.ts` | …: no `nonresident_method` on file; the ratio method was used. |
+| `TE_STATE_NONRESIDENT_OTHER_APPROX` | info | `engine/state.ts` | …: the state's nonresident computation is 'other'; approximated by the schedule on sourced income less deductions and exemptions × the income ratio. |
+| `TE_STATE_RATIO_NO_AGI` | warning | `engine/state.ts` | …: federal AGI is not positive, so the nonresident income ratio is 0 and the tax computes 0. Verify. |
+| `TE_STATE_CG_EXCISE` | info | `engine/state.ts` | …: no broad income tax; the capital gains excise (WA) on resident net long-term gain over the standard deduction was computed (no estimated payments; federal gain approximates the state gain). |
+| `TE_STATE_CG_EXCISE_RESIDENT_ONLY` | info | `engine/state.ts` | …: the capital gains excise applies to residents; a nonresident row computes 0. |
 | `TE_STATE_EXEMPTIONS_COMPONENT_UNSOURCED` | warning | `engine/state.ts` | …: a component of the state `exemptions` rule the household needs is a cited null (could not be sourced); treated as 0. Verify. |
 | `TE_STATE_EXEMPTIONS_CUSTOM_BASE` | info | `engine/state.ts` | …: the resident base is a custom amount, so the exemptions were not subtracted (enter the base after exemptions); exemption credits still apply. |
 | `TE_STATE_EXEMPTIONS_MISSING` | info | `engine/state.ts` | …: no `exemptions` rule on file for the state-year; no personal / dependent exemption or exemption credit applied. |
@@ -246,7 +268,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_STATE_INVALID` | HTTP 400 | `svc/tax-state-rules.service.ts:86` | Unknown state '…' |
 | `TE_STATE_MULTIPLE_RESIDENT` | throws Error | `engine/state.ts:228` | a scenario has at most one resident state |
 | `TE_STATE_NONRESIDENT_EQUALS_RESIDENT` | HTTP 422 | `svc/state-rows.service.ts:80` | A nonresident state cannot be the resident state |
-| `TE_STATE_NONRESIDENT_FLAT_RATE` | info | `engine/state.ts:149` | Nonresident tax is an effective-rate estimate; most states compute nonresident tax by ratio of the full return. |
+| `TE_STATE_NONRESIDENT_FLAT_RATE` | info | `engine/state.ts` | Nonresident tax is an effective-rate estimate; most states compute nonresident tax by ratio of the full return. Q53: only for rows on the effective-rate override, `nonresident_mode` sourced_rate, or with no schedule on file (the reason is in the message). |
 | `TE_STATE_NO_ANNUALIZATION` | info | `engine/vouchers.ts:441` | State installments use the regular method only; the state equivalent of Schedule AI is not computed, so a federal Schedule AI reduction does not carry to state vouchers. |
 | `TE_STATE_NO_INCOME_TAX` | info | `engine/state.ts:144`, `engine/state.ts:167` | … has no broad-based personal income tax; the row computes 0. |
 | `TE_STATE_NO_OTHER_STATE_CREDIT` | info | `engine/state.ts:181` | … allows no credit for taxes paid to other states. |

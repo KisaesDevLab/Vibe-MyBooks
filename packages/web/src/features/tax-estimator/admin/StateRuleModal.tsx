@@ -10,7 +10,7 @@ import type { StateRuleDef, StateRuleRowDTO, StateRuleValueType } from '@kis-boo
 import { Button } from '../../../components/ui/Button';
 import { StateRuleValue, stateRuleEditorText } from './StateRuleValue';
 
-const OBJECT_TYPES: StateRuleValueType[] = ['high_agi_rule', 'farmer_rule'];
+const OBJECT_TYPES: StateRuleValueType[] = ['high_agi_rule', 'farmer_rule', 'exemptions', 'brackets', 'standard_deduction', 'capital_gains', 'federal_tax_deduction', 'capital_gains_excise'];
 const LIST_TYPES: StateRuleValueType[] = ['date_list', 'rate_list', 'rate_schedule'];
 
 /** One `from to rate` leg per line (commas also accepted), e.g. "2025-01-01 2025-12-31 0.08". */
@@ -68,6 +68,11 @@ const HINT: Partial<Record<StateRuleValueType, string>> = {
   rate_schedule: 'One period per line: from, to, annual rate as a decimal, e.g. 2025-01-01 2025-12-31 0.08. Periods in date order, no overlaps. These rates replace the single penalty rate on the days they cover.',
   high_agi_rule: 'JSON: {"threshold": 150000, "pct": 1.1} plus optional "threshold_mfs", "no_prior_year_agi", "no_prior_year_agi_mfs".',
   exemptions: 'JSON: {"personal_exemption": 2000, "dependent_exemption": 2000, "personal_credit": 0, "dependent_credit": 0} plus optional "personal_exemption_by_status" / "personal_credit_by_status" ({"single": n, "mfj": n, ...}), "simplified": true, "note". null = not sourced.',
+  brackets: 'JSON: {"single": [{"over": 0, "rate": 0.02}, {"over": 1313, "rate": 0.025}], "mfj": [...], "mfs": [...], "hoh": [...], "qss": [...]} — rate on taxable income over each "over"; optional "add" (fixed amount once over), "schedules_by_income": [{"income_over": n, "single": [...], ...}], "simplified", "note". null = not sourced.',
+  standard_deduction: 'JSON: {"single": n, "mfj": n, "mfs": n, "hoh": n, "qss": n} plus optional "simplified", "note". 0 = none. null = not sourced.',
+  capital_gains: 'JSON: {"treatment": "ordinary" | "exclusion" | "alternative_rate" | "separate_rates" | "qualifying_assets_only", "applies_to": "net_ltcg" | "net_capital_gain", "exclusion_tiers": [{"over": 0, "pct": 0.5}], "exclusion_min", "exclusion_cap", "max_rate", "ltcg_brackets", "stcg_rate", "surtax_rate", "surtax_agi_over", "includes_qualified_dividends", "simplified", "note"}. null = not sourced.',
+  federal_tax_deduction: 'JSON: {"tiers": [{"agi_over": 0, "pct": 0.35, "cap": {"single": 5000, "mfj": 10000, "mfs": 5000, "hoh": 5000, "qss": 5000}}, ...]} — tier by state AGI; deduction = min(federal income tax × pct, cap).',
+  capital_gains_excise: 'JSON: {"standard_deduction": 278000, "brackets": [{"over": 0, "rate": 0.07}, {"over": 1000000, "rate": 0.099}], "estimates_required": false, "note"}.',
   farmer_rule: 'JSON: {"ratio": 0.667, "current_pct": 0.667, "due_date": "YYYY-MM-DD", "file_by": "YYYY-MM-DD"} plus optional "treatment": "single_installment" | "quarterly" | "exempt".',
 };
 
@@ -130,7 +135,7 @@ export function StateRuleModal({ row, partner, saving, serverError, onSave, onCl
                 {(def.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
             ) : multiline ? (
-              <textarea id="sr-value" rows={OBJECT_TYPES.includes(def.type) ? 7 : 4} value={text} onChange={(e) => setText(e.target.value)}
+              <textarea id="sr-value" rows={def.type === 'brackets' || def.type === 'capital_gains' ? 16 : OBJECT_TYPES.includes(def.type) ? 7 : 4} value={text} onChange={(e) => setText(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono" />
             ) : (
               <input id="sr-value" value={text} onChange={(e) => setText(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />

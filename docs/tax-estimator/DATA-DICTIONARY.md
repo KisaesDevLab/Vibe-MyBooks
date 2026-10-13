@@ -31,7 +31,7 @@ estimator, and do not add them to analytics, AI prompts or support bundles.
 | `tax_est_state_rows.prior_year_agi_encrypted` | Prior-year state AGI per state row | §7216 tax return information | as above |
 | `tax_est_snapshots.payload_encrypted` | Frozen estimate: inputs (incl. the four values above), engine result, resolved federal parameters and state rules with statuses, readiness, assumptions, disclaimer | §7216 tax return information (contains and derives from the prior-year figures) | AES-256-GCM; `payload_sha256` (hash of the plaintext) verified on every read; immutable (no update path; BEFORE UPDATE trigger, `TE_SNAPSHOT_IMMUTABLE`); the read-only view withholds the raw prior-year inputs |
 | `tax_est_snapshots.summary_encrypted` | Snapshot totals for the history list | §7216 tax return information (derived) | AES-256-GCM; `summary_sha256` verified on read; returned only to callers who still reach every tenant in `tenant_ids` (D1) |
-| Redis `te:estimate:te-estimate-v3:*` | Cached live estimate (6 h TTL, key embeds the inputs hash, which covers the caller's tenant scope and every company's reconciliation state — R3-01 / R3-03) | §7216 tax return information (derived) | value is `{ enc: <AES-256-GCM ciphertext> }`; a value that does not decrypt is a cache miss |
+| Redis `te:estimate:te-estimate-v9:*` (Q53; earlier versions expire) | Cached live estimate (6 h TTL, key embeds the inputs hash, which covers the caller's tenant scope and every company's reconciliation state — R3-01 / R3-03) | §7216 tax return information (derived) | value is `{ enc: <AES-256-GCM ciphertext> }`; a value that does not decrypt is a cache miss |
 
 Dependents (Q44, migration `0204_tax_est_dependents`): `tax_est_dependents` holds a
 dependent's display name, date of birth, relationship, qualifying-child / relative kind,
@@ -44,6 +44,16 @@ number is stored. The engine result, the PDF and the assumptions page carry only
 dependent's age at year end and age group (the assumptions page prints initials); the
 client portal shows none of it. `tax_est_years.care_expenses` (child and dependent care
 expenses paid) is a plain money input like the manual credits.
+
+State rate schedules (Q53, migration `0213_tax_est_state_brackets`): `tax_est_state_rows.rate_mode`
+(`brackets` default | `effective`) and `nonresident_mode` (`ratio` default | `sourced_rate`) are plain
+settings (audited with the row set, like `effective_rate`); `tax_est_years.unrecaptured_1250_gain` and
+`collectibles_gain` (NUMERIC(19,4), default 0, CHECK ≥ 0) are plain money inputs like the manual credits
+(the parts of the long-term gains taxed at up to 25% / 28%). The account treatments `unrecaptured_1250` /
+`collectibles_gain` join the `tax_est_account_treatments.treatment` CHECK. The new state rule keys
+(`starting_point`, `brackets`, `standard_deduction`, `capital_gains`, `federal_tax_deduction`,
+`capital_gains_excise`) are reference data in `state_estimate_rules` (no client data). The P&L cache
+(`te:pl:v5`) gains `ltcgSubsets` (books figures, plain JSON as before).
 
 Businesses outside MyBooks (Q45, migration `0206_tax_est_outside_entities`):
 `tax_est_outside_entities` holds the business name, entity type, owner (person), ownership

@@ -3296,9 +3296,9 @@ The per-contact tick is the one people miss: the tenant switch alone shows the c
 These are known approximations. They also appear on the Assumptions list of every snapshot.
 - Adjustments are allocated by their cadence (monthly; quarterly amounts split one third per month; annual amounts spread over the active months; one-time in its month), and withholding is treated as paid evenly through the year.
 - The QBI loss carryforward from earlier years is not modeled; losses net within the year only.
-- Unrecaptured section 1250 gain and collectibles gain have no input yet (gains are taxed at the regular capital-gain rates), and AMT is not modeled.
+- AMT is not modeled. Unrecaptured section 1250 gain and collectibles gain are entered on Annual settings (or come from accounts treated as such) and are taxed at up to 25% / 28% on the Schedule D worksheet.
 - Each person's retirement plan type (SEP, solo 401(k), SIMPLE or none) is set in the People card; when it is not recorded the limit is figured as a SEP and the estimate warns. A solo 401(k) or SIMPLE without a recorded employee deferral assumes the maximum deferral was made. There is no SIMPLE 60 to 63 catch-up. Charitable 60 percent of AGI limits and mortgage-interest limits are not applied. MAGI is taken as AGI for the SALT, Schedule 1-A and passive-loss phase-outs.
-- Nonresident state tax is an effective-rate estimate (sourced income times the rate you enter), labeled as such. Many states actually use a ratio of the full return, which is not modeled yet.
+- State tax uses each state's rate schedule, standard deduction, starting point and capital gains rule for the year where the platform has them (all still marked unverified until checked). Features a schedule cannot express (New York and Connecticut benefit recapture, tax tables with midpoints, the Utah taxpayer credit, standard-deduction phase-outs, capital gain deductions limited to in-state or long-held assets) are simplified and the estimate says so. When a state has no schedule on file, the row's effective rate is used with a warning. Local and county taxes are not included.
 - State penalty add-ons that compound or run per month (for example MI, VT, IN, UT, ID, DC, CT, DE) are noted rather than computed, and the estimate may differ.
 - A C corporation with a short current year, annualized corporate installments (Form 2220), the large-corporation extra penalty rate and the $500 minimum are not modeled.
 - A prior-year overpayment is dated at the original due date; a late-filed prior return is not modeled.
@@ -3407,6 +3407,7 @@ Last year's figures come from the same company's books, through the same GL tax 
 
 The estimator reads the company's profit and loss accounts and needs to know what each one means for tax. The treatment table lists every account with its book amount, its Trial Balance tax code, a status (Mapped, Suggested, None, or Unmapped with activity) and the **tax effect**:
 - Ordinary, as booked (the default).
+- Characters for income accounts (long-term or short-term capital gain, section 1231, interest, dividends), plus **Long-term gain: unrecaptured §1250 (25%)** and **Long-term gain: collectibles (28%)**: those two are long-term gains that also feed the 25% / 28% worksheet amounts (projected like the other gains and allocated by the owner's profit %).
 - Owner items that belong on the owner's return instead of the entity, for example self-employed health insurance, owner retirement contributions, or estimated tax payments (payments are removed from profit and recorded as payments).
 - W-2 wages, guaranteed payments, personal items to drop, and so on.
 - **Non-recurring** marks one-off items so they are not projected forward.
@@ -3441,7 +3442,17 @@ The readiness panel lists what would make the estimate unreliable: unreconciled 
 
 ## States
 
-The **States** table has one row per state, with exactly one resident state. Other states are used for nonresident tax; the rate is an effective-rate estimate you supply. For the resident state the estimate subtracts the state's **personal and dependent exemptions** from the base (when the base is federal AGI or federal taxable income; a custom base is taken as entered) and its **personal and dependent exemption credits** from the tax, using the platform's state rules (for example Arkansas's $29 credits, Georgia's dependent exemption, Missouri's head-of-household exemption). Phase-outs and income tiers are not modelled; the estimate says so for the states that have them. Nonresident rows take no exemptions. Per-state inputs such as withholding, credits and prior-year state figures live here too, and there is an optional other-state credit override.
+The **States** table has one row per state, with exactly one resident state.
+
+**How each state's tax is computed** ("Tax computed by"):
+- **State rate schedule** (the default): the state's own computation for the year — its starting point (federal AGI or federal taxable income; a state that computes its own income starts from federal AGI as an approximation), its capital gains rule (for example Missouri subtracts 100% of capital gains from 2025, Arkansas excludes 50% of net long-term gains, Wisconsin 30%, North Dakota 40%, Hawaii caps the rate on gains, Montana taxes gains on their own schedule), Missouri / Alabama / Oregon's deduction for federal income tax, its standard deduction and exemptions, then its tax brackets for the filing status. Choose **Custom** base to enter the state taxable income yourself (taken as entered).
+- **Effective-rate override**: the rate you enter times the base (the earlier method). The rate box on a schedule row is only a fallback, used when no schedule is on file for the year (the estimate warns).
+
+**Nonresident tax** (nonresident rows on the schedule): **State's method** (the default) figures the tax as if you were a resident on all income and multiplies it by the income sourced to the state ÷ federal AGI (the ratio method most states use); for states that tax only the in-state income (for example Georgia, Pennsylvania, Illinois) it applies the schedule to the sourced income less the deductions prorated by that ratio. **Sourced income × rate** keeps the flat estimate. The resident state's credit for tax paid to another state is the smaller of that tax and the resident tax × the income sourced there ÷ the resident state AGI.
+
+Washington has no income tax but taxes long-term capital gains over the standard deduction (7%, plus 2.9% over $1 million from 2025); a Washington resident row computes it (no estimated payments; due with the return).
+
+Existing rows switched to the rate schedule when this shipped; the rate you had entered is kept as the override value, so choosing **Effective-rate override** brings the earlier figure back. Snapshots already issued are unchanged. For the resident state the estimate subtracts the state's **personal and dependent exemptions** from the base (when the base is federal AGI or federal taxable income; a custom base is taken as entered) and its **personal and dependent exemption credits** from the tax, using the platform's state rules (for example Arkansas's $29 credits, Georgia's dependent exemption, Missouri's head-of-household exemption). Phase-outs and income tiers are not modelled; the estimate says so for the states that have them. Nonresident rows take no exemptions. Per-state inputs such as withholding, credits and prior-year state figures live here too, and there is an optional other-state credit override.
 
 ## Scenarios
 
