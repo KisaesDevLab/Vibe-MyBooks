@@ -3355,7 +3355,7 @@ The estimate works out each dependent's age at December 31 of the tax year and f
 - the **child and dependent care credit** for a child under 13 (a child who turns 13 during the year still counts; enter only the care expenses before the birthday) or a disabled dependent, using the care expenses entered on **Annual settings**;
 - the **state** personal and dependent exemptions or exemption credits for the resident state.
 
-A qualifying child who fails the age test (19 or older, not a student under 24, not disabled) or lived with the taxpayer six months or less is counted as an other dependent with a warning. The earned income credit is not computed (a warning shows when the income is low enough that it may apply), and **head of household** is not chosen for you: a single filer with a qualifying child gets a reminder to check the filing status.
+A qualifying child who fails the age test (19 or older, not a student under 24, not disabled) or lived with the taxpayer six months or less keeps the treatment you chose, with a warning to review it. The earned income credit is not computed (a warning shows when the income is low enough that it may apply), and **head of household** is not chosen for you: a single filer with a qualifying child gets a reminder to check the filing status.
 
 ## Portal contacts
 

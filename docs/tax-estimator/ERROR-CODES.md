@@ -72,8 +72,8 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_DEDUCTION_FORCED` | info | `engine/deductions.ts:159` | The … deduction was forced although the … deduction is larger. |
 | `TE_DEPENDENT_LIMIT` | HTTP 422 | `svc/taxpayers.service.ts` | A taxpayer has at most 20 dependents (Q44). |
 | `TE_DEPENDENT_NOT_FOUND` | HTTP 404 | `svc/taxpayers.service.ts` | Dependent not found (also for a dependent id of another taxpayer; a hidden / foreign taxpayer answers TE_TAXPAYER_NOT_FOUND first). |
-| `TE_DEPENDENT_QC_AGE` | warning | `engine/dependents.ts` | A dependent entered as a qualifying child fails the §152(c)(3) age test (19+, not a student under 24, not disabled); counted for the credit for other dependents. Confirm the qualifying-relative tests. |
-| `TE_DEPENDENT_RESIDENCY` | warning | `engine/dependents.ts` | A qualifying child lived with the taxpayer fewer than `dependents.residency_min_months` months; counted as an other dependent (exceptions not modelled). |
+| `TE_DEPENDENT_QC_AGE` | warning | `engine/dependents.ts` | A dependent entered as a qualifying child fails the §152(c)(3) age test (19+, not a student under 24, not disabled); still treated as a qualifying child as entered (Q44 trust-the-user). Review the classification. |
+| `TE_DEPENDENT_RESIDENCY` | warning | `engine/dependents.ts` | A qualifying child lived with the taxpayer fewer than `dependents.residency_min_months` months; still treated as a qualifying child as entered (Q44 trust-the-user; exceptions not modelled). |
 | `TE_DOB_IN_FUTURE` | HTTP 422 | `svc/taxpayers.service.ts:116` | Date of birth cannot be in the future |
 | `TE_DUPLICATE_ACCOUNT` | HTTP 400 | `svc/treatments.service.ts:189` | Each account may appear once |
 | `TE_DUPLICATE_TRANSACTION` | HTTP 400 | `svc/treatments.service.ts:285` | Each transaction may appear once |
