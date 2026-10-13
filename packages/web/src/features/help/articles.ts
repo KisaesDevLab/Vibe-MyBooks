@@ -3334,6 +3334,17 @@ A **link** ties one person to one company for the tax year and says how they sha
 
 The page warns when profit or loss percentages for a company do not add up to 100.
 
+## Outside businesses
+
+The **Outside businesses** card (under Entity links) is for businesses whose books are **not in MyBooks**: a K-1 from a partnership or S corporation, a spouse's practice, a farm kept elsewhere. Choose **Add outside business** and enter the name, **entity type** (Schedule C, Schedule F, S corporation, partnership or C corporation), the **owner** (taxpayer or spouse), **profit %** and **loss %**, the **activity type** (and active participation for a rental), **partner SE status** or **officer** where they apply, **QBI eligibility**, **specified service business**, and the state the income is sourced to. These carry forward from year to year. A business both spouses own is entered once per spouse.
+
+Then pick the tax year and choose **Enter amounts**:
+- **Entry mode**: **Full-year projection** uses the amounts as entered; **Year to date** takes the amounts through a month you pick and projects them to December like the books (every amount is treated as recurring).
+- **Amounts are**: the **entity total** (100%, allocated by the owner's profit or loss %) or the **owner's share** (already the owner's share, for example from a K-1; the % is shown for information only). New years start as full year and owner's share.
+- The income or loss by type (ordinary, rental, interest, dividends, capital gains, section 1231), guaranteed payments (partnership), officer wages and the health add-on (S corporation), owner health insurance and retirement, W-2 wages and UBIA for the QBI deduction, and an allowed-loss override. A loss is entered as a negative number.
+
+Outside businesses get the same treatment as linked companies: self-employment tax, the QBI deduction, passive-loss and excess-business-loss limits, the net investment income tax and state sourcing. On the **Calculation** tab they read "Outside MyBooks · entered"; an owner's-share entry shows just the owner's line, labelled "(K-1 share, N% owned)". A **C corporation** is estimated on its own (calendar year) and is not part of the household's totals. For the annualized-income method, full-year amounts are spread evenly by month and year-to-date amounts are prorated, so a period that ends after the year-to-date month uses the regular installment. They never block readiness; the readiness list just notes they were entered manually.
+
 ## Dependents
 
 The **Dependents** card under Persons lists the household's children and other dependents. For each one enter the name, **date of birth**, relationship, whether they are a **qualifying child** or a **qualifying relative**, and, when they apply, the months they lived with the taxpayer (blank means all year), **full-time student** and **permanently disabled**. **First / last tax year counted** lets a dependent drop off (for example a child who will file on their own). No Social Security number is collected.

@@ -45,6 +45,21 @@ dependent's age at year end and age group (the assumptions page prints initials)
 client portal shows none of it. `tax_est_years.care_expenses` (child and dependent care
 expenses paid) is a plain money input like the manual credits.
 
+Businesses outside MyBooks (Q45, migration `0206_tax_est_outside_entities`):
+`tax_est_outside_entities` holds the business name, entity type, owner (person), ownership
+percentages and tax attributes; `tax_est_outside_entity_years` holds the year's entered
+income by character, owner-level items, §199A W-2 wages / UBIA and the allowed-loss override
+(NUMERIC(19,4)), with the entry mode, amount basis and through month. These are current-year
+client financial figures entered for the estimate, stored like the other current-year inputs
+(adjustments, outside W-2 wages): plain NUMERIC, read and written only through the taxpayer's
+firm + D17 / D18 visibility checks, cascading with the taxpayer (and with the owner person),
+audited (definition and year rows, amounts included, like links and adjustments). Figures
+copied from a FILED K-1 or return can be §7216 tax return information: they are not exported,
+emailed or logged outside the estimator, and every estimate / snapshot that contains them is
+encrypted like the rest of the result (Redis cache, `tax_est_snapshots.payload_encrypted`). The
+client portal shows only the taxpayer-level totals (no business names or amounts). Whether to
+encrypt the year amounts at rest is open for Kurt (OPEN-QUESTIONS Q45).
+
 Not tax return information (books data, stored in clear): payment ledger rows
 (`tax_est_payments`), Schedule AI period figures (`tax_est_sch_ai_snapshots`), entity
 settings, treatments and adjustments. Snapshot metadata (`tax_year`, `scenario_name`,

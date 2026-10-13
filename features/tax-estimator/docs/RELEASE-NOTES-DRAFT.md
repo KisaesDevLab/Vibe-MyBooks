@@ -44,3 +44,15 @@ Operator notes:
 - Migration `0204_tax_est_dependents.sql` (+ rollback; part `parts/dependents.sql`): new table `tax_est_dependents`, new column `tax_est_years.care_expenses` (default 0). Additive; estimates without dependents or care expenses are unchanged.
 - New federal parameters (group "Credits", 2025 and 2026) and the state rule `exemptions` (84 rows) arrive through the startup seed re-sync, all **unverified** — Kurt verifies them in Admin > Tax parameters.
 - Live estimates for a taxpayer with dependents, care expenses or a resident state with exemptions change on the first request after deploy (engine version 1.0.0-rc.4 re-keys the cache). Frozen snapshots are untouched.
+
+## Businesses outside MyBooks (Q45, engine 1.0.0-rc.5)
+
+User-facing:
+- **Outside businesses** card on the taxpayer page (next to Entity links) for businesses whose books are not in MyBooks: K-1s, a spouse's practice, a farm kept elsewhere. The business (name, Schedule C / F, S corporation, partnership or C corporation, owner, profit / loss %, activity type, partner SE status, officer, QBI / SSTB, state sourcing) carries forward; the amounts are entered per tax year.
+- Each year chooses **Full-year projection** (used as entered) or **Year to date** through a month (projected like the books), and whether the amounts are the **entity total** (allocated by the owner %) or the **owner's share** (e.g. a K-1; the % is informational).
+- Outside businesses get the full treatment (self-employment tax, QBI deduction, passive and excess-business-loss limits, NIIT, state sourcing); a C corporation is estimated at the entity level. The Calculation view, the PDF and the assumptions page mark them "Outside MyBooks · entered"; an owner's-share entry shows the owner's line "(K-1 share, N% owned)". The client portal shows only the totals, as before.
+
+Operator notes:
+- Migration `0206_tax_est_outside_entities.sql` (+ rollback; part `parts/outside-entities.sql`; journal idx 206, `when` 1784800000280 — 0205 belongs to the AI parameter-check branch): new tables `tax_est_outside_entities` and `tax_est_outside_entity_years`. Additive; estimates without outside businesses are unchanged to the cent.
+- Engine 1.0.0-rc.5 and estimate cache version `te-estimate-v5` re-key every live estimate once on deploy (no figure changes without outside businesses). Frozen snapshots are untouched; results computed before rc.5 render as before.
+- Kurt's review list (defaults taken: Schedule AI spread / proration, all YTD amounts recurring, C corp defaults, Schedule F farmer test, plain-NUMERIC storage of K-1 figures): OPEN-QUESTIONS.md Q45.

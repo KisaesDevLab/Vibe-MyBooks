@@ -19,6 +19,7 @@ import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { PersonsEditor } from './PersonsEditor';
 import { DependentsEditor } from './DependentsEditor';
 import { LinksSection } from './LinksSection';
+import { OutsideBusinessesSection } from './OutsideBusinessesSection';
 import { ContactsPanel } from './ContactsPanel';
 import { TaxpayerAccessCard } from './TaxpayerAccessCard';
 import { StateSelect } from './StateSelect';
@@ -152,6 +153,7 @@ export function TaxpayerDetailPage() {
           onRemove={(depId) => removeDependent.mutate(depId)} />
       </section>
       <LinksSection taxpayerId={taxpayer.id} persons={persons} canWrite={canWrite} />
+      <OutsideBusinessesSection taxpayerId={taxpayer.id} persons={persons} canWrite={canWrite} />
       <ContactsPanel taxpayerId={taxpayer.id} canWrite={canWrite} />
       <TaxpayerAccessCard taxpayerId={taxpayer.id} />
       <ConfirmDialog open={confirmArchive} title="Archive this taxpayer?" variant="danger" confirmLabel="Archive"

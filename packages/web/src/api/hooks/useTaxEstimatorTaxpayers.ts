@@ -11,6 +11,7 @@ import type {
   CompanyOptionListDTO, TaxpayerContactListDTO, TaxpayerContactCandidateListDTO, LinkContactResultDTO, UnlinkContactResultDTO,
   CreateTaxpayerInput, UpdateTaxpayerInput, UpsertPersonInput, UpsertLinkInput, PersonRole,
   TaxpayerStaffDTO, TaxpayerStaffCandidateListDTO, DependentDTO, UpsertDependentInput,
+  OutsideEntityDTO, OutsideEntityListDTO, UpsertOutsideEntityInput, UpsertOutsideEntityYearInput,
 } from '@kis-books/shared';
 import { apiClient } from '../client';
 
@@ -143,6 +144,53 @@ export function useRemoveDependent(taxpayerId: string) {
   return useMutation({
     mutationFn: async (id: string) =>
       (await call<{ data: { removed: true } }>(`/${taxpayerId}/dependents/${id}`, { method: 'DELETE' })).data,
+    onSuccess: invalidate,
+  });
+}
+
+// ── Q45: businesses outside MyBooks (definition + per-year amounts) ──
+
+export function useOutsideEntities(taxpayerId: string | undefined, taxYear: number) {
+  return useQuery({
+    queryKey: [KEY, 'outside', taxpayerId, taxYear],
+    enabled: !!taxpayerId,
+    queryFn: () => call<OutsideEntityListDTO>(`/${taxpayerId}/outside-entities?taxYear=${taxYear}`),
+  });
+}
+
+export function useSaveOutsideEntity(taxpayerId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (v: { id: string | null; input: UpsertOutsideEntityInput }) =>
+      (await call<{ data: OutsideEntityDTO }>(v.id ? `/${taxpayerId}/outside-entities/${v.id}` : `/${taxpayerId}/outside-entities`,
+        { method: v.id ? 'PUT' : 'POST', body: JSON.stringify(v.input) })).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useRemoveOutsideEntity(taxpayerId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      (await call<{ data: { removed: true; removedYears: number } }>(`/${taxpayerId}/outside-entities/${id}`, { method: 'DELETE' })).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useSaveOutsideEntityYear(taxpayerId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (v: { id: string; taxYear: number; input: UpsertOutsideEntityYearInput }) =>
+      (await call<{ data: OutsideEntityDTO }>(`/${taxpayerId}/outside-entities/${v.id}/years/${v.taxYear}`, { method: 'PUT', body: JSON.stringify(v.input) })).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useRemoveOutsideEntityYear(taxpayerId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (v: { id: string; taxYear: number }) =>
+      (await call<{ data: { removed: true } }>(`/${taxpayerId}/outside-entities/${v.id}/years/${v.taxYear}`, { method: 'DELETE' })).data,
     onSuccess: invalidate,
   });
 }

@@ -105,7 +105,7 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_INSTALLMENT_LISTS` | throws Error | `engine/farmer.ts:272` | installments.due_dates (…) and installments.pcts (…) must be non-empty and the same length |
 | `TE_INSTALLMENT_POLICY` | throws Error | `engine/vouchers.ts:293`, `engine/vouchers.ts:297`, `engine/vouchers.ts:298` | no due dates / Also: no installment percentages |
 | `TE_ITEMIZED_BENEFIT_CAPPED` | warning | `engine/deductions.ts:143` | Itemized deductions reduced by … so their benefit does not exceed … (§68). |
-| `TE_LIMITED_ONLY_PARTNERSHIP` | HTTP 422 | `svc/taxpayers.service.ts:381` | Limited partner status applies only to partnerships |
+| `TE_LIMITED_ONLY_PARTNERSHIP` | HTTP 422 | `svc/taxpayers.service.ts:381` | Limited partner status applies only to partnerships (links and, Q45, outside businesses) |
 | `TE_LINK_NOT_FOUND` | HTTP 404 | `svc/taxpayers.service.ts:469` | Link not found |
 | `TE_LINK_PCT_MISSING` | warning | `engine/income.ts:116` | …: link for person … has no profit % and the entity has several owners; nothing was allocated to it. |
 | `TE_LINK_PCT_OVER_100` | HTTP 422 | `svc/taxpayers.service.ts:412` | Profit / loss / capital percentages for the company and year total more than 100%. `details` carries `total` and `field`. |
@@ -124,7 +124,14 @@ Column "Where" uses short paths relative to `packages/`: `engine/` = `shared/src
 | `TE_NO_PRIOR_YEAR` | HTTP 400 | `svc/tax-parameters.service.ts:370`, `svc/tax-state-rules.service.ts:473` | No earlier tax year to copy from |
 | `TE_NO_SHIPPED_VALUE` | HTTP 409 | `svc/tax-parameters.service.ts` (revertOverride), `svc/tax-state-rules.service.ts` (revertOverride) | … has no shipped value for …; removing it would leave the key missing for the year. Edit the value instead. (R6-07: allowed only when the row is the year's / state-year's last row, which restores the fallback) |
 | `TE_NO_RECONCILABLE_ACTIVITY` | info | `svc/readiness.service.ts:75` | No bank or credit-card account has activity in the range, so no closed month can be derived. |
-| `TE_OFFICER_ONLY_SCORP` | HTTP 422 | `svc/taxpayers.service.ts:384` | Officer applies only to S corporations |
+| `TE_OFFICER_ONLY_SCORP` | HTTP 422 | `svc/taxpayers.service.ts:384` | Officer applies only to S corporations (links and, Q45, outside businesses) |
+| `TE_OUTSIDE_CCORP_DEFAULTS` | info | `svc/estimate.service.ts` | … (outside MyBooks): estimated as a calendar-year C corporation that is not a large corporation, on the entered taxable income (Q45). |
+| `TE_OUTSIDE_ENTITY_ENTERED` | info (readiness) | `svc/estimate.service.ts` | …: outside MyBooks, entered manually (full-year amounts / year to date through month N); no books readiness check applies (Q45). |
+| `TE_OUTSIDE_ENTITY_LIMIT` | HTTP 422 | `svc/taxpayers.service.ts` | A taxpayer has at most 25 outside businesses (Q45). |
+| `TE_OUTSIDE_ENTITY_NOT_FOUND` | HTTP 404 | `svc/taxpayers.service.ts` | Outside business not found (also another taxpayer's id, or clearing a year that has no amounts; a hidden / foreign taxpayer answers TE_TAXPAYER_NOT_FOUND first). |
+| `TE_OUTSIDE_FARM_GROSS_MANUAL` | info | `svc/estimate.service.ts` | A Schedule F business outside MyBooks is not tested for the farmer / fisherman rules automatically (no gross-income figures); enter them on the annual settings (Q45). |
+| `TE_OUTSIDE_FIELD_NOT_APPLICABLE` | HTTP 422 | `svc/taxpayers.service.ts` | Guaranteed payments apply only to partnerships / Also: Officer wages and the >2% shareholder health add-on apply only to S corporations (Q45 year amounts). |
+| `TE_OUTSIDE_PERSON_MISSING` | HTTP 422 | `svc/taxpayers.service.ts` | Add the taxpayer / spouse under Persons before giving them a business (Q45). |
 | `TE_OVERRIDE_REASON_REQUIRED` | HTTP 422 | `svc/taxpayers.service.ts:423`, `svc/taxpayers.service.ts:427` | A reason is required to override QBI eligibility / Also: A reason is required for an allowed-loss override |
 | `TE_OWNER_ITEM_NO_LINK` | warning | `engine/income.ts:265` | …: person … has owner-level amounts but no link to this entity; they were attached to an empty share. |
 | `TE_OWNER_ITEM_UNATTRIBUTED` | warning | `engine/income.ts:130` | …: an owner-level amount has no person and the entity has several owners; it was attributed to the primary person. |

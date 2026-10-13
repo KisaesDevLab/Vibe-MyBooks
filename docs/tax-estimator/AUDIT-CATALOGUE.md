@@ -46,6 +46,8 @@ classification in [DATA-DICTIONARY.md](./DATA-DICTIONARY.md).
 | `tax_est_dependent` | `create`, `update`, `delete` | dependent id | Q44, metadata only: `{ id, taxpayerId, kind, relationship, birthYear, monthsLivedWith, isStudent, isDisabled, firstTaxYear, lastTaxYear }` — never the name or the full date of birth (create: before null; delete: after null) |
 | `tax_est_link` | `create`, `update` | link id | the full `tax_est_links` row (tenant, company, tax year, percentages, partner SE status, officer flag, activity type, QBI eligibility and override reason, allowed-loss override and reason) |
 | `tax_est_link` | `delete` | link id | before = the link row |
+| `tax_est_outside_entity` | `create`, `update`, `delete` | outside business id | Q45: the definition `{ id, taxpayerId, name, entityType, personId, personRole, profitPct, lossPct, partnerSeStatus, isOfficer, activityType, activeParticipation, qbiEligible, isSstb, rentalQbiTradeOrBusiness, stateSourcing }` + `firmId` (delete: before also lists the tax years whose amounts cascade; a person delete cascades the person's outside businesses without per-row audit, like links) |
+| `tax_est_outside_entity_year` | `create`, `update`, `delete` | year row id | Q45: the year's amounts DTO `{ outsideEntityId, taxYear, entryMode, amountBasis, throughMonth, amounts, guaranteedPayments, officerWages, ownerSehi, ownerRetirement, sehiAsW2Wages, w2Wages, ubia, includeSehiInW2Wages, allowedLossOverride }` + `taxpayerId`, `firmId` (amounts included, like links / adjustments) |
 
 ### Annual settings, scenarios, adjustments, state rows (`years`, `scenarios`, `adjustments`, `adjustment-types`, `state-rows`, `firm-settings`)
 
@@ -122,7 +124,7 @@ Verification is audited (`signoff` / `verified`, with the verifier in `user_id` 
 
 | Entity type string | Written under tenant | Source file |
 |---|---|---|
-| `tax_est_taxpayer`, `tax_est_person`, `tax_est_dependent`, `tax_est_link` | active tenant | `taxpayers.service.ts` |
+| `tax_est_taxpayer`, `tax_est_person`, `tax_est_dependent`, `tax_est_link`, `tax_est_outside_entity`, `tax_est_outside_entity_year` | active tenant | `taxpayers.service.ts` |
 | `tax_est_year`, `tax_est_scenario`, `tax_est_adjustment`, `tax_est_adjustment_type`, `tax_est_state_rows`, `tax_est_firm_settings`, `tax_est_payment`, `tax_est_sch_ai_snapshots`, `tax_est_snapshot` | active tenant | `years`, `scenarios`, `adjustments`, `adjustment-types`, `state-rows`, `firm-settings`, `payments`, `sch-ai-snapshots`, `estimate-snapshots`, `estimate-documents` services |
 | `tax_est_entity_settings`, `tax_est_entity_year_inputs`, `tax_est_treatment` | the company's tenant | `entity-settings.service.ts`, `treatments.service.ts` |
 | `tax_est_contact_access` | the contact's tenant | `portal-contact.service.ts` |

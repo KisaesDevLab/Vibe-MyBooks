@@ -111,7 +111,12 @@ export function EstimateSummaryPage() {
           <h1 className="text-2xl font-bold text-gray-900">{taxYear} Tax Estimate</h1>
           <div className="flex flex-wrap gap-2 text-xs font-medium text-gray-700">
             <span className="rounded-full border border-gray-300 bg-white px-2.5 py-1">{FILING_STATUS_LABELS[tp.filingStatus]}{tp.residentState ? ` · ${tp.residentState} resident` : ''}</span>
-            {e && <span className="rounded-full border border-gray-300 bg-white px-2.5 py-1">{e.entities.length} linked {e.entities.length === 1 ? 'entity' : 'entities'}</span>}
+            {e && (() => {
+              // Q45: businesses outside MyBooks are counted separately from the linked companies.
+              const outside = e.entities.filter((x) => x.source === 'outside').length;
+              const linked = e.entities.length - outside;
+              return <span className="rounded-full border border-gray-300 bg-white px-2.5 py-1">{linked} linked {linked === 1 ? 'entity' : 'entities'}{outside > 0 ? ` · ${outside} outside MyBooks` : ''}</span>;
+            })()}
           </div>
         </div>
       </div>
@@ -141,7 +146,7 @@ export function EstimateSummaryPage() {
             </div>
             {e && (
               <p className="text-xs text-gray-500 pb-2">
-                {Math.max(0, ...e.entities.map((x) => x.monthsElapsed))} months of actuals &middot; run-rate on recurring items &middot; non-recurring counted once
+                {Math.max(0, ...e.entities.filter((x) => x.source !== 'outside').map((x) => x.monthsElapsed))} months of actuals &middot; run-rate on recurring items &middot; non-recurring counted once
               </p>
             )}
             {/* QA D5: the action row wraps at 375px instead of pushing the page wide. */}
@@ -168,8 +173,8 @@ export function EstimateSummaryPage() {
             : estimate.isError || !e ? <ErrorMessage message={errMsg(estimate.error) === 'Request failed' ? 'Could not compute the estimate.' : `Could not compute the estimate: ${errMsg(estimate.error)}`} onRetry={() => estimate.refetch()} />
             : e.entities.length === 0 ? (
               <section className="rounded-lg border border-dashed border-gray-300 bg-white p-6 space-y-2" aria-label="No linked entities">
-                <p className="text-sm text-gray-700">No companies are linked to this taxpayer for {taxYear}, so the estimate has no business income to project.</p>
-                <Link className="text-sm font-medium text-primary-700 hover:underline" to={`/tax-estimator/taxpayers/${tp.id}`}>Link a company</Link>
+                <p className="text-sm text-gray-700">No companies are linked to this taxpayer for {taxYear} and no outside businesses have {taxYear} amounts, so the estimate has no business income to project.</p>
+                <Link className="text-sm font-medium text-primary-700 hover:underline" to={`/tax-estimator/taxpayers/${tp.id}`}>Link a company or add an outside business</Link>
               </section>
             ) : (
               <>

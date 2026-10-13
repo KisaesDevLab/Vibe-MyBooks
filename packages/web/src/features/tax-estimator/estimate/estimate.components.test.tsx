@@ -86,6 +86,50 @@ describe('buildCalcSections — entity total and owner share', () => {
   });
 });
 
+describe('buildCalcSections — businesses outside MyBooks (Q45)', () => {
+  const outsideEstimate = (basis: 'owner_share' | 'entity_total', mode: 'full_year' | 'ytd') => {
+    const base = makeEstimate();
+    const outsideDto = {
+      tenantId: 'outside', companyId: 'o1', companyName: 'Lakeside Partners LP', entityType: 'partnership', path: 'individual', skippedReason: null, throughMonth: null, throughMonthSource: null,
+      monthsElapsed: mode === 'ytd' ? 6 : 12, monthsRemaining: mode === 'ytd' ? 6 : 0, glVersionStamp: 0, providerCached: false, source: 'outside',
+      owners: [{ personId: 'p1', personRole: 'primary', displayName: 'Ana Rivera', profitPct: 25, lossPct: 25 }],
+      outside: { outsideEntityId: 'o1', entryMode: mode, amountBasis: basis, throughMonth: mode === 'ytd' ? 6 : null, statedProfitPct: 25, statedLossPct: null },
+    };
+    const fraction = basis === 'owner_share' ? '1' : '0.25';
+    const outsideResult = {
+      companyId: 'o1', companyName: 'Lakeside Partners LP', entityType: 'partnership', source: 'outside', amountBasis: basis, entryMode: mode,
+      ytd: { ordinary: '30000' }, projectedProfit: '60000',
+      shares: [{ linkId: 'outside:o1', personId: 'p1', activityType: 'passive', profitFraction: fraction, lossFraction: fraction, share: { ordinary: basis === 'owner_share' ? '60000' : '15000' } }],
+    };
+    return makeEstimate({ entities: [...base.entities, outsideDto], federal: { ...base.federal, entities: [...base.federal.entities, outsideResult] } });
+  };
+
+  it('owner share (K-1): one share row with the stated %, no entity-total row, "Outside MyBooks · entered" sub-label', () => {
+    const lines = buildCalcSections(outsideEstimate('owner_share', 'ytd')).flatMap((s) => s.lines);
+    expect(lines.find((l) => l.key === 'inc.o1')).toBeUndefined();
+    const share = lines.find((l) => l.key === 'inc.o1.outside:o1')!;
+    expect(share).toMatchObject({ label: "Lakeside Partners LP — Ana Rivera's share (K-1 share, 25% owned)", ytd: '30000', projected: '60000' });
+    expect(share.muted).toBeUndefined();
+    expect(share.indent).toBeUndefined();
+    expect(share.sub).toBe('Partnership · passive · Outside MyBooks · entered (YTD through month 6)');
+  });
+
+  it('entity total: the muted entity row plus the indented share; full-year entries leave the YTD column blank', () => {
+    const lines = buildCalcSections(outsideEstimate('entity_total', 'full_year')).flatMap((s) => s.lines);
+    const entity = lines.find((l) => l.key === 'inc.o1')!;
+    expect(entity).toMatchObject({ muted: true, ytd: null, projected: '60000', sub: 'Partnership · passive · Entity total (100%) · Outside MyBooks · entered (full year)' });
+    expect(lines.find((l) => l.key === 'inc.o1.outside:o1')).toMatchObject({ label: "Ana Rivera's share (25%)", ytd: null, projected: '15000', indent: true });
+    // The linked business is unchanged.
+    expect(lines.find((l) => l.key === 'inc.c1')).toMatchObject({ ytd: '150000', muted: true });
+  });
+
+  it('the Calculation table renders the outside rows', () => {
+    wrap(<CalculationTable estimate={outsideEstimate('owner_share', 'full_year')} />);
+    expect(screen.getByText("Lakeside Partners LP — Ana Rivera's share (K-1 share, 25% owned)")).toBeInTheDocument();
+    expect(screen.getByText(/Outside MyBooks · entered \(full year\)/)).toBeInTheDocument();
+  });
+});
+
 describe('CalculationTable', () => {
   it('shows YTD and projected columns and opens the trace drawer with label, amount, formula and source', () => {
     wrap(<CalculationTable estimate={makeEstimate()} />);
