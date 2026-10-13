@@ -183,3 +183,4 @@ ORDER BY id DESC;
 - `TE_ACCESS_GRANT_FORBIDDEN` refusals (a blocked grant attempt) are not audited; only successful changes are.
 - The `download` row is not in a transaction with the PDF render; a render failure writes no row, which is correct, but a crash between render and audit would lose the row (the snapshot row still exists).
 - Portal reads (including the vouchers PDF) are not audited; the portal limiter (20 requests a minute per contact) is the only control.
+- Dashboard cards (Q52) write no audit rows: loading the company or firm cards is a read, and a card Refresh is a live compute like `POST .../estimate` (not audited). The derived `tax_est_dashboard_summaries` rows are written by the estimate service without an audit row (a cache, not a record; the frozen record of what was issued stays the snapshot).

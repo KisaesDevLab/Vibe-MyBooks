@@ -24,6 +24,9 @@ vi.mock('../../api/hooks/usePermissions', () => ({
   usePermissions: () => ({ can: () => true, permissions: undefined, ready: true }),
 }));
 
+// The Tax Estimator cards (Q52) fetch on their own; tested in TaxEstimateCards.test.tsx.
+vi.mock('./TaxEstimateCards', () => ({ TaxEstimateCards: () => null }));
+
 import { DashboardPage } from './DashboardPage';
 
 function LocationProbe() {

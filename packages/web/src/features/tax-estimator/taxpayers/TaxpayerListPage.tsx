@@ -19,6 +19,7 @@ import { ErrorMessage } from '../../../components/ui/ErrorMessage';
 import { Pagination } from '../../../components/ui/Pagination';
 import { FILING_STATUS_LABELS, SELECT_CLASS } from './labels';
 import { StateSelect } from './StateSelect';
+import { FirmDashboardCards } from './FirmDashboardCards';
 
 type SortKey = 'displayName' | 'filingStatus' | 'residentState' | 'createdAt';
 const SORT_KEYS: readonly SortKey[] = ['displayName', 'filingStatus', 'residentState', 'createdAt'];
@@ -105,6 +106,8 @@ export function TaxpayerListPage() {
         <h1 className="text-2xl font-bold text-gray-900">Taxpayers</h1>
         {canWrite && !creating && <Button onClick={() => setCreating(true)}>New taxpayer</Button>}
       </div>
+      {/* Q52: firm-wide cards (vouchers due in 30 days, behind on payments); hidden when nothing is visible. */}
+      <FirmDashboardCards />
       {creating && <NewTaxpayerForm onCancel={() => setCreating(false)} />}
       <div className="flex items-center gap-4 mb-3 flex-wrap">
         <div className="w-72"><Input aria-label="Search taxpayers" placeholder="Search by taxpayer or person" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
