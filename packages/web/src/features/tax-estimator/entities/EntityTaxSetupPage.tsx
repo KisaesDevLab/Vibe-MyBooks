@@ -19,7 +19,7 @@ import { TreatmentTable } from './TreatmentTable';
 import { ReadinessPanel } from './ReadinessPanel';
 import { PreviewCard } from './PreviewCard';
 import { buildRows } from './rows';
-import { errMsg } from './labels';
+import { baseEntityType, baseEntityTypeOptionLabel, errMsg } from './labels';
 
 const THIS_YEAR = new Date().getFullYear();
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -37,13 +37,14 @@ export function EntityTaxSetupPage() {
   const canWrite = scope.data ? (scope.data.canWrite ?? scope.data.firmRole !== 'firm_readonly') : false;
   const readOnly = !!scope.data && !canWrite;
 
-  const settings = useEntitySettings(tenantId, companyId);
+  // Q49: resolved for the selected tax year (that year's entity type override applies).
+  const settings = useEntitySettings(tenantId, companyId, taxYear);
   const yearInputs = useEntityYearInputs(tenantId, companyId, taxYear);
   const treatments = useEntityTreatments(tenantId, companyId);
-  const suggestions = useTreatmentSuggestions(tenantId, companyId);
+  const suggestions = useTreatmentSuggestions(tenantId, companyId, taxYear);
   const readiness = useEntityReadiness(tenantId, companyId, taxYear, through);
   const pl = useTaxBasisPl(tenantId, companyId, taxYear, through);
-  const saveSettings = useSaveEntitySettings(tenantId, companyId);
+  const saveSettings = useSaveEntitySettings(tenantId, companyId, taxYear);
   const saveYear = useSaveEntityYearInputs(tenantId, companyId, taxYear);
   const saveTreatments = useSaveEntityTreatments(tenantId, companyId);
 
@@ -102,7 +103,8 @@ export function EntityTaxSetupPage() {
         : yearInputs.isError || !yearInputs.data ? <ErrorMessage message="Could not load year inputs." onRetry={() => yearInputs.refetch()} />
         : (
           <YearInputsPanel key={`${taxYear}:${yearInputs.data.updatedAt ?? 'new'}`} taxYear={taxYear} inputs={yearInputs.data}
-            booksW2Wages={pl.data?.w2Wages.projectedYear ?? null} entityType={r.entityType} canWrite={canWrite} saving={saveYear.isPending}
+            booksW2Wages={pl.data?.w2Wages.projectedYear ?? null} entityType={r.entityType}
+            baseType={baseEntityType(r)} baseTypeLabel={baseEntityTypeOptionLabel(r)} canWrite={canWrite} saving={saveYear.isPending}
             error={saveYear.isError ? errMsg(saveYear.error) : undefined} onSave={(input) => saveYear.mutate(input)} />
         )}
 

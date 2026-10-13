@@ -27,7 +27,8 @@ export function SettingsPanel({ data, canWrite, saving, error, onSave }: {
   const [farmer, setFarmer] = useState<'' | 'yes' | 'no'>(s.farmerOverride == null ? '' : s.farmerOverride ? 'yes' : 'no');
   const [rental, setRental] = useState(s.rentalQbiTradeOrBusiness);
   const [state, setState] = useState(s.stateSourcing ?? '');
-  const hasTb = r.entityTypeSource === 'tb_profile';
+  // Q49: under a per-year override the TB profile still exists underneath.
+  const hasTb = r.entityTypeSource === 'tb_profile' || r.entityTypeOverride?.baseEntityTypeSource === 'tb_profile';
 
   const typeControl = (
     <label className="block text-sm text-gray-700">
@@ -68,7 +69,12 @@ export function SettingsPanel({ data, canWrite, saving, error, onSave }: {
           <div className="text-base font-medium text-gray-900" data-testid="resolved-type">
             {r.entityType ? ENTITY_TYPE_LABELS[r.entityType] : 'Not set'}
           </div>
-          <Chip>{entityTypeSourceLabel(r.entityTypeSource, r.tbReturnForm)}</Chip>
+          <Chip>{entityTypeSourceLabel(r.entityTypeSource, r.tbReturnForm, r.entityTypeOverride)}</Chip>
+          {r.entityTypeOverride && (
+            <p className="text-xs text-gray-600 mt-1" data-testid="override-note">
+              Set by &ldquo;Entity type for {r.entityTypeOverride.taxYear}&rdquo; in the year inputs below; the Trial Balance tax profile is not changed.
+            </p>
+          )}
         </div>
         <div>
           <div className="text-xs uppercase tracking-wide text-gray-500">Tax accounting method</div>
@@ -80,7 +86,7 @@ export function SettingsPanel({ data, canWrite, saving, error, onSave }: {
 
       {hasTb ? (
         <details className="rounded border border-gray-200 p-3">
-          <summary className="cursor-pointer text-sm text-gray-600">Override (rarely needed; the Trial Balance profile is the source of truth)</summary>
+          <summary className="cursor-pointer text-sm text-gray-600">Override (rarely needed; the Trial Balance profile is the source of truth — to change the type for one tax year, use &ldquo;Entity type for the year&rdquo; in the year inputs)</summary>
           <div className="grid gap-3 sm:grid-cols-2 mt-3">{typeControl}{methodControl}</div>
         </details>
       ) : (

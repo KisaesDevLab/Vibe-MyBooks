@@ -58,6 +58,27 @@ describe('EntityTaxSetupPage', () => {
     expect(screen.queryByRole('button', { name: 'Save tax profile' })).toBeNull();
   });
 
+  it('Q49: shows the effective type with its override source and the per-year select defaulting to the TB profile', () => {
+    h.role = 'firm_staff';
+    h.settings = ok({
+      ...settingsData,
+      resolved: {
+        ...settingsData.resolved, entityType: 's_corp', entityTypeSource: 'estimator_override', tbReturnForm: '1065',
+        entityTypeOverride: { taxYear: 2026, overrideType: 's_corp', baseEntityType: 'partnership', baseEntityTypeSource: 'tb_profile', tbReturnForm: '1065' },
+      },
+    });
+    h.q.year = ok({ w2WagesOverride: null, w2WagesOverrideReason: null, ubia: null, includeSehiInW2Wages: false, projectionMethod: 'run_rate', entityTypeOverride: 's_corp', updatedAt: null });
+    renderRoute(<EntityTaxSetupPage />, { path: '/e/:tenantId/:companyId', route: '/e/t/c?year=2026' });
+    expect(screen.getByTestId('resolved-type')).toHaveTextContent('S corporation');
+    expect(screen.getByText('Overridden for 2026 (TB profile says 1065)')).toBeInTheDocument();
+    expect(screen.getByTestId('override-note')).toHaveTextContent(/Trial Balance tax profile is not changed/);
+    const select = screen.getByLabelText('Entity type for 2026') as HTMLSelectElement;
+    expect(select.value).toBe('s_corp');
+    expect(select.options[0]!.textContent).toBe('Use TB profile (1065 → Partnership)');
+    // The S corp switch follows the effective (overridden) type.
+    expect(screen.getByLabelText('Include shareholder health insurance in W-2 wages')).toBeInTheDocument();
+  });
+
   it('shows an error state with retry when settings fail', () => {
     h.settings = { data: undefined, isLoading: false, isError: true, refetch: vi.fn() };
     render();
