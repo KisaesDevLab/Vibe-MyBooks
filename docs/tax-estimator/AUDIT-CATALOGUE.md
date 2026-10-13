@@ -118,6 +118,21 @@ Both write under the zero tenant and carry the operation in `after_data.op`: act
 | `tax_state_rule` | `override` | `shipped_adopted` | removed provisional row id (one row per state / key) | as above with `state` |
 | `tax_state_rule` | `signoff` | `verified` | override / provisional row id, else the shipped row id | as the `tax_parameter` row, with `state` in both blobs |
 
+An override written by **Apply AI value** (Q48) is an ordinary `override_set` row whose `after_data` also carries `aiCheckId` and `sourceUrl` (and `citation` when the admin ticked "use the AI source as the citation"); its reason reads "Applied AI check <id>: <source>". It shows in Recent changes like any override.
+
+### AI parameter check (`tax-param-ai-check.service.ts`, Q48)
+
+Zero tenant; the acting super admin in `user_id`.
+
+| Entity type | Actions | `after_data.op` | entity_id | What the data holds |
+|---|---|---|---|---|
+| `tax_param_ai_check_run` | `create` | `ai_check_run_started` | run id | `{ op, year, scope, state, key, total, model }` |
+| `tax_param_ai_check_run` | `update` | `ai_check_run_cancel_requested` | run id | before `{ status }`; after `{ op, year }` |
+| `tax_param_ai_check_run` | `update` | `ai_check_run_finished` | run id | before `{ status: 'running' }`; after `{ op, year, status, done, total, counts, error }` (user = the run's creator) |
+| `tax_param_ai_check` | `update` | `ai_value_applied` | check id | before `{ year, jurisdiction, key, value }` (value replaced); after `{ op, year, jurisdiction, key, value, aiCheckId, sourceUrl, updateCitation }` |
+
+The individual results are stored in `tax_param_ai_checks` (verdict, found value, quote, source, rationale, model, token usage, server notes), not in the audit log.
+
 Verification is audited (`signoff` / `verified`, with the verifier in `user_id` and the free-text note in `reason`) and is also stored on the row (`verified_by`, `verified_at`, `verification_note`). A status that changes because a seed was edited and deployed has **no audit row**; the deploy history is the trail, and the startup re-sync (which also clears a sign-off when the shipped value changed) is not audited.
 
 ## Quick reference

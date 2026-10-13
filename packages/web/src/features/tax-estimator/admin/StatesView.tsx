@@ -5,7 +5,7 @@
 // States view of the super-admin Tax Parameters screen (MODULE.md "State rule keys").
 import { useMemo, useState } from 'react';
 import { STATE_INSTALLMENT_PAIRS, installmentPartnerKey } from '@kis-books/shared';
-import type { ParameterSource, ParameterStatus, StateRuleRowDTO, StateRuleSetStatus, StateRuleSummaryDTO } from '@kis-books/shared';
+import type { AiCheckDTO, ParameterSource, ParameterStatus, StateRuleRowDTO, StateRuleSetStatus, StateRuleSummaryDTO } from '@kis-books/shared';
 import { Button } from '../../../components/ui/Button';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
@@ -19,6 +19,8 @@ import { StateRuleModal } from './StateRuleModal';
 import { StateRuleValue } from './StateRuleValue';
 import { StateDiffPanel, StateChangesPanel } from './StatePanels';
 import { shortCitation } from './format';
+import { AiCheckCell, AiCheckDrawer, AiCheckRunBar } from './AiCheck';
+import { useAiCheckAvailability, useAiCheckLatest } from '../../../api/hooks/useTaxParamAiChecks';
 
 const STATUS_STYLE: Record<ParameterStatus, string> = {
   verified: 'bg-green-100 text-green-800', unverified: 'bg-amber-100 text-amber-800', provisional: 'bg-blue-100 text-blue-800',
@@ -54,6 +56,10 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
   const verifyAll = useVerifyAllStateRules(year);
   const [verifyRow, setVerifyRow] = useState<StateRuleRowDTO | null>(null);
   const [verifyAllOpen, setVerifyAllOpen] = useState(false);
+  // Q48 AI parameter check (advisory; super admin).
+  const aiAvail = useAiCheckAvailability();
+  const aiLatest = useAiCheckLatest(year, state.state);
+  const [aiOpen, setAiOpen] = useState<AiCheckDTO | null>(null);
   const data = q.data;
   const unverified = (data?.isFallback ? [] : data?.rules ?? []).filter((r) => r.status !== 'verified' && r.source !== 'fallback');
   const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
@@ -73,6 +79,7 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
             Verify all unverified in {state.state} {year} ({unverified.length})
           </Button>
         )}
+        <AiCheckRunBar year={year} scope={{ kind: 'state', state: state.state }} unverifiedCount={unverified.length} availability={aiAvail.data} />
       </div>
       {q.isLoading ? <Skeleton label="Loading state rules" /> : q.isError ? (
         <ErrorMessage message={`Could not load ${state.name} rules`} onRetry={() => q.refetch()} />
@@ -95,7 +102,7 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
             <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-gray-500">
-                  <th className="px-4 py-2">Rule</th><th className="py-2 pr-3">Value</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Source</th><th className="py-2 pr-3">Citation</th><th />
+                  <th className="px-4 py-2">Rule</th><th className="py-2 pr-3">Value</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Source</th><th className="py-2 pr-3">Citation</th><th className="py-2 pr-3">AI check</th><th />
                 </tr></thead>
                 <tbody>
                   {data.rules.map((r) => (
@@ -109,6 +116,12 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
                       <td className="py-2"><Badge cls={STATUS_STYLE[r.status]}>{r.status}</Badge><VerifiedLine row={r} /></td>
                       <td className="py-2"><Badge cls={SOURCE_STYLE[r.source]}>{r.source}</Badge></td>
                       <td className="py-2 pr-2 max-w-xs text-gray-600" title={r.citation}>{shortCitation(r.citation)}</td>
+                      <td className="py-2 pr-2">
+                        {r.source !== 'fallback' && (
+                          <AiCheckCell year={year} scope={{ kind: 'state', state: state.state }} rowKey={r.key} check={aiLatest.data?.checks[r.key]}
+                            availability={aiAvail.data} onOpen={setAiOpen} />
+                        )}
+                      </td>
                       <td className="py-2 pr-4 whitespace-nowrap text-right">
                         {r.status !== 'verified' && r.source !== 'fallback' && (
                           <Button size="sm" variant="ghost" onClick={() => setVerifyRow(r)} aria-label={`Mark ${r.key} verified`}>Mark verified</Button>
@@ -142,6 +155,14 @@ function StateDetail({ year, state, onBack }: { year: number; state: StateRuleSu
           })}
         />
       )}
+      {aiOpen && (() => {
+        const row = data?.rules.find((x) => x.key === aiOpen.key);
+        return (
+          <AiCheckDrawer check={aiLatest.data?.checks[aiOpen.key] ?? aiOpen} label={row?.label ?? aiOpen.key} currentValue={row?.value}
+            renderValue={(v) => (row ? <StateRuleValue type={row.type} value={v} /> : JSON.stringify(v))}
+            onClose={() => setAiOpen(null)} />
+        );
+      })()}
       {verifyRow && (
         <VerifyDialog
           title={`Mark ${state.state} ${verifyRow.key} verified`}

@@ -142,3 +142,14 @@ snapshot immutability trigger allows exactly that: an UPDATE that changes only
 
 Snapshots have no delete path in the API; they are removed only when their taxpayer
 row is deleted (`ON DELETE CASCADE`). Archiving a taxpayer keeps them.
+
+## AI parameter check (migration 0205, OPEN-QUESTIONS Q48)
+
+`tax_param_ai_check_runs` and `tax_param_ai_checks` hold **platform reference data only**
+(parameter / state-rule keys, stored and found values, quotes from government pages,
+source URLs, model name and token usage). No column holds tax return information or any
+client, tenant or taxpayer data, and nothing from the fields above is ever sent in the
+AI prompt. No encryption is needed; access is super admin only. The rows have no delete
+path in the API (history of what was checked and applied); the 0205 rollback drops both
+tables without touching parameter values or overrides.
+
