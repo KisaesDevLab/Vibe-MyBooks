@@ -155,6 +155,10 @@ export const bankingMocks = () => ({
   useReconciliation: passthroughQuery(null),
   // Professional bank-to-books proof (Reconcile screen panel).
   useReconciliationProof: passthroughQuery(null),
+  // Electronic sign-off panel (completed reconciliations).
+  useReconciliationSignoffs: passthroughQuery(null),
+  useSignReconciliation: passthroughMutation,
+  useRemoveReconciliationSignoff: passthroughMutation,
   // Statement-driven reconciliation
   useBankStatements: passthroughQuery({ statements: [], total: 0, gaps: [] }),
   useAutoClearStatement: passthroughMutation,

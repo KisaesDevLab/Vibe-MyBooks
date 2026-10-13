@@ -844,9 +844,20 @@ The **book-side proof** checks that *beginning balance + items cleared on this r
 Fix the cause (restore the original entry, or undo and redo the affected reconciliation) and the difference returns to 0.00.
 
 ### Reconciliation Reports
-- **Reconciliation Detail** (from Reconciliation History → *Report*, or the Reconcile screen) — the bank-to-books summary, the cleared-activity roll (beginning balance + cleared deposits − cleared payments = cleared balance vs. statement), the supporting schedules (date, type, number, payee, age, amount, flags), the cleared transactions, **subsequent activity** (activity dated after the statement date and today's register balance), the book-side proof, and a **sign-off** block (prepared by / reviewed by / dates, plus the statement file reference).
+- **Reconciliation Detail** (from Reconciliation History → *Report*, or the Reconcile screen) — the bank-to-books summary, the cleared-activity roll (beginning balance + cleared deposits − cleared payments = cleared balance vs. statement), the supporting schedules (date, type, number, payee, age, amount, flags), the cleared transactions, **subsequent activity** (activity dated after the statement date and today's register balance), the book-side proof, and a **sign-off** block (the electronic preparer / reviewer sign-offs with their dates and times, or *Not signed* / stale, plus who completed it and the statement file reference).
 - **Bank Reconciliation Summary** (Reports → Banking, or History → *Summary*) — per account, the same summary for its latest completed reconciliation with schedule totals and the oldest items.
 - Both export to **PDF** and **CSV** in the same order, and the **Report Pack**'s Bank Reconciliations section prints the detail layout for each reconciliation.
+
+### Signing Off a Reconciliation
+Once a reconciliation is **complete**, it can be signed off electronically — on the Reconcile screen (below the worksheet) or on the Reconciliation Detail report:
+- **Sign as preparer** — anyone with write access to Banking. Your name and the date and time are stamped as **/s/ Your Name, 10/12/2026 3:04 PM CDT**.
+- **Sign as reviewer** — must be a **different person** than the preparer and a member of the firm's staff (or a system administrator), and only after the preparer has signed.
+- Either signer can **Remove my sign-off**; removing the preparer's also clears the reviewer's (it shows as needing a re-sign).
+- An in-progress reconciliation can't be signed — the buttons stay disabled until you complete it.
+
+A sign-off goes **stale** (shown in amber: *Signed off by … on … — data changed since; re-sign required*) when the reconciliation changes after it was signed: it is undone/reopened, a cleared transaction is edited, deleted, voided, re-dated or moved, or the balance per books or the outstanding items as of the statement date change (for example a transaction backdated into the period). Activity dated after the statement date, and recategorizing the income/expense side of a cleared transaction, do not affect it. Re-sign to clear the flag. Every sign, removal and invalidation is recorded in the audit log.
+
+The sign-offs print in the reports' **Sign-off** section (screen, PDF and CSV), the **Report Pack**'s bank-reconciliation pages and its summary page (a *Signed off* column: preparer and reviewer, or *Not signed* / *Stale — data changed after sign-off*), and as a badge on **Reconciliation History** (*Prepared & reviewed*, *Prepared — awaiting review*, *Stale — re-sign required*, *Not signed*).
 
 ### Handling Duplicates
 - An uncleared row with the same amount as an already-cleared transaction (same check number, or dated within a few days) gets a **Likely duplicate** badge — the cleared one matched the statement, so its twin is probably a double entry

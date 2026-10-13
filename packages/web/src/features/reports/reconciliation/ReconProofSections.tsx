@@ -20,7 +20,16 @@ import {
   reconMoney,
   reconSubsequentLines,
   reconSummaryLines,
+  formatReconSignoffTime,
+  reconSignoffBadge,
+  reconSignoffShortText,
+  reconSignoffStaleText,
+  reconSignoffStatusText,
+  RECON_SIGNOFF_BADGE_LABEL,
   type ReconProof,
+  type ReconSignoffBadge,
+  type ReconSignoffEntry,
+  type ReconSignoffSummary,
   type ReconSchedule,
   type ReconScheduleItem,
   type ReconStatementLine,
@@ -278,29 +287,68 @@ export function ReconBookProofSection({ proof }: { proof: ReconProof }) {
   );
 }
 
-/** Section E — sign-off block. */
+function browserTimeZone(): string | undefined {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return undefined; }
+}
+
+/** Section E — sign-off block, from the stored electronic sign-offs. */
 export function ReconSignOffSection({ proof }: { proof: ReconProof }) {
   const so = proof.signOff;
-  const Line = ({ value, caption }: { value: string | null; caption: string }) => (
+  const tz = browserTimeZone();
+  const Line = ({ value, caption, tone }: { value: ReactNode; caption: string; tone?: 'stale' | 'muted' }) => (
     <div>
-      <div className="border-b border-gray-800 min-h-[1.5rem] px-1 text-sm">{value ?? ''}</div>
+      <div className={`border-b border-gray-800 min-h-[1.5rem] px-1 text-sm ${tone === 'stale' ? 'text-amber-700 font-medium' : tone === 'muted' ? 'text-gray-400' : ''}`}>{value}</div>
       <div className="text-xs text-gray-500">{caption}</div>
     </div>
   );
+  const sig = (e: ReconSignoffEntry) => (e.state === 'signed' ? `/s/ ${e.signerName ?? ''}` : reconSignoffShortText(e, tz));
+  const tone = (e: ReconSignoffEntry) => (e.state === 'stale' ? 'stale' as const : e.state === 'unsigned' ? 'muted' as const : undefined);
+  const p = so.signoffs.preparer;
+  const r = so.signoffs.reviewer;
   return (
     <section className="bg-white rounded-lg border p-4" data-testid="recon-signoff">
       <Heading>Sign-off</Heading>
       <div className="grid grid-cols-2 gap-x-8 gap-y-4 max-w-2xl">
-        <Line value={so.preparedBy} caption="Prepared by" />
-        <Line value={so.preparedAt ? so.preparedAt.slice(0, 10) : null} caption="Date" />
-        <Line value={so.reviewedBy} caption="Reviewed by" />
-        <Line value={so.reviewedAt ? so.reviewedAt.slice(0, 10) : null} caption="Date" />
+        <Line value={sig(p)} caption="Prepared by" tone={tone(p)} />
+        <Line value={p.state === 'signed' ? formatReconSignoffTime(p.signedAt, tz) : ''} caption="Date" />
+        <Line value={sig(r)} caption="Reviewed by" tone={tone(r)} />
+        <Line value={r.state === 'signed' ? formatReconSignoffTime(r.signedAt, tz) : ''} caption="Date" />
       </div>
+      {[p, r].filter((e) => e.state === 'stale').map((e) => (
+        <p key={e.role} className="mt-2 text-sm text-amber-700" data-testid={`recon-signoff-section-stale-${e.role}`}>
+          {e.role === 'preparer' ? 'Preparer' : 'Reviewer'}: {reconSignoffStaleText(e, tz)}.
+        </p>
+      ))}
+      {(so.completedBy || so.completedAt) && (
+        <p className="mt-2 text-xs text-gray-500">
+          Completed in the books{so.completedBy ? ` by ${so.completedBy}` : ''}{so.completedAt ? ` on ${so.completedAt.slice(0, 10)}` : ''}.
+        </p>
+      )}
       <p className="mt-3 text-xs text-gray-500">
         {so.statementPeriod
           ? `Bank statement: ${so.statementPeriod}${so.statementFileName ? ` — ${so.statementFileName}` : ' — no file attached'}`
           : 'Bank statement: none linked to this reconciliation.'}
       </p>
     </section>
+  );
+}
+
+const BADGE_STYLE: Record<ReconSignoffBadge, string> = {
+  reviewed: 'bg-green-100 text-green-700',
+  prepared: 'bg-blue-100 text-blue-700',
+  stale: 'bg-amber-100 text-amber-800',
+  unsigned: 'bg-gray-100 text-gray-500',
+};
+
+/** Sign-off status pill (reconciliation history list). */
+export function ReconSignoffStatusBadge({ signoffs }: { signoffs: ReconSignoffSummary }) {
+  const b = reconSignoffBadge(signoffs);
+  const tz = browserTimeZone();
+  const title = [signoffs.preparer, signoffs.reviewer]
+    .map((e) => `${e.role === 'preparer' ? 'Preparer' : 'Reviewer'}: ${reconSignoffStatusText(e, tz)}`).join('\n');
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${BADGE_STYLE[b]}`} title={title} data-testid="recon-signoff-badge">
+      {RECON_SIGNOFF_BADGE_LABEL[b]}
+    </span>
   );
 }

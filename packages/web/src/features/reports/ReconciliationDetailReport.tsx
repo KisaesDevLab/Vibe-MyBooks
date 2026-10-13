@@ -23,6 +23,7 @@ import {
   ReconBookProofSection, ReconClearedRollSection, ReconSchedulesSection, ReconSignOffSection,
   ReconSubsequentSection, ReconSummarySection,
 } from './reconciliation/ReconProofSections';
+import { ReconSignoffPanel } from '../banking/ReconSignoffPanel';
 
 interface DetailLine {
   txnDate: string;
@@ -110,7 +111,9 @@ export function ReconciliationDetailReport() {
     );
   }
 
-  const exportBaseUrl = `${API_BASE}/reports/reconciliation-detail?reconciliation_id=${reconciliationId}`;
+  // The browser's zone prints the sign-off times on the PDF / CSV.
+  const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return ''; } })();
+  const exportBaseUrl = `${API_BASE}/reports/reconciliation-detail?reconciliation_id=${reconciliationId}${tz ? `&tz=${encodeURIComponent(tz)}` : ''}`;
   const rec = data?.reconciliation;
 
   return (
@@ -191,6 +194,7 @@ export function ReconciliationDetailReport() {
           <ReconSubsequentSection proof={data.proof} />
           <ReconBookProofSection proof={data.proof} />
           <ReconSignOffSection proof={data.proof} />
+          <ReconSignoffPanel reconId={reconciliationId} />
         </div>
       )}
     </ReportShell>

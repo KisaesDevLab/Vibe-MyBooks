@@ -7,7 +7,7 @@
 // three stale-dated [AP:PR] journal entries outstanding). Used by the
 // Reconcile-screen and report-page component tests.
 
-import { reconLabels, type ReconProof } from '@kis-books/shared';
+import { emptyReconSignoffEntry, reconLabels, type ReconProof } from '@kis-books/shared';
 
 export function makeProof(over: Partial<ReconProof> = {}): ReconProof {
   const item = (id: string, date: string, desc: string, amount: number, age: number, flag: ReconProof['schedules']['decreases']['items'][number]['flag'], label: string | null) => ({
@@ -49,6 +49,15 @@ export function makeProof(over: Partial<ReconProof> = {}): ReconProof {
     },
     signOff: {
       preparedBy: 'Kurt', preparedAt: '2026-10-05T15:00:00Z', reviewedBy: null, reviewedAt: null,
+      completedBy: 'Kurt', completedAt: '2026-10-05T14:00:00Z',
+      signoffs: {
+        signable: true,
+        preparer: {
+          ...emptyReconSignoffEntry('preparer'), state: 'signed', signoffId: 'so-1', userId: 'u-kurt',
+          signerName: 'Kurt', signedAt: '2026-10-05T15:00:00Z',
+        },
+        reviewer: emptyReconSignoffEntry('reviewer'),
+      },
       statementFileName: 'sept.pdf', statementAttachmentId: 'att-1', statementPeriod: '2026-09-01 – 2026-09-30',
     },
     ...over,
