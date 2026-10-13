@@ -30,11 +30,11 @@ export function makeEstimate(over: Record<string, unknown> = {}): EstimateResult
   return {
     taxpayerId: 'tp1', taxYear: 2026, scenarioId: 's1', scenarioName: 'Base', filingStatus: 'mfj', engineVersion: 'te-1', computedAt: '2026-10-12T00:00:00Z', cached: false,
     inputsHash: 'h', safeHarborRule: 'lesser_of', safeHarborRuleSource: 'firm_default',
-    entities: [{ tenantId: 't', companyId: 'c1', companyName: 'Rivera Plumbing LLC', entityType: 's_corp', path: 'individual', skippedReason: null, throughMonth: '2026-09', throughMonthSource: 'last_closed', monthsElapsed: 9, monthsRemaining: 3, glVersionStamp: 1, providerCached: false }],
+    entities: [{ tenantId: 't', companyId: 'c1', companyName: 'Rivera Plumbing LLC', entityType: 's_corp', path: 'individual', skippedReason: null, throughMonth: '2026-09', throughMonthSource: 'last_closed', monthsElapsed: 9, monthsRemaining: 3, glVersionStamp: 1, providerCached: false, owners: [{ personId: 'p1', personRole: 'taxpayer', displayName: 'Ana Rivera', profitPct: 60, lossPct: 60 }] }],
     federal: {
       engineVersion: 'te-1', taxYear: 2026, filingStatus: 'mfj',
       persons: [{ personId: 'p1', displayName: 'Daniel Rivera', seIncome: '128000', halfSeTax: '9043', totalWages: '0', seTax: '18086', retirement: { capped: true }, sehi: { capped: false }, hsa: { capped: false } }],
-      entities: [{ companyId: 'c1', companyName: 'Rivera Plumbing LLC', entityType: 'sole_prop', ytd: { ordinary: '150000' }, projectedProfit: '200000', shares: [{ activityType: 'active' }] }],
+      entities: [{ companyId: 'c1', companyName: 'Rivera Plumbing LLC', entityType: 'sole_prop', ytd: { ordinary: '150000' }, projectedProfit: '200000', shares: [{ linkId: 'l1', personId: 'p1', activityType: 'active', profitFraction: '0.6', lossFraction: '0.6', share: { ordinary: '120000' } }] }],
       lossLimitations: { suspendedPassiveLoss: '1200', excessBusinessLoss: '0' },
       income: { wages: '32400', interest: '0', dividends: '0', capitalGainNet: '0', section1231: '0', otherIncome: '0', totalIncome: '232400' },
       adjustmentsToIncome: { halfSeTax: '9043', retirement: '15000', sehi: '0', hsa: '0', other: '0', total: '24043' },

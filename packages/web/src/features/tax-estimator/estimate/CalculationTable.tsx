@@ -18,9 +18,9 @@ export function CalculationTable({ estimate }: { estimate: EstimateResultDTO }) 
   const sections = buildCalcSections(estimate);
   const lineRow = (l: CalcLine) => (
     <tr key={l.key} className={l.bold ? 'bg-gray-50 font-semibold' : undefined}>
-      <td className="px-4 py-2 align-baseline">
+      <td className={`${l.indent ? 'pl-10 pr-4' : 'px-4'} py-2 align-baseline`}>
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-gray-900">{l.label}</span>
+          <span className={l.muted ? 'text-gray-600' : 'text-gray-900'}>{l.label}</span>
           {l.chips?.map((c) => <span key={c.text} className={`rounded px-1.5 py-0.5 text-xs font-medium ${CHIP[c.tone]}`}>{c.text}</span>)}
           {l.trace && (
             <Button size="sm" variant="ghost" aria-label={`Trace ${l.label}`} onClick={() => setOpen({ title: l.label, scope: l.trace! })}>Trace</Button>
@@ -28,8 +28,8 @@ export function CalculationTable({ estimate }: { estimate: EstimateResultDTO }) 
         </div>
         {l.sub && <div className="text-xs font-normal text-gray-500">{l.sub}</div>}
       </td>
-      <td className="px-4 py-2 text-right tabular-nums align-baseline text-gray-700">{l.ytd == null ? '' : dollars(l.ytd)}</td>
-      <td className="px-4 py-2 text-right tabular-nums align-baseline text-gray-900">{dollarsOrDash(l.projected)}</td>
+      <td className={`px-4 py-2 text-right tabular-nums align-baseline ${l.muted ? 'text-gray-500 italic' : 'text-gray-700'}`}>{l.ytd == null ? '' : dollars(l.ytd)}</td>
+      <td className={`px-4 py-2 text-right tabular-nums align-baseline ${l.muted ? 'text-gray-500 italic' : 'text-gray-900'}`}>{dollarsOrDash(l.projected)}</td>
     </tr>
   );
   return (

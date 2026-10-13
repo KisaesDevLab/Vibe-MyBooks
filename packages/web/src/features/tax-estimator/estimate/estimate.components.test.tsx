@@ -48,7 +48,7 @@ describe('buildCalcSections', () => {
   it('has YTD only on income lines, a marginal-rate note, no "period tax", and data-driven chips', () => {
     const sections = buildCalcSections(makeEstimate());
     const lines = sections.flatMap((s) => s.lines);
-    expect(lines.filter((l) => l.ytd != null).map((l) => l.key)).toEqual(['inc.c1']);
+    expect(lines.filter((l) => l.ytd != null).map((l) => l.key)).toEqual(['inc.c1', 'inc.c1.l1']);
     expect(lines.find((l) => l.key === 'tax.regular')!.sub).toContain('22%');
     expect(lines.find((l) => l.key === 'adj.ret')!.chips?.[0]?.text).toMatch(/capped/i);
     expect(lines.find((l) => l.key === 'inc.total')!.chips?.[0]?.text).toMatch(/Passive loss suspended/);
@@ -63,9 +63,26 @@ describe('buildCalcSections', () => {
     const base = makeEstimate();
     const fed = { ...base.federal, entities: [{ ...base.federal.entities[0]!, entityType: 'sch_c' }, { ...base.federal.entities[0]!, companyId: 'c2', entityType: 'sch_f' }] };
     const lines = buildCalcSections(makeEstimate({ federal: fed })).flatMap((s) => s.lines);
-    expect(lines.find((l) => l.key === 'inc.c1')!.sub).toBe('Sch C · active');
-    expect(lines.find((l) => l.key === 'inc.c2')!.sub).toBe('Sch F · active');
+    expect(lines.find((l) => l.key === 'inc.c1')!.sub).toBe('Sch C · active · Entity total (100%)');
+    expect(lines.find((l) => l.key === 'inc.c2')!.sub).toBe('Sch F · active · Entity total (100%)');
     expect(lines.find((l) => l.key === 'st.r2')!.chips?.[0]?.review).toBe(true);
+  });
+});
+
+describe('buildCalcSections — entity total and owner share', () => {
+  it('prints the entity total as a muted reference row and each owner\'s share (YTD × %, projected allocation) under it', () => {
+    const lines = buildCalcSections(makeEstimate()).flatMap((s) => s.lines);
+    const entity = lines.find((l) => l.key === 'inc.c1')!;
+    expect(entity).toMatchObject({ ytd: '150000', projected: '200000', muted: true });
+    const share = lines.find((l) => l.key === 'inc.c1.l1')!;
+    expect(share).toMatchObject({ label: "Ana Rivera's share (60%)", ytd: '90000', projected: '120000', indent: true });
+  });
+
+  it('labels a loss allocation and falls back to "Share" without owner names', () => {
+    const base = makeEstimate();
+    const fed = { ...base.federal, entities: [{ ...base.federal.entities[0]!, ytd: { ordinary: '-30000' }, projectedProfit: '-40000', shares: [{ linkId: 'l9', personId: 'px', activityType: 'active', profitFraction: '0.5', lossFraction: '0.25', share: { ordinary: '-10000' } }] }] };
+    const share = buildCalcSections(makeEstimate({ federal: fed })).flatMap((s) => s.lines).find((l) => l.key === 'inc.c1.l9')!;
+    expect(share).toMatchObject({ label: 'Share (25% of loss)', ytd: '-7500', projected: '-10000' });
   });
 });
 
