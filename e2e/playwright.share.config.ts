@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Peer screen share E2E (addendum Phase 14.11/14.12). Runs against a
 // SHARE_ENABLED dev stack; ports are overridable so the suite can coexist

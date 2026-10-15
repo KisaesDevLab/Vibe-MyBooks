@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Q51: the per-contact portal options editor (taxpayer page + Client Portal > Edit contact).
 import { describe, it, expect, vi } from 'vitest';

@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Tenants list: sort is server-side (the list paginates), so a header click
 // must reach GET /admin/tenants as sortBy/sortDir with the offset back at 0.

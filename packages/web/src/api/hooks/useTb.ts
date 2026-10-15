@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // TanStack Query hooks for the Trial Balance module (/api/v1/tb).
 // Query-key roots: ['tb', <area>] — invalidate coarse per area.

@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Q44: the taxpayer's dependents (next to Persons). Ages and credits are the engine's job
 // (ages at Dec 31 of each tax year); this card only edits the records. No SSN is collected.

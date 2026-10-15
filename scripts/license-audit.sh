@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright 2026 Kisaes LLC
-# Licensed under the PolyForm Small Business License 1.0.0.
-# Free for small businesses; see LICENSE for terms.
+# Licensed under the PolyForm Internal Use License 1.0.0.
+# See LICENSE for terms.
 # =============================================================================
 # license-audit.sh — Automated license compliance audit for Vibe MyBooks
 # License: PolyForm Small Business 1.0.0 (SEE LICENSE IN LICENSE)
@@ -72,7 +72,7 @@ fi
 # ── 2. PolyForm source file headers ──────────────────────────────────────────
 header "2. Source file headers"
 
-HEADER_PATTERN="Licensed under the PolyForm Small Business License|Copyright.*Kisaes"
+HEADER_PATTERN="Licensed under the PolyForm Internal Use License|Copyright.*Kisaes"
 # Exclude build output, compiled artifacts, caches — matches add-license-header.sh and check-license-headers.sh
 FIND_EXCLUDES='-not -path */node_modules/* -not -path */dist/* -not -path */build/* -not -path */.next/* -not -path */coverage/* -not -path */.vite/*'
 TS_FILES=$(eval "find \"$ROOT/packages\" \\( -name '*.ts' -o -name '*.tsx' \\) $FIND_EXCLUDES -type f 2>/dev/null" | wc -l | tr -d ' ' || true)
@@ -85,7 +85,7 @@ info "$HEADERS_FOUND / $TS_FILES source files have license headers"
 
 if [[ "$HEADERS_FOUND" -eq 0 ]]; then
   fail "No source files contain license headers"
-  fail "Required header:  // Licensed under the PolyForm Small Business License 1.0.0"
+  fail "Required header:  // Licensed under the PolyForm Internal Use License 1.0.0"
   fail "Run: bash scripts/add-license-header.sh"
   bump_fail
 elif [[ "$HEADERS_FOUND" -lt "$TS_FILES" ]]; then

@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Q45: businesses OUTSIDE MyBooks (next to Entity links). The definition (type, owner, %, activity,
 // QBI / SSTB, state sourcing) carries forward; the amounts are entered per tax year with their own

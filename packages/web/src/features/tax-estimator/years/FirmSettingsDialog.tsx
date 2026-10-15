@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 import { useEffect, useState } from 'react';
 import { PORTAL_SHOWS, SAFE_HARBOR_OVERRIDES, type FirmSettingsDTO, type PortalShows, type SafeHarborOverride, type UpsertFirmSettingsInput } from '@kis-books/shared';

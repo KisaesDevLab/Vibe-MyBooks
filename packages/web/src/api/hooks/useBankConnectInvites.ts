@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Staff-side hooks for bank connection invites (BANK_CONNECT_INVITES_V1):
 // list/create/resend/revoke against the authenticated /plaid/invites

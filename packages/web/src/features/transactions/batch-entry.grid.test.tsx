@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Batch Entry grid: Tab walks EVERY column including the Payee / Account
 // dropdowns, a row's date defaults to the previous row's, and a row holding

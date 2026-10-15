@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Q51 — what one portal contact may see of the tax estimates shared with them. Used on the
 // taxpayer page (Portal contacts) and in the client's Client Portal > Edit contact dialog.

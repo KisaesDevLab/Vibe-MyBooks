@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // AJE register (Phase 5): the firm's adjusting entries per fiscal
 // year, with reverse / duplicate / void actions (5.5) and drill-down

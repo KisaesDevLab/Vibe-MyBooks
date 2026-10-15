@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Firm-admin surface for peer screen share (2.7, 12.4–12.6, 13.8):
 // tenant settings (enable/inherit, inbound cross-firm refusal), per-user
