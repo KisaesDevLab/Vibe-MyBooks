@@ -29,6 +29,11 @@ export interface LineTagPickerProps {
   className?: string;
   /** When true, render a compact picker suitable for dense entry grids. */
   compact?: boolean;
+  /** Grid navigation (see SearchableDropdown): `dataCell` stamps the
+   *  trigger so a grid can focus it; Tab / Shift+Tab route through
+   *  `onNavigate` so keyboard entry flows through the tag column. */
+  dataCell?: string;
+  onNavigate?: (dir: 'next' | 'prev') => void;
 }
 
 export function LineTagPicker({
@@ -37,6 +42,8 @@ export function LineTagPicker({
   ariaLabel = 'Tag',
   className,
   compact = false,
+  dataCell,
+  onNavigate,
 }: LineTagPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -122,7 +129,15 @@ export function LineTagPicker({
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        data-cell={dataCell}
         onClick={() => setIsOpen((v) => !v)}
+        onKeyDown={onNavigate ? (e) => {
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            setIsOpen(false);
+            onNavigate(e.shiftKey ? 'prev' : 'next');
+          }
+        } : undefined}
         className={clsx(
           'flex items-center justify-between w-full border border-gray-300 bg-white hover:border-gray-400',
           sizeClasses,
@@ -158,6 +173,24 @@ export function LineTagPicker({
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              // Keyboard pick: Enter takes the first match. In a grid,
+              // Enter / Tab then hand focus to the adjacent cell.
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (filtered[0]) choose(filtered[0].id);
+                if (onNavigate) onNavigate('next');
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setIsOpen(false);
+                setSearch('');
+              } else if (e.key === 'Tab' && onNavigate) {
+                e.preventDefault();
+                setIsOpen(false);
+                setSearch('');
+                onNavigate(e.shiftKey ? 'prev' : 'next');
+              }
+            }}
             placeholder="Search tags…"
             className="w-full border-b border-gray-100 px-3 py-1.5 text-xs focus:outline-none"
           />

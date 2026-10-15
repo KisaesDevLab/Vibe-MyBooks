@@ -240,6 +240,10 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'Se
           setSearchAndNotify('');
         }}
         onKeyDown={handleKeyDown}
+        // Grid coordinate the parent's cell navigation focuses (Tab /
+        // Enter). Without it a grid's focusCell() can't find this cell and
+        // keyboard entry skips straight past every dropdown column.
+        data-cell={dataCell}
         className={clsx(
           'block w-full border focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500',
           // `compact` only tightens horizontal padding: the control keeps the

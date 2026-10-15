@@ -56,78 +56,100 @@ const txnTypes = [
 
 const columnsByType: Record<string, Array<{ key: GridStringField; label: string; required?: boolean; width: string }>> = {
   expense: [
-    { key: 'date', label: 'Date', required: true, width: 'w-28' },
-    { key: 'refNo', label: 'Ref No.', width: 'w-20' },
-    { key: 'contactName', label: 'Payee', width: 'w-36' },
-    { key: 'accountName', label: 'Account', required: true, width: 'w-36' },
-    { key: 'memo', label: 'Memo', width: 'w-48' },
-    { key: 'amount', label: 'Amount', required: true, width: 'w-24' },
+    { key: 'date', label: 'Date', required: true, width: 'w-40' },
+    { key: 'refNo', label: 'Ref No.', width: 'w-28' },
+    { key: 'contactName', label: 'Payee', width: 'w-56' },
+    { key: 'accountName', label: 'Account', required: true, width: 'w-56' },
+    { key: 'memo', label: 'Memo', width: 'w-56' },
+    { key: 'amount', label: 'Amount', required: true, width: 'w-32' },
   ],
   deposit: [
-    { key: 'date', label: 'Date', required: true, width: 'w-28' },
-    { key: 'refNo', label: 'Ref No.', width: 'w-20' },
-    { key: 'contactName', label: 'Received From', width: 'w-36' },
-    { key: 'accountName', label: 'Account', required: true, width: 'w-36' },
-    { key: 'memo', label: 'Memo', width: 'w-48' },
-    { key: 'amount', label: 'Amount', required: true, width: 'w-24' },
+    { key: 'date', label: 'Date', required: true, width: 'w-40' },
+    { key: 'refNo', label: 'Ref No.', width: 'w-28' },
+    { key: 'contactName', label: 'Received From', width: 'w-56' },
+    { key: 'accountName', label: 'Account', required: true, width: 'w-56' },
+    { key: 'memo', label: 'Memo', width: 'w-56' },
+    { key: 'amount', label: 'Amount', required: true, width: 'w-32' },
   ],
   credit_card_charge: [
-    { key: 'date', label: 'Date', required: true, width: 'w-28' },
-    { key: 'contactName', label: 'Payee', width: 'w-36' },
-    { key: 'accountName', label: 'Account', required: true, width: 'w-36' },
-    { key: 'memo', label: 'Memo', width: 'w-48' },
-    { key: 'amount', label: 'Amount', required: true, width: 'w-24' },
+    { key: 'date', label: 'Date', required: true, width: 'w-40' },
+    { key: 'contactName', label: 'Payee', width: 'w-56' },
+    { key: 'accountName', label: 'Account', required: true, width: 'w-56' },
+    { key: 'memo', label: 'Memo', width: 'w-56' },
+    { key: 'amount', label: 'Amount', required: true, width: 'w-32' },
   ],
   credit_card_credit: [
-    { key: 'date', label: 'Date', required: true, width: 'w-28' },
-    { key: 'contactName', label: 'Payee', width: 'w-36' },
-    { key: 'accountName', label: 'Account', required: true, width: 'w-36' },
-    { key: 'memo', label: 'Memo', width: 'w-48' },
-    { key: 'amount', label: 'Amount', required: true, width: 'w-24' },
+    { key: 'date', label: 'Date', required: true, width: 'w-40' },
+    { key: 'contactName', label: 'Payee', width: 'w-56' },
+    { key: 'accountName', label: 'Account', required: true, width: 'w-56' },
+    { key: 'memo', label: 'Memo', width: 'w-56' },
+    { key: 'amount', label: 'Amount', required: true, width: 'w-32' },
   ],
   invoice: [
-    { key: 'date', label: 'Date', required: true, width: 'w-28' },
-    { key: 'invoiceNo', label: 'Invoice No.', width: 'w-24' },
-    { key: 'contactName', label: 'Customer', required: true, width: 'w-36' },
-    { key: 'dueDate', label: 'Due Date', width: 'w-28' },
-    { key: 'accountName', label: 'Account', required: true, width: 'w-36' },
-    { key: 'description', label: 'Description', width: 'w-40' },
-    { key: 'amount', label: 'Amount', required: true, width: 'w-24' },
+    { key: 'date', label: 'Date', required: true, width: 'w-40' },
+    { key: 'invoiceNo', label: 'Invoice No.', width: 'w-28' },
+    { key: 'contactName', label: 'Customer', required: true, width: 'w-56' },
+    { key: 'dueDate', label: 'Due Date', width: 'w-40' },
+    { key: 'accountName', label: 'Account', required: true, width: 'w-56' },
+    { key: 'description', label: 'Description', width: 'w-56' },
+    { key: 'amount', label: 'Amount', required: true, width: 'w-32' },
   ],
   bill: [
-    { key: 'date', label: 'Bill Date', required: true, width: 'w-28' },
-    { key: 'invoiceNo', label: 'Vendor Inv #', width: 'w-24' },
-    { key: 'contactName', label: 'Vendor', required: true, width: 'w-36' },
-    { key: 'dueDate', label: 'Due Date', width: 'w-28' },
-    { key: 'accountName', label: 'Expense Account', required: true, width: 'w-36' },
-    { key: 'description', label: 'Description', width: 'w-40' },
-    { key: 'amount', label: 'Amount', required: true, width: 'w-24' },
+    { key: 'date', label: 'Bill Date', required: true, width: 'w-40' },
+    { key: 'invoiceNo', label: 'Vendor Inv #', width: 'w-28' },
+    { key: 'contactName', label: 'Vendor', required: true, width: 'w-56' },
+    { key: 'dueDate', label: 'Due Date', width: 'w-40' },
+    { key: 'accountName', label: 'Expense Account', required: true, width: 'w-56' },
+    { key: 'description', label: 'Description', width: 'w-56' },
+    { key: 'amount', label: 'Amount', required: true, width: 'w-32' },
   ],
   credit_memo: [
-    { key: 'date', label: 'Date', required: true, width: 'w-28' },
-    { key: 'contactName', label: 'Customer', required: true, width: 'w-36' },
-    { key: 'accountName', label: 'Account', required: true, width: 'w-36' },
-    { key: 'description', label: 'Description', width: 'w-40' },
-    { key: 'amount', label: 'Amount', required: true, width: 'w-24' },
+    { key: 'date', label: 'Date', required: true, width: 'w-40' },
+    { key: 'contactName', label: 'Customer', required: true, width: 'w-56' },
+    { key: 'accountName', label: 'Account', required: true, width: 'w-56' },
+    { key: 'description', label: 'Description', width: 'w-56' },
+    { key: 'amount', label: 'Amount', required: true, width: 'w-32' },
   ],
   journal_entry: [
-    { key: 'date', label: 'Date', required: true, width: 'w-28' },
-    { key: 'refNo', label: 'Ref No.', width: 'w-20' },
-    { key: 'accountName', label: 'Account', required: true, width: 'w-36' },
-    { key: 'contactName', label: 'Name', width: 'w-36' },
-    { key: 'memo', label: 'Memo', width: 'w-48' },
-    { key: 'debit', label: 'Debit', width: 'w-24' },
-    { key: 'credit', label: 'Credit', width: 'w-24' },
+    { key: 'date', label: 'Date', required: true, width: 'w-40' },
+    { key: 'refNo', label: 'Ref No.', width: 'w-28' },
+    { key: 'accountName', label: 'Account', required: true, width: 'w-56' },
+    { key: 'contactName', label: 'Name', width: 'w-56' },
+    { key: 'memo', label: 'Memo', width: 'w-56' },
+    { key: 'debit', label: 'Debit', width: 'w-32' },
+    { key: 'credit', label: 'Credit', width: 'w-32' },
   ],
   customer_payment: [
-    { key: 'date', label: 'Date', required: true, width: 'w-28' },
-    { key: 'contactName', label: 'Customer', required: true, width: 'w-36' },
-    { key: 'invoiceNo', label: 'Invoice No.', width: 'w-24' },
-    { key: 'amount', label: 'Amount', required: true, width: 'w-24' },
-    { key: 'refNo', label: 'Ref No.', width: 'w-20' },
-    { key: 'memo', label: 'Memo', width: 'w-48' },
+    { key: 'date', label: 'Date', required: true, width: 'w-40' },
+    { key: 'contactName', label: 'Customer', required: true, width: 'w-56' },
+    { key: 'invoiceNo', label: 'Invoice No.', width: 'w-28' },
+    { key: 'amount', label: 'Amount', required: true, width: 'w-32' },
+    { key: 'refNo', label: 'Ref No.', width: 'w-28' },
+    { key: 'memo', label: 'Memo', width: 'w-56' },
   ],
 };
+
+// One control size for every grid cell — the same 38px (text-sm / py-2 /
+// rounded-lg / gray-300) the shared account, contact and tag pickers use,
+// so typed cells and dropdowns line up across the row.
+const GRID_INPUT = 'block w-full h-[38px] px-2 py-2 text-sm rounded-lg border focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500';
+// Error styling for cells whose control is a shared picker (they don't take
+// a border class), applied to the control from the wrapping cell.
+const PICKER_ERROR = '[&_input]:border-red-400 [&_input]:bg-red-50 [&_button]:border-red-400 [&_button]:bg-red-50';
+
+// The date on the nearest row above that has one ('' when none).
+function previousDate(rows: GridRow[], rowIdx: number): string {
+  for (let i = rowIdx - 1; i >= 0; i--) if (rows[i]?.date) return rows[i]!.date;
+  return '';
+}
+
+// A row is real entry data when anything besides its date is filled — a
+// date alone is just the inherited default and must not be validated or
+// saved (it would fail "Amount is required").
+function hasContent(r: GridRow): boolean {
+  return !!(r.refNo || r.contactId || r.contactName || r.accountId || r.accountName || r.memo
+    || r.amount || r.debit || r.credit || r.description || r.dueDate || r.invoiceNo || r.tagId);
+}
 
 function emptyRow(n: number): GridRow {
   return { rowNumber: n, date: '', refNo: '', contactName: '', contactId: '', accountName: '', accountId: '', memo: '', amount: '', debit: '', credit: '', description: '', dueDate: '', invoiceNo: '', tagId: '' };
@@ -200,10 +222,15 @@ export function BatchEntryPage() {
   const columns = useMemo(() => {
     let cols = baseColumns;
     if (!columnPrefs.showMemo) cols = cols.filter((c) => c.key !== 'memo');
-    if (columnPrefs.showTag)   cols = [...cols, { key: 'tagId' as GridStringField, label: 'Tag', width: 'w-40' }];
+    if (columnPrefs.showTag)   cols = [...cols, { key: 'tagId' as GridStringField, label: 'Tag', width: 'w-44' }];
     return cols;
   }, [baseColumns, columnPrefs]);
   const needsAccount = txnTypes.find((t) => t.value === txnType)?.needsAccount || false;
+  const missingContextAccount = needsAccount && !contextAccountId;
+  const contextAccountLabel =
+    txnType === 'credit_card_charge' || txnType === 'credit_card_credit' ? 'Credit card account'
+    : txnType === 'deposit' || txnType === 'customer_payment' ? 'Deposit to account'
+    : 'Bank account (paid from)';
 
   // ─── Spreadsheet-style keyboard navigation ───
   // Every editable cell is stamped with a `data-cell="{row}-{col}"`
@@ -262,10 +289,30 @@ export function BatchEntryPage() {
     setRows((prev) => {
       const next = [...prev];
       next[rowIdx] = { ...next[rowIdx]!, [key]: value };
+      // Starting a row without a date: take the previous row's date.
+      if (key !== 'date' && value && !next[rowIdx]!.date) {
+        const inherited = previousDate(next, rowIdx);
+        if (inherited) next[rowIdx] = { ...next[rowIdx]!, date: inherited };
+      }
       // Auto-extend when any field on the last row gets a value
       if (rowIdx >= next.length - 1 && value) {
         next.push(emptyRow(next.length + 1));
       }
+      return next;
+    });
+  };
+
+  // Entering an empty Date cell defaults it to the previous row's date
+  // (typed-over like any cell). No auto-extend: tabbing through blank rows
+  // must not grow the grid, and a date-only row counts as empty anyway.
+  const defaultDateFromPrevious = (rowIdx: number) => {
+    setRows((prev) => {
+      const r = prev[rowIdx];
+      if (!r || r.date) return prev;
+      const inherited = previousDate(prev, rowIdx);
+      if (!inherited) return prev;
+      const next = [...prev];
+      next[rowIdx] = { ...r, date: inherited };
       return next;
     });
   };
@@ -340,13 +387,17 @@ export function BatchEntryPage() {
 
   // Convert grid rows to batch API format, resolving IDs to names
   const prepareRows = (sourceRows: GridRow[]) =>
-    sourceRows.filter((r) => r.date || r.amount || r.contactId || r.accountId || r.contactName || r.accountName)
+    sourceRows.filter(hasContent)
       .map((r) => ({
         rowNumber: r.rowNumber,
         date: r.date,
         refNo: r.refNo,
         contactName: r.contactId ? (contactNameMap.get(r.contactId) || r.contactName) : r.contactName,
         accountName: r.accountId ? (accountNameMap.get(r.accountId) || r.accountName) : r.accountName,
+        // Picked ids are authoritative server-side; the names above are
+        // display / CSV fallbacks only.
+        contactId: r.contactId || null,
+        accountId: r.accountId || null,
         memo: r.memo,
         amount: parseFloat(r.amount) || undefined,
         debit: parseFloat(r.debit) || undefined,
@@ -383,6 +434,9 @@ export function BatchEntryPage() {
       rows: prepareRows(rows),
     }, {
       onSuccess: (result) => setShowResult(result),
+      // The server rejects the whole batch when any row is invalid; re-run
+      // validation so the offending rows / cells are marked in the grid.
+      onError: () => handleValidate(),
     });
   };
 
@@ -409,7 +463,7 @@ export function BatchEntryPage() {
     });
   };
 
-  const filledRows = rows.filter((r) => r.date || r.amount || r.debit || r.credit || r.contactId || r.accountId);
+  const filledRows = rows.filter(hasContent);
   const validCount = filledRows.filter((r) => r.status === 'valid' || r.status === 'warning').length;
   const invalidCount = filledRows.filter((r) => r.status === 'invalid').length;
   const batchTotal = filledRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
@@ -422,41 +476,47 @@ export function BatchEntryPage() {
       <h1 className="text-2xl font-bold text-gray-900">Batch Entry</h1>
 
       {/* Toolbar */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4 flex-wrap">
-        <select value={txnType} onChange={(e) => { setTxnType(e.target.value); setRows(Array.from({ length: 10 }, (_, i) => emptyRow(i + 1))); }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium">
-          {txnTypes.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
+      <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-end gap-4 flex-wrap">
+        <div>
+          <label htmlFor="batch-txn-type" className="block text-xs font-medium text-gray-600 mb-1">Transaction type</label>
+          <select id="batch-txn-type" value={txnType} onChange={(e) => { setTxnType(e.target.value); setRows(Array.from({ length: 10 }, (_, i) => emptyRow(i + 1))); }}
+            className="block h-[38px] w-56 rounded-lg border border-gray-300 px-3 py-2 text-sm">
+            {txnTypes.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
 
         {needsAccount && (
-          <div className="w-64">
+          <div className="w-72">
+            <span className="block text-xs font-medium text-gray-600 mb-1">
+              {contextAccountLabel}<span className="text-red-400 ml-0.5">*</span>
+            </span>
             <AccountSelector value={contextAccountId} onChange={setContextAccountId}
               label="" accountTypeFilter={['asset', 'liability']} required />
           </div>
         )}
 
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-500 pb-2.5">
           {filledRows.length} rows
           {validCount > 0 && <span className="text-green-600 ml-1">— {validCount} valid</span>}
           {invalidCount > 0 && <span className="text-red-600 ml-1">, {invalidCount} errors</span>}
         </span>
 
-        <div className="ml-auto flex gap-2">
-          <label className="flex items-center gap-1 text-xs text-gray-500">
+        <div className="ml-auto flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 mr-1">
             <input type="checkbox" checked={autoCreateContacts} onChange={(e) => setAutoCreateContacts(e.target.checked)} className="rounded" />
             Auto-add contacts
           </label>
 
           <label className="cursor-pointer">
             <input type="file" accept=".csv,.tsv,.txt" onChange={handleCsvImport} className="hidden" />
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">
-              <Upload className="h-3 w-3" /> CSV
+            <span className="inline-flex items-center gap-1.5 h-[38px] px-4 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+              <Upload className="h-4 w-4" /> CSV
             </span>
           </label>
 
           <div className="relative" ref={columnMenuRef}>
-            <Button variant="secondary" size="sm" onClick={() => setColumnMenuOpen((v) => !v)}>
-              <Columns className="h-3 w-3 mr-1" /> Columns
+            <Button variant="secondary" onClick={() => setColumnMenuOpen((v) => !v)}>
+              <Columns className="h-4 w-4 mr-1.5" /> Columns
             </Button>
             {columnMenuOpen && (
               <div className="absolute right-0 mt-2 z-20 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 text-sm">
@@ -481,17 +541,38 @@ export function BatchEntryPage() {
             )}
           </div>
 
-          <Button variant="secondary" size="sm" onClick={handleValidate} loading={validateBatch.isPending}>
+          <Button variant="secondary" onClick={handleValidate} loading={validateBatch.isPending}
+            disabled={missingContextAccount}>
             Validate
           </Button>
-          <Button size="sm" onClick={handleSave} loading={saveBatch.isPending}
-            disabled={needsAccount && !contextAccountId}>
+          <Button onClick={handleSave} loading={saveBatch.isPending}
+            disabled={missingContextAccount || filledRows.length === 0}
+            title={missingContextAccount ? `Choose the ${contextAccountLabel.toLowerCase()} first` : undefined}>
             Save All
           </Button>
         </div>
+        {/* Say WHY Save is disabled — an unexplained grey button read as
+            "saving doesn't work". */}
+        {missingContextAccount && filledRows.length > 0 && (
+          <p className="basis-full text-sm text-amber-700">
+            Choose the {contextAccountLabel.toLowerCase()} above before saving — every row posts against it.
+          </p>
+        )}
       </div>
 
+      {isJE && (
+        <p className="text-sm text-gray-600">
+          Lines with the same <span className="font-medium">Date</span> and <span className="font-medium">Ref No.</span> post
+          as one journal entry, and each entry's debits must equal its credits. A line with no Ref No. is its own entry.
+        </p>
+      )}
+
       {/* Validation errors */}
+      {validateBatch.error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+          {validateBatch.error.message}
+        </div>
+      )}
       {saveBatch.error && (
         <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
           {saveBatch.error.message}
@@ -500,13 +581,13 @@ export function BatchEntryPage() {
 
       {/* Grid */}
       <div ref={gridRef} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto" onPaste={handlePaste}>
-        <table className="min-w-full text-xs" style={{ borderCollapse: 'collapse' }}>
+        <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead className="bg-gray-100 sticky top-0 z-10 border-b border-gray-300">
             <tr>
               <th className="w-8 px-1 py-2.5 text-center text-gray-400 border-r border-gray-200">#</th>
               <th className="w-6 px-1 py-2.5 border-r border-gray-200" />
               {columns.map((col) => (
-                <th key={col.key} className={`${col.width} px-2 py-2.5 text-left text-gray-600 font-semibold text-[11px] uppercase tracking-wide border-r border-gray-200`}>
+                <th key={col.key} className={`${col.width} px-2 py-2.5 ${['amount', 'debit', 'credit'].includes(col.key) ? 'text-right' : 'text-left'} text-gray-600 font-semibold text-[11px] uppercase tracking-wide border-r border-gray-200`}>
                   {col.label}{col.required && <span className="text-red-400 ml-0.5">*</span>}
                 </th>
               ))}
@@ -519,7 +600,7 @@ export function BatchEntryPage() {
               const errorFields = new Set(rowErrors.map((e) => e.field));
 
               return (
-                <tr key={rowIdx} className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} hover:bg-blue-50/30`} style={{ height: '34px' }}>
+                <tr key={rowIdx} className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} hover:bg-blue-50/30`}>
                   <td className="px-1 text-center text-gray-300 font-mono">{row.rowNumber}</td>
                   <td className="px-1 text-center">
                     {row.status === 'valid' && <Check className="h-3 w-3 text-green-500 inline" />}
@@ -529,17 +610,19 @@ export function BatchEntryPage() {
                   {columns.map((col, colIdx) => {
                     const hasError = errorFields.has(col.key) || errorFields.has(col.key.replace(/([A-Z])/g, '_$1').toLowerCase());
                     const cellError = rowErrors.find((e) => e.field === col.key || e.field === col.key.replace(/([A-Z])/g, '_$1').toLowerCase());
-                    const cellBorder = hasError ? 'border-red-400 bg-red-50' : 'border-gray-200';
+                    const cellBorder = hasError ? 'border-red-400 bg-red-50' : 'border-gray-300';
 
                     // Tag picker cell — single-select, empty string
                     // in row state means "no tag".
                     if (col.key === 'tagId') {
                       return (
-                        <td key={col.key} className="px-px" title={cellError?.message}>
+                        <td key={col.key} className={`px-0.5 py-0.5 ${hasError ? PICKER_ERROR : ''}`} title={cellError?.message}>
                           <LineTagPicker
                             value={row.tagId || null}
                             onChange={(id) => updateCell(rowIdx, 'tagId', id ?? '')}
                             compact
+                            dataCell={`${rowIdx}-${colIdx}`}
+                            onNavigate={(dir) => moveFocus(rowIdx, colIdx, dir)}
                           />
                         </td>
                       );
@@ -549,7 +632,7 @@ export function BatchEntryPage() {
                     if (col.key === 'contactName') {
                       const isCustomer = ['invoice', 'credit_memo', 'customer_payment'].includes(txnType);
                       return (
-                        <td key={col.key} className="px-px" title={cellError?.message}>
+                        <td key={col.key} className={`px-0.5 py-0.5 ${hasError ? PICKER_ERROR : ''}`} title={cellError?.message}>
                           <ContactSelector
                             value={row.contactId}
                             onChange={(id) => { updateCell(rowIdx, 'contactId', id); }}
@@ -568,7 +651,7 @@ export function BatchEntryPage() {
                       // Category column is unrestricted — a batch line may post
                       // to any account type.
                       return (
-                        <td key={col.key} className="px-px" title={cellError?.message}>
+                        <td key={col.key} className={`px-0.5 py-0.5 ${hasError ? PICKER_ERROR : ''}`} title={cellError?.message}>
                           <AccountSelector
                             value={row.accountId}
                             onChange={(id) => { updateCell(rowIdx, 'accountId', id); }}
@@ -586,7 +669,7 @@ export function BatchEntryPage() {
                     // keys (Enter / Tab / arrows) navigate exactly as before.
                     if (col.key === 'amount' || col.key === 'debit' || col.key === 'credit') {
                       return (
-                        <td key={col.key} className="px-px" title={cellError?.message}>
+                        <td key={col.key} className="px-0.5 py-0.5" title={cellError?.message}>
                           <NumericInput
                             data-cell={`${rowIdx}-${colIdx}`}
                             aria-label={`Row ${rowIdx + 1} ${col.label}`}
@@ -597,14 +680,13 @@ export function BatchEntryPage() {
                             value={row[col.key] || ''}
                             onChange={(v) => updateCell(rowIdx, col.key, v)}
                             onKeyDown={(e) => handleCellKey(e, rowIdx, colIdx, false)}
-                            className={`w-full px-1.5 py-1 rounded border text-xs ${cellBorder}
-                            focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 text-right font-mono`}
+                            className={`${GRID_INPUT} ${cellBorder} text-right font-mono`}
                           />
                         </td>
                       );
                     }
                     return (
-                      <td key={col.key} className="px-px" title={cellError?.message}>
+                      <td key={col.key} className="px-0.5 py-0.5" title={cellError?.message}>
                         <input
                           data-cell={`${rowIdx}-${colIdx}`}
                           value={row[col.key] || ''}
@@ -618,17 +700,18 @@ export function BatchEntryPage() {
                             }
                             handleCellKey(e, rowIdx, colIdx, isDateCell);
                           }}
+                          onFocus={col.key === 'date' ? () => defaultDateFromPrevious(rowIdx) : undefined}
                           type={isDateCell ? 'date' : 'text'}
                           title={isDateCell ? 'Shortcuts: t=today, +/− day, m/h month start/end, y/r year start/end, w/k week start/end' : undefined}
-                          className={`w-full px-1.5 py-1 rounded border text-xs ${cellBorder}
-                          focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500`}
+                          aria-label={`Row ${rowIdx + 1} ${col.label}`}
+                          className={`${GRID_INPUT} ${cellBorder}`}
                         />
                       </td>
                     );
                   })}
                   <td className="px-1">
-                    <button onClick={() => deleteRow(rowIdx)} className="text-gray-300 hover:text-red-500">
-                      <Trash2 className="h-3 w-3" />
+                    <button type="button" tabIndex={-1} onClick={() => deleteRow(rowIdx)} aria-label={`Delete row ${rowIdx + 1}`} className="text-gray-300 hover:text-red-500">
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>
@@ -636,13 +719,18 @@ export function BatchEntryPage() {
             })}
           </tbody>
           <tfoot className="bg-gray-50 border-t-2 font-medium">
+            {/* One footer cell per column so each total sits under its own
+                column (Amount isn't always last: Customer Payments, Tag). */}
             <tr>
-              <td colSpan={2 + columns.length - 1} className="px-2 py-2 text-right text-gray-600">
-                Total:
-              </td>
-              <td className="px-2 py-2 text-right font-mono">
-                {isJE ? `D: $${totalDebits.toFixed(2)} | C: $${totalCredits.toFixed(2)}` : `$${batchTotal.toFixed(2)}`}
-              </td>
+              <td colSpan={2} className="px-2 py-2 text-sm text-gray-600">Total</td>
+              {columns.map((col) => (
+                <td key={col.key} className="px-2 py-2 text-right text-sm font-mono">
+                  {col.key === 'amount' ? `$${batchTotal.toFixed(2)}`
+                    : col.key === 'debit' ? `$${totalDebits.toFixed(2)}`
+                    : col.key === 'credit' ? `$${totalCredits.toFixed(2)}`
+                    : ''}
+                </td>
+              ))}
               <td />
             </tr>
           </tfoot>
