@@ -402,5 +402,7 @@ Available only when the engine runs with `CL_MODE=desktop`. Every request in des
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/desktop/initialize` | First run: create the owner account and first company (no `.env`, no sentinel) |
-| GET | `/api/v1/desktop/info` | Mode, queue backend, data dir, database role, initialized |
+| POST | `/api/v1/desktop/initialize` | First run: create the hidden workspace tenant, the owner account (homed in the workspace) and, optionally, the first company. Returns `{workspaceTenantId, userId, companyTenantId, warnings}` (no `.env`, no sentinel) |
+| GET | `/api/v1/desktop/info` | Mode, queue backend, data dir, database role, initialized, `workspaceTenantId` |
+
+In desktop mode a session in the workspace tenant can use only `/api/v1/auth/*`, `/api/v1/tenants*`, `/api/v1/tenant-archives*` and `/api/v1/desktop/*`; everything else is 409 `WORKSPACE_TENANT`. Register, create-client, `/api/v1/backup` (except `passphrase-strength`), `/api/v1/tenant-export` and the destructive admin tenant routes are not available. See [DESKTOP.md](DESKTOP.md#workspace-tenant).
