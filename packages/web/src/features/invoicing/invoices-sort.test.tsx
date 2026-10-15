@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Invoices list: the page's column keys map onto the transactions
 // endpoint's sort keys (Customer → payee); Status and Customer header

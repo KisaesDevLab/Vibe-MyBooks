@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Main-window side of the popout drill-down contract (6B.6): the
 // popout posts focus-account messages on the company's tb channel;

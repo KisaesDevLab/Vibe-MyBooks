@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Bank Feed "Sort by": the dropdown and the direction toggle drive the
 // server-side sort (the list paginates, so ordering must be in the query),

@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Tab 3 — what clients answered from the portal. Nothing here has posted.
 // Approving runs the same primitives the rest of the app uses, so a locked

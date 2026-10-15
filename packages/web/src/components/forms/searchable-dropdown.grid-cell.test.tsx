@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Grid navigation (Batch Entry): the grid moves focus by querying
 // `[data-cell="r-c"]`. The dropdown must stamp that coordinate on its input

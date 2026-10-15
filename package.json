@@ -30,7 +30,7 @@
     "packages/api/src/db/migrations/*.sql": "bash scripts/check-migration-policy.sh",
     "**/package.json": "bash scripts/license-audit.sh --quiet"
   },
-  "license": "PolyForm-Small-Business-1.0.0",
+  "license": "PolyForm-Internal-Use-1.0.0",
   "author": "Kisaes LLC",
   "engines": {
     "node": ">=24.0.0"

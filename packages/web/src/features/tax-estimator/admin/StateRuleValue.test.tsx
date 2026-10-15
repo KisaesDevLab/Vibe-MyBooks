@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Q53: the new state rule keys render on Admin -> Tax parameters -> States (bracket tables) and edit as JSON.
 import { describe, it, expect } from 'vitest';

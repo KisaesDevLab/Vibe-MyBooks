@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Deep-link guard for /tb/financial-statements/* (TbLayout already
 // enforces TRIAL_BALANCE_V1 + staff); this adds FINANCIAL_STATEMENTS_V1.

@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // AI parameter check hooks (super admin, OPEN-QUESTIONS Q48). All responses are `{ data: ... }`.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

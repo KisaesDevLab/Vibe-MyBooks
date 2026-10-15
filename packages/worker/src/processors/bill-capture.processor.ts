@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Bill Capture BullMQ worker. Runs the bill-OCR pipeline for one uploaded
 // vendor bill per job so it survives an API restart and is concurrency-

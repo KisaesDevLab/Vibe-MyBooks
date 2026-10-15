@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // BullMQ worker for the `tax-param-ai-check` queue: one job per tax_param_ai_check_runs row
 // (Tax Estimator AI parameter check, OPEN-QUESTIONS Q48). The run itself lives in the API

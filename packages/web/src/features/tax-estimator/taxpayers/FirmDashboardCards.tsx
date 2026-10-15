@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Tax Estimator home — firm-wide cards (OPEN-QUESTIONS.md Q52): "Vouchers due in the next 30
 // days" and "Behind on payments" across every taxpayer the caller may see (D17 / D18, decided

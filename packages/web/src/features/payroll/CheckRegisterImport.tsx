@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Standalone check-register import (e.g. Payroll Relief Checks.csv): every
 // row posts as a check — CR the bank, DR an offset account. Each side is

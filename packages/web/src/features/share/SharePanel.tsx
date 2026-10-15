@@ -1,6 +1,6 @@
 // Copyright 2026 Kisaes LLC
-// Licensed under the PolyForm Small Business License 1.0.0.
-// Free for small businesses; see LICENSE for terms.
+// Licensed under the PolyForm Internal Use License 1.0.0.
+// See LICENSE for terms.
 
 // Sharer-side UI for peer screen share (Phase 9 + 11 sharer half):
 // header entry point, pre-share consent modal, join-code display, per-viewer
