@@ -4,7 +4,7 @@
 # See LICENSE for terms.
 # =============================================================================
 # license-audit.sh — Automated license compliance audit for Vibe MyBooks
-# License: PolyForm Small Business 1.0.0 (SEE LICENSE IN LICENSE)
+# License: PolyForm Internal Use 1.0.0 (SEE LICENSE IN LICENSE)
 #
 # Usage:  ./scripts/license-audit.sh [--quiet] [--json]
 #   --quiet   Suppress passing checks; show only warnings and failures
@@ -51,7 +51,7 @@ header "1. Required project files"
 if [[ -f "$ROOT/LICENSE" ]]; then
   pass "LICENSE file present"
 else
-  fail "LICENSE file MISSING — required for PolyForm Small Business compliance"
+  fail "LICENSE file MISSING — required for PolyForm Internal Use compliance"
   bump_fail
 fi
 
@@ -199,7 +199,7 @@ else
   warn "license-policy.json not found or node unavailable"
 fi
 
-info "PolyForm Small Business requirements:"
+info "PolyForm Internal Use requirements:"
 POLICY_PATH="$POLICY" node -e '
   const p = require(process.env.POLICY_PATH);
   const r = p.polyformRequirements || {};

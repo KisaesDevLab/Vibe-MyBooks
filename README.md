@@ -4,7 +4,7 @@
 
 A self-hosted, source-available bookkeeping application for solo entrepreneurs, freelancers, and CPA firms. Ships as a single Docker Compose appliance with everything you need to manage your books.
 
-**License:** PolyForm Small Business 1.0.0 | **Author:** [Kisaes LLC](https://kisaes.com)
+**License:** PolyForm Internal Use 1.0.0 | **Author:** [Kisaes LLC](https://kisaes.com)
 
 ---
 
@@ -329,7 +329,7 @@ Key settings:
 
 ## License Compliance
 
-Vibe MyBooks ships under the PolyForm Small Business License 1.0.0. Every dependency is scanned to ensure no incompatible licenses (GPL-2.0, AGPL, SSPL, proprietary) enter the tree. The policy is enforced on every pull request and on a weekly schedule.
+Vibe MyBooks ships under the PolyForm Internal Use License 1.0.0. Every dependency is scanned to ensure no incompatible licenses (GPL-2.0, AGPL, SSPL, proprietary) enter the tree. The policy is enforced on every pull request and on a weekly schedule.
 
 **Run the audit locally:**
 

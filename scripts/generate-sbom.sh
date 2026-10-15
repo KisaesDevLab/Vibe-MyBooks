@@ -5,7 +5,7 @@
 # =============================================================================
 # generate-sbom.sh — Produce a CycloneDX SBOM and a flat license inventory
 #                    for Vibe MyBooks.
-# License: PolyForm Small Business 1.0.0 (SEE LICENSE IN LICENSE)
+# License: PolyForm Internal Use 1.0.0 (SEE LICENSE IN LICENSE)
 #
 # Outputs:
 #   scripts/sbom.cdx.json          — CycloneDX 1.5 JSON (all workspaces)
