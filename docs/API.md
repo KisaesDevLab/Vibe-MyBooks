@@ -396,3 +396,11 @@ Available only when the installation sentinel blocks normal startup.
 | GET | `/api/diagnostic/status` | Get diagnostic status and block reason |
 | POST | `/api/diagnostic/recover-env` | Recover env from recovery key |
 | POST | `/api/diagnostic/regenerate-sentinel` | Regenerate sentinel (requires admin credentials) |
+
+## Desktop (Desktop Mode Only)
+Available only when the engine runs with `CL_MODE=desktop`. Every request in desktop mode, `/health` included, needs the `X-CL-Token` launch token. See [DESKTOP.md](DESKTOP.md).
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/desktop/initialize` | First run: create the owner account and first company (no `.env`, no sentinel) |
+| GET | `/api/v1/desktop/info` | Mode, queue backend, data dir, database role, initialized |
