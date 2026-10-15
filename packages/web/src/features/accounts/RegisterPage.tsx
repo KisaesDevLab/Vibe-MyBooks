@@ -353,12 +353,12 @@ export function RegisterPage() {
             )}
 
             {lines.length === 0 && (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">No transactions found for this period.</td></tr>
+              <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">No transactions found for this period.</td></tr>
             )}
           </tbody>
           <tfoot className="bg-gray-50 font-medium border-t-2">
             <tr>
-              <td colSpan={5} className="px-2 py-2 text-gray-700">
+              <td colSpan={6} className="px-2 py-2 text-gray-700">
                 Showing {lines.length} of {pagination.totalRows} transactions
               </td>
               <td className="px-2 py-2 text-right font-mono">{totalPayments > 0 && fmt(totalPayments)}</td>
