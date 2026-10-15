@@ -78,6 +78,8 @@ export function ReportBuilderPage() {
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [instances, setInstances] = useState<Instance[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Confirmation after a publish that emailed the client (who got it).
+  const [notice, setNotice] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
   const [showFormula, setShowFormula] = useState(false);
@@ -329,6 +331,12 @@ export function ReportBuilderPage() {
           {error}
         </div>
       )}
+      {notice && (
+        <div className="mb-3 p-3 border border-green-200 bg-green-50 rounded-md text-sm text-green-800 flex items-start justify-between gap-3">
+          <span className="flex-1">{notice}</span>
+          <button onClick={() => setNotice(null)} aria-label="Dismiss" className="font-bold leading-none">×</button>
+        </div>
+      )}
 
       <h2 className="text-base font-semibold text-gray-900 mb-2">Templates</h2>
       {!templates ? (
@@ -570,8 +578,9 @@ export function ReportBuilderPage() {
             // a stale status. Two GETs, cheap.
             reload();
           }}
-          onPublished={() => {
+          onPublished={(message) => {
             setPreviewInstanceId(null);
+            setNotice(message ?? null);
             reload();
           }}
         />
@@ -1021,6 +1030,29 @@ interface InstanceDetail {
   version: number;
 }
 
+interface NoticeRecipient {
+  contactId: string;
+  name: string;
+  email: string;
+}
+
+interface NoticeResult {
+  results: Array<{ contactId: string; name: string; outcome: 'sent' | 'suppressed' | 'error'; error?: string }>;
+  error?: string;
+}
+
+// One-line summary of the publish notice for the confirmation banner.
+function describeNotice(n: NoticeResult): string {
+  if (n.error) return `Published, but the client notice was not sent: ${n.error}`;
+  const sent = n.results.filter((r) => r.outcome === 'sent').map((r) => r.name);
+  const optedOut = n.results.filter((r) => r.outcome === 'suppressed').map((r) => r.name);
+  const failed = n.results.filter((r) => r.outcome === 'error').map((r) => r.name);
+  const parts = [sent.length > 0 ? `Published and notified ${sent.join(', ')}.` : 'Published — no notice was sent.'];
+  if (optedOut.length > 0) parts.push(`Skipped (opted out): ${optedOut.join(', ')}.`);
+  if (failed.length > 0) parts.push(`Failed: ${failed.join(', ')}.`);
+  return parts.join(' ');
+}
+
 function ReportPreviewModal({
   instanceId,
   onClose,
@@ -1028,7 +1060,7 @@ function ReportPreviewModal({
 }: {
   instanceId: string;
   onClose: () => void;
-  onPublished: () => void;
+  onPublished: (message?: string) => void;
 }) {
   const { companies } = useCompanyContext();
   const [instance, setInstance] = useState<InstanceDetail | null>(null);
@@ -1036,6 +1068,10 @@ function ReportPreviewModal({
   const [error, setError] = useState<string | null>(null);
   const [computing, setComputing] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  // Opt-in client notice: portal contacts with Financials access to this
+  // company. Off by default — emailing the client is a deliberate choice.
+  const [notifyClients, setNotifyClients] = useState(false);
+  const [recipients, setRecipients] = useState<NoticeRecipient[] | null>(null);
   const [editingLayout, setEditingLayout] = useState(false);
   // FM2 — count of inline editors (KPI cells / text sections) currently
   // open with an uncommitted draft. Closing the modal while > 0 asks for
@@ -1071,6 +1107,14 @@ function ReportPreviewModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instanceId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    api<{ recipients: NoticeRecipient[] }>(`/practice/reports/instances/${instanceId}/notice-recipients`)
+      .then((r) => { if (!cancelled) setRecipients(Array.isArray(r?.recipients) ? r.recipients : []); })
+      .catch(() => { if (!cancelled) setRecipients([]); });
+    return () => { cancelled = true; };
+  }, [instanceId]);
+
   const compute = async () => {
     setComputing(true);
     setError(null);
@@ -1097,21 +1141,24 @@ function ReportPreviewModal({
     setPublishing(true);
     setError(null);
     try {
+      const sendNotice = notifyClients && (recipients?.length ?? 0) > 0;
       const result = await api<{
         ok: true;
         pdfRendered: boolean;
         pdfError: string | null;
+        notice?: NoticeResult;
       }>(`/practice/reports/instances/${instanceId}/status`, {
         method: 'POST',
-        body: JSON.stringify({ status: 'published' }),
+        body: JSON.stringify({ status: 'published', ...(sendNotice ? { notifyClients: true } : {}) }),
       });
+      const noticeText = result.notice ? describeNotice(result.notice) : undefined;
       if (!result.pdfRendered && result.pdfError) {
-        setError(`Published, but PDF render failed: ${result.pdfError}`);
+        setError(`Published, but PDF render failed: ${result.pdfError}${noticeText ? ` ${noticeText}` : ''}`);
         setPublishing(false);
         await reload();
         return;
       }
-      onPublished();
+      onPublished(noticeText);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Publish failed.');
       setPublishing(false);
@@ -1217,6 +1264,30 @@ function ReportPreviewModal({
               <span className="text-[11px] text-gray-500 px-2 py-1 rounded bg-gray-100">
                 v{instance.version} · published — read only
               </span>
+            )}
+            {instance && instance.status !== 'published' && (
+              <label
+                className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md ${
+                  recipients && recipients.length > 0 ? 'text-gray-700' : 'text-gray-400'
+                }`}
+                title={
+                  recipients === null
+                    ? 'Loading portal contacts…'
+                    : recipients.length === 0
+                      ? 'No active portal contact has Financials access to this client'
+                      : `Emails: ${recipients.map((r) => `${r.name} <${r.email}>`).join(', ')}`
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={notifyClients && (recipients?.length ?? 0) > 0}
+                  disabled={publishing || !recipients || recipients.length === 0}
+                  onChange={(e) => setNotifyClients(e.target.checked)}
+                  className="h-3.5 w-3.5"
+                />
+                Notify client
+                {recipients && recipients.length > 0 ? ` (${recipients.length})` : recipients ? ' (none)' : ''}
+              </label>
             )}
             {instance && instance.status !== 'published' && (
               <button
