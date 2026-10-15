@@ -408,6 +408,7 @@ import { computeHealth } from './utils/health.js';
 import { readSchemaInfo } from './startup/schema-info.js';
 import { readDbRole } from './startup/db-role.js';
 import { getCurrentVersion } from './services/updates.service.js';
+import { connectivityState } from './utils/offline.js';
 
 const healthHandler = async (_req: express.Request, res: express.Response) => {
   const t0 = Date.now();
@@ -457,6 +458,7 @@ const healthHandler = async (_req: express.Request, res: express.Response) => {
     queueBackend: desktopProfile().queueBackend,
     version: getCurrentVersion(),
     engineCommit: env.ENGINE_COMMIT ?? null,
+    connectivity: connectivityState,
   });
 
   if (httpStatus === 200) {
