@@ -47,19 +47,19 @@ import { startReportPackWorker } from './processors/report-pack.processor.js';
 import { startTaxParamAiCheckWorker } from './processors/tax-param-ai-check.processor.js';
 import { checkPdftoppmAvailable } from '../../api/src/services/extraction/pdf-render.service.js';
 import { healthCheck as extractionHealthCheck } from '../../api/src/services/extraction/qwen-client.service.js';
-import type { Worker } from 'bullmq';
+import type { WorkerHandle } from '../../api/src/queue/job-queue.js';
 
 const startedAt = new Date().toISOString();
 console.log(`[Worker] Vibe MyBooks worker starting at ${startedAt}`);
 
-// Handles for the document-extraction BullMQ workers (when enabled), closed
-// on graceful shutdown so their Redis connections drain cleanly.
-let docRenderWorker: Worker | null = null;
-let docExtractWorker: Worker | null = null;
-let statementParseWorker: Worker | null = null;
-let billCaptureWorker: Worker | null = null;
-let reportPackWorker: Worker | null = null;
-let taxParamAiCheckWorker: Worker | null = null;
+// Handles for the queue workers (JobQueue; BullMQ on the server), closed
+// on graceful shutdown so in-flight jobs finish and connections drain cleanly.
+let docRenderWorker: WorkerHandle | null = null;
+let docExtractWorker: WorkerHandle | null = null;
+let statementParseWorker: WorkerHandle | null = null;
+let billCaptureWorker: WorkerHandle | null = null;
+let reportPackWorker: WorkerHandle | null = null;
+let taxParamAiCheckWorker: WorkerHandle | null = null;
 
 try {
   startBackupScheduler();
@@ -79,23 +79,23 @@ try {
   // Report-pack render worker — always on (bulk PDF export is a core
   // reports feature). One Chromium per job, merged with pdf-lib, uploaded
   // as a transient artifact swept by report-pack-sweep-scheduler.
-  reportPackWorker = startReportPackWorker();
+  reportPackWorker = await startReportPackWorker();
   console.log('[Worker] Report-pack worker registered: report-pack');
 
   // Tax Estimator AI parameter check runs (super admin, OPEN-QUESTIONS Q48). Always on; idle
   // unless a super admin starts a check. The API runs a run in-process if no worker claims it.
-  taxParamAiCheckWorker = startTaxParamAiCheckWorker();
+  taxParamAiCheckWorker = await startTaxParamAiCheckWorker();
   console.log('[Worker] Tax-param AI check worker registered: tax-param-ai-check');
 
   // Statement-parse BullMQ worker — always on (statement import is a core
   // feature). Running the detect→OCR→extract→reconcile pipeline here means it
   // survives an API restart and is concurrency-capped. The API falls back to
   // in-process only if it can't reach the queue.
-  statementParseWorker = startStatementParseWorker();
+  statementParseWorker = await startStatementParseWorker();
   console.log('[Worker] Statement-parse worker registered: statement-parse');
   // Bill Capture BullMQ worker — always on; runs the bill-OCR pipeline for
   // uploaded vendor bills. Same in-process API fallback as statement-parse.
-  billCaptureWorker = startBillCaptureWorker();
+  billCaptureWorker = await startBillCaptureWorker();
   console.log('[Worker] Bill-capture worker registered: bill-capture');
   // The statement pipeline rasterizes scanned PDFs here via pdftoppm — probe at
   // boot so a missing poppler is visible immediately, not on the first upload.
@@ -107,8 +107,8 @@ try {
   // when the feature is enabled so a deployment that doesn't use local
   // document extraction opens no extra Redis connections.
   if (env.DOCUMENT_EXTRACTION_V1) {
-    docRenderWorker = startDocRenderWorker();
-    docExtractWorker = startDocExtractWorker();
+    docRenderWorker = await startDocRenderWorker();
+    docExtractWorker = await startDocExtractWorker();
     console.log('[Worker] Document-extraction workers registered: doc-render, doc-extract');
     // Boot-time health probes so a missing poppler / unloaded model is
     // visible immediately rather than on the first upload. Best-effort.
