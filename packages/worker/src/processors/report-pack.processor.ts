@@ -2,38 +2,20 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-// BullMQ worker for the `report-pack` queue: one job per report_pack_runs row.
+// Worker for the `report-pack` queue: one job per report_pack_runs row.
 // The generation itself lives in the API package (report-pack-generate.service)
 // so it can also run inline in the API when no worker/Redis is available; this
 // processor is just the queue wiring around it.
+//
+// The handler is shared with the desktop in-process worker (api
+// queue/handlers.ts); the backend (BullMQ on the server), concurrency, retries
+// and log lines come from the JobQueue and its spec (api queue/specs.ts).
 
-import { Worker, type Job } from 'bullmq';
-import {
-  REPORT_PACK_QUEUE,
-  makeRedisConnection,
-  type ReportPackJobData,
-} from '../../../api/src/services/extraction/queue.js';
-import { generateReportPackRun } from '../../../api/src/services/report-pack-generate.service.js';
+import { REPORT_PACK_QUEUE } from '../../../api/src/services/extraction/queue.js';
+import { getJobQueue } from '../../../api/src/queue/index.js';
+import { JOB_HANDLERS } from '../../../api/src/queue/handlers.js';
+import type { WorkerHandle } from '../../../api/src/queue/job-queue.js';
 
-export function startReportPackWorker(): Worker<ReportPackJobData> {
-  const worker = new Worker<ReportPackJobData>(
-    REPORT_PACK_QUEUE,
-    async (job: Job<ReportPackJobData>) => {
-      await generateReportPackRun(job.data.runId);
-    },
-    {
-      connection: makeRedisConnection(),
-      concurrency: 1,
-    },
-  );
-
-  // Operator-visible proof the worker (not the API fallback) ran the job.
-  worker.on('completed', (job) => {
-    console.log(`[report-pack] job ${job.id} completed in worker (${(job.finishedOn ?? Date.now()) - (job.processedOn ?? job.timestamp)} ms)`);
-  });
-
-  worker.on('failed', (job, err) => {
-    console.error(`[report-pack] job ${job?.id ?? '?'} failed: ${err?.message ?? err}`);
-  });
-  return worker;
+export async function startReportPackWorker(): Promise<WorkerHandle> {
+  return (await getJobQueue()).work(REPORT_PACK_QUEUE, JOB_HANDLERS[REPORT_PACK_QUEUE]);
 }
