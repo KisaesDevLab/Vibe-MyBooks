@@ -255,8 +255,6 @@ Every Redis touchpoint checks `redisEnabled()`. That function is always true for
   "schemaVersion": 216 | null,       // applied migrations
   "schemaTag": "0215_…" | null,      // newest applied migration (journal tag)
   "queueBackend": "bullmq" | "pgboss" | "none",
-  "online": null,                    // no connectivity probe yet
-  "lastOnlineCheck": null
   "online": true | false | null,     // last connectivity probe (see Offline); null = never probed
   "lastOnlineCheck": "ISO-8601" | null
 }
