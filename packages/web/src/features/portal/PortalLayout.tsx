@@ -31,6 +31,8 @@ export interface PortalMe {
       billUploadAccess?: boolean;
       /** TAX_ESTIMATOR_V1 — the contact may see linked taxpayers' estimates. */
       taxEstimatesAccess?: boolean;
+      /** Live Profit & Loss with drill-down and ask-a-question. */
+      profitLossAccess?: boolean;
     }>;
   };
   preview: {

@@ -263,6 +263,7 @@ const PortalBillsPage = lazyNamed(() => import('./features/portal/PortalBillsPag
 const PortalCategorizePage = lazyNamed(() => import('./features/portal/PortalCategorizePage'), 'PortalCategorizePage');
 const PortalBillUploadPage = lazyNamed(() => import('./features/portal/PortalBillUploadPage'), 'PortalBillUploadPage');
 const PortalTaxEstimatesPage = lazyNamed(() => import('./features/portal/PortalTaxEstimatesPage'), 'PortalTaxEstimatesPage');
+const PortalProfitLossPage = lazyNamed(() => import('./features/portal/PortalProfitLossPage'), 'PortalProfitLossPage');
 const RemindersPage = lazyNamed(() => import('./features/practice/reminders/RemindersPage'), 'RemindersPage');
 const ReportBuilderPage = lazyNamed(() => import('./features/practice/report-builder/ReportBuilderPage'), 'ReportBuilderPage');
 // 3-tier rules plan, Phase 1 — firm admin pages.
@@ -407,6 +408,7 @@ export function App() {
             <Route path="categorize" element={<PortalCategorizePage />} />
             <Route path="bill-upload" element={<PortalBillUploadPage />} />
             <Route path="tax-estimates" element={<PortalTaxEstimatesPage />} />
+            <Route path="profit-loss" element={<PortalProfitLossPage />} />
           </Route>
 
           {/* Setup wizard */}

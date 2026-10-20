@@ -779,6 +779,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
     bankRepairAccess: boolean;
     billUploadAccess: boolean;
     taxEstimatesAccess: boolean;
+    profitLossAccess: boolean;
   }
   const [assignments, setAssignments] = useState<CoAssign[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -803,6 +804,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
         bankRepairAccess: c.bankRepairAccess ?? false,
         billUploadAccess: c.billUploadAccess ?? false,
         taxEstimatesAccess: c.taxEstimatesAccess ?? false,
+        profitLossAccess: c.profitLossAccess ?? false,
       })),
     );
     setHydrated(true);
@@ -829,6 +831,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
                 bankRepairAccess: false,
                 billUploadAccess: false,
                 taxEstimatesAccess: false,
+                profitLossAccess: false,
               },
             ]
         : prev.filter((a) => a.companyId !== id),
@@ -874,6 +877,7 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
           bankRepairAccess: a.bankRepairAccess,
           billUploadAccess: a.billUploadAccess,
           taxEstimatesAccess: a.taxEstimatesAccess,
+          profitLossAccess: a.profitLossAccess,
         })),
       });
       // Q51: send only the sections that changed (turning one on needs firm staff).
@@ -1001,6 +1005,11 @@ function EditContactModal({ contactId, onClose }: { contactId: string; onClose: 
                             label="Tax estimates"
                             checked={a.taxEstimatesAccess}
                             onChange={(v) => setFlag(c.id, 'taxEstimatesAccess', v)}
+                          />
+                          <FlagToggle
+                            label="Live profit & loss"
+                            checked={a.profitLossAccess}
+                            onChange={(v) => setFlag(c.id, 'profitLossAccess', v)}
                           />
                         </div>
                       )}

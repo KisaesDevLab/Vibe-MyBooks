@@ -36,6 +36,8 @@ export interface PortalContactCompanyLink {
   billUploadAccess?: boolean;
   /** TAX_ESTIMATOR_V1 — sees the estimate / vouchers of taxpayers linked to this company. */
   taxEstimatesAccess?: boolean;
+  /** Live Profit & Loss with drill-down and ask-a-question. */
+  profitLossAccess?: boolean;
 }
 
 export interface PortalContactDetail {
@@ -73,6 +75,7 @@ export interface CreatePortalContactInput {
     bankingAccess?: boolean;
     billPayAccess?: boolean;
     taxEstimatesAccess?: boolean;
+    profitLossAccess?: boolean;
   }>;
 }
 

@@ -64,6 +64,9 @@ export function PortalDashboardPage() {
   const taxEstimatesEnabled =
     !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.taxEstimatesAccess;
   const [taxEstimatesFeatureOff, setTaxEstimatesFeatureOff] = useState(false);
+  // Live Profit & Loss — per-contact grant from /me; the page is its own gate.
+  const profitLossEnabled =
+    !!me.contact.companies.find((c) => c.companyId === activeCompanyId)?.profitLossAccess;
 
   const [counts, setCounts] = useState<DashboardCounts>({
     openQuestions: null,
@@ -460,6 +463,17 @@ export function PortalDashboardPage() {
             <p className="text-sm font-medium text-gray-900">Pay bills</p>
             <p className="text-xs text-gray-500 mt-1">
               Review unpaid bills and queue checks for your firm to print.
+            </p>
+          </Link>
+        )}
+        {profitLossEnabled && (
+          <Link
+            to="/portal/profit-loss"
+            className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+          >
+            <p className="text-sm font-medium text-gray-900">Profit &amp; Loss</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Live income and expenses for any date range, with the transactions behind each line.
             </p>
           </Link>
         )}
