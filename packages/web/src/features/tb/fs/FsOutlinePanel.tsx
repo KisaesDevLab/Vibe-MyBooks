@@ -196,6 +196,7 @@ function NodeInspector({ node, statement, source, readOnly, onPatch, onStatement
     for (const k of Object.keys(next) as Array<keyof typeof next>) if (next[k] === undefined) delete next[k];
     patch({ style: Object.keys(next).length ? next : undefined });
   };
+  const isTopLevel = (allNodes(statement.body).find((x) => x.node.id === node.id)?.depth ?? 0) === 0;
   const isAnchor = (node.type === 'section' || node.type === 'total') && (!!node.role || !!(node as { anchor?: boolean }).anchor);
   const leafOptions = allNodes(statement.body).map((x) => x.node).filter((n) => n.type === 'leadsheet' || n.type === 'account');
   const termOptions = allNodes(statement.body).map((x) => x.node).filter((n) => n.id !== node.id && (n.type === 'section' || n.type === 'leadsheet' || n.type === 'account' || n.type === 'total'));
@@ -247,6 +248,12 @@ function NodeInspector({ node, statement, source, readOnly, onPatch, onStatement
             </select>
           </Field>
           {node.display === 'detail' && (
+            <div className="flex gap-4 text-xs">
+              <label className="flex items-center gap-1.5"><input type="checkbox" checked={node.showHeading ?? isTopLevel} onChange={(e) => patch({ showHeading: e.target.checked })} />Show heading</label>
+              <label className="flex items-center gap-1.5"><input type="checkbox" checked={node.showTotal ?? isTopLevel} onChange={(e) => patch({ showTotal: e.target.checked })} />Show total</label>
+            </div>
+          )}
+          {node.display === 'detail' && (node.showTotal ?? isTopLevel) && (
             <Field label="Total caption"><input className={input} placeholder={`Total ${(node.caption || 'detail').toLowerCase()}`} value={node.totalCaption ?? ''} onChange={(e) => patch({ totalCaption: e.target.value || undefined })} /></Field>
           )}
           {node.display === 'summary_with_schedule' && (
