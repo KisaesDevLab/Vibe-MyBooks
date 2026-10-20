@@ -72,10 +72,14 @@ export function BankDepositPage() {
           txnDate,
           depositToAccountId,
           memo: memo || undefined,
+          // Each line names the item it deposits (deposit grouping), so the
+          // engine takes it off the pending list and refuses a second deposit
+          // of it. Only when Payments Clearing exists: a link must sit on it.
           lines: selectedItems.map((item) => ({
             accountId: pcAccountId,
             amount: item.amount.toFixed(4),
             description: item.customerName || 'Payment',
+            ...(pcAccount ? { sourceTransactionId: item.transactionId } : {}),
           })),
         }),
       });
