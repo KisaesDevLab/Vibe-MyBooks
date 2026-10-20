@@ -246,6 +246,9 @@ function NodeInspector({ node, statement, source, readOnly, onPatch, onStatement
               <option value="summary_with_schedule">Summary line + supporting schedule</option>
             </select>
           </Field>
+          {node.display === 'detail' && (
+            <Field label="Total caption"><input className={input} placeholder={`Total ${(node.caption || 'detail').toLowerCase()}`} value={node.totalCaption ?? ''} onChange={(e) => patch({ totalCaption: e.target.value || undefined })} /></Field>
+          )}
           {node.display === 'summary_with_schedule' && (
             <Field label="Schedule title"><input className={input} placeholder={`Schedule of ${label(node)}`} value={node.scheduleTitle ?? ''} onChange={(e) => patch({ scheduleTitle: e.target.value || undefined })} /></Field>
           )}
