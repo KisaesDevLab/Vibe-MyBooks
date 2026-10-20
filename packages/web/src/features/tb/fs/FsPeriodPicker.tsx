@@ -120,6 +120,12 @@ export function FsColumnsPicker({ value, onChange, taxBasis, disabled }: {
           <option value="quarter">by quarter</option>
         </select>
       )}
+      {mode === 'period_ytd_py' && (
+        <select className={sel} value={value.ytdOrder ?? 'measure'} disabled={disabled} aria-label="Column order" onChange={(e) => onChange({ ...value, ytdOrder: e.target.value as 'measure' | 'year' })}>
+          <option value="measure">Order: period, last yr, YTD, last yr YTD</option>
+          <option value="year">Order: period, YTD, last yr period, last yr YTD</option>
+        </select>
+      )}
       {comparative && (
         <select className={sel} value={value.bsCompare ?? 'prior_fye'} disabled={disabled} aria-label="Balance sheet comparison" onChange={(e) => onChange({ ...value, bsCompare: e.target.value as 'prior_fye' | 'same_date' })}>
           <option value="prior_fye">Balance sheet vs prior year-end</option>
