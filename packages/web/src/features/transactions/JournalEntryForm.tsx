@@ -19,6 +19,10 @@ interface JournalEntryPayload extends Record<string, unknown> {
   basis: Basis;
   lines: JournalLineInput[];
   draftAttachmentId?: string;
+  // Automatic reversal date (U-61). On an edit the form sends back the date
+  // GET returned, so the reversal moves with the edited lines; null when
+  // the entry has none.
+  reverseOn?: string | null;
   // Closed-period override (TB module ADR-TB-04) — set only after the
   // user confirms the warning modal; the server audit-logs the act.
   overrideConfirmed?: boolean;
@@ -27,6 +31,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { AccountSelector } from '../../components/forms/AccountSelector';
+import { ContactSelector } from '../../components/forms/ContactSelector';
 import { MoneyInput } from '../../components/forms/MoneyInput';
 import { focusSelector } from '../../components/forms/focusNav';
 import { SplitRowV2, LineTagPicker } from '../../components/forms/SplitRowV2';
@@ -50,6 +55,9 @@ interface Line {
   credit: string;
   tagId: string | null;
   userHasTouchedTag: boolean;
+  // Line name (customer / vendor). Required by the engine on an Accounts
+  // Receivable or Accounts Payable line (JE_AR_AP_NAME_REQUIRED).
+  contactId: string;
   // Template-seeded metadata: the side the template prescribed and
   // whether an amount is mandatory before posting.
   templateSide?: 'debit' | 'credit';
@@ -57,7 +65,7 @@ interface Line {
 }
 
 function emptyLine(): Line {
-  return { accountId: '', description: '', debit: '', credit: '', tagId: null, userHasTouchedTag: false };
+  return { accountId: '', description: '', debit: '', credit: '', tagId: null, userHasTouchedTag: false, contactId: '' };
 }
 
 export function JournalEntryForm() {
@@ -79,6 +87,7 @@ export function JournalEntryForm() {
   const [memo, setMemo] = useState('');
   const [basis, setBasis] = useState<Basis>('both');
   const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()]);
+  const [reverseOn, setReverseOn] = useState<string | null>(null);
   const [draftId] = useState(() => crypto.randomUUID());
   const [loaded, setLoaded] = useState(false);
   const [showRecurring, setShowRecurring] = useState(false);
@@ -89,6 +98,7 @@ export function JournalEntryForm() {
       setTxnDate(txn.txnDate);
       setMemo(txn.memo || '');
       setBasis((txn.basis as Basis) || 'both');
+      setReverseOn(txn.reverseOn ?? null);
 
       const txnLines = txn.lines || [];
       if (txnLines.length > 0) {
@@ -101,6 +111,7 @@ export function JournalEntryForm() {
           // Loaded lines with a tag are treated as user-intent so future
           // defaults (e.g., after changing Item) don't overwrite them.
           userHasTouchedTag: l.tagId != null,
+          contactId: l.contactId ?? '',
         })));
       }
       setLoaded(true);
@@ -122,6 +133,7 @@ export function JournalEntryForm() {
         credit: '',
         tagId: tpl.defaultTagId ?? null,
         userHasTouchedTag: false,
+        contactId: '',
         templateSide: l.normalSide,
         templateRequired: l.isRequired,
       })));
@@ -197,9 +209,11 @@ export function JournalEntryForm() {
         credit: l.credit || '0',
         description: l.description,
         tagId: l.tagId,
+        contactId: l.contactId || null,
       })),
     };
     if (!isEdit) payload.draftAttachmentId = draftId;
+    else payload.reverseOn = reverseOn;
     submitPayload(payload);
   };
 
@@ -270,6 +284,10 @@ export function JournalEntryForm() {
                         />
                       </div>
                       <div className="w-full md:w-44">
+                        <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Name</span>
+                        <ContactSelector value={line.contactId} onChange={(v) => updateLine(i, 'contactId', v)} compact />
+                      </div>
+                      <div className="w-full md:w-44">
                         <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Tag</span>
                         <LineTagPicker
                           value={line.tagId}
@@ -288,6 +306,7 @@ export function JournalEntryForm() {
                 <tr>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-1/3">Account</th>
                   <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">Description</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 w-44">Name</th>
                   <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Debit</th>
                   <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 w-32">Credit</th>
                   <th className="w-10 pb-2" />
@@ -304,6 +323,10 @@ export function JournalEntryForm() {
                       <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Description</span>
                       <input value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)}
                         className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Description" />
+                    </td>
+                    <td className="col-span-2 order-last md:order-none md:table-cell md:px-2 md:py-1">
+                      <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Name</span>
+                      <ContactSelector value={line.contactId} onChange={(v) => updateLine(i, 'contactId', v)} compact />
                     </td>
                     <td className="col-span-1 md:table-cell md:px-2 md:py-1">
                       <span className="block md:hidden text-xs font-medium text-gray-500 uppercase mb-1">Debit</span>
