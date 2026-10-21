@@ -19,6 +19,10 @@ interface JournalEntryPayload extends Record<string, unknown> {
   basis: Basis;
   lines: JournalLineInput[];
   draftAttachmentId?: string;
+  // Automatic reversal date (U-61). On an edit the form sends back the date
+  // GET returned, so the reversal moves with the edited lines; null when
+  // the entry has none.
+  reverseOn?: string | null;
   // Closed-period override (TB module ADR-TB-04) — set only after the
   // user confirms the warning modal; the server audit-logs the act.
   overrideConfirmed?: boolean;
@@ -83,6 +87,7 @@ export function JournalEntryForm() {
   const [memo, setMemo] = useState('');
   const [basis, setBasis] = useState<Basis>('both');
   const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()]);
+  const [reverseOn, setReverseOn] = useState<string | null>(null);
   const [draftId] = useState(() => crypto.randomUUID());
   const [loaded, setLoaded] = useState(false);
   const [showRecurring, setShowRecurring] = useState(false);
@@ -93,6 +98,7 @@ export function JournalEntryForm() {
       setTxnDate(txn.txnDate);
       setMemo(txn.memo || '');
       setBasis((txn.basis as Basis) || 'both');
+      setReverseOn(txn.reverseOn ?? null);
 
       const txnLines = txn.lines || [];
       if (txnLines.length > 0) {
@@ -207,6 +213,7 @@ export function JournalEntryForm() {
       })),
     };
     if (!isEdit) payload.draftAttachmentId = draftId;
+    else payload.reverseOn = reverseOn;
     submitPayload(payload);
   };
 
