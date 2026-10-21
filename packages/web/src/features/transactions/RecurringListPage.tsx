@@ -15,7 +15,9 @@ import { useColumnView } from '../../hooks/useColumnView';
 import { CommitInput } from '../../components/forms/CommitInput';
 
 interface RecurringSchedule {
-  id: string; templateTransactionId: string; name: string | null; frequency: string;
+  // templateTransactionId is null for a schedule of a template made without
+  // posting (desktop "Save as Template"); templateName then names it.
+  id: string; templateTransactionId: string | null; templateName?: string | null; name: string | null; frequency: string;
   intervalValue: number; mode: string; startDate: string; endDate: string | null;
   nextOccurrence: string; isActive: boolean; lastPostedAt: string | null;
   archivedAt: string | null;
@@ -95,7 +97,7 @@ export function RecurringListPage() {
     if (statusFilter !== 'all') rows = rows.filter((s) => statusOf(s) === statusFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      rows = rows.filter((s) => `${s.name ?? ''} ${s.frequency} ${s.mode}`.toLowerCase().includes(q));
+      rows = rows.filter((s) => `${s.name ?? s.templateName ?? ''} ${s.frequency} ${s.mode}`.toLowerCase().includes(q));
     }
     return rows;
   }, [all, statusFilter, search]);
@@ -153,7 +155,7 @@ export function RecurringListPage() {
                 const st = statusOf(s);
                 return (
                   <tr key={s.id}>
-                    <td className="px-4 py-2 font-medium text-gray-900">{s.name || <span className="text-gray-400 font-normal">Untitled</span>}</td>
+                    <td className="px-4 py-2 font-medium text-gray-900">{s.name || s.templateName || <span className="text-gray-400 font-normal">Untitled</span>}</td>
                     <td className="px-4 py-2">{freqLabel(s)}</td>
                     <td className="px-4 py-2 capitalize">{s.mode}</td>
                     <td className="px-4 py-2">{s.nextOccurrence}</td>

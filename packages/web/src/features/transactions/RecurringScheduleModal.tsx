@@ -12,6 +12,7 @@ import { Input } from '../../components/ui/Input';
 import { DatePicker } from '../../components/forms/DatePicker';
 import { NumericInput } from '../../components/forms/NumericInput';
 import { X } from 'lucide-react';
+import { nextRecurrenceDate } from '@kis-books/shared';
 
 export interface EditableSchedule {
   id: string;
@@ -46,30 +47,14 @@ const frequencies = [
 const supportsInterval = (frequency: string) => frequency !== 'semimonthly';
 
 function previewOccurrences(startDate: string, frequency: string, interval: number): string[] {
-  const d = new Date(startDate);
-  // Guard against an empty / half-typed / invalid date — calling toISOString()
-  // on an Invalid Date throws "RangeError: Invalid time value", which used to
-  // crash the whole modal while the user was changing the date.
-  if (Number.isNaN(d.getTime())) return [];
+  // Guard against an empty / half-typed / invalid date (the modal used to
+  // crash on a RangeError while the user was changing the date).
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || Number.isNaN(new Date(startDate).getTime())) return [];
   const step = Math.max(1, Math.floor(interval) || 1);
-  const dates: string[] = [];
-  for (let i = 0; i < 5; i++) {
-    dates.push(d.toISOString().split('T')[0]!);
-    // Mirrors calculateNextOccurrence in recurring.service.ts. UTC setters so
-    // the preview matches the schedule the server will actually advance.
-    switch (frequency) {
-      case 'daily': d.setUTCDate(d.getUTCDate() + step); break;
-      case 'weekly': d.setUTCDate(d.getUTCDate() + 7 * step); break;
-      case 'biweekly': d.setUTCDate(d.getUTCDate() + 14 * step); break;
-      case 'semimonthly':
-        if (d.getUTCDate() >= 15) d.setUTCMonth(d.getUTCMonth() + 1, 1);
-        else d.setUTCDate(15);
-        break;
-      case 'monthly': d.setUTCMonth(d.getUTCMonth() + step); break;
-      case 'quarterly': d.setUTCMonth(d.getUTCMonth() + 3 * step); break;
-      case 'annually': d.setUTCFullYear(d.getUTCFullYear() + step); break;
-    }
-  }
+  const dates: string[] = [startDate];
+  // The engine's own next-date rule (shared): monthly cadences keep the
+  // start day, clamped to short months (Jan 31 -> Feb 28 -> Mar 31).
+  while (dates.length < 5) dates.push(nextRecurrenceDate(dates[dates.length - 1]!, frequency, step, startDate));
   return dates;
 }
 
