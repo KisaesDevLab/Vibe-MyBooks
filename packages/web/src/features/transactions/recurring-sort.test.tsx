@@ -30,6 +30,17 @@ beforeEach(() => {
   apiClientMock.mockResolvedValue({ schedules: [sched('r1', 'Rent', true), sched('r2', 'Alarm', false)], total: 2 });
 });
 
+describe('RecurringListPage — template-only schedules', () => {
+  it('shows the template name when the schedule has no source transaction or name', async () => {
+    apiClientMock.mockResolvedValue({
+      schedules: [{ ...sched('r3', '', true), name: null, templateTransactionId: null, templateId: 't3', templateName: 'Office rent' }],
+      total: 1,
+    });
+    renderRoute(<RecurringListPage />);
+    expect(await screen.findByText('Office rent')).toBeInTheDocument();
+  });
+});
+
 describe('RecurringListPage — column sort', () => {
   it('asks the server for the sort and persists it', async () => {
     renderRoute(<RecurringListPage />);
