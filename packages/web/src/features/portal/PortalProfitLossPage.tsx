@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, X } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { usePortal } from './PortalLayout';
 
@@ -150,96 +150,128 @@ export function PortalProfitLossPage() {
     + data.otherRevenue.length + data.otherExpenses.length > 0
   );
 
+  // Share of revenue, shown beside each line on wider screens.
+  const pct = (v: number) => (data && data.totalRevenue > 0 ? `${((v / data.totalRevenue) * 100).toFixed(1)}%` : '');
+
   const section = (label: string, entries: PLEntry[], total: number) => (
-    <section className="bg-white border border-gray-200 rounded-lg overflow-hidden" key={label}>
-      <h2 className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 bg-gray-50">{label}</h2>
-      <ul className="divide-y divide-gray-100">
-        {entries.map((e) => (
-          <li key={e.accountId}>
+    <tbody key={label}>
+      <tr>
+        <th colSpan={3} scope="colgroup" className="pt-5 pb-1.5 px-4 sm:px-6 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {label}
+        </th>
+      </tr>
+      {entries.map((e) => (
+        <tr key={e.accountId} className="group">
+          <td colSpan={3} className="p-0">
             <button
               type="button"
               onClick={() => setDrill(e)}
-              className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left text-sm hover:bg-gray-50"
+              className="w-full grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_4.5rem_8rem] items-center gap-3 py-2 pl-7 pr-4 sm:pl-9 sm:pr-6 text-left text-sm hover:bg-blue-50/60 focus:bg-blue-50/60 focus:outline-none"
               aria-label={`${e.name}, ${money.format(e.amount)}. View transactions`}
             >
-              <span className="text-gray-900 truncate">{e.name}</span>
-              <span className="tabular-nums text-gray-900 shrink-0">{money.format(e.amount)}</span>
+              <span className="flex items-center gap-1.5 min-w-0 text-gray-800">
+                <span className="truncate">{e.name}</span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-300 group-hover:text-blue-500" aria-hidden="true" />
+              </span>
+              <span className="hidden sm:block text-right text-xs tabular-nums text-gray-400">{pct(e.amount)}</span>
+              <span className="text-right tabular-nums text-gray-900">{money.format(e.amount)}</span>
             </button>
-          </li>
-        ))}
-      </ul>
-      <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 text-sm font-semibold">
-        <span>Total {label}</span>
-        <span className="tabular-nums">{money.format(total)}</span>
-      </div>
-    </section>
+          </td>
+        </tr>
+      ))}
+      <tr className="text-sm font-semibold text-gray-900">
+        <td className="py-2 pl-4 sm:pl-6 border-t border-gray-200">Total {label}</td>
+        <td className="hidden sm:table-cell py-2 w-[4.5rem] text-right text-xs font-normal tabular-nums text-gray-400 border-t border-gray-200">{pct(total)}</td>
+        <td className="py-2 pr-4 sm:pr-6 w-32 text-right tabular-nums border-t border-gray-200">{money.format(total)}</td>
+      </tr>
+    </tbody>
   );
 
   const subtotal = (label: string, value: number | null) => (
     value === null ? null : (
-      <div className="flex items-center justify-between px-4 py-2 text-sm font-semibold bg-gray-50 border border-gray-200 rounded-lg" key={label}>
-        <span>{label}</span>
-        <span className="tabular-nums">{money.format(value)}</span>
-      </div>
+      <tbody key={label}>
+        <tr className="text-sm font-semibold text-gray-900 bg-gray-50">
+          <td className="py-2.5 pl-4 sm:pl-6">{label}</td>
+          <td className="hidden sm:table-cell py-2.5 text-right text-xs font-normal tabular-nums text-gray-400">{pct(value)}</td>
+          <td className="py-2.5 pr-4 sm:pr-6 text-right tabular-nums">{money.format(value)}</td>
+        </tr>
+      </tbody>
     )
   );
 
+  const netLoss = !!data && data.netIncome < 0;
+
   return (
-    <div className="space-y-4">
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
       <div>
         <Link to="/portal" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
           <ArrowLeft className="h-4 w-4" /> Back
         </Link>
-        <h1 className="mt-2 text-xl font-semibold text-gray-900">Profit &amp; Loss</h1>
-        <p className="text-sm text-gray-500">
-          Live from the books{data ? ` (${data.basis} basis)` : ''}. Select a line to see its transactions.
-        </p>
+        <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h1 className="text-2xl font-semibold text-gray-900">Profit &amp; Loss</h1>
+          {data && (
+            <p className="text-sm text-gray-500">
+              {formatDay(data.startDate)} – {formatDay(data.endDate)}
+              <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 capitalize">{data.basis} basis</span>
+            </p>
+          )}
+        </div>
+        <p className="mt-1 text-sm text-gray-500">Live from the books. Select a line to see the transactions behind it.</p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-3">
-        <div className="flex flex-wrap gap-2">
+      <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div role="group" aria-label="Date range presets" className="inline-flex flex-wrap rounded-lg bg-gray-100 p-1 gap-1 self-start">
           {PRESETS.map((p) => (
             <button
               key={p.key}
               type="button"
+              aria-pressed={preset === p.key}
               onClick={() => applyPreset(p.key)}
-              className={`rounded-full border px-3 py-1 text-xs ${
-                preset === p.key ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                preset === p.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               {p.label}
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-xs text-gray-600">
+        <div className="flex items-end gap-2">
+          <label className="text-xs font-medium text-gray-600">
             From
             <input
               type="date"
               value={start}
               onChange={(e) => { setStart(e.target.value); setPreset(null); }}
-              className="mt-1 block rounded border border-gray-300 px-2 py-1 text-sm"
+              className="mt-1 block rounded-md border border-gray-300 px-2 py-1.5 text-sm"
             />
           </label>
-          <label className="text-xs text-gray-600">
+          <span className="pb-2 text-gray-400" aria-hidden="true">–</span>
+          <label className="text-xs font-medium text-gray-600">
             To
             <input
               type="date"
               value={end}
               onChange={(e) => { setEnd(e.target.value); setPreset(null); }}
-              className="mt-1 block rounded border border-gray-300 px-2 py-1 text-sm"
+              className="mt-1 block rounded-md border border-gray-300 px-2 py-1.5 text-sm"
             />
           </label>
         </div>
-        {!rangeValid && <p className="text-xs text-red-600">Choose a start date on or before the end date.</p>}
       </div>
+      {!rangeValid && <p className="text-xs text-red-600">Choose a start date on or before the end date.</p>}
 
       {loading && (
-        <div className="flex justify-center py-10"><LoadingSpinner /></div>
+        <div className="space-y-3" aria-busy="true" aria-label="Loading profit and loss">
+          <div className="grid grid-cols-3 gap-3">
+            {[0, 1, 2].map((i) => <div key={i} className="h-20 rounded-xl bg-gray-100 animate-pulse" />)}
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-3">
+            {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="h-4 rounded bg-gray-100 animate-pulse" />)}
+          </div>
+        </div>
       )}
 
       {!loading && error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           <p>{error}</p>
           <button
             type="button"
@@ -252,24 +284,41 @@ export function PortalProfitLossPage() {
       )}
 
       {!loading && !error && data && !hasRows && (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
           No income or expenses were recorded between {formatDay(data.startDate)} and {formatDay(data.endDate)}.
         </div>
       )}
 
       {!loading && !error && data && hasRows && (
-        <div className="space-y-3">
-          {section(data.labels.revenue, data.revenue, data.totalRevenue)}
-          {data.cogs.length > 0 && section(data.labels.cogs, data.cogs, data.totalCogs)}
-          {data.cogs.length > 0 && subtotal(data.labels.grossProfit, data.grossProfit)}
-          {section(data.labels.expenses, data.expenses, data.totalExpenses)}
-          {data.otherRevenue.length > 0 && section(data.labels.otherRevenue, data.otherRevenue, data.totalOtherRevenue)}
-          {data.otherExpenses.length > 0 && section(data.labels.otherExpenses, data.otherExpenses, data.totalOtherExpenses)}
-          <div className="flex items-center justify-between px-4 py-3 text-base font-semibold bg-gray-900 text-white rounded-lg">
-            <span>{data.labels.netIncome}</span>
-            <span className="tabular-nums">{money.format(data.netIncome)}</span>
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            <SummaryTile label={data.labels.revenue} value={data.totalRevenue + data.totalOtherRevenue} />
+            <SummaryTile label={data.labels.expenses} value={data.totalCogs + data.totalExpenses + data.totalOtherExpenses} />
+            <SummaryTile label={data.labels.netIncome} value={data.netIncome} tone={netLoss ? 'negative' : 'positive'} />
           </div>
-        </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <table className="w-full">
+              <thead className="sr-only">
+                <tr><th scope="col">Account</th><th scope="col">% of revenue</th><th scope="col">Amount</th></tr>
+              </thead>
+              {section(data.labels.revenue, data.revenue, data.totalRevenue)}
+              {data.cogs.length > 0 && section(data.labels.cogs, data.cogs, data.totalCogs)}
+              {data.cogs.length > 0 && subtotal(data.labels.grossProfit, data.grossProfit)}
+              {section(data.labels.expenses, data.expenses, data.totalExpenses)}
+              {data.otherRevenue.length > 0 && section(data.labels.otherRevenue, data.otherRevenue, data.totalOtherRevenue)}
+              {data.otherExpenses.length > 0 && section(data.labels.otherExpenses, data.otherExpenses, data.totalOtherExpenses)}
+              <tbody>
+                <tr className={`text-base font-semibold border-t-2 ${netLoss ? 'border-red-200 bg-red-50 text-red-800' : 'border-gray-900 bg-gray-50 text-gray-900'}`}>
+                  <td className="py-3.5 pl-4 sm:pl-6">{data.labels.netIncome}</td>
+                  <td className="hidden sm:table-cell py-3.5 text-right text-xs font-normal tabular-nums text-gray-500">{pct(data.netIncome)}</td>
+                  <td className="py-3.5 pr-4 sm:pr-6 text-right tabular-nums">{money.format(data.netIncome)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-gray-400">Percentages are shares of total revenue.</p>
+        </>
       )}
 
       {drill && activeCompanyId && (
@@ -282,6 +331,16 @@ export function PortalProfitLossPage() {
           onClose={() => setDrill(null)}
         />
       )}
+    </div>
+  );
+}
+
+function SummaryTile({ label, value, tone }: { label: string; value: number; tone?: 'positive' | 'negative' }) {
+  const color = tone === 'negative' ? 'text-red-700' : tone === 'positive' ? 'text-emerald-700' : 'text-gray-900';
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white px-3 py-3 sm:px-4">
+      <p className="text-[11px] sm:text-xs font-medium uppercase tracking-wide text-gray-500 truncate">{label}</p>
+      <p className={`mt-1 text-base sm:text-xl font-semibold tabular-nums ${color}`}>{money.format(value)}</p>
     </div>
   );
 }
