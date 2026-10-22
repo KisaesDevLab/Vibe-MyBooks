@@ -20,6 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowUp, ArrowDown, Trash2, FileText, Play, Save } from 'lucide-react';
+import { useFsReports } from '../../../api/hooks/useFinancialStatements';
 import {
   REPORT_CATALOG,
   PACK_WARN_COUNT,
@@ -137,6 +138,43 @@ function TaxpayerOption({ label, value, onChange, scenarioId, onScenarioChange }
   );
 }
 
+/** Saved financial-statements report to render live for the pack's period (or its own period). */
+function FinancialStatementsOption({ label, value, ownPeriod, onChange, onOwnPeriod }: {
+  label: string; value: string; ownPeriod: boolean;
+  onChange: (v: string | undefined) => void; onOwnPeriod: (v: boolean) => void;
+}) {
+  const query = useFsReports({ limit: 100, offset: 0 });
+  const choices = query.data?.reports ?? [];
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <label className="flex items-center gap-1.5 text-xs text-gray-600">
+        Report
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value || undefined)}
+          className="rounded border border-gray-300 px-2 py-1 text-xs bg-white"
+          aria-label={`${label} report`}
+          disabled={query.isLoading}
+        >
+          <option value="">{query.isLoading ? 'Loading…' : 'Pick a financial statements report'}</option>
+          {choices.map((r) => <option key={r.id} value={r.id}>{r.name} ({r.periodEnd})</option>)}
+        </select>
+      </label>
+      <label className="flex items-center gap-1.5 text-xs text-gray-600">
+        <input type="checkbox" checked={ownPeriod} onChange={(e) => onOwnPeriod(e.target.checked)} aria-label={`${label} keep the report's own period`} />
+        Keep the report's own period (otherwise the pack's period)
+      </label>
+      {!value && (
+        <span className="text-[11px] text-amber-700" role="note">
+          {query.isSuccess && choices.length === 0
+            ? 'No financial statements reports exist for this company yet.'
+            : 'Pick a report — the section is skipped without one.'}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /**
  * Per-report options row, driven entirely by the report's catalog
  * `ReportOptionSpec`. Renders only the controls that spec declares; a report
@@ -154,7 +192,7 @@ function ReportItemOptions({
 }) {
   const spec = def.options;
   const hasAny = spec.basis || spec.compare || spec.groupBy || spec.showPct || spec.tagFilter || spec.includeAttachments
-    || spec.statements || spec.txnFilters || spec.taxpayer;
+    || spec.statements || spec.txnFilters || spec.taxpayer || spec.financialStatements;
   if (!hasAny) return null;
 
   // Merge a patch and drop keys that carry no meaning (undefined / null /
@@ -170,6 +208,10 @@ function ReportItemOptions({
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-2">
+      {spec.financialStatements && (
+        <FinancialStatementsOption label={def.label} value={options.fsReportId ?? ''} ownPeriod={options.fsOwnPeriod === true}
+          onChange={(fsReportId) => set({ fsReportId })} onOwnPeriod={(fsOwnPeriod) => set({ fsOwnPeriod })} />
+      )}
       {spec.taxpayer && (
         <TaxpayerOption label={def.label} value={options.taxpayerId ?? ''} onChange={(taxpayerId) => set({ taxpayerId, scenarioId: undefined })}
           scenarioId={options.scenarioId} onScenarioChange={(scenarioId) => set({ scenarioId })} />
