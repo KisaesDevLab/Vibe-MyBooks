@@ -62,6 +62,8 @@ export interface CreatePortalContactInput {
   email: string;
   /** Default true — email the person their invitation as soon as they exist. */
   sendInvite?: boolean;
+  /** The email is already a live contact: add these companies to it. */
+  mergeIntoExisting?: boolean;
   phone?: string | null;
   firstName?: string | null;
   lastName?: string | null;
@@ -130,7 +132,7 @@ export function useCreatePortalContact() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreatePortalContactInput) =>
-      apiClient<{ id: string; invite: PortalInviteResult | null }>('/practice/portal/contacts', {
+      apiClient<{ id: string; outcome?: 'created' | 'restored' | 'merged'; invite: PortalInviteResult | null }>('/practice/portal/contacts', {
         method: 'POST',
         body: JSON.stringify(input),
       }),

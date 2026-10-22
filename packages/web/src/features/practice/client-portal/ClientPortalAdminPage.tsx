@@ -55,7 +55,7 @@ import {
 } from '../../../api/hooks/usePortalQuestions';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { Pagination } from '../../../components/ui/Pagination';
-import { apiClient } from '../../../api/client';
+import { apiClient, isApiError } from '../../../api/client';
 import { PortalContactDocumentsPanel } from '../reminders/PortalContactDocumentsPanel';
 import { PortalOptionsFields } from '../../tax-estimator/portal/PortalOptionsFields';
 import { PORTAL_CONTACT_TAX_OPTION_KEYS, type PortalContactTaxOptionsDTO } from '@kis-books/shared';
@@ -587,8 +587,12 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
   // On by default: a portal contact nobody tells about a portal never uses it.
   const [sendInvite, setSendInvite] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The email is already a live contact in this tenant: offer to add the
+  // selected companies to that contact instead.
+  const [existing, setExisting] = useState<{ status: string; name: string | null } | null>(null);
+  const toast = useToast();
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent, mergeIntoExisting = false) => {
     e.preventDefault();
     setError(null);
 
@@ -604,9 +608,13 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
       lastName: lastName.trim() || null,
       companies: selectedCompanies.map((id) => ({ companyId: id, role })),
       sendInvite,
+      ...(mergeIntoExisting ? { mergeIntoExisting: true } : {}),
     };
     try {
       const res = await create.mutateAsync(input);
+      setExisting(null);
+      if (res.outcome === 'restored') toast.success('This contact had been removed earlier — restored with the details you entered.');
+      if (res.outcome === 'merged') toast.success('Added the selected companies to the existing contact.');
       // The contact exists either way — an invitation that did not go out is
       // said out loud rather than assumed, because the whole point is that
       // the person hears from us.
@@ -617,6 +625,11 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
       }
       onClose();
     } catch (err) {
+      if (isApiError(err) && err.code === 'DUPLICATE_EMAIL') {
+        const d = (err.details ?? {}) as { status?: string; name?: string | null };
+        setExisting({ status: d.status ?? 'active', name: d.name ?? null });
+        return;
+      }
       const msg =
         err instanceof Error
           ? err.message
@@ -632,7 +645,7 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); setExisting(null); }}
             required
             autoFocus
             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -723,6 +736,24 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
+        {existing && (
+          <div role="alert" className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 space-y-2">
+            <p>
+              <span className="font-medium">{existing.name ?? email.trim()}</span> is already a portal contact
+              {existing.status === 'paused' ? ' (paused)' : ''}. Add the selected companies to that contact? Their
+              current companies and access stay as they are.
+            </p>
+            <button
+              type="button"
+              disabled={create.isPending}
+              onClick={(e) => void submit(e, true)}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md disabled:opacity-50"
+            >
+              Add to existing contact
+            </button>
+          </div>
+        )}
+
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
@@ -733,7 +764,7 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
           </button>
           <button
             type="submit"
-            disabled={create.isPending}
+            disabled={create.isPending || !!existing}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-50"
           >
             {create.isPending ? 'Adding…' : 'Add contact'}
