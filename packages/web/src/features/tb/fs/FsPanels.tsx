@@ -76,6 +76,12 @@ export function StatementSettingsPanel({ statement, onChange, readOnly }: { stat
               <option value="single">Single column</option>
             </select>
           </Field>
+          <Field label="Layout">
+            <select className={input} value={statement.equity?.layout ?? 'stacked'} onChange={(e) => onChange({ ...statement, equity: { ...statement.equity, layout: e.target.value as 'stacked' | 'columns' } })}>
+              <option value="stacked">Stacked roll-forward per period</option>
+              <option value="columns">Columns matching the income statement</option>
+            </select>
+          </Field>
           <CaptionGrid
             keys={[['beginning', 'Beginning balance'], ['netIncome', 'Net income'], ['contributions', 'Contributions'], ['distributions', 'Distributions'], ['other', 'Other changes'], ['ending', 'Ending balance'], ['total', 'Total column']]}
             values={statement.equity?.captions ?? {}}
