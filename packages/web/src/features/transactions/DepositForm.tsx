@@ -14,7 +14,10 @@ interface DepositPayload extends Record<string, unknown> {
   txnDate: string;
   depositToAccountId: string;
   memo: string;
-  lines: Array<{ accountId: string; amount: string; description: string; tagId?: string | null; contactId?: string | null }>;
+  lines: Array<{
+    accountId: string; amount: string; description: string; tagId?: string | null; contactId?: string | null;
+    sourceTransactionId?: string;
+  }>;
   draftAttachmentId?: string;
 }
 import { Button } from '../../components/ui/Button';
@@ -40,10 +43,14 @@ interface DepositLine {
   // Per-line payee ("Received From"). Null when none.
   contactId: string | null;
   userHasTouchedTag: boolean;
+  // The payment or vendor credit this line deposits (U-52, U-54). Sent back
+  // on save so an edit keeps the link (the engine refuses one that drops it
+  // while keeping the line: 409 DEPOSIT_LINKS_DROPPED, U-80).
+  sourceTransactionId: string | null;
 }
 
 function emptyLine(): DepositLine {
-  return { accountId: '', amount: '', description: '', tagId: null, contactId: null, userHasTouchedTag: false };
+  return { accountId: '', amount: '', description: '', tagId: null, contactId: null, userHasTouchedTag: false, sourceTransactionId: null };
 }
 
 export function DepositForm() {
@@ -81,6 +88,7 @@ export function DepositForm() {
           tagId: l.tagId ?? null,
           contactId: l.contactId ?? null,
           userHasTouchedTag: l.tagId != null,
+          sourceTransactionId: l.sourceTransactionId ?? null,
         })));
       }
       setLoaded(true);
@@ -120,6 +128,7 @@ export function DepositForm() {
         description: l.description,
         tagId: l.tagId,
         contactId: l.contactId,
+        ...(l.sourceTransactionId ? { sourceTransactionId: l.sourceTransactionId } : {}),
       })),
     };
 
