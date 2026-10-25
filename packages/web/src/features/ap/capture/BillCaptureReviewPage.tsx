@@ -55,6 +55,7 @@ const SKIP_COPY: Record<string, string> = {
   ai_function_disabled: 'Bill OCR is switched off in Admin → AI, so nothing was pre-filled.',
   ai_consent_blocked: 'AI consent has not been granted for this company, so nothing was pre-filled.',
   unsupported_type: 'This file type cannot be read automatically.',
+  manual_only: 'Bills are not read automatically on upload here. Choose Re-read to read this one with AI.',
 };
 
 function confidenceBadge(c: number | null | undefined) {
