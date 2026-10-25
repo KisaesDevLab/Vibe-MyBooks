@@ -449,6 +449,7 @@ With `CL_LOG_FILE` set, the scrubbed text is appended synchronously and rotated 
 | `bill-lines-v1` | Bill and vendor-credit lines take `itemId`, `quantity`, `unitPrice` (amount = quantity × cost to the cent, 400 `LINE_AMOUNT_MISMATCH` / `LINE_QTY_RATE_INCOMPLETE`), `contactId`, `isBillable` (bills only) and `tagId`; `draftAttachmentId` on create relinks in the same transaction (U-85, below). |
 | `bill-terms-v1` | `GET /payment-terms`; discount terms (`1_10_net_30`, `2_10_net_30`, custom `discountPercent` + `discountDays`); bills store `discountPercent`, `discountDays`, `discountDate`, `dueDateOverridden`, `discountDateOverridden`; `GET /bills/terms-dates`; due dates by calendar arithmetic (bills and invoices); vendor `defaultTermsDays`, `defaultDiscountPercent`, `defaultDiscountDays` (U-86, below). |
 | `bill-received-v1` | `billReceived` on bills (default true); a bill not received stays in A/P, aging and vendor-summary but is left out of `/bills/payable` and refused by `POST /bill-payments` (409 `BILL_NOT_RECEIVED`) (U-87, below). |
+| `attachments-company-v1` | Attachments are scoped by company: uploads record the request's company and every attachment route sees only that company's files and tenant-wide ones (U-90, below, Attachments and companies). |
 
 ## Account register
 
@@ -572,6 +573,20 @@ The generic copy path (journal entries, expenses, checks, transfers, deposits…
 - `fieldConfidence.*` and `lineItems[].confidence` are `high`, `medium` or `low`. The model's own per-field score is used when it gives one, else the document score; `high` ≥ 0.85, `medium` ≥ 0.6, else `low` (a 1–100 score is read as a percentage). An empty or blank field, or an amount or date that did not read, is `low`.
 - Confidence is what the model reports about its own reading, not a check of the bill. A client may use it to point the owner at fields to look at, but never as a reason to skip the owner's review: every read value is a suggestion the owner confirms before the bill is saved.
 - `confidence` (document level, a JSON number 0–1) stays for older clients.
+
+## Attachments and companies (`attachments-company-v1`)
+
+Every `/api/v1/attachments` route works in one company, resolved like every company-scoped router: `X-Company-Id` (or the download token's company), else the first company the user may open; a company the user is excluded from (`accountant_company_exclusions`) is 403. `POST /attachments` stores that company on the row (`attachments.company_id`, no migration). Bill Capture, TB row PDFs and the portal already stored theirs.
+
+An attachment is visible to a company when it carries that company, or it carries no company and is not attached to a transaction of another company. Everything else is treated as not there:
+
+- `GET /attachments`, `GET /attachments/library` (rows and `total`) and `GET /attachments/unlinked` leave it out.
+- `GET /attachments/:id`, `GET /attachments/:id/download` (Bearer or `?_dl=`), `DELETE /attachments/:id`, `POST /attachments/:id/ocr` and `POST /attachments/:id/link` are 404, with nothing changed and no AI run.
+- `POST /attachments/bulk-download` is 404 when any id is not visible.
+- API v2 `GET /attachments` and `/attachments/:id`, and `POST /ai/ocr/receipt`, `/ai/parse/statement` and `/ai/classify` (body `attachmentId`), follow the same rule.
+- Draft relinks on create (`draftAttachmentId` on checks, transactions, AJEs, tax entries, daily sales, bills and vendor credits) move only the draft's files that are tenant-wide or the request's company's.
+
+**Rows from before this change.** Attachments uploaded through `POST /attachments` before it have no company. They stay visible to every company of the tenant, unless they are already attached to a transaction of another company, where the transaction's company counts. A draft or receipt uploaded before the change therefore remains visible tenant-wide until it is filed. Nothing backfills them.
 
 ## Bills and vendor credits (A/P documents)
 
