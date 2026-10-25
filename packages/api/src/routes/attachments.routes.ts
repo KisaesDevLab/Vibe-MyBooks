@@ -2,36 +2,24 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { Router, type Request, type Response } from 'express';
+import { Router } from 'express';
 import multer from 'multer';
-import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { eq, and, sql, count } from 'drizzle-orm';
-import type { JwtPayload } from '@kis-books/shared';
+import { eq, and, or, isNull, sql, count } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth.js';
 import { requireResource, requirePermission } from '../middleware/permission.js';
 import { companyContext } from '../middleware/company.js';
 import { auditLog } from '../middleware/audit.js';
-import { env } from '../config/env.js';
 import { db } from '../db/index.js';
-import { users, attachments, transactions, contacts } from '../db/schema/index.js';
+import { attachments, transactions, contacts } from '../db/schema/index.js';
 import * as attachmentService from '../services/attachment.service.js';
 import * as ocrService from '../services/ocr.service.js';
 import { billOcrAvailability, type BillOcrUnavailableReason } from '../services/ai-bill-ocr.service.js';
 import { isDesktop } from '../desktop/profile.js';
 import { AppError } from '../utils/errors.js';
 import { parseLimit, parseOffset } from '../utils/pagination.js';
-import { consumeDownloadToken } from '../utils/download-token.js';
 import { log } from '../utils/logger.js';
-import { workspaceFence } from '../desktop/workspace.js';
 import { describe } from '../middleware/describe.js';
-
-// Attachable types that name a transaction (its txn_type): POST /:id/link
-// checks such a target exists in the tenant (and company).
-const TXN_ATTACHABLE_TYPES = new Set([
-  'invoice', 'customer_payment', 'cash_sale', 'expense', 'deposit', 'transfer', 'journal_entry',
-  'credit_memo', 'customer_refund', 'bill', 'vendor_credit', 'bill_payment', 'daily_sales', 'aje',
-]);
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/tiff', 'image/bmp',
@@ -140,75 +128,26 @@ export function verifyAttachmentContent(mime: string, buf: Buffer): void {
 
 export const attachmentsRouter = Router();
 
-// companyContext for a route that authenticates by hand.
-function runCompanyContext(req: Request, res: Response): Promise<void> {
-  return new Promise((resolve, reject) => {
-    companyContext(req, res, (err?: unknown) => (err ? reject(err) : resolve())).catch(reject);
-  });
-}
-
-// Download route supports two auth modes:
+// Download route supports two auth modes, both through authenticate():
 //   1. Authorization: Bearer <JWT> — standard API call from the SPA fetch
-//      client.
-//   2. ?_dl=<download-token> — a single-use, ~60-second token issued by
+//      client, with the full session-shape and active-user checks.
+//   2. ?_dl=<download-token> — a ~60-second signed token issued by
 //      /api/v1/downloads/token, suitable for <a>/<img>/<iframe> where
-//      custom headers can't be set.
+//      custom headers can't be set (replayable within its TTL; see
+//      utils/download-token.ts). Its company wins over X-Company-Id.
 // The legacy `?token=<JWT>` path is deliberately removed: putting a full
 // 15-minute access token in a URL leaks it into server logs, browser
 // history, referer headers, and proxy logs. Clients that were using it
 // should switch to /api/v1/downloads/token + ?_dl=.
-attachmentsRouter.get('/:id/download', async (req, res) => {
-  const dlTokenRaw = req.query['_dl'];
-  const dlToken = typeof dlTokenRaw === 'string' ? dlTokenRaw : undefined;
-
-  let tenantId: string | undefined;
-  if (dlToken) {
-    const payload = consumeDownloadToken(dlToken);
-    if (!payload) {
-      res.status(401).json({ error: { message: 'Invalid or expired download token' } });
-      return;
-    }
-    tenantId = payload.tenantId;
-    req.userId = payload.userId;
-    req.isSuperAdmin = payload.isSuperAdmin;
-    if (payload.companyId && !req.headers['x-company-id']) {
-      req.headers['x-company-id'] = payload.companyId;
-    }
-  } else {
-    const header = req.headers.authorization;
-    if (!header?.startsWith('Bearer ')) {
-      res.status(401).json({ error: { message: 'Authentication required' } });
-      return;
-    }
-    let payload: JwtPayload;
-    try {
-      payload = jwt.verify(header.slice(7), env.JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
-    } catch (err) {
-      const isExpired = err instanceof Error && err.name === 'TokenExpiredError';
-      res.status(401).json({ error: { message: isExpired ? 'Token expired' : 'Invalid token' } });
-      return;
-    }
-    const user = await db.query.users.findFirst({ where: eq(users.id, payload.userId) });
-    if (!user || !user.isActive) {
-      res.status(401).json({ error: { message: 'Account is deactivated' } });
-      return;
-    }
-    tenantId = payload.tenantId;
-    req.userId = payload.userId;
-    req.isSuperAdmin = !!user.isSuperAdmin;
-  }
-
-  // Desktop: this route authenticates by hand, so apply the workspace
-  // fence that authenticate() would (a workspace session has no books).
-  req.tenantId = tenantId!;
-  await workspaceFence(req);
-  // U-90: resolve the company (X-Company-Id, the download token's company,
-  // else the first company the user may open) with the same exclusion
-  // checks as every company-scoped router, then download only a file that
-  // company may see.
-  await runCompanyContext(req, res);
-
-  const { stream, attachment } = await attachmentService.download(tenantId!, req.params['id']!, req.companyId);
+//
+// U-90 review M5: the attachments read permission and the session checks
+// run first, then the company is resolved (X-Company-Id or the token's
+// company, else the first company the user may open, with the exclusion
+// checks of every company-scoped router), then only a file that company may
+// see is downloaded.
+attachmentsRouter.get('/:id/download', authenticate, requirePermission('attachments', 'read'), companyContext, async (req, res) => {
+  const tenantId = req.tenantId;
+  const { stream, attachment } = await attachmentService.download(tenantId, req.params['id']!, req.companyId);
   res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
   const disposition = req.query['inline'] === '1' ? 'inline' : 'attachment';
   // Content-Disposition filename escapement — quote any internal quote so a
@@ -310,6 +249,10 @@ attachmentsRouter.post('/', describe({
   const autoOcr = autoOcrQuery !== '0' && autoOcrQuery !== 'false'
     && await attachmentService.autoOcrOnUploadAllowed();
 
+  // Review M3: the record the file is filed on must be one this company may
+  // use, the same check as POST /:id/link (404, nothing stored).
+  await attachmentService.assertAttachTarget(req.tenantId, attachableType, attachableId, req.companyId);
+
   const attachment = await attachmentService.upload(
     req.tenantId, req.file, attachableType, attachableId,
     { skipAutoClassify: !autoOcr, companyId: req.companyId },
@@ -358,20 +301,6 @@ attachmentsRouter.get('/unlinked', async (req, res) => {
   res.json({ data });
 });
 
-/**
- * The company an attachment belongs to: its own company_id, else the
- * company of the transaction it is attached to; null for a tenant-wide one
- * (a draft, a receipt, a contact file…).
- */
-async function attachmentCompany(tenantId: string, att: { companyId: string | null; attachableType: string; attachableId: string }) {
-  if (att.companyId) return att.companyId;
-  if (!TXN_ATTACHABLE_TYPES.has(att.attachableType)) return null;
-  const [txn] = await db.select({ companyId: transactions.companyId }).from(transactions)
-    .where(and(eq(transactions.tenantId, tenantId), eq(transactions.id, att.attachableId)))
-    .limit(1);
-  return txn?.companyId ?? null;
-}
-
 // companyContext (review M2, now router-wide since U-90): an accountant
 // excluded from a company can't move its files.
 attachmentsRouter.post('/:id/link', async (req, res) => {
@@ -381,31 +310,12 @@ attachmentsRouter.post('/:id/link', async (req, res) => {
     return;
   }
   const attachmentId = req.params['id']!;
-  // The attachment itself must be this company's (or tenant-wide): its own
-  // company, or the company of the transaction it is attached to now.
-  const [att] = /^[0-9a-f-]{36}$/i.test(attachmentId)
-    ? await db.select({ companyId: attachments.companyId, attachableType: attachments.attachableType, attachableId: attachments.attachableId })
-      .from(attachments)
-      .where(and(eq(attachments.tenantId, req.tenantId), eq(attachments.id, attachmentId)))
-      .limit(1)
-    : [];
-  if (!att) throw AppError.notFound('Attachment not found');
-  const ownCompany = await attachmentCompany(req.tenantId, att);
-  if (ownCompany && ownCompany !== req.companyId) throw AppError.notFound('Attachment not found');
-  // A transaction target must exist in this tenant (and company) with that
-  // type (review Notes: the target id was taken unchecked). Other attachable
-  // types (draft, receipt, contact…) are unchanged.
-  if (typeof attachableType === 'string' && TXN_ATTACHABLE_TYPES.has(attachableType)) {
-    const [target] = typeof attachableId === 'string' && /^[0-9a-f-]{36}$/i.test(attachableId)
-      ? await db.select({ id: transactions.id, companyId: transactions.companyId, status: transactions.status })
-        .from(transactions)
-        .where(and(eq(transactions.tenantId, req.tenantId), eq(transactions.id, attachableId), eq(transactions.txnType, attachableType)))
-        .limit(1)
-      : [];
-    if (!target || target.status === 'deleted' || (req.companyId && target.companyId && target.companyId !== req.companyId)) {
-      throw AppError.notFound('The transaction to attach to was not found');
-    }
-  }
+  // The attachment itself must be one this company may see (companyScope:
+  // its own company, else the company of the record it is filed on).
+  await attachmentService.getById(req.tenantId, attachmentId, req.companyId);
+  // The target must be one this company may use: a transaction of that type
+  // in this tenant (and company), or a record with no other company.
+  await attachmentService.assertAttachTarget(req.tenantId, attachableType, attachableId, req.companyId);
   await attachmentService.linkAttachment(req.tenantId, attachmentId, attachableType, attachableId, req.companyId);
   await auditLog(
     req.tenantId,
@@ -446,13 +356,18 @@ attachmentsRouter.get('/library', async (req, res) => {
         contactName: contacts.displayName,
       })
       .from(attachments)
+      // Review M3: join only a transaction (and its contact) this company
+      // may see, so a row's txn/contact columns never come from another
+      // company's records.
       .leftJoin(transactions, and(
         eq(attachments.attachableId, transactions.id),
         eq(attachments.tenantId, transactions.tenantId),
+        or(isNull(transactions.companyId), eq(transactions.companyId, req.companyId)),
       ))
       .leftJoin(contacts, and(
         eq(transactions.contactId, contacts.id),
         eq(transactions.tenantId, contacts.tenantId),
+        or(isNull(contacts.companyId), eq(contacts.companyId, req.companyId)),
       ))
       .where(where)
       .orderBy(sql`${attachments.createdAt} desc`)
