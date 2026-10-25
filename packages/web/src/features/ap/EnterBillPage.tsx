@@ -7,7 +7,7 @@ import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, useMemo, useRef, type FormEvent, type DragEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { JournalLine, Transaction, AccountType } from '@kis-books/shared';
+import { PAYMENT_TERMS, type JournalLine, type Transaction, type AccountType } from '@kis-books/shared';
 import { useCreateBill, useUpdateBill } from '../../api/hooks/useAp';
 import { useAiStatus } from '../../api/hooks/useAi';
 import { apiClient } from '../../api/client';
@@ -23,7 +23,10 @@ import { FieldHelpIcon } from '../chat/FieldHelpIcon';
 import { ErrorHelpLink } from '../chat/ErrorHelpLink';
 import { Sparkles, AlertTriangle } from 'lucide-react';
 import { AiBannerForTask } from '../../components/ui/AiBannerForTask';
-import { type BillLine, type OcrExtraction, VALID_TERMS, emptyLine, calcDueDate } from './billFormShared';
+import {
+  type BillLine, type OcrExtraction, VALID_TERMS, emptyLine, calcDueDate,
+  amountUnits, sumAmountUnits, editAmount, editPercent, billLinePayload,
+} from './billFormShared';
 import { BillLinesTable } from './BillLinesTable';
 import { NumericField } from '../../components/forms/NumericField';
 
@@ -44,7 +47,16 @@ export function EnterBillPage() {
   const [vendorInvoiceNumber, setVendorInvoiceNumber] = useState('');
   const [memo, setMemo] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
+  // The owner's due date (typed, or read from the vendor's invoice). Only
+  // then is dueDate sent; otherwise the engine computes it from the terms
+  // and the date shown is a preview (review L2).
   const [dueDateManual, setDueDateManual] = useState(false);
+  // Custom-terms early-payment discount (bill-terms-v1), round-tripped on edit.
+  const [discountPercent, setDiscountPercent] = useState('');
+  const [discountDays, setDiscountDays] = useState('');
+  // A discount date the owner set, kept while the terms stay as loaded.
+  const [loadedTerms, setLoadedTerms] = useState<string | null>(null);
+  const [discountDateOverride, setDiscountDateOverride] = useState<string | null>(null);
   const [lines, setLines] = useState<BillLine[]>([emptyLine()]);
   const [loaded, setLoaded] = useState(!isEdit);
   const [andNew, setAndNew] = useState(false);
@@ -54,7 +66,8 @@ export function EnterBillPage() {
   // accounts but can NOT change total / vendor / bill date. The
   // server enforces the same rules — see bill.service.updateBill.
   const [isLocked, setIsLocked] = useState(false);
-  const [lockedTotal, setLockedTotal] = useState<number | null>(null);
+  // The stored total as a decimal string: compared exactly (review L6).
+  const [lockedTotal, setLockedTotal] = useState<string | null>(null);
 
   // ─── OCR / Attachment state ───────────────────────────────────
   // A stable draft id for this bill-entry session. Any uploaded
@@ -93,12 +106,18 @@ export function EnterBillPage() {
     setContactId(b.contactId || '');
     setTxnDate(b.txnDate || today);
     setDueDate(b.dueDate || '');
+    // A legacy free-text code is kept as is (the engine accepts it sent
+    // back unchanged) and shown as its own option.
     setPaymentTerms(b.paymentTerms || 'net_30');
-    setCustomDays(b.termsDays ? String(b.termsDays) : '');
+    setLoadedTerms(b.paymentTerms ?? null);
+    setCustomDays(b.termsDays != null ? String(b.termsDays) : '');
+    setDiscountPercent(b.paymentTerms === 'custom' && b.discountPercent ? editPercent(b.discountPercent) : '');
+    setDiscountDays(b.paymentTerms === 'custom' && b.discountDays != null ? String(b.discountDays) : '');
+    setDiscountDateOverride(b.discountDateOverridden && b.discountDate ? b.discountDate : null);
     setVendorInvoiceNumber(b.vendorInvoiceNumber || '');
     setMemo(b.memo || '');
     setInternalNotes(b.internalNotes || '');
-    setDueDateManual(true);
+    setDueDateManual(b.dueDateOverridden === true);
 
     // Detect lock mode: any billStatus other than 'unpaid' means
     // payments/credits are already applied. We still let the user
@@ -107,28 +126,38 @@ export function EnterBillPage() {
     const locked = !!b.billStatus && b.billStatus !== 'unpaid';
     setIsLocked(locked);
     if (locked) {
-      setLockedTotal(parseFloat(b.total || '0'));
+      setLockedTotal(b.total || '0');
     }
 
+    // The bill's expense lines (debits), with the item-line fields this
+    // form has no columns for, so Save sends them back (review L1).
     const billLines: BillLine[] = (b.lines || [])
-      .filter((l: JournalLine) => parseFloat(l.debit) > 0 && l.accountId)
+      .filter((l: JournalLine) => (amountUnits(l.debit) ?? BigInt(0)) > BigInt(0) && l.accountId)
       .map((l: JournalLine) => ({
         accountId: l.accountId,
         description: l.description || '',
-        amount: parseFloat(l.debit).toFixed(2),
+        amount: editAmount(l.debit),
         tagId: l.tagId ?? null,
         userHasTouchedTag: l.tagId != null,
+        itemId: l.itemId ?? null,
+        quantity: l.quantity ?? null,
+        unitPrice: l.unitPrice ?? null,
+        contactId: l.contactId ?? null,
+        isBillable: l.isBillable === true,
+        loadedAmount: editAmount(l.debit),
       }));
     if (billLines.length > 0) setLines(billLines);
     setLoaded(true);
   }, [existingData, today]);
 
-  // Auto-recalc due date when terms or txn date change (unless user manually edited)
+  // Preview the due date when the terms or the bill date change, unless the
+  // owner set it. The engine computes the stored one. Legacy free-text terms
+  // compute nothing; their stored date stays on screen.
   useEffect(() => {
-    if (!isEdit && !dueDateManual && txnDate) {
-      setDueDate(calcDueDate(txnDate, paymentTerms, customDays));
-    }
-  }, [txnDate, paymentTerms, customDays, isEdit, dueDateManual]);
+    if (dueDateManual || !txnDate || !loaded) return;
+    if (!VALID_TERMS.has(paymentTerms) && paymentTerms !== 'custom') return;
+    setDueDate(calcDueDate(txnDate, paymentTerms, customDays));
+  }, [txnDate, paymentTerms, customDays, dueDateManual, loaded]);
 
   // ─── OCR upload + extract pipeline ────────────────────────────
   //
@@ -313,31 +342,31 @@ export function EnterBillPage() {
     return { label: 'Low — please review', cls: 'bg-red-100 text-red-700' };
   }, [ocrExtraction]);
 
-  const total = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
-
-  // When locked, the sum of lines must equal the original bill total.
-  // 0.01 matches the tolerance the backend uses everywhere else.
+  // When locked, the sum of lines must equal the original bill total
+  // exactly, as the engine checks it (review L6: no 0.01 tolerance).
   const totalMismatch = isLocked && lockedTotal !== null
-    ? Math.abs(total - lockedTotal) > 0.01
+    ? sumAmountUnits(lines.map((l) => l.amount)) !== (amountUnits(lockedTotal) ?? BigInt(0))
     : false;
 
+  const isCustom = paymentTerms === 'custom';
   const buildPayload = () => ({
     contactId,
     txnDate,
-    dueDate: dueDate || undefined,
+    // Only the owner's own due date; otherwise the engine computes it from
+    // the terms (review L2).
+    dueDate: dueDateManual && dueDate ? dueDate : undefined,
     paymentTerms,
-    termsDays: paymentTerms === 'custom' && customDays ? parseInt(customDays, 10) : undefined,
+    termsDays: isCustom && customDays ? parseInt(customDays, 10) : undefined,
+    // Custom terms carry their own discount (both or neither).
+    discountPercent: isCustom && discountPercent && discountDays ? discountPercent : undefined,
+    discountDays: isCustom && discountPercent && discountDays ? parseInt(discountDays, 10) : undefined,
+    discountDate: discountDateOverride && paymentTerms === loadedTerms ? discountDateOverride : undefined,
     vendorInvoiceNumber: vendorInvoiceNumber || undefined,
     memo: memo || undefined,
     internalNotes: internalNotes || undefined,
     lines: lines
-      .filter((l) => l.accountId && l.amount && parseFloat(l.amount) > 0)
-      .map((l) => ({
-        accountId: l.accountId,
-        description: l.description || undefined,
-        amount: l.amount,
-        tagId: l.tagId,
-      })),
+      .filter((l) => l.accountId && (amountUnits(l.amount) ?? BigInt(0)) > BigInt(0))
+      .map(billLinePayload),
   });
 
   const resetForNew = () => {
@@ -426,7 +455,7 @@ export function EnterBillPage() {
               <p className="text-xs text-blue-700 mt-1">
                 You can reallocate expense lines between accounts, change descriptions,
                 split a line, or add new lines — but the <strong>total must stay the same</strong>
-                {lockedTotal !== null && <> (<span className="font-mono">${lockedTotal.toFixed(2)}</span>)</>}.
+                {lockedTotal !== null && <> (<span className="font-mono">${editAmount(lockedTotal)}</span>)</>}.
                 Vendor, bill date, and payment terms are locked. To change those, void the
                 related payments first.
               </p>
@@ -573,14 +602,12 @@ export function EnterBillPage() {
                 disabled={isLocked}
                 className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-500"
               >
-                <option value="due_on_receipt">Due On Receipt</option>
-                <option value="net_10">Net 10</option>
-                <option value="net_15">Net 15</option>
-                <option value="net_30">Net 30</option>
-                <option value="net_45">Net 45</option>
-                <option value="net_60">Net 60</option>
-                <option value="net_90">Net 90</option>
-                <option value="custom">Custom</option>
+                {/* The engine's terms table, plus a saved bill's free-text
+                    terms from before it (kept when sent back unchanged). */}
+                {PAYMENT_TERMS.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+                {!VALID_TERMS.has(paymentTerms) && paymentTerms !== 'custom' && (
+                  <option value={paymentTerms}>{paymentTerms}</option>
+                )}
               </select>
             </div>
           </div>
@@ -592,6 +619,21 @@ export function EnterBillPage() {
                 min={0}
                 value={customDays}
                 onChange={(v) => { setCustomDays(v); setDueDateManual(false); }}
+              />
+              <Input
+                label="Early-payment discount %"
+                value={discountPercent}
+                onChange={(e) => setDiscountPercent(e.target.value.trim())}
+                placeholder="e.g. 2"
+                inputMode="decimal"
+                disabled={isLocked}
+              />
+              <NumericField
+                label="Discount days"
+                integer
+                min={0}
+                value={discountDays}
+                onChange={(v) => setDiscountDays(v)}
               />
             </div>
           )}

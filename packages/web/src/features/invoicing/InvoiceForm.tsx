@@ -7,7 +7,7 @@ import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { JournalLine, Transaction } from '@kis-books/shared';
+import { addCalendarDays, isCalendarDate, type JournalLine, type Transaction } from '@kis-books/shared';
 import { useCreateInvoice } from '../../api/hooks/useInvoices';
 import { useItems } from '../../api/hooks/useItems';
 import { useCompanySettings } from '../../api/hooks/useCompany';
@@ -101,17 +101,13 @@ export function InvoiceForm() {
     sublabel: item.unitPrice ? `$${parseFloat(item.unitPrice).toFixed(2)}` : undefined,
   }));
 
+  // Calendar arithmetic (the engine's helper): the old local-time setDate
+  // came out a day early across the March DST change.
   function calcDueDate(invoiceDate: string, terms: string): string {
-    const d = new Date(invoiceDate);
-    switch (terms) {
-      case 'due_on_receipt': return invoiceDate;
-      case 'net_15': d.setDate(d.getDate() + 15); break;
-      case 'net_30': d.setDate(d.getDate() + 30); break;
-      case 'net_60': d.setDate(d.getDate() + 60); break;
-      case 'net_90': d.setDate(d.getDate() + 90); break;
-      default: return '';
-    }
-    return d.toISOString().split('T')[0]!;
+    const days: Record<string, number> = { due_on_receipt: 0, net_15: 15, net_30: 30, net_60: 60, net_90: 90 };
+    const n = days[terms];
+    if (n === undefined || !isCalendarDate(invoiceDate)) return '';
+    return addCalendarDays(invoiceDate, n);
   }
 
   useEffect(() => {

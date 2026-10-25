@@ -12,15 +12,15 @@ import { MoneyInput } from '../../components/forms/MoneyInput';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
 import { ENTRY_FORMS_V2 } from '../../utils/feature-flags';
 import { Plus, Trash2 } from 'lucide-react';
-import { emptyLine, type BillLine } from './billFormShared';
+import { emptyLine, amountUnits, sumAmountUnits, formatUnits, type BillLine } from './billFormShared';
 
 export interface BillLinesTableProps {
   lines: BillLine[];
   onChange: (lines: BillLine[]) => void;
   /** Hide "Add line" and per-row Remove (Single-line mode). */
   fixedRowCount?: boolean;
-  /** Editing a paid bill: the sum must equal this. */
-  lockedTotal?: number | null;
+  /** Editing a paid bill: the sum must equal this exactly (a decimal string). */
+  lockedTotal?: string | null;
   title?: string;
 }
 
@@ -38,10 +38,12 @@ export function BillLinesTable({ lines, onChange, fixedRowCount = false, lockedT
     onChange(lines.map((l, idx) => (idx === 0 || l.userHasTouchedTag ? l : { ...l, tagId: firstTag })));
   };
 
-  const total = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+  // Exact, in 0.0001 units (review L6: no float sum, no 0.01 tolerance).
+  const total = sumAmountUnits(lines.map((l) => l.amount));
   const isLocked = lockedTotal !== null;
-  const totalMismatch = isLocked ? Math.abs(total - lockedTotal) > 0.01 : false;
-  const lockedDifference = isLocked ? total - lockedTotal : 0;
+  const lockedUnits = isLocked ? (amountUnits(lockedTotal) ?? BigInt(0)) : BigInt(0);
+  const totalMismatch = isLocked && total !== lockedUnits;
+  const lockedDifference = total - lockedUnits;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
@@ -140,19 +142,19 @@ export function BillLinesTable({ lines, onChange, fixedRowCount = false, lockedT
           {isLocked && (
             <div className="flex justify-between text-gray-600">
               <span>Required (locked)</span>
-              <span className="font-mono">${lockedTotal.toFixed(2)}</span>
+              <span className="font-mono">${formatUnits(lockedUnits)}</span>
             </div>
           )}
           <div className="flex justify-between font-bold text-lg">
             <span>Total</span>
             <span className={`font-mono ${totalMismatch ? 'text-red-600' : ''}`}>
-              ${total.toFixed(2)}
+              ${formatUnits(total)}
             </span>
           </div>
           {totalMismatch && (
             <div className="flex justify-between text-xs text-red-600">
-              <span>{lockedDifference > 0 ? 'Over' : 'Short'} by</span>
-              <span className="font-mono">${Math.abs(lockedDifference).toFixed(2)}</span>
+              <span>{lockedDifference > BigInt(0) ? 'Over' : 'Short'} by</span>
+              <span className="font-mono">${formatUnits(lockedDifference < BigInt(0) ? -lockedDifference : lockedDifference)}</span>
             </div>
           )}
         </div>

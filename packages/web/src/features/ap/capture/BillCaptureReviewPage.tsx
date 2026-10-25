@@ -277,7 +277,9 @@ export function BillCaptureReviewPage() {
       }
       : { contactId }),
     txnDate,
-    dueDate: dueDate || undefined,
+    // Only a due date the owner typed or the invoice states; otherwise the
+    // engine computes it from the terms (review L2).
+    dueDate: dueDateManual && dueDate ? dueDate : undefined,
     paymentTerms,
     termsDays: paymentTerms === 'custom' && customDays ? parseInt(customDays, 10) : undefined,
     vendorInvoiceNumber: vendorInvoiceNumber || undefined,
