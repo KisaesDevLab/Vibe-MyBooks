@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import archiver from 'archiver';
-import { eq, and, or, isNull, count, inArray, desc } from 'drizzle-orm';
+import { eq, and, or, isNull, count, inArray, desc, sql, type SQL } from 'drizzle-orm';
 import { db, type DbOrTx, type Tx } from '../db/index.js';
 import { attachments, systemSettings } from '../db/schema/index.js';
 import { auditLog } from '../middleware/audit.js';
@@ -40,6 +40,41 @@ export async function autoOcrOnUploadAllowed(): Promise<boolean> {
     // Settings unreadable: keep the server's historical default.
     return true;
   }
+}
+
+/**
+ * U-90: which attachments a request working in `companyId` may see or
+ * change. An attachment is visible when
+ *   - it is stamped with that company, or
+ *   - it has no company (rows written before uploads recorded one, and
+ *     tenant-wide files) AND it is not attached to a transaction of another
+ *     company.
+ * So an accountant excluded from company A (companyContext) can't list,
+ * read, download, delete, OCR or link A's files from company B. Same rule as
+ * relinkDraftAttachments, plus the transaction's company for legacy rows
+ * that are already filed on a transaction.
+ *
+ * `companyId` absent (a caller with no company context, e.g. an internal
+ * job): no extra filter — the tenant check still applies.
+ */
+export function companyScope(companyId: string | null | undefined): SQL | undefined {
+  if (!companyId) return undefined;
+  return or(
+    eq(attachments.companyId, companyId),
+    and(
+      isNull(attachments.companyId),
+      sql`NOT EXISTS (SELECT 1 FROM transactions att_txn
+        WHERE att_txn.tenant_id = ${attachments.tenantId}
+          AND att_txn.id = ${attachments.attachableId}
+          AND att_txn.company_id IS NOT NULL
+          AND att_txn.company_id <> ${companyId})`,
+    ),
+  );
+}
+
+function withScope(base: SQL | undefined, companyId: string | null | undefined): SQL | undefined {
+  const scope = companyScope(companyId);
+  return scope ? and(base, scope) : base;
 }
 
 function ensureDir(dir: string) {
@@ -146,10 +181,12 @@ async function triggerAutoClassify(tenantId: string, attachmentId: string) {
   }
 }
 
-export async function list(tenantId: string, filters?: { attachableType?: string; attachableId?: string; limit?: number; offset?: number }) {
-  const conditions = [eq(attachments.tenantId, tenantId)];
+export async function list(tenantId: string, filters?: { attachableType?: string; attachableId?: string; limit?: number; offset?: number; companyId?: string | null }) {
+  const conditions: SQL[] = [eq(attachments.tenantId, tenantId)];
   if (filters?.attachableType) conditions.push(eq(attachments.attachableType, filters.attachableType));
   if (filters?.attachableId) conditions.push(eq(attachments.attachableId, filters.attachableId));
+  const scope = companyScope(filters?.companyId);
+  if (scope) conditions.push(scope);
 
   const [data, total] = await Promise.all([
     db.select().from(attachments).where(and(...conditions))
@@ -160,16 +197,24 @@ export async function list(tenantId: string, filters?: { attachableType?: string
   return { data, total: total[0]?.count ?? 0 };
 }
 
-export async function getById(tenantId: string, id: string) {
-  const attachment = await db.query.attachments.findFirst({
-    where: and(eq(attachments.tenantId, tenantId), eq(attachments.id, id)),
-  });
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * One attachment of the tenant. With `companyId` (U-90) it must also be
+ * visible to that company (companyScope); otherwise 404, the same answer as
+ * an id that does not exist.
+ */
+export async function getById(tenantId: string, id: string, companyId?: string | null) {
+  if (!UUID_RE.test(id)) throw AppError.notFound('Attachment not found');
+  const [attachment] = await db.select().from(attachments)
+    .where(withScope(and(eq(attachments.tenantId, tenantId), eq(attachments.id, id)), companyId))
+    .limit(1);
   if (!attachment) throw AppError.notFound('Attachment not found');
   return attachment;
 }
 
-export async function download(tenantId: string, id: string) {
-  const attachment = await getById(tenantId, id);
+export async function download(tenantId: string, id: string, companyId?: string | null) {
+  const attachment = await getById(tenantId, id, companyId);
 
   // Use storage provider for download
   try {
@@ -248,10 +293,10 @@ export interface BulkDownloadResult {
  * archive finalized. A file whose bytes can't be fetched never fails the
  * whole zip — it's recorded in `skipped` and listed in a manifest.txt entry.
  */
-export async function bulkDownload(tenantId: string, attachmentIds: string[]): Promise<BulkDownloadResult> {
+export async function bulkDownload(tenantId: string, attachmentIds: string[], companyId?: string | null): Promise<BulkDownloadResult> {
   const uniqueIds = Array.from(new Set(attachmentIds));
   const rows = await db.select().from(attachments)
-    .where(and(eq(attachments.tenantId, tenantId), inArray(attachments.id, uniqueIds)));
+    .where(withScope(and(eq(attachments.tenantId, tenantId), inArray(attachments.id, uniqueIds)), companyId));
   if (rows.length !== uniqueIds.length) throw AppError.notFound('Attachment not found');
 
   const archive = archiver('zip', { zlib: { level: 6 } });
@@ -316,8 +361,8 @@ export async function bulkDownload(tenantId: string, attachmentIds: string[]): P
   return { archive, done };
 }
 
-export async function remove(tenantId: string, id: string) {
-  const attachment = await getById(tenantId, id);
+export async function remove(tenantId: string, id: string, companyId?: string | null) {
+  const attachment = await getById(tenantId, id, companyId);
 
   // Use storage provider for deletion
   try {
@@ -345,8 +390,13 @@ export async function updateOcrResults(tenantId: string, id: string, results: {
     .where(and(eq(attachments.tenantId, tenantId), eq(attachments.id, id)));
 }
 
+/**
+ * Moves a draft's attachments onto a new document. `companyId` (U-90): a
+ * draft file stamped with another company is left alone.
+ */
 export async function reassignDraftAttachments(
   tenantId: string, draftId: string, newType: string, newId: string, executor: DbOrTx = db,
+  companyId?: string | null,
 ): Promise<number> {
   const result = await executor.update(attachments)
     .set({ attachableType: newType, attachableId: newId })
@@ -354,6 +404,7 @@ export async function reassignDraftAttachments(
       eq(attachments.tenantId, tenantId),
       eq(attachments.attachableType, 'draft'),
       eq(attachments.attachableId, draftId),
+      ...(companyId ? [or(isNull(attachments.companyId), eq(attachments.companyId, companyId))] : []),
     ));
   return (result as any).rowCount ?? 0;
 }
@@ -396,20 +447,20 @@ export async function relinkDraftAttachments(
   return rows.map((r) => r.id);
 }
 
-export async function listUnlinked(tenantId: string) {
+export async function listUnlinked(tenantId: string, companyId?: string | null) {
   return db.select().from(attachments)
-    .where(and(
+    .where(withScope(and(
       eq(attachments.tenantId, tenantId),
       inArray(attachments.attachableType, ['draft', 'receipt']),
-    ))
+    ), companyId))
     .orderBy(desc(attachments.createdAt))
     .limit(50);
 }
 
 export async function linkAttachment(
-  tenantId: string, attachmentId: string, newType: string, newId: string,
+  tenantId: string, attachmentId: string, newType: string, newId: string, companyId?: string | null,
 ) {
-  const attachment = await getById(tenantId, attachmentId);
+  const attachment = await getById(tenantId, attachmentId, companyId);
   await db.update(attachments)
     .set({ attachableType: newType, attachableId: newId })
     .where(and(eq(attachments.tenantId, tenantId), eq(attachments.id, attachmentId)));

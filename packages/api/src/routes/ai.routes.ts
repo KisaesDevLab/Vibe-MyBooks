@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { getRateLimitStore } from '../utils/rate-limit-store.js';
@@ -34,6 +34,7 @@ import * as aiReceiptOcr from '../services/ai-receipt-ocr.service.js';
 import * as aiStatementParser from '../services/ai-statement-parser.service.js';
 import { pickEnum, parseCsvSet } from '../utils/list-query.js';
 import * as aiDocClassifier from '../services/ai-document-classifier.service.js';
+import * as attachmentService from '../services/attachment.service.js';
 import * as aiOrchestrator from '../services/ai-orchestrator.service.js';
 import * as bankConnectionService from '../services/bank-connection.service.js';
 import * as bankStatementsService from '../services/bank-statements.service.js';
@@ -46,6 +47,16 @@ import { companies } from '../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
 
 export const aiRouter = Router();
+
+// U-90: a route that reads one attachment by `attachmentId` (body) reads
+// only a file the request's company may see (attachmentService.companyScope):
+// 404 otherwise, before any AI runs. Use after companyContext.
+async function attachmentInCompany(req: Request, _res: Response, next: NextFunction) {
+  const id = req.body?.attachmentId;
+  if (typeof id !== 'string') throw AppError.notFound('Attachment not found');
+  await attachmentService.getById(req.tenantId, id, req.companyId);
+  next();
+}
 
 // Per-user rate limit for AI processing endpoints. Each call hits a
 // paid LLM, so uncapped access is a direct billing DoS. 60 requests
@@ -320,7 +331,7 @@ aiRouter.post('/categorize/accept', authenticate, validate(aiCategorizeAcceptSch
 
 // ─── Processing — Receipt OCR ──────────────────────────────────
 
-aiRouter.post('/ocr/receipt', authenticate, aiProcessingLimiter, validate(aiOcrSchema), async (req, res) => {
+aiRouter.post('/ocr/receipt', authenticate, aiProcessingLimiter, validate(aiOcrSchema), companyContext, attachmentInCompany, async (req, res) => {
   const result = await aiReceiptOcr.processReceipt(req.tenantId, req.body.attachmentId);
   res.json(result);
 });
@@ -331,7 +342,7 @@ aiRouter.post('/ocr/receipt', authenticate, aiProcessingLimiter, validate(aiOcrS
 // follows /parse/statement/:jobId/progress (SSE) for staged progress and the
 // final result, rather than holding this request open for a slow multi-page
 // OCR. Validation/consent/budget errors still surface synchronously here.
-aiRouter.post('/parse/statement', authenticate, aiProcessingLimiter, validate(aiParseStatementSchema), async (req, res) => {
+aiRouter.post('/parse/statement', authenticate, aiProcessingLimiter, validate(aiParseStatementSchema), companyContext, attachmentInCompany, async (req, res) => {
   const { jobId } = await aiStatementParser.startStatementParse(req.tenantId, req.body.attachmentId, { forceOcr: req.body.forceOcr === true });
   res.status(202).json({ jobId });
 });
@@ -585,7 +596,7 @@ aiRouter.post('/parse/statement/jobs/:jobId/reread-checks', authenticate, aiProc
 
 // ─── Processing — Document Classification ──────────────────────
 
-aiRouter.post('/classify', authenticate, aiProcessingLimiter, validate(aiClassifySchema), async (req, res) => {
+aiRouter.post('/classify', authenticate, aiProcessingLimiter, validate(aiClassifySchema), companyContext, attachmentInCompany, async (req, res) => {
   const result = await aiDocClassifier.classifyAndRoute(req.tenantId, req.body.attachmentId);
   res.json(result);
 });

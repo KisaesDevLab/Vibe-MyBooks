@@ -384,7 +384,7 @@ export async function createDraft(tenantId: string, input: CreateDailySalesEntry
     await saveValues(tenantId, entry!.id, input.values, tx);
     // Files attached on the new-entry screen before this draft existed.
     const attachmentsLinked = input.draftAttachmentId
-      ? await reassignDraftAttachments(tenantId, input.draftAttachmentId, DAILY_SALES_ENTRY_ATTACHABLE, entry!.id, tx)
+      ? await reassignDraftAttachments(tenantId, input.draftAttachmentId, DAILY_SALES_ENTRY_ATTACHABLE, entry!.id, tx, companyId)
       : 0;
     await auditLog(tenantId, 'create', 'daily_sales_entry', entry!.id, null,
       attachmentsLinked ? { ...entry, attachmentsLinked } : entry, userId, tx);
