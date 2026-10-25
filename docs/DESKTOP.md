@@ -576,17 +576,24 @@ The generic copy path (journal entries, expenses, checks, transfers, deposits…
 
 ## Attachments and companies (`attachments-company-v1`)
 
-Every `/api/v1/attachments` route works in one company, resolved like every company-scoped router: `X-Company-Id` (or the download token's company), else the first company the user may open; a company the user is excluded from (`accountant_company_exclusions`) is 403. `POST /attachments` stores that company on the row (`attachments.company_id`, no migration). Bill Capture, TB row PDFs and the portal already stored theirs.
+Every `/api/v1/attachments` route works in one company, resolved like every company-scoped router: `X-Company-Id`, else the first company the user may open; a company the user is excluded from (`accountant_company_exclusions`) is 403. A `?_dl=` download token that names a company works in that company only, whatever `X-Company-Id` or `?_company=` says. `POST /attachments` stores that company on the row (`attachments.company_id`). Bill Capture, TB row PDFs, the portal and W-9 PDFs (the vendor's company; none for a tenant-wide vendor) store theirs.
 
-An attachment is visible to a company when it carries that company, or it carries no company and is not attached to a transaction of another company. Everything else is treated as not there:
+An attachment is visible to a company when it carries that company, or it carries no company and the record it is filed on is not another company's. The record is looked up by `attachableId` in transactions, contacts (W-9s are filed on the vendor), daily-sales entries, tax entries, TB lead sheets, Bill Captures, bank-feed items and portal receipts. Everything else is treated as not there:
 
 - `GET /attachments`, `GET /attachments/library` (rows and `total`) and `GET /attachments/unlinked` leave it out.
 - `GET /attachments/:id`, `GET /attachments/:id/download` (Bearer or `?_dl=`), `DELETE /attachments/:id`, `POST /attachments/:id/ocr` and `POST /attachments/:id/link` are 404, with nothing changed and no AI run.
 - `POST /attachments/bulk-download` is 404 when any id is not visible.
 - API v2 `GET /attachments` and `/attachments/:id`, and `POST /ai/ocr/receipt`, `/ai/parse/statement` and `/ai/classify` (body `attachmentId`), follow the same rule.
 - Draft relinks on create (`draftAttachmentId` on checks, transactions, AJEs, tax entries, daily sales, bills and vendor credits) move only the draft's files that are tenant-wide or the request's company's.
+- MCP `list_attachments`, bill OCR (`POST /bills/extract-from-attachment/:id`) and the statement-parse jobs (`GET /ai/parse/statement/jobs`, `/jobs/:jobId` read, edit, delete, `reprocess`, `reread-checks`, `/:jobId/status` and `/progress`, and `POST /ai/parse/statement/import` with a `jobId`) follow the same rule; a job is judged by its statement file. The 1099 W-9 PDF (`GET /portal-1099/vendors/:contactId/w9`) is 404 for a user excluded from the vendor's company.
 
-**Rows from before this change.** Attachments uploaded through `POST /attachments` before it have no company. They stay visible to every company of the tenant, unless they are already attached to a transaction of another company, where the transaction's company counts. A draft or receipt uploaded before the change therefore remains visible tenant-wide until it is filed. Nothing backfills them.
+Writing: `POST /attachments` and `POST /attachments/:id/link` check their target. A transaction type (`expense`, `bill`, …) must name a transaction of that type in the tenant that is not deleted and is tenant-wide or the request's company's; any other type must not name a record of another company. Otherwise 404 and nothing is stored. Linking, draft relinks and daily-sales posting fill in the company on a row that has none (`coalesce`), never replacing one it has. `GET /attachments/library` joins only a transaction and contact that are tenant-wide or the request's company's.
+
+`GET /attachments/:id/download` authenticates like every route (session shape, active user, or a `?_dl=` token), then needs the attachments read permission (403 `PERMISSION_DENIED`), then resolves the company. `POST /downloads/token` with `X-Company-Id` checks that company the same way (403) before putting it in the token. Download tokens are signed and stateless, so they are not single-use: they can be replayed for their 60 seconds, GET and HEAD only.
+
+**Callers with no company.** The rule applies wherever a request has a company. Internal callers that pass none (background OCR and classification of a file just uploaded, storage migration, tenant export, portal flows that look a file up by its own contact) apply only the tenant check; they act on a file they already hold by id, not on a user's choice.
+
+**Rows from before this change.** Migration `0231` (data only, idempotent, rollback a no-op) copies each attachment's company from the record it is filed on, for every parent listed above. Rows that stay without a company (drafts, receipts, files of a tenant-wide or deleted record) are tenant-wide: visible to every company of the tenant unless later filed on another company's record, and they take the company of the request that files them.
 
 ## Bills and vendor credits (A/P documents)
 
