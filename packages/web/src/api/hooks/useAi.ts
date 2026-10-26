@@ -773,7 +773,9 @@ export type AiTaskKey =
   | 'document_classification'
   | 'enrich_vendor'
   | 'judgment_review'
-  | 'report_summary';
+  | 'report_summary'
+  | 'document_text_cloud'
+  | 'document_images_cloud';
 
 export interface TenantConsentCompanyRow {
   id: string;
