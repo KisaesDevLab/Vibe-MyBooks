@@ -21,6 +21,8 @@ const TASK_LABELS: Array<{ key: AiTaskKey; label: string; desc: string }> = [
   { key: 'report_summary', label: 'Generate AI report summaries', desc: 'Send summarized report figures (revenue, expenses, net income, KPIs) to the AI provider to draft an executive summary your bookkeeper reviews.' },
   { key: 'judgment_review', label: 'AI review of close findings', desc: 'Lets your bookkeeper ask the AI to explain a flagged item in Close Review ("Explain this") and run AI judgment checks such as personal-looking expenses. Sends the flagged transaction\'s sanitized description, amount, and category.' },
   { key: 'enrich_vendor', label: 'AI vendor lookup', desc: 'Infer a merchant\'s business type and likely category from its name when it first appears in your bank feed.' },
+  { key: 'document_text_cloud', label: 'Read document text with an online service', desc: 'Send the text of a bill or receipt to the cloud AI provider to suggest its fields. Separate from receipt OCR; suggestions are never saved without your review.' },
+  { key: 'document_images_cloud', label: 'Read document page images with an online service', desc: 'Also send page images (at most 3) of a bill or receipt to the cloud AI provider. Images cannot be redacted.' },
 ];
 
 export function CompanyAiSettingsPage() {
