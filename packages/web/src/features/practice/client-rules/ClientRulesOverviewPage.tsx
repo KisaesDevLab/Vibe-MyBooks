@@ -4,8 +4,8 @@
 
 import { Fragment, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronDown, ChevronRight, ListChecks, Search } from 'lucide-react';
-import type { ClientRulesOverviewRow, ClientRulesPostTenantResult } from '@kis-books/shared';
+import { AlertTriangle, Ban, ChevronDown, ChevronRight, ListChecks, Search } from 'lucide-react';
+import type { ClientRulesOverviewRow, ClientRulesOverviewSortKey, ClientRulesPostTenantResult } from '@kis-books/shared';
 import { apiClient, setTokens } from '../../../api/client';
 import { useCompanyContext } from '../../../providers/CompanyProvider';
 import {
@@ -13,11 +13,13 @@ import {
   useClientRulesOverview,
   usePostClientRules,
   useSaveClientMapping,
+  useSetClientExcluded,
 } from '../../../api/hooks/useClientRulesOverview';
 import { Button } from '../../../components/ui/Button';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
 import { Pagination } from '../../../components/ui/Pagination';
+import { SortableTh } from '../../../components/ui/SortableTh';
 import { CommitInput } from '../../../components/forms/CommitInput';
 import { useToast } from '../../../components/ui/Toaster';
 
@@ -25,9 +27,25 @@ import { useToast } from '../../../components/ui/Toaster';
 // how many pending bank-feed items the rules would post, which global
 // rule accounts still need a mapping in that client, and the client
 // portal counters. Counts only; the transactions themselves stay on each
-// client's Bank Feed.
+// client's Bank Feed. Sorting and paging are server-side, so an order by
+// "Ready to post" ranks every client, not just the page shown.
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = ['10', '25', '50', '100'];
+const DEFAULT_PAGE_SIZE = '25';
+
+type SortKey = ClientRulesOverviewSortKey;
+type SortDir = 'asc' | 'desc';
+// Counters open on their biggest value; the name on A→Z.
+const DEFAULT_DIR: Record<SortKey, SortDir> = {
+  tenantName: 'asc',
+  rulesMatched: 'desc',
+  matched: 'desc',
+  ready: 'desc',
+  needsMapping: 'desc',
+  unreadDocuments: 'desc',
+  openDocumentRequests: 'desc',
+  openQuestions: 'desc',
+};
 
 const SCOPE_LABEL: Record<string, string> = {
   tenant_user: 'Personal',
@@ -41,29 +59,60 @@ export function ClientRulesOverviewPage() {
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [offset, setOffset] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [sortBy, setSortBy] = useState<SortKey>('tenantName');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [includeExcluded, setIncludeExcluded] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<PostTarget | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [lastResults, setLastResults] = useState<Map<string, ClientRulesPostTenantResult>>(new Map());
 
+  const limit = Number(pageSize);
   const { data, isLoading, isError, refetch, isFetching } = useClientRulesOverview({
-    limit: PAGE_SIZE,
+    limit,
     offset,
     search: search || undefined,
+    sortBy,
+    sortDir,
+    includeExcluded,
   });
   const postMutation = usePostClientRules();
+  const exclusion = useSetClientExcluded();
   const switchTo = useSwitchAndOpen();
 
   const rows = data?.data ?? [];
-  const selectableIds = rows.filter((r) => r.ready > 0 && !r.error).map((r) => r.tenantId);
-  const selectedReady = rows.filter((r) => selected.has(r.tenantId) && r.ready > 0);
+  const excludedTotal = data?.excludedTotal ?? 0;
+  const canPost = (r: ClientRulesOverviewRow) => r.ready > 0 && !r.error && !r.excluded;
+  const selectableIds = rows.filter(canPost).map((r) => r.tenantId);
+  const selectedReady = rows.filter((r) => selected.has(r.tenantId) && canPost(r));
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
 
   const toggle = (set: Set<string>, id: string) => {
     const next = new Set(set);
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
+  };
+
+  // First click on a column opens it in its natural direction; the next
+  // click flips it. Any change restarts at the first page.
+  const onSort = (key: SortKey) => {
+    if (key === sortBy) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(key); setSortDir(DEFAULT_DIR[key]); }
+    setOffset(0);
+  };
+
+  const setExcluded = (row: ClientRulesOverviewRow, excluded: boolean) => {
+    exclusion.mutate({ tenantId: row.tenantId, excluded }, {
+      onSuccess: () => {
+        setSelected((s) => { const n = new Set(s); n.delete(row.tenantId); return n; });
+        toast.success(excluded
+          ? `${row.tenantName} is excluded from bulk posting.`
+          : `${row.tenantName} is back on the overview.`);
+      },
+      onError: (e: Error) => toast.error(e.message || 'Could not update the client.'),
+    });
   };
 
   // One request per client so a long run shows progress and one client's
@@ -136,6 +185,16 @@ export function ClientRulesOverviewPage() {
         <Button variant="secondary" onClick={() => refetch()} disabled={isFetching || busy}>
           {isFetching && !isLoading ? 'Refreshing…' : 'Refresh'}
         </Button>
+        {(excludedTotal > 0 || includeExcluded) && (
+          <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={includeExcluded}
+              onChange={(e) => { setIncludeExcluded(e.target.checked); setOffset(0); }}
+            />
+            Show excluded clients{excludedTotal > 0 ? ` (${excludedTotal})` : ''}
+          </label>
+        )}
         {progress && (
           <span className="text-sm text-gray-600" role="status">
             Posting… {progress.done} of {progress.total} clients
@@ -149,13 +208,17 @@ export function ClientRulesOverviewPage() {
         <ErrorMessage message="Could not load the client rules overview." onRetry={() => refetch()} />
       ) : rows.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
-          {search ? 'No clients match your search.' : 'You don’t have access to any clients yet.'}
+          {search
+            ? 'No clients match your search.'
+            : excludedTotal > 0
+              ? `Every client you can reach is excluded from bulk posting (${excludedTotal}). Tick “Show excluded clients” to see them.`
+              : 'You don’t have access to any clients yet.'}
         </div>
       ) : (
         <>
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600">
+              <thead className="bg-gray-50 text-gray-600 text-xs">
                 <tr>
                   <th className="px-3 py-3 w-8">
                     <input
@@ -166,14 +229,14 @@ export function ClientRulesOverviewPage() {
                       onChange={() => setSelected(allSelected ? new Set() : new Set(selectableIds))}
                     />
                   </th>
-                  <th className="px-3 py-3 text-left font-medium">Client</th>
-                  <th className="px-3 py-3 text-right font-medium" title="Rules with at least one matching pending transaction">Rules matched</th>
-                  <th className="px-3 py-3 text-right font-medium" title="Pending transactions at least one rule matches">Matched</th>
-                  <th className="px-3 py-3 text-right font-medium" title="Pending transactions a rule would post now">Ready to post</th>
-                  <th className="px-3 py-3 text-right font-medium" title="Matched by a global rule whose account isn't mapped in this client yet">Needs mapping</th>
-                  <th className="px-3 py-3 text-right font-medium" title="Unread documents the client submitted">Unread docs</th>
-                  <th className="px-3 py-3 text-right font-medium" title="Document requests still waiting on the client">Open requests</th>
-                  <th className="px-3 py-3 text-right font-medium" title="Portal questions waiting on the client's answer">Open questions</th>
+                  <SortableTh sortKey="tenantName" label="Client" padding="px-3 py-3" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+                  <SortableTh sortKey="rulesMatched" label="Rules matched" align="right" padding="px-3 py-3" sortBy={sortBy} sortDir={sortDir} onSort={onSort} description="Rules with at least one matching pending transaction" />
+                  <SortableTh sortKey="matched" label="Matched" align="right" padding="px-3 py-3" sortBy={sortBy} sortDir={sortDir} onSort={onSort} description="Pending transactions at least one rule matches" />
+                  <SortableTh sortKey="ready" label="Ready to post" align="right" padding="px-3 py-3" sortBy={sortBy} sortDir={sortDir} onSort={onSort} description="Pending transactions a rule would post now" />
+                  <SortableTh sortKey="needsMapping" label="Needs mapping" align="right" padding="px-3 py-3" sortBy={sortBy} sortDir={sortDir} onSort={onSort} description="Matched by a global rule whose account isn't mapped in this client yet" />
+                  <SortableTh sortKey="unreadDocuments" label="Unread docs" align="right" padding="px-3 py-3" sortBy={sortBy} sortDir={sortDir} onSort={onSort} description="Unread documents the client submitted" />
+                  <SortableTh sortKey="openDocumentRequests" label="Open requests" align="right" padding="px-3 py-3" sortBy={sortBy} sortDir={sortDir} onSort={onSort} description="Document requests still waiting on the client" />
+                  <SortableTh sortKey="openQuestions" label="Open questions" align="right" padding="px-3 py-3" sortBy={sortBy} sortDir={sortDir} onSort={onSort} description="Portal questions waiting on the client's answer" />
                   <th className="px-3 py-3" />
                 </tr>
               </thead>
@@ -189,7 +252,7 @@ export function ClientRulesOverviewPage() {
                             type="checkbox"
                             aria-label={`Select ${row.tenantName}`}
                             checked={selected.has(row.tenantId)}
-                            disabled={row.ready === 0 || !!row.error || busy}
+                            disabled={!canPost(row) || busy}
                             onChange={() => setSelected((s) => toggle(s, row.tenantId))}
                           />
                         </td>
@@ -203,6 +266,14 @@ export function ClientRulesOverviewPage() {
                             {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                             {row.tenantName}
                           </button>
+                          {row.excluded && (
+                            <span
+                              className="ml-2 inline-flex items-center gap-1 rounded border border-gray-300 bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700"
+                              title="This client is excluded from bulk rule posting"
+                            >
+                              <Ban className="h-3 w-3" /> Excluded
+                            </span>
+                          )}
                           {row.error && <div className="mt-1 text-xs text-red-600">{row.error}</div>}
                           {!row.error && !row.tieredRules && (
                             <div className="mt-1 text-xs text-gray-500">
@@ -254,7 +325,8 @@ export function ClientRulesOverviewPage() {
                         <td className="px-3 py-3 text-right whitespace-nowrap">
                           <Button
                             size="sm"
-                            disabled={row.ready === 0 || !!row.error || busy}
+                            disabled={!canPost(row) || busy}
+                            title={row.excluded ? 'Excluded from bulk posting' : undefined}
                             onClick={() => setConfirm({
                               tenantIds: [row.tenantId],
                               label: `${row.ready} ready transaction${row.ready === 1 ? '' : 's'} for ${row.tenantName}`,
@@ -270,13 +342,14 @@ export function ClientRulesOverviewPage() {
                           <td colSpan={9} className="px-3 pb-4">
                             <ClientDetail
                               row={row}
-                              busy={busy}
+                              busy={busy || exclusion.isPending}
                               onPostRule={(ruleId, ruleName, ready) => setConfirm({
                                 tenantIds: [row.tenantId],
                                 ruleIds: [ruleId],
                                 label: `${ready} transaction${ready === 1 ? '' : 's'} matched by “${ruleName}” for ${row.tenantName}`,
                               })}
                               onOpenFeed={() => switchTo(row.tenantId, '/banking/feed')}
+                              onSetExcluded={(excluded) => setExcluded(row, excluded)}
                             />
                           </td>
                         </tr>
@@ -288,7 +361,16 @@ export function ClientRulesOverviewPage() {
             </table>
           </div>
           <div className="mt-3">
-            <Pagination total={data?.total ?? 0} limit={PAGE_SIZE} offset={offset} onChange={setOffset} unit="clients" />
+            <Pagination
+              total={data?.total ?? 0}
+              limit={limit}
+              offset={offset}
+              onChange={setOffset}
+              unit="clients"
+              pageSize={pageSize}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              onPageSizeChange={(size) => { setPageSize(size); setOffset(0); }}
+            />
           </div>
         </>
       )}
@@ -343,21 +425,41 @@ function ClientDetail({
   busy,
   onPostRule,
   onOpenFeed,
+  onSetExcluded,
 }: {
   row: ClientRulesOverviewRow;
   busy: boolean;
   onPostRule: (ruleId: string, ruleName: string, ready: number) => void;
   onOpenFeed: () => void;
+  onSetExcluded: (excluded: boolean) => void;
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2 pt-2">
       <div>
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between gap-3 mb-2">
           <h3 className="text-sm font-semibold text-gray-800">Matches by rule</h3>
-          <button type="button" className="text-xs text-primary-700 hover:underline" onClick={onOpenFeed}>
-            Open Bank Feed →
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="text-xs text-gray-600 hover:underline disabled:opacity-50"
+              disabled={busy}
+              onClick={() => onSetExcluded(!row.excluded)}
+              title={row.excluded
+                ? 'Show this client on the overview again and allow bulk posting'
+                : 'Hide this client from the overview and refuse bulk posting — for clients who do not want bulk changes'}
+            >
+              {row.excluded ? 'Include in bulk posting' : 'Exclude from bulk posting'}
+            </button>
+            <button type="button" className="text-xs text-primary-700 hover:underline" onClick={onOpenFeed}>
+              Open Bank Feed →
+            </button>
+          </div>
         </div>
+        {row.excluded && (
+          <p className="mb-2 rounded border border-gray-200 bg-gray-100 px-2 py-1 text-xs text-gray-700">
+            Excluded: this client does not receive bulk postings from this page. Its rules still run on the Bank Feed.
+          </p>
+        )}
         {row.rules.length === 0 ? (
           <p className="text-sm text-gray-500">
             {row.pendingItems === 0 ? 'No pending bank transactions.' : `No rule matches any of the ${row.pendingItems} pending transactions.`}
@@ -386,7 +488,7 @@ function ClientDetail({
                   <td className="px-3 py-2 text-right tabular-nums">{r.needsMapping || '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.needsReview || '—'}</td>
                   <td className="px-3 py-2 text-right">
-                    <Button size="sm" variant="secondary" disabled={r.ready === 0 || busy} onClick={() => onPostRule(r.ruleId, r.ruleName, r.ready)}>
+                    <Button size="sm" variant="secondary" disabled={r.ready === 0 || busy || row.excluded} onClick={() => onPostRule(r.ruleId, r.ruleName, r.ready)}>
                       Post
                     </Button>
                   </td>

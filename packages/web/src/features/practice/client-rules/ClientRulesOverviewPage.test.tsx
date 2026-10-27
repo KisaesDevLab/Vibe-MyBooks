@@ -24,6 +24,7 @@ function row(overrides: Partial<ClientRulesOverviewRow>): ClientRulesOverviewRow
     rulesMatched: 0, matched: 0, ready: 0, needsMapping: 0, needsReview: 0,
     rules: [], unmappedAccounts: [],
     unreadDocuments: 0, openDocumentRequests: 0, overdueDocumentRequests: 0, openQuestions: 0,
+    excluded: false,
     error: null,
     ...overrides,
   };
@@ -42,10 +43,17 @@ const ACME = row({
 const BAKER = row({ tenantId: 't2', tenantName: 'Baker Dental', pendingItems: 12, rulesMatched: 1, matched: 12, ready: 12 });
 const QUIET = row({ tenantId: 't3', tenantName: 'Quiet Co' });
 
+const HELD = row({ tenantId: 't4', tenantName: 'Held Back Inc', pendingItems: 9, rulesMatched: 1, matched: 9, ready: 9, excluded: true });
+
 function mockApi() {
   apiClient.mockImplementation((path: string, init?: RequestInit) => {
     if (path.startsWith('/practice/client-rules-overview?')) {
-      return Promise.resolve({ data: [ACME, BAKER, QUIET], total: 3, limit: 25, offset: 0 });
+      const params = new URL(`http://x${path}`).searchParams;
+      const data = params.get('includeExcluded') === 'true' ? [ACME, BAKER, QUIET, HELD] : [ACME, BAKER, QUIET];
+      return Promise.resolve({ data, total: data.length, excludedTotal: 1, limit: Number(params.get('limit')), offset: 0 });
+    }
+    if (path.endsWith('/exclusion')) {
+      return Promise.resolve(JSON.parse(String(init?.body)));
     }
     if (path === '/practice/client-rules-overview/post') {
       const body = JSON.parse(String(init?.body)) as { tenantIds: string[] };
@@ -69,6 +77,10 @@ function mockApi() {
 const rowFor = (name: string) => screen.getByText(name).closest('tr')!;
 const confirmPost = () => fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Post' }));
 const postCalls = () => apiClient.mock.calls.filter(([p]) => p === '/practice/client-rules-overview/post');
+const lastListQuery = () => {
+  const calls = apiClient.mock.calls.filter(([p]) => String(p).startsWith('/practice/client-rules-overview?'));
+  return new URL(`http://x${String(calls[calls.length - 1]![0])}`).searchParams;
+};
 
 beforeEach(() => {
   apiClient.mockReset();
@@ -131,8 +143,72 @@ describe('ClientRulesOverviewPage', () => {
     expect(JSON.parse(String(postCalls()[0]![1]!.body))).toEqual({ tenantIds: ['t1'], ruleIds: ['r2'] });
   });
 
+  it('sorts server-side: counters open descending, a second click flips, name opens ascending', async () => {
+    renderRoute(<ClientRulesOverviewPage />);
+    await screen.findByText('Acme LLC');
+    expect(lastListQuery().get('sortBy')).toBe('tenantName');
+    expect(lastListQuery().get('sortDir')).toBe('asc');
+
+    const readyHeader = () => screen.getByRole('columnheader', { name: /ready to post/i });
+    fireEvent.click(within(readyHeader()).getByRole('button'));
+    await waitFor(() => expect(lastListQuery().get('sortBy')).toBe('ready'));
+    expect(lastListQuery().get('sortDir')).toBe('desc');
+    expect(readyHeader().getAttribute('aria-sort')).toBe('descending');
+
+    fireEvent.click(within(readyHeader()).getByRole('button'));
+    await waitFor(() => expect(lastListQuery().get('sortDir')).toBe('asc'));
+    expect(readyHeader().getAttribute('aria-sort')).toBe('ascending');
+
+    fireEvent.click(screen.getByRole('button', { name: /^client/i }));
+    await waitFor(() => expect(lastListQuery().get('sortBy')).toBe('tenantName'));
+    expect(lastListQuery().get('sortDir')).toBe('asc');
+    expect(lastListQuery().get('offset')).toBe('0');
+  });
+
+  it('lets the user pick the page size', async () => {
+    renderRoute(<ClientRulesOverviewPage />);
+    await screen.findByText('Acme LLC');
+    expect(lastListQuery().get('limit')).toBe('25');
+    fireEvent.change(screen.getByLabelText('Rows per page'), { target: { value: '50' } });
+    await waitFor(() => expect(lastListQuery().get('limit')).toBe('50'));
+    expect(lastListQuery().get('offset')).toBe('0');
+  });
+
+  it('hides excluded clients until asked, then shows them without a way to post', async () => {
+    renderRoute(<ClientRulesOverviewPage />);
+    await screen.findByText('Acme LLC');
+    expect(screen.queryByText('Held Back Inc')).toBeNull();
+    expect(lastListQuery().get('includeExcluded')).toBeNull();
+
+    fireEvent.click(screen.getByLabelText('Show excluded clients (1)'));
+    const held = (await screen.findByText('Held Back Inc')).closest('tr')!;
+    expect(within(held).getByText('Excluded')).toBeTruthy();
+    expect((within(held).getByRole('button', { name: 'Post' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Select Held Back Inc') as HTMLInputElement).disabled).toBe(true);
+
+    // Bring it back from the detail panel.
+    fireEvent.click(within(held).getByRole('button', { name: 'Held Back Inc' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Include in bulk posting' }));
+    await waitFor(() => {
+      const call = apiClient.mock.calls.find(([p]) => p === '/practice/client-rules-overview/tenants/t4/exclusion');
+      expect(call).toBeTruthy();
+      expect(JSON.parse(String(call![1]!.body))).toEqual({ excluded: false });
+    });
+  });
+
+  it('excludes a client from its detail panel', async () => {
+    renderRoute(<ClientRulesOverviewPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Baker Dental' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Exclude from bulk posting' }));
+    await waitFor(() => {
+      const call = apiClient.mock.calls.find(([p]) => p === '/practice/client-rules-overview/tenants/t2/exclusion');
+      expect(call).toBeTruthy();
+      expect(JSON.parse(String(call![1]!.body))).toEqual({ excluded: true });
+    });
+  });
+
   it('shows a friendly empty state', async () => {
-    apiClient.mockImplementation(() => Promise.resolve({ data: [], total: 0, limit: 25, offset: 0 }));
+    apiClient.mockImplementation(() => Promise.resolve({ data: [], total: 0, excludedTotal: 0, limit: 25, offset: 0 }));
     renderRoute(<ClientRulesOverviewPage />);
     expect(await screen.findByText(/don’t have access to any clients/)).toBeTruthy();
   });
