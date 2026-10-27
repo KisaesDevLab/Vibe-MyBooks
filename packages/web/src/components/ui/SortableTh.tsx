@@ -56,7 +56,9 @@ export function SortableTh<K extends string>({
         <button
           type="button"
           onClick={() => onSort(sortKey)}
-          title={active ? `Sorted ${sortDir === 'asc' ? 'ascending' : 'descending'}. Click to flip.` : `Sort by ${label}`}
+          title={active
+            ? `Sorted ${sortDir === 'asc' ? 'ascending' : 'descending'}. Click to flip.`
+            : description ? `${description}. Click to sort.` : `Sort by ${label}`}
           className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-gray-700 ${active ? 'text-gray-800' : ''}`}
         >
           {label}
