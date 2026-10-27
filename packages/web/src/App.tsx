@@ -244,6 +244,7 @@ const SuspenseAccountPage = lazyNamed(() => import('./features/settings/Suspense
 const UncategorizedPage = lazyNamed(() => import('./features/practice/uncategorized/UncategorizedPage'), 'UncategorizedPage');
 const PracticeSettingsPage = lazyNamed(() => import('./features/practice/settings/PracticeSettingsPage'), 'PracticeSettingsPage');
 const RulesPage = lazyNamed(() => import('./features/practice/rules/RulesPage'), 'RulesPage');
+const ClientRulesOverviewPage = lazyNamed(() => import('./features/practice/client-rules/ClientRulesOverviewPage'), 'ClientRulesOverviewPage');
 const BankingRulesRoute = lazyNamed(() => import('./features/practice/rules/BankingRulesRoute'), 'BankingRulesRoute');
 const BankingUncategorizedRoute = lazyNamed(() => import('./features/banking/uncategorized/BankingUncategorizedRoute'), 'BankingUncategorizedRoute');
 const ReceiptsInboxPage = lazyNamed(() => import('./features/practice/receipts/ReceiptsInboxPage'), 'ReceiptsInboxPage');
@@ -627,6 +628,9 @@ export function App() {
             } />
             <Route path="/practice/rules" element={
               <PracticeLayout flag="CONDITIONAL_RULES_V1" minRole="bookkeeper"><RulesPage /></PracticeLayout>
+            } />
+            <Route path="/practice/client-rules" element={
+              <PracticeLayout flag="CONDITIONAL_RULES_V1" minRole="bookkeeper"><ClientRulesOverviewPage /></PracticeLayout>
             } />
             <Route path="/practice/receipts-inbox" element={
               <PracticeLayout flag="RECEIPT_PWA_V1" minRole="bookkeeper"><ReceiptsInboxPage /></PracticeLayout>

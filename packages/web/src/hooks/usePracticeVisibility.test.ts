@@ -50,7 +50,7 @@ describe('filterPracticeNav', () => {
       const keys = items.map((i) => i.key).sort();
       // Client Portal + Reminders were lowered from owner-tier to
       // bookkeeper-tier so firm staff can manage them.
-      expect(keys).toEqual(['1099', 'client-portal', 'close-review', 'receipts-inbox', 'reminders', 'report-builder', 'rules', 'uncategorized']);
+      expect(keys).toEqual(['1099', 'client-portal', 'client-rules', 'close-review', 'receipts-inbox', 'reminders', 'report-builder', 'rules', 'uncategorized']);
       expect(keys).toContain('client-portal');
       expect(keys).toContain('reminders');
     });
