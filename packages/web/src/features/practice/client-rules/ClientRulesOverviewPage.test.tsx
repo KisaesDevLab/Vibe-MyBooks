@@ -20,7 +20,7 @@ import { ClientRulesOverviewPage } from './ClientRulesOverviewPage';
 
 function row(overrides: Partial<ClientRulesOverviewRow>): ClientRulesOverviewRow {
   return {
-    tenantId: 't0', tenantName: 'Client', firmId: 'f1', pendingItems: 0, truncated: false,
+    tenantId: 't0', tenantName: 'Client', firmId: 'f1', tieredRules: true, pendingItems: 0, truncated: false,
     rulesMatched: 0, matched: 0, ready: 0, needsMapping: 0, needsReview: 0,
     rules: [], unmappedAccounts: [],
     unreadDocuments: 0, openDocumentRequests: 0, overdueDocumentRequests: 0, openQuestions: 0,
@@ -36,7 +36,7 @@ const ACME = row({
     { ruleId: 'r1', ruleName: 'Adobe → Software', scope: 'global_firm', matched: 12, ready: 9, needsMapping: 3, needsReview: 0 },
     { ruleId: 'r2', ruleName: 'Bank fees', scope: 'tenant_firm', matched: 28, ready: 28, needsMapping: 0, needsReview: 0 },
   ],
-  unmappedAccounts: [{ sourceAccountId: 'src1', sourceAccountName: 'Software & Subscriptions', sourceAccountNumber: '6420', items: 3 }],
+  unmappedAccounts: [{ sourceAccountId: 'src1', sourceAccountName: 'Software & Subscriptions', sourceAccountNumber: '6420', sourceAccountType: 'expense', items: 3 }],
   unreadDocuments: 2, openDocumentRequests: 3, overdueDocumentRequests: 1, openQuestions: 4,
 });
 const BAKER = row({ tenantId: 't2', tenantName: 'Baker Dental', pendingItems: 12, rulesMatched: 1, matched: 12, ready: 12 });
@@ -81,8 +81,8 @@ describe('ClientRulesOverviewPage', () => {
     await screen.findByText('Acme LLC');
     const acme = rowFor('Acme LLC');
     const cells = within(acme).getAllByRole('cell').map((c) => c.textContent);
-    // rules matched, ready, needs mapping, unread docs, open requests, open questions
-    expect(cells.slice(2, 8)).toEqual(['2', '37', '3', '2', '31 overdue', '4']);
+    // rules matched, matched, ready, needs mapping, unread docs, open requests, open questions
+    expect(cells.slice(2, 9)).toEqual(['2', '40', '37', '3', '2', '31 overdue', '4']);
   });
 
   it('posts one client from its row after confirming', async () => {

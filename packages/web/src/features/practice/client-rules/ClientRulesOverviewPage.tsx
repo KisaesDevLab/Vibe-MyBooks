@@ -168,6 +168,7 @@ export function ClientRulesOverviewPage() {
                   </th>
                   <th className="px-3 py-3 text-left font-medium">Client</th>
                   <th className="px-3 py-3 text-right font-medium" title="Rules with at least one matching pending transaction">Rules matched</th>
+                  <th className="px-3 py-3 text-right font-medium" title="Pending transactions at least one rule matches">Matched</th>
                   <th className="px-3 py-3 text-right font-medium" title="Pending transactions a rule would post now">Ready to post</th>
                   <th className="px-3 py-3 text-right font-medium" title="Matched by a global rule whose account isn't mapped in this client yet">Needs mapping</th>
                   <th className="px-3 py-3 text-right font-medium" title="Unread documents the client submitted">Unread docs</th>
@@ -203,6 +204,11 @@ export function ClientRulesOverviewPage() {
                             {row.tenantName}
                           </button>
                           {row.error && <div className="mt-1 text-xs text-red-600">{row.error}</div>}
+                          {!row.error && !row.tieredRules && (
+                            <div className="mt-1 text-xs text-gray-500">
+                              Firm and global rules are off for this client — only its own rules are counted.
+                            </div>
+                          )}
                           {row.truncated && (
                             <div className="mt-1 text-xs text-amber-700">
                               Counts cover the first {row.pendingItems.toLocaleString()} pending transactions.
@@ -211,6 +217,7 @@ export function ClientRulesOverviewPage() {
                           {result && <PostResultNote result={result} />}
                         </td>
                         <Num value={row.rulesMatched} />
+                        <Num value={row.matched} />
                         <Num value={row.ready} strong />
                         <td className="px-3 py-3 text-right tabular-nums">
                           {row.needsMapping > 0 ? (
@@ -260,7 +267,7 @@ export function ClientRulesOverviewPage() {
                       {isOpen && (
                         <tr className="bg-gray-50">
                           <td />
-                          <td colSpan={8} className="px-3 pb-4">
+                          <td colSpan={9} className="px-3 pb-4">
                             <ClientDetail
                               row={row}
                               busy={busy}
@@ -448,7 +455,7 @@ function MappingPanel({ row }: { row: ClientRulesOverviewRow }) {
                   onChange={(e) => setChoice((c) => ({ ...c, [acct.sourceAccountId]: e.target.value }))}
                 >
                   <option value="">Choose an account…</option>
-                  {(options.data?.accounts ?? []).map((a) => (
+                  {(options.data?.accounts ?? []).filter((a) => a.accountType === acct.sourceAccountType).map((a) => (
                     <option key={a.id} value={a.id}>{a.accountNumber ? `${a.accountNumber} · ${a.name}` : a.name}</option>
                   ))}
                 </select>
