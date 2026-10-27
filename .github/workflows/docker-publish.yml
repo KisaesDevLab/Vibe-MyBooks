@@ -214,7 +214,7 @@ jobs:
           syft "${{ steps.image.outputs.name }}@${{ steps.digest.outputs.digest }}" \
             -o cyclonedx-json=sbom.cdx.json
       - name: Attest SBOM to image
-        uses: actions/attest-sbom@v3
+        uses: actions/attest-sbom@v4
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.digest.outputs.digest }}
@@ -309,7 +309,7 @@ jobs:
           syft "${{ steps.names.outputs.worker }}@${{ steps.alias.outputs.digest }}" \
             -o cyclonedx-json=sbom-worker.cdx.json
       - name: Attest SBOM to worker alias
-        uses: actions/attest-sbom@v3
+        uses: actions/attest-sbom@v4
         with:
           subject-name: ${{ steps.names.outputs.worker }}
           subject-digest: ${{ steps.alias.outputs.digest }}
