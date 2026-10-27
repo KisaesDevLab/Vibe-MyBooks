@@ -3,6 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Paperclip,
   Plus,
   Trash2,
@@ -67,7 +68,13 @@ import { CommitInput } from '../../../components/forms/CommitInput';
 type Tab = 'contacts' | 'questions' | 'settings';
 
 export function ClientPortalAdminPage() {
-  const [tab, setTab] = useState<Tab>('contacts');
+  // Deep link: the Client Rules Overview's "Open questions" count lands on
+  // ?tab=questions.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const [tab, setTab] = useState<Tab>(
+    requestedTab === 'questions' || requestedTab === 'settings' ? requestedTab : 'contacts',
+  );
 
   return (
     <div className="px-6 py-6 max-w-6xl mx-auto">

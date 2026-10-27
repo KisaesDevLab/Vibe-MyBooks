@@ -20,6 +20,7 @@ export type PracticeNavKey =
   | 'close-review'
   | 'uncategorized'
   | 'rules'
+  | 'client-rules'
   | 'receipts-inbox'
   | '1099'
   | 'client-portal'
@@ -46,7 +47,8 @@ export const PRACTICE_NAV_CATALOG: readonly PracticeNavItem[] = [
   { key: 'close-review',    label: 'Close Review',    path: '/practice/close-review',    section: 'close-cycle',          flag: 'CLOSE_REVIEW_V1',      minRole: 'bookkeeper' },
   { key: 'uncategorized',   label: 'Uncategorized',   path: '/practice/uncategorized',   section: 'close-cycle',          flag: 'UNCATEGORIZED_REVIEW_V1', minRole: 'bookkeeper', firmOnly: true },
   { key: 'rules',           label: 'Rules',           path: '/practice/rules',           section: 'close-cycle',          flag: 'CONDITIONAL_RULES_V1', minRole: 'bookkeeper' },
-  { key: 'receipts-inbox',  label: 'Receipts Inbox',  path: '/practice/receipts-inbox',  section: 'close-cycle',          flag: 'RECEIPT_PWA_V1',       minRole: 'bookkeeper' },
+  { key: 'client-rules',    label: 'Client Rules Overview', path: '/practice/client-rules', section: 'close-cycle', flag: 'CONDITIONAL_RULES_V1', minRole: 'bookkeeper' },
+  { key: 'receipts-inbox', label: 'Receipts Inbox',  path: '/practice/receipts-inbox',  section: 'close-cycle',          flag: 'RECEIPT_PWA_V1',       minRole: 'bookkeeper' },
   { key: '1099',            label: '1099 Center',     path: '/practice/1099',            section: 'close-cycle',          flag: 'TAX_1099_V1',          minRole: 'bookkeeper' },
   { key: 'client-portal',   label: 'Client Portal',   path: '/practice/client-portal',   section: 'client-communication', flag: 'CLIENT_PORTAL_V1',     minRole: 'bookkeeper' },
   { key: 'reminders',       label: 'Reminders',       path: '/practice/reminders',       section: 'client-communication', flag: 'REMINDERS_V1',         minRole: 'bookkeeper' },
