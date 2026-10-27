@@ -121,6 +121,13 @@ export function useVoidTransaction() {
       // TB popout fast path (TB module 6B.3): GL changed in this browser.
       publishTbChange(activeCompanyId());
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      // Voiding a bill-payment check here reopens the bills and vendor
+      // credits it settled (server-side), so the A/P screens must refetch
+      // rather than keep showing them paid.
+      queryClient.invalidateQueries({ queryKey: ['bills'] });
+      queryClient.invalidateQueries({ queryKey: ['vendor-credits'] });
+      queryClient.invalidateQueries({ queryKey: ['bill-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['print-queue'] });
     },
   });
 }
