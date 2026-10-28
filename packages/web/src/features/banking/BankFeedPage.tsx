@@ -846,12 +846,17 @@ export function BankFeedPage() {
             : <>No bank feed items.{hasFilters ? ' Try adjusting your filters.' : ' Import a bank statement or connect a bank to get started.'}</>}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto xl:overflow-visible">
           {/* TODO(mobile): Bank Feed is intentionally left as a horizontal-scroll
               table on phones for now; a md:hidden card-list fallback (like the
-              Transactions list) is a future enhancement given this table's width. */}
+              Transactions list) is a future enhancement given this table's width.
+              From xl up the card stops scrolling horizontally (the table fits
+              with the sidebar open) so the column header can stick to the
+              window just under the AppShell top bar. A sticky thead inside an
+              overflow-x-auto card never sticks: the card becomes its scroll
+              container and the card itself never scrolls vertically. */}
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
+            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500 border-b border-gray-200 xl:sticky xl:top-app-header xl:z-10">
               <tr>
                 <th className="w-10 px-3 py-3">
                   {selectableCount > 0 && (() => {

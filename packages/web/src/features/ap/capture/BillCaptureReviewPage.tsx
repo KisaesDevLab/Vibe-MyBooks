@@ -74,7 +74,9 @@ function DocumentViewer({ captureId, mimeType, fileName }: { captureId: string; 
   const isPdf = mimeType === 'application/pdf';
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col xl:sticky xl:top-4 xl:h-[calc(100vh-6rem)]">
+    // Pinned below the AppShell top bar (3.5rem) with a 1rem gap above and
+    // below while the form beside it scrolls.
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col xl:sticky xl:top-[calc(theme(spacing.app-header)+1rem)] xl:h-[calc(100vh-theme(spacing.app-header)-2rem)]">
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-100">
         <span className="text-xs text-gray-500 truncate" title={fileName}>{fileName}</span>
         {!isPdf && (
