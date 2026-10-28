@@ -168,7 +168,7 @@ export function InvoiceListPage() {
               <Columns className="h-4 w-4 mr-1" /> Columns
             </Button>
             {columnMenuOpen && (
-              <div className="absolute right-0 mt-2 z-10 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-2 text-sm">
+              <div className="absolute right-0 mt-2 z-20 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-2 text-sm">
                 <div className="px-3 pb-2 text-xs uppercase text-gray-500 font-medium">Show columns</div>
                 {INVOICE_COLUMNS.map((c) => {
                   const only = visibleColumnCount === 1 && columnPrefs[c.key];

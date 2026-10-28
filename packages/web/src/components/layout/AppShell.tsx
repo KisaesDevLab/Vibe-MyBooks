@@ -101,12 +101,14 @@ export function AppShell() {
       )}
 
       {/* Sidebar — always visible on desktop (full width or icon rail),
-          slide-in drawer on mobile. The drawer always shows the FULL
+          slide-in drawer on mobile. On desktop it is viewport-high and
+          sticky, so it stays put while the page scrolls and its nav
+          scrolls on its own (Sidebar is h-full with an overflow-y-auto nav). The drawer always shows the FULL
           sidebar (collapsed only applies from lg up), so the width
           classes and the `collapsed` prop are both breakpoint-gated. */}
       <div className={`
         fixed inset-y-0 left-0 z-50 w-64 transform transition-[transform,width] duration-200 ease-in-out
-        lg:relative lg:translate-x-0 lg:z-auto
+        lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:z-auto
         ${collapsed ? 'lg:w-16' : 'lg:w-64'}
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>

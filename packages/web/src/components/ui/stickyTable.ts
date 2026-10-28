@@ -20,7 +20,13 @@
 //
 // The thead needs an opaque background (rows pass beneath it) and gets its
 // own bottom border here because a `divide-y` line lives on tbody's top
-// edge and scrolls away with the rows.
+// edge and scrolls away with the rows. Its first and last cells round
+// their top corners at xl because the card no longer clips them.
+//
+// Stacking: the stuck thead is z-10, the AppShell top bar z-30. A toolbar
+// menu that is positioned (not portaled) and hangs down over the table
+// must sit at z-20 or above, or the thead paints over it. Row-level
+// popups rendered through AnchoredPortal are unaffected.
 //
 // Not for tables that must scroll horizontally on desktop (wide entry
 // grids) or that freeze a column with `sticky left-0`: those need the card
@@ -29,4 +35,6 @@
 
 export const STICKY_TABLE_CARD = 'overflow-x-auto xl:overflow-visible';
 
-export const STICKY_THEAD = 'border-b border-gray-200 xl:sticky xl:top-app-header xl:z-10';
+export const STICKY_THEAD =
+  'border-b border-gray-200 xl:sticky xl:top-app-header xl:z-10 '
+  + 'xl:[&>tr:first-child>th:first-child]:rounded-tl-lg xl:[&>tr:first-child>th:last-child]:rounded-tr-lg';

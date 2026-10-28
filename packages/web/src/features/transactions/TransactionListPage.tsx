@@ -431,7 +431,7 @@ export function TransactionListPage() {
             <Plus className="h-4 w-4 mr-1" /> New Transaction
           </Button>
           {showNewMenu && (
-            <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg border border-gray-200 shadow-lg z-10 py-1">
+            <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg border border-gray-200 shadow-lg z-20 py-1">
               {newTxnOptions.map((opt) => (
                 <button
                   key={opt.path}

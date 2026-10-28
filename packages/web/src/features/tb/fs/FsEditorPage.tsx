@@ -213,7 +213,7 @@ export function FsEditorPage() {
   const dirty = dirtyLayout || dirtyReport;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
+    <div className="flex flex-col h-[calc(100vh-theme(spacing.app-header))]">
       {/* Header / settings bar */}
       <div className="border-b border-gray-200 bg-white px-4 py-2 space-y-2">
         <div className="flex items-center gap-2">

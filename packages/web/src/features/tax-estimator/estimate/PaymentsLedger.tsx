@@ -47,7 +47,7 @@ export function PaymentsLedger({ taxpayerId, taxYear, jurisdictions, canWrite }:
   const mutationError = create.isError ? errMsg(create.error) : update.isError ? errMsg(update.error) : del.isError ? errMsg(del.error) : undefined;
 
   return (
-    <section id="payments" aria-label="Payments ledger" className="space-y-3 scroll-mt-app-header">
+    <section id="payments" aria-label="Payments ledger" className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold text-gray-900">Payments</h2>
         {canWrite && editing == null && <Button size="sm" className="ml-auto" onClick={startNew}>Add payment</Button>}
