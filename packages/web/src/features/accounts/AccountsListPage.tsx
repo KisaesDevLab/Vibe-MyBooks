@@ -22,6 +22,7 @@ import { BulkEditAccountsModal } from './BulkEditAccountsModal';
 import { Plus, Upload, Download, Merge, Search, Shield, List, Table2 } from 'lucide-react';
 import type { Account } from '@kis-books/shared';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 const PAGE_SIZE = 200;
 const SORT_KEYS: readonly AccountSortKey[] = ['number', 'name', 'type', 'detailType', 'balance', 'status'];
@@ -137,9 +138,9 @@ export function AccountsListPage() {
           No accounts found. Create your first account or import from CSV.
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+        <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
+            <thead className={`bg-gray-50 text-xs font-medium uppercase text-gray-500 ${STICKY_THEAD}`}>
               <tr>
                 <SortableTh padding="px-6 py-3" label="Number" {...view.thProps('number')} />
                 <SortableTh padding="px-6 py-3" label="Name" {...view.thProps('name')} />

@@ -18,6 +18,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { Can } from '../../components/ui/Can';
 import { Plus, Search, Columns } from 'lucide-react';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 const PAGE_SIZE = 50;
 
@@ -252,9 +253,9 @@ export function InvoiceListPage() {
           No invoices found. Create your first invoice.
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+        <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
+            <thead className={`bg-gray-50 text-xs font-medium uppercase text-gray-500 ${STICKY_THEAD}`}>
               <tr>
                 {columnPrefs.number   && <SortableTh padding="px-6 py-3" label="Number" {...view.thProps('number')} />}
                 {columnPrefs.date     && <SortableTh padding="px-6 py-3" label="Date" {...view.thProps('date')} />}

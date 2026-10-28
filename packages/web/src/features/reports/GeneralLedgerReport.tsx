@@ -18,6 +18,7 @@ import { BasisSelector } from './BasisSelector';
 import { ReportAccountMultiSelect } from './ReportAccountMultiSelect';
 import { useAccounts } from '../../api/hooks/useAccounts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 // ─── Types matching the buildGeneralLedger response shape ────────
 interface GLLine {
@@ -216,7 +217,7 @@ function GeneralLedgerView({ data, showAcctNums = true }: { data: GLReportData; 
   const filterNote = filtered ? accountFilterNote(data.accountFilter!.accounts, showAcctNums) : '';
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
       <div className="px-6 py-4 border-b border-gray-200">
         <h2 className="text-base font-semibold text-gray-800">General Ledger</h2>
         <p className="text-xs text-gray-500 mt-1">
@@ -291,7 +292,7 @@ function AccountSection({ account, showAcctNums = true }: { account: GLAccount; 
       </div>
 
       <table className="w-full text-xs">
-        <thead className="text-gray-500 uppercase">
+        <thead className={`bg-white text-gray-500 uppercase ${STICKY_THEAD}`}>
           <tr className="border-b border-gray-200">
             <th className="text-left py-1.5 font-medium w-[88px]">Date</th>
             <th className="text-left py-1.5 font-medium w-[50px]">Type</th>

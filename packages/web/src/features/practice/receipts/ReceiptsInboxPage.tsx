@@ -11,6 +11,7 @@ import { SortableTh } from '../../../components/ui/SortableTh';
 import { useColumnView } from '../../../hooks/useColumnView';
 import { bankConnectionLabel, type BankConnectionOption } from '../bankConnectionLabel';
 import { CommitInput } from '../../../components/forms/CommitInput';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../../components/ui/stickyTable';
 
 // VIBE_MYBOOKS_PRACTICE_BUILD_PLAN Phase 18.8 — bookkeeper Receipts Inbox.
 // Replaces the prior placeholder. Talks to /api/v1/practice/receipts.
@@ -227,9 +228,9 @@ export function ReceiptsInboxPage() {
           <p className="text-sm text-gray-500">Upload a receipt or wait for clients to upload via the portal.</p>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-lg overflow-x-auto">
+        <div className={`border border-gray-200 rounded-lg ${STICKY_TABLE_CARD}`}>
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className={`bg-gray-50 ${STICKY_THEAD}`}>
               <tr>
                 <SortableTh padding="px-4 py-2" className={TH} label="File" {...view.thProps('filename')} />
                 <SortableTh padding="px-4 py-2" className={TH} label="Company" {...view.thProps('companyName')} />

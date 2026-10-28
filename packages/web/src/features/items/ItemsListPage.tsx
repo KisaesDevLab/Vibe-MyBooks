@@ -16,6 +16,7 @@ import { ItemFormModal } from './ItemFormModal';
 import { Plus, Download, Search } from 'lucide-react';
 import type { Item } from '@kis-books/shared';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 const PAGE_SIZE = 100;
 const SORT_KEYS: readonly ItemSortKey[] = ['name', 'price', 'taxable', 'status'];
@@ -130,9 +131,9 @@ export function ItemsListPage() {
           No items found. Add your first product or service.
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+        <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
+            <thead className={`bg-gray-50 text-xs font-medium uppercase text-gray-500 ${STICKY_THEAD}`}>
               <tr>
                 <SortableTh padding="px-6 py-3" label="Name" {...view.thProps('name')} />
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>

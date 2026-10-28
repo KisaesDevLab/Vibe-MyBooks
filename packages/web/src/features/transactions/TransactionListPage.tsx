@@ -20,6 +20,7 @@ import { SortableTh } from '../../components/ui/SortableTh';
 import { ArrowLeft, Plus, Search, X } from 'lucide-react';
 import { CommitInput } from '../../components/forms/CommitInput';
 import { TransactionExportButtons } from './TransactionExportButtons';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 // Rows-per-page choices. 'all' fetches up to the API cap (10000) in one
 // request — effectively the whole filtered set for typical volumes.
@@ -628,9 +629,9 @@ export function TransactionListPage() {
       ) : (
         <>
         {/* Desktop: full table (horizontal-scrolls on medium+ if narrow). */}
-        <div className="hidden md:block bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+        <div className={`hidden md:block bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
+            <thead className={`bg-gray-50 text-xs font-medium uppercase text-gray-500 ${STICKY_THEAD}`}>
               <tr>
                 <th className="px-4 py-3 w-8">
                   <input type="checkbox" checked={allOnPageSelected} onChange={toggleAllOnPage}

@@ -580,7 +580,10 @@ export function BatchEntryPage() {
       )}
 
       {/* Grid */}
-      <div ref={gridRef} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto" onPaste={handlePaste}>
+      {/* The grid is wider than the card on most laptops, so it keeps its
+          own horizontal scroll and is height-bounded instead: it scrolls
+          vertically inside the card and the sticky thead stays put. */}
+      <div ref={gridRef} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-auto max-h-[calc(100vh-theme(spacing.app-header)-10rem)]" onPaste={handlePaste}>
         <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead className="bg-gray-100 sticky top-0 z-10 border-b border-gray-300">
             <tr>

@@ -10,6 +10,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { Search, Download, ChevronDown, ChevronRight } from 'lucide-react';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 interface AuditLogEntry {
   id: string;
@@ -291,9 +292,9 @@ export function AuditLogPage() {
           No audit log entries found matching the current filters.
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+        <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className={`bg-gray-50 ${STICKY_THEAD}`}>
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-8" />
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>

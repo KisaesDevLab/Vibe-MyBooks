@@ -13,6 +13,7 @@ import { useToast } from '../../components/ui/Toaster';
 import { Pagination } from '../../components/ui/Pagination';
 import { FileText, Upload, Trash2, AlertTriangle, RefreshCw, Eye } from 'lucide-react';
 import { openAttachmentInTab } from '../attachments/openAttachmentInTab';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 type StatusKey = 'processing' | 'pending' | 'imported' | 'failed';
 type Disposition = { key: StatusKey; label: string; cls: string; canResume: boolean; canReprocess: boolean };
@@ -156,9 +157,9 @@ export function StatementImportsPage() {
       )}
 
       {!isLoading && !isError && visibleJobs.length > 0 && (
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
+        <div className={`bg-white rounded-lg border shadow-sm ${STICKY_TABLE_CARD}`}>
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 font-medium text-gray-600">
+            <thead className={`bg-gray-50 font-medium text-gray-600 ${STICKY_THEAD}`}>
               <tr>
                 <SortableTh padding="px-4 py-3" label="Statement" {...view.thProps('fileName')} />
                 <SortableTh padding="px-4 py-3" label="Uploaded" {...view.thProps('createdAt')} />

@@ -22,6 +22,7 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { SortableTh } from '../../../components/ui/SortableTh';
 import { CommitInput } from '../../../components/forms/CommitInput';
 import { useToast } from '../../../components/ui/Toaster';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../../components/ui/stickyTable';
 
 // Client Rules Overview — one row per client the staff user can reach:
 // how many pending bank-feed items the rules would post, which global
@@ -216,9 +217,9 @@ export function ClientRulesOverviewPage() {
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+          <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600 text-xs">
+              <thead className={`bg-gray-50 text-gray-600 text-xs ${STICKY_THEAD}`}>
                 <tr>
                   <th className="px-3 py-3 w-8">
                     <input

@@ -22,6 +22,7 @@ import { BasisSelector } from './BasisSelector';
 import { ReportAccountMultiSelect } from './ReportAccountMultiSelect';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 export interface AccountDetailConfig {
   title: string;
@@ -172,7 +173,7 @@ function DetailView({ data, config }: { data: ReportData; config: AccountDetailC
     );
   }
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
       <div className="px-6 py-4 border-b border-gray-200">
         <h2 className="text-base font-semibold text-gray-800">{config.title}</h2>
         <p className="text-xs text-gray-500 mt-1">{data.startDate} to {data.endDate}</p>
@@ -200,7 +201,7 @@ function AccountSection({ group }: { group: DetailGroup }) {
         {group.name}
       </h3>
       <table className="w-full text-xs">
-        <thead className="text-gray-500 uppercase">
+        <thead className={`bg-white text-gray-500 uppercase ${STICKY_THEAD}`}>
           <tr className="border-b border-gray-200">
             <th className="text-left py-1.5 font-medium w-[88px]">Date</th>
             <th className="text-left py-1.5 font-medium w-[50px]">Type</th>
@@ -260,9 +261,9 @@ function SummaryView({ data, config, startDate, endDate }: { data: ReportData; c
     );
   }
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+        <thead className={`bg-gray-50 text-gray-500 uppercase text-xs ${STICKY_THEAD}`}>
           <tr className="border-b border-gray-200">
             <th className="text-left px-6 py-2.5 font-medium w-[90px]">#</th>
             <th className="text-left px-6 py-2.5 font-medium">{config.categoryLabel}</th>

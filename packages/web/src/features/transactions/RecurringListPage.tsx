@@ -13,6 +13,7 @@ import { RecurringScheduleModal, type EditableSchedule } from './RecurringSchedu
 import { SortableTh } from '../../components/ui/SortableTh';
 import { useColumnView } from '../../hooks/useColumnView';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 interface RecurringSchedule {
   // templateTransactionId is null for a schedule of a template made without
@@ -137,9 +138,9 @@ export function RecurringListPage() {
           {all.length === 0 ? "No recurring transactions. Set one up from a transaction's detail page." : 'No plans match this filter.'}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
+        <div className={`bg-white rounded-lg border shadow-sm ${STICKY_TABLE_CARD}`}>
           <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
+            <thead className={`bg-gray-50 ${STICKY_THEAD}`}>
               <tr>
                 <SortableTh padding="px-4 py-2" className={th} label="Name" {...cols.thProps('name')} />
                 <SortableTh padding="px-4 py-2" className={th} label="Frequency" {...cols.thProps('frequency')} />

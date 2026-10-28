@@ -26,6 +26,7 @@ import { useToast } from '../../components/ui/Toaster';
 import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, RefreshCw, Link2, Wand2, ScanLine, RotateCcw } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -846,7 +847,7 @@ export function BankFeedPage() {
             : <>No bank feed items.{hasFilters ? ' Try adjusting your filters.' : ' Import a bank statement or connect a bank to get started.'}</>}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto xl:overflow-visible">
+        <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
           {/* TODO(mobile): Bank Feed is intentionally left as a horizontal-scroll
               table on phones for now; a md:hidden card-list fallback (like the
               Transactions list) is a future enhancement given this table's width.
@@ -856,7 +857,7 @@ export function BankFeedPage() {
               overflow-x-auto card never sticks: the card becomes its scroll
               container and the card itself never scrolls vertically. */}
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500 border-b border-gray-200 xl:sticky xl:top-app-header xl:z-10">
+            <thead className={`bg-gray-50 text-xs font-medium uppercase text-gray-500 ${STICKY_THEAD}`}>
               <tr>
                 <th className="w-10 px-3 py-3">
                   {selectableCount > 0 && (() => {

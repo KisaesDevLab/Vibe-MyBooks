@@ -20,6 +20,7 @@ import autoTable from 'jspdf-autotable';
 import { useLocalState } from '../../hooks/useLocalState';
 import { CommitInput } from '../../components/forms/CommitInput';
 import { useRegisterNonRecurringIds } from '../tax-estimator/register/useRegisterNonRecurring';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 // Server caps per_page at 200.
 const PAGE_SIZE_OPTIONS = ['25', '50', '100', '200'];
@@ -278,9 +279,9 @@ export function RegisterPage() {
       <RegisterEntryRow accountId={id!} accountType={account.accountType} allowedEntryTypes={allowedEntryTypes} isBankOrCC={isBankOrCC} />
 
       {/* Register Table */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+      <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
         <table className="min-w-full text-xs">
-          <thead className="bg-gray-50 sticky top-0 z-10">
+          <thead className={`bg-gray-50 ${STICKY_THEAD}`}>
             <tr>
               <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase cursor-pointer w-[5.5rem]" onClick={() => toggleSort('date')}>
                 Date {sortBy === 'date' && (sortDir === 'asc' ? '↑' : '↓')}
