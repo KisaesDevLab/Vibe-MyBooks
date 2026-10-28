@@ -32,6 +32,9 @@ textarea::placeholder {
 
 html {
   transition: background-color 0.2s ease, color 0.2s ease;
+  /* The AppShell top bar (and the portal header) stay on screen, so anchor
+     jumps, scrollIntoView and focus-scrolling must land below them. */
+  scroll-padding-top: theme(spacing.app-header);
 }
 html.no-transition * {
   transition: none !important;

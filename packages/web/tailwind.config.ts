@@ -9,6 +9,12 @@ export default {
   darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {
+      // Height of the AppShell top bar. Anything that sticks below it
+      // (table headers, side panels) offsets with `top-app-header`, and
+      // in-page anchors clear it with `scroll-mt-app-header`.
+      spacing: {
+        'app-header': '3.5rem',
+      },
       colors: {
         primary: {
           50: '#eff6ff',

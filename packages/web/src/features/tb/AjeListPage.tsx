@@ -18,6 +18,7 @@ import { useToast } from '../../components/ui/Toaster';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { SortableTh } from '../../components/ui/SortableTh';
 import { useColumnView } from '../../hooks/useColumnView';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 interface AjeLine {
   id: string;
@@ -114,9 +115,9 @@ export function AjeListPage() {
       )}
       {data && data.ajes.length > 0 && (
         <>
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+          <div className={`rounded-lg border border-gray-200 bg-white ${STICKY_TABLE_CARD}`}>
             <table className="w-full text-sm">
-              <thead>
+              <thead className={`bg-white ${STICKY_THEAD}`}>
                 <tr className="text-left text-xs uppercase text-gray-500 border-b border-gray-200">
                   <SortableTh padding="px-4 py-2" label="#" {...view.thProps('ajeNumber')} />
                   <SortableTh padding="px-4 py-2" label="Date" {...view.thProps('txnDate')} />

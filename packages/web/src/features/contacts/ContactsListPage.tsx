@@ -19,6 +19,7 @@ import { ContactImportModal } from './ContactImportModal';
 import { MergeContactsModal } from './MergeContactsModal';
 import { Plus, Upload, Download, Merge, Search, X } from 'lucide-react';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 const PAGE_SIZE = 100;
 const SORT_KEYS: readonly ContactSortKey[] = ['name', 'type', 'email', 'phone', 'status'];
@@ -197,9 +198,9 @@ export function ContactsListPage() {
           No contacts found. Add your first customer or vendor.
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+        <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
+            <thead className={`bg-gray-50 text-xs font-medium uppercase text-gray-500 ${STICKY_THEAD}`}>
               <tr>
                 <th className="px-4 py-3 w-10">
                   <input

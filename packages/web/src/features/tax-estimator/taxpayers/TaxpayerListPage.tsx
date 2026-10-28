@@ -20,6 +20,7 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { FILING_STATUS_LABELS, SELECT_CLASS } from './labels';
 import { StateSelect } from './StateSelect';
 import { FirmDashboardCards } from './FirmDashboardCards';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../../components/ui/stickyTable';
 
 type SortKey = 'displayName' | 'filingStatus' | 'residentState' | 'createdAt';
 const SORT_KEYS: readonly SortKey[] = ['displayName', 'filingStatus', 'residentState', 'createdAt'];
@@ -119,7 +120,7 @@ export function TaxpayerListPage() {
         </label>
         {view.anyFilterActive && <Button variant="ghost" size="sm" onClick={view.clearAll}>Clear filters</Button>}
       </div>
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+      <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
         {isLoading ? <LoadingSpinner className="py-12" />
           : isError ? <ErrorMessage message="Could not load taxpayers." onRetry={() => refetch()} />
           : rows.length === 0 ? (
@@ -138,7 +139,7 @@ export function TaxpayerListPage() {
             )
           ) : (
             <table className="min-w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className={`bg-gray-50 ${STICKY_THEAD}`}>
                 <tr>
                   <SortableTh padding="py-2 px-3" className={TH} label="Taxpayer" {...view.thProps('displayName')} />
                   <th className={`py-2 px-3 text-left ${TH}`}>Persons</th>

@@ -18,6 +18,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { EmptyStateChat } from '../chat/EmptyStateChat';
 import type { BillStatus } from '@kis-books/shared';
 import { CommitInput } from '../../components/forms/CommitInput';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   unpaid: { label: 'Unpaid', color: 'bg-yellow-100 text-yellow-800' },
@@ -132,7 +133,7 @@ export function BillListPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+      <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${STICKY_TABLE_CARD}`}>
         {isLoading ? (
           <LoadingSpinner className="py-12" />
         ) : isError ? (
@@ -151,7 +152,7 @@ export function BillListPage() {
           </div>
         ) : (
           <table className="min-w-full">
-            <thead className="bg-gray-50 border-b text-xs font-medium uppercase text-gray-500">
+            <thead className={`bg-gray-50 text-xs font-medium uppercase text-gray-500 ${STICKY_THEAD}`}>
               <tr>
                 <SortableTh padding="py-2 px-3" label="Bill #" {...view.thProps('number')} />
                 <SortableTh padding="py-2 px-3" label="Vendor" {...view.thProps('vendor')} />

@@ -101,23 +101,32 @@ export function AppShell() {
       )}
 
       {/* Sidebar — always visible on desktop (full width or icon rail),
-          slide-in drawer on mobile. The drawer always shows the FULL
+          slide-in drawer on mobile. On desktop it is viewport-high and
+          sticky, so it stays put while the page scrolls and its nav
+          scrolls on its own (Sidebar is h-full with an overflow-y-auto nav). The drawer always shows the FULL
           sidebar (collapsed only applies from lg up), so the width
           classes and the `collapsed` prop are both breakpoint-gated. */}
       <div className={`
         fixed inset-y-0 left-0 z-50 w-64 transform transition-[transform,width] duration-200 ease-in-out
-        lg:relative lg:translate-x-0 lg:z-auto
+        lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:z-auto
         ${collapsed ? 'lg:w-16' : 'lg:w-64'}
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <Sidebar onNavigate={() => setSidebarOpen(false)} collapsed={isDesktop && collapsed} />
       </div>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-auto min-w-0">
+      {/* Main content. The window is the scroller: <main> must NOT be a
+          scroll container (no overflow-*), or it becomes the sticky
+          container for everything inside it while never scrolling itself,
+          and neither this header nor any page's sticky table header ever
+          sticks. Wide content falls back to document-level horizontal
+          scroll, which only affects tables outside an overflow-x-auto card. */}
+      <main className="flex-1 min-w-0">
         {/* Header with the hamburger at the top left. On mobile it opens
-            the drawer; on desktop it collapses/expands the icon rail. */}
-        <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200">
+            the drawer; on desktop it collapses/expands the icon rail.
+            Fixed height (theme spacing `app-header`) so pages can stick
+            things directly beneath it with `top-app-header`. */}
+        <div className="sticky top-0 z-30 flex h-app-header items-center gap-3 px-4 bg-white border-b border-gray-200">
           <button
             type="button"
             aria-label="Toggle menu"

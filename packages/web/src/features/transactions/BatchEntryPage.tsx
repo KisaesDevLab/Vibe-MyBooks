@@ -580,7 +580,11 @@ export function BatchEntryPage() {
       )}
 
       {/* Grid */}
-      <div ref={gridRef} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto" onPaste={handlePaste}>
+      {/* The grid is wider than the card on most laptops, so it keeps its
+          own horizontal scroll and is height-bounded instead: it scrolls
+          vertically inside the card and the sticky thead and totals row stay
+          put. scroll-pt/pb keep a keyboard-focused cell clear of both. */}
+      <div ref={gridRef} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-auto min-h-64 max-h-[calc(100vh-theme(spacing.app-header)-10rem)] scroll-pt-10 scroll-pb-10" onPaste={handlePaste}>
         <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead className="bg-gray-100 sticky top-0 z-10 border-b border-gray-300">
             <tr>
@@ -718,7 +722,7 @@ export function BatchEntryPage() {
               );
             })}
           </tbody>
-          <tfoot className="bg-gray-50 border-t-2 font-medium">
+          <tfoot className="bg-gray-50 border-t-2 font-medium sticky bottom-0 z-10">
             {/* One footer cell per column so each total sits under its own
                 column (Amount isn't always last: Customer Payments, Tag). */}
             <tr>

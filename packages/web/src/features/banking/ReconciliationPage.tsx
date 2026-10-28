@@ -43,6 +43,7 @@ import type { ReconItemFlag } from '@kis-books/shared';
 import { ReconProofPanel } from './ReconProofPanel';
 import { ReconSignoffPanel } from './ReconSignoffPanel';
 import { ReconFlagBadge } from '../reports/reconciliation/ReconProofSections';
+import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
 const money = (v: string | number | null | undefined) =>
   v == null || v === '' ? '—' : `$${parseFloat(String(v)).toFixed(2)}`;
@@ -1576,9 +1577,9 @@ export function ReconciliationPage() {
           className="ml-auto rounded-md border-gray-300 text-sm px-3 py-1.5 min-w-[14rem]" />
       </div>
 
-      <div className="bg-white rounded-lg border shadow-sm overflow-x-auto mb-4">
+      <div className={`bg-white rounded-lg border shadow-sm mb-4 ${STICKY_TABLE_CARD}`}>
         <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+          <thead className={`bg-gray-50 ${STICKY_THEAD}`}>
             <tr>
               <th className="w-10 px-4 py-2">
                 {/* Clear / un-clear every currently-visible row in one call.
