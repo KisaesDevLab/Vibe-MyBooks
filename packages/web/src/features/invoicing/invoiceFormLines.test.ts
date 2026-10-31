@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import type { JournalLine } from '@kis-books/shared';
 import {
-  hydrateInvoiceLines, invoiceLinesPayload, estimateInvoice, percentToRate, rateToPercent, signedAmount,
+  hydrateInvoiceLines, invoiceLinesPayload, estimateInvoice, percentToRate, rateToPercent, signedAmount, releasedBillableIds,
 } from './invoiceFormLines';
 
 const AR = 'acct-ar';
@@ -88,6 +88,16 @@ describe('invoice editor lines (B-1)', () => {
     expect(r.ok).toBe(false);
     // A $0 invoice with no A/R line loads.
     expect(hydrateInvoiceLines([], { ...opts, total: '0.0000' }).ok).toBe(true);
+  });
+
+  it('a billed-cost row removed in the editor is released on save (U-128)', () => {
+    const form = loaded(hydrateInvoiceLines([
+      line({ accountId: AR, accountSystemTag: 'accounts_receivable', debit: '84.0000' }),
+      line({ credit: '42.0000', lineRole: 'billable_cost', billableSourceLineId: 'src-1' }),
+      line({ credit: '42.0000', lineRole: 'billable_cost', billableSourceLineId: 'src-2' }),
+    ], { ...opts, total: '84.0000' }));
+    expect(releasedBillableIds(['src-1', 'src-2'], form)).toEqual([]);
+    expect(releasedBillableIds(['src-1', 'src-2'], form.slice(1))).toEqual(['src-1']);
   });
 
   it('rates and amounts convert exactly', () => {

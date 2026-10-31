@@ -263,3 +263,9 @@ export function estimateInvoice(lines: readonly InvoiceLine[]): { amounts: strin
     total: fromUnits((subtotal + tax) * 100n).slice(0, -2),
   };
 }
+
+/** The billed costs the stored invoice billed that the form no longer has (PUT releaseBillableSourceLineIds, U-128). */
+export function releasedBillableIds(stored: readonly string[], lines: readonly InvoiceLine[]): string[] {
+  const kept = new Set(lines.flatMap((l) => (l.billableSourceLineId ? [l.billableSourceLineId] : [])));
+  return stored.filter((id) => !kept.has(id));
+}

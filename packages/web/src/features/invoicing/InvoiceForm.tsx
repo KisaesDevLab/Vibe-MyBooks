@@ -11,7 +11,7 @@ import { addCalendarDays, isCalendarDate, type Transaction } from '@kis-books/sh
 import { useCreateInvoice } from '../../api/hooks/useInvoices';
 import { useItems } from '../../api/hooks/useItems';
 import {
-  emptyLine, estimateInvoice, hydrateInvoiceLines, invoiceLinesPayload, type EntryMode, type InvoiceLine,
+  emptyLine, estimateInvoice, hydrateInvoiceLines, invoiceLinesPayload, releasedBillableIds, type EntryMode, type InvoiceLine,
 } from './invoiceFormLines';
 import { useCompanySettings } from '../../api/hooks/useCompany';
 import { apiClient } from '../../api/client';
@@ -123,6 +123,8 @@ export function InvoiceForm() {
 
   // Set when a stored invoice can't be loaded safely (review N-1).
   const [loadError, setLoadError] = useState<string | null>(null);
+  // The billed costs the stored invoice bills (U-128): one removed here is released.
+  const [storedBillableIds, setStoredBillableIds] = useState<string[]>([]);
 
   // Fetch existing invoice for edit mode
   const { data: existingData } = useQuery({
@@ -153,7 +155,10 @@ export function InvoiceForm() {
       { total: inv.total, defaultTaxRatePercent, markupByLine: new Map(billable.map((b) => [b.sourceLineId, b.markupPercent])) },
     );
     if (!invLines.ok) setLoadError(invLines.error);
-    else if (invLines.lines.length > 0) setLines(invLines.lines);
+    else {
+      if (invLines.lines.length > 0) setLines(invLines.lines);
+      setStoredBillableIds(invLines.lines.flatMap((l) => (l.billableSourceLineId ? [l.billableSourceLineId] : [])));
+    }
     setLoaded(true);
     // Intentionally only [existingData]: this hydrates the form once from the
     // fetched invoice, snapshotting `today`/`defaultTaxRatePercent` at that
@@ -224,6 +229,10 @@ export function InvoiceForm() {
     internalNotes: internalNotes || undefined,
     ...(includeNumber ? { txnNumber: trimmedNumber } : {}),
     lines: invoiceLinesPayload(lines),
+    // An edit sends every line the invoice keeps: a discount or subtotal
+    // removed here was removed on purpose (invoice-pricing-lines-v1), and a
+    // billed cost removed here goes back to unbilled.
+    ...(isEdit ? { pricingLinesComplete: true, releaseBillableSourceLineIds: releasedBillableIds(storedBillableIds, lines) } : {}),
     };
   };
 
