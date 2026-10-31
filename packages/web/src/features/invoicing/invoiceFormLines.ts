@@ -227,7 +227,7 @@ export function estimateInvoice(lines: readonly InvoiceLine[]): { amounts: strin
   let group = 0n; // cents
   let underSubtotal: bigint | null = null;
   let subtotal = 0n;
-  let taxU8 = 0n; // tax, 1/10^8 of a cent-ish unit: cents x rate units
+  const baseByRate = new Map<string, bigint>(); // taxable cents by rate
   const amounts = lines.map((l) => {
     let cents: bigint;
     if (l.kind === 'subtotal') {
@@ -252,10 +252,20 @@ export function estimateInvoice(lines: readonly InvoiceLine[]): { amounts: strin
       underSubtotal = null;
     }
     subtotal += cents;
-    if (l.isTaxable) taxU8 += cents * toUnits(percentToRate(l.taxRate));
+    if (l.isTaxable) {
+      const rate = percentToRate(l.taxRate);
+      baseByRate.set(rate, (baseByRate.get(rate) ?? 0n) + cents);
+    }
     return fromUnits(cents * 100n).slice(0, -2);
   });
-  const tax = taxU8 > 0n ? (taxU8 + 5000n) / 10000n : 0n; // cents x 10^4 -> cents
+  // Once per rate, half away from zero; a negative base taxes 0.00 when the
+  // subtotal is above 0.00 (Q-P20ag), else it reverses (Q-P20aj).
+  let tax = 0n;
+  for (const [rate, base] of baseByRate) {
+    if (subtotal > 0n && base < 0n) continue;
+    const u = base * toUnits(rate); // cents x 10^4
+    tax += (u < 0n ? u - 5000n : u + 5000n) / 10000n;
+  }
   return {
     amounts,
     subtotal: fromUnits(subtotal * 100n).slice(0, -2),

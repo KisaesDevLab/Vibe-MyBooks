@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import type { JournalLine } from '@kis-books/shared';
 import {
   hydrateInvoiceLines, invoiceLinesPayload, estimateInvoice, percentToRate, rateToPercent, signedAmount, releasedBillableIds,
+  emptyLine, type InvoiceLine,
 } from './invoiceFormLines';
 
 const AR = 'acct-ar';
@@ -98,6 +99,14 @@ describe('invoice editor lines (B-1)', () => {
     ], { ...opts, total: '84.0000' }));
     expect(releasedBillableIds(['src-1', 'src-2'], form)).toEqual([]);
     expect(releasedBillableIds(['src-1', 'src-2'], form.slice(1))).toEqual(['src-1']);
+  });
+
+  it('the estimate floors a negative rate base only on a positive document (Q-P20ag, Q-P20aj)', () => {
+    const l = (p: Partial<InvoiceLine>): InvoiceLine => ({ ...emptyLine('category', '0'), accountId: 'a', isTaxable: false, ...p });
+    // 1,000.00 non-taxable + 10.00 - 101.00 taxable at 8.1 %: tax 0.00.
+    expect(estimateInvoice([l({ unitPrice: '1000.00' }), l({ unitPrice: '10.00', isTaxable: true, taxRate: '8.1' }), l({ unitPrice: '-101.00', isTaxable: true, taxRate: '8.1' })]).tax).toBe('0.00');
+    // A return of 120.00 at 8.25 %: tax -9.90.
+    expect(estimateInvoice([l({ quantity: '-1', unitPrice: '100.00', isTaxable: true, taxRate: '8.25' }), l({ unitPrice: '-20.00', isTaxable: true, taxRate: '8.25' })]).tax).toBe('-9.90');
   });
 
   it('rates and amounts convert exactly', () => {
