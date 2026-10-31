@@ -5,6 +5,8 @@
 import fs from 'fs';
 import path from 'path';
 import { eq, and } from 'drizzle-orm';
+import DecimalLib from 'decimal.js';
+const Decimal = DecimalLib.default || DecimalLib;
 import { db } from '../db/index.js';
 import { companies, contacts, transactions, journalLines, accounts } from '../db/schema/index.js';
 import { AppError } from '../utils/errors.js';
@@ -41,6 +43,8 @@ interface InvoicePdfData {
     balanceDue: string;
     memo: string | null;
     invoiceStatus: string | null;
+    /** The customer's PO number (U-123), shown when the template's showPoNumber is on. */
+    poNumber: string | null;
   };
   lines: Array<{
     description: string | null;
@@ -48,10 +52,14 @@ interface InvoicePdfData {
     unitPrice: string | null;
     amount: string;
     accountName: string;
+    /** U-129: a percent discount prints its percent; a subtotal prints no quantity or rate. */
+    kind?: 'line' | 'discount_percent' | 'subtotal';
+    discountPercent?: string | null;
   }>;
   accentColor: string;
   footerText: string;
   showTerms: boolean;
+  showPoNumber: boolean;
   documentType: 'Invoice' | 'Sales Receipt';
 }
 
@@ -89,21 +97,35 @@ async function gatherInvoiceData(tenantId: string, invoiceId: string): Promise<I
     ))
     .orderBy(journalLines.lineOrder);
 
-  // Get account names for revenue lines (credit side)
-  const revenueLines = [];
+  // The form's own lines: the item lines (they carry a quantity, or a price
+  // source when priced by invoice-pricing-v1, U-129; a negative one, such as
+  // a discount, is a debit) and any other credit line. The A/R or deposit
+  // line and the sales tax line are left out. hideZeroLines (U-123) leaves
+  // $0 lines off. A subtotal line (price source 'none') posts $0 and prints
+  // the sum of the form lines since the previous subtotal.
+  const revenueLines: InvoicePdfData['lines'] = [];
+  let group = new Decimal(0);
   for (const line of lines) {
-    if (parseFloat(line.credit) > 0) {
-      const account = await db.query.accounts.findFirst({
-        where: and(eq(accounts.tenantId, tenantId), eq(accounts.id, line.accountId)),
-      });
-      revenueLines.push({
-        description: line.description,
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        amount: line.credit,
-        accountName: account?.name || 'Revenue',
-      });
-    }
+    const posted = new Decimal(line.credit || '0').minus(line.debit || '0');
+    const isFormLine = line.quantity !== null || line.unitPriceSource !== null || posted.greaterThan(0);
+    if (!isFormLine) continue;
+    const isSubtotal = line.unitPriceSource === 'none';
+    const amount = isSubtotal ? group : posted;
+    if (isSubtotal) group = new Decimal(0);
+    else group = group.plus(posted);
+    if (txn.hideZeroLines && amount.isZero()) continue;
+    const account = await db.query.accounts.findFirst({
+      where: and(eq(accounts.tenantId, tenantId), eq(accounts.id, line.accountId)),
+    });
+    revenueLines.push({
+      description: line.description,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      amount: amount.toFixed(4),
+      accountName: account?.name || (isSubtotal ? 'Subtotal' : 'Revenue'),
+      kind: isSubtotal ? 'subtotal' : line.discountPercent !== null ? 'discount_percent' : 'line',
+      discountPercent: line.discountPercent,
+    });
   }
 
   return {
@@ -128,13 +150,16 @@ async function gatherInvoiceData(tenantId: string, invoiceId: string): Promise<I
       total: txn.total || '0',
       amountPaid: txn.amountPaid || '0',
       balanceDue: txn.balanceDue || txn.total || '0',
-      memo: txn.memo,
+      // The printed message (U-123); invoices without one print the memo, as before.
+      memo: txn.customerMessage || txn.memo,
       invoiceStatus: txn.invoiceStatus,
+      poNumber: txn.poNumber,
     },
     lines: revenueLines,
     accentColor: template?.accentColor || '#2563EB',
     footerText: invoiceTemplateService.resolveFooter(template, txn.txnType === 'cash_sale' ? 'cash_sale' : 'invoice'),
     showTerms: template?.showTerms ?? true,
+    showPoNumber: template?.showPoNumber ?? false,
     documentType: txn.txnType === 'cash_sale' ? 'Sales Receipt' : 'Invoice',
   };
 }
@@ -149,13 +174,13 @@ function esc(text: string | null | undefined): string {
 }
 
 function renderInvoiceHtml(data: InvoicePdfData): string {
-  const { company: co, customer: cu, invoice: inv, lines, accentColor, footerText, showTerms, documentType } = data;
+  const { company: co, customer: cu, invoice: inv, lines, accentColor, footerText, showTerms, showPoNumber, documentType } = data;
 
   const lineRows = lines.map((l) => `
     <tr>
       <td style="padding:8px;border-bottom:1px solid #e5e7eb">${esc(l.description || l.accountName)}</td>
-      <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:center">${esc(l.quantity || '1')}</td>
-      <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">$${fmt(l.unitPrice)}</td>
+      <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:center">${l.kind === 'subtotal' || l.kind === 'discount_percent' ? '' : esc(l.quantity || '1')}</td>
+      <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">${l.kind === 'subtotal' ? '' : l.kind === 'discount_percent' ? `${esc(new Decimal(l.discountPercent || '0').toString())}%` : `$${fmt(l.unitPrice)}`}</td>
       <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">$${fmt(l.amount)}</td>
     </tr>
   `).join('');
@@ -228,6 +253,7 @@ function renderInvoiceHtml(data: InvoicePdfData): string {
     <div class="detail">Date: ${esc(inv.txnDate)}</div>
     ${inv.dueDate ? `<div class="detail">Due Date: ${esc(inv.dueDate)}</div>` : ''}
     ${showTerms && inv.paymentTerms ? `<div class="detail">Terms: ${esc(termsLabel)}</div>` : ''}
+    ${showPoNumber && inv.poNumber ? `<div class="detail">P.O. No.: ${esc(inv.poNumber)}</div>` : ''}
   </div>
 
   <!-- Return address — upper envelope window -->
