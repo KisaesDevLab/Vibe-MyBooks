@@ -7,9 +7,12 @@ import { todayLocalISO } from '../../utils/date';
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { addCalendarDays, isCalendarDate, type JournalLine, type Transaction } from '@kis-books/shared';
+import { addCalendarDays, isCalendarDate, type Transaction } from '@kis-books/shared';
 import { useCreateInvoice } from '../../api/hooks/useInvoices';
 import { useItems } from '../../api/hooks/useItems';
+import {
+  emptyLine, estimateInvoice, hydrateInvoiceLines, invoiceLinesPayload, releasedBillableIds, type EntryMode, type InvoiceLine,
+} from './invoiceFormLines';
 import { useCompanySettings } from '../../api/hooks/useCompany';
 import { apiClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
@@ -27,34 +30,30 @@ import { SearchableDropdown } from '../../components/forms/SearchableDropdown';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Plus, Trash2 } from 'lucide-react';
 
-type EntryMode = 'category' | 'item';
-
-interface InvoiceLine {
-  entryMode: EntryMode;
-  accountId: string;
-  itemId: string;
-  description: string;
-  quantity: string;
-  unitPrice: string;
-  isTaxable: boolean;
-  taxRate: string;
-  tagId: string | null;
-  userHasTouchedTag: boolean;
-}
-
-function emptyLine(mode: EntryMode, defaultTaxRate: string = '0'): InvoiceLine {
-  return {
-    entryMode: mode,
-    accountId: '',
-    itemId: '',
-    description: '',
-    quantity: '1',
-    unitPrice: '',
-    isTaxable: true,
-    taxRate: defaultTaxRate,
-    tagId: null,
-    userHasTouchedTag: false,
-  };
+/**
+ * A discount, subtotal or billed-cost line (review B-1): kept as stored and
+ * sent back as such; its figures come from the engine's rules. Edit them
+ * where they were made (ClientLedger or the API); here the description can
+ * change and the line can be removed.
+ */
+function PricingLineRow({ line, amount, onDescription, onRemove }: {
+  line: InvoiceLine; amount: string; onDescription: (v: string) => void; onRemove: () => void;
+}) {
+  const label = line.kind === 'subtotal' ? 'Subtotal'
+    : line.kind === 'billable' ? 'Billed cost'
+      : line.discountPercent ? `Discount ${parseFloat(line.discountPercent)}%` : 'Discount';
+  return (
+    <div className="relative flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50/60 p-3 pr-10">
+      <span className="w-28 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
+      <input value={line.description} onChange={(e) => onDescription(e.target.value)} aria-label={`${label} description`}
+        className="block min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Description" />
+      <span className="font-mono text-base font-semibold text-gray-900">${amount}</span>
+      <button type="button" onClick={onRemove} title="Remove line" aria-label={`Remove ${label.toLowerCase()}`}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-red-500 transition-colors">
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
 }
 
 export function InvoiceForm() {
@@ -122,6 +121,11 @@ export function InvoiceForm() {
     if (!isEdit && !numberTouched && autoNumber) setInvoiceNumber(autoNumber);
   }, [autoNumber, isEdit, numberTouched]);
 
+  // Set when a stored invoice can't be loaded safely (review N-1).
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // The billed costs the stored invoice bills (U-128): one removed here is released.
+  const [storedBillableIds, setStoredBillableIds] = useState<string[]>([]);
+
   // Fetch existing invoice for edit mode
   const { data: existingData } = useQuery({
     queryKey: ['invoices', editId],
@@ -130,7 +134,7 @@ export function InvoiceForm() {
   });
 
   useEffect(() => {
-    if (!existingData?.invoice) return;
+    if (!existingData?.invoice || loaded) return;
     const inv = existingData.invoice;
     setContactId(inv.contactId || '');
     setTxnDate(inv.txnDate || today);
@@ -142,22 +146,19 @@ export function InvoiceForm() {
     setNumberTouched(true);
     setDueDateManual(true);
 
-    const invLines = (inv.lines || [])
-      .filter((l: JournalLine) => parseFloat(l.credit) > 0 && l.accountId)
-      .filter((l: JournalLine) => l.description !== 'Sales Tax') // exclude the tax liability line
-      .map((l: JournalLine) => ({
-        entryMode: 'category' as EntryMode,
-        accountId: l.accountId,
-        itemId: '',
-        description: l.description || '',
-        quantity: l.quantity || '1',
-        unitPrice: l.unitPrice || String(parseFloat(l.credit)),
-        isTaxable: l.isTaxable ?? true,
-        taxRate: l.taxRate ? String(parseFloat(l.taxRate) * 100) : defaultTaxRatePercent,
-        tagId: l.tagId ?? null,
-        userHasTouchedTag: l.tagId != null,
-      }));
-    if (invLines.length > 0) setLines(invLines);
+    // Every line but A/R and Sales Tax (told apart by the line's
+    // accountSystemTag), signed, with its item, percent, service date and
+    // billed cost (review B-1, N-1): a save keeps discounts.
+    const billable = (inv as Transaction & { billableCosts?: Array<{ sourceLineId: string; markupPercent: string }> }).billableCosts ?? [];
+    const invLines = hydrateInvoiceLines(
+      inv.lines || [],
+      { total: inv.total, defaultTaxRatePercent, markupByLine: new Map(billable.map((b) => [b.sourceLineId, b.markupPercent])) },
+    );
+    if (!invLines.ok) setLoadError(invLines.error);
+    else {
+      if (invLines.lines.length > 0) setLines(invLines.lines);
+      setStoredBillableIds(invLines.lines.flatMap((l) => (l.billableSourceLineId ? [l.billableSourceLineId] : [])));
+    }
     setLoaded(true);
     // Intentionally only [existingData]: this hydrates the form once from the
     // fetched invoice, snapshotting `today`/`defaultTaxRatePercent` at that
@@ -207,13 +208,9 @@ export function InvoiceForm() {
     } : l));
   };
 
-  const subtotal = lines.reduce((sum, l) => sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
-  const totalTax = lines.reduce((sum, l) => {
-    if (!l.isTaxable) return sum;
-    const lineAmt = (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0);
-    return sum + lineAmt * ((parseFloat(l.taxRate) || 0) / 100);
-  }, 0);
-  const grandTotal = subtotal + totalTax;
+  // Exact, with the engine's discount and subtotal rules; the engine's
+  // figures win on save.
+  const estimate = estimateInvoice(lines);
 
   const buildPayload = () => {
     const trimmedNumber = invoiceNumber.trim();
@@ -231,15 +228,11 @@ export function InvoiceForm() {
     memo: memo || undefined,
     internalNotes: internalNotes || undefined,
     ...(includeNumber ? { txnNumber: trimmedNumber } : {}),
-    lines: lines.filter((l) => l.accountId && l.unitPrice).map((l) => ({
-      accountId: l.accountId,
-      description: l.description || undefined,
-      quantity: l.quantity || '1',
-      unitPrice: l.unitPrice,
-      isTaxable: l.isTaxable,
-      taxRate: l.isTaxable ? (parseFloat(l.taxRate) / 100).toString() : '0',
-      tagId: l.tagId,
-    })),
+    lines: invoiceLinesPayload(lines),
+    // An edit sends every line the invoice keeps: a discount or subtotal
+    // removed here was removed on purpose (invoice-pricing-lines-v1), and a
+    // billed cost removed here goes back to unbilled.
+    ...(isEdit ? { pricingLinesComplete: true, releaseBillableSourceLineIds: releasedBillableIds(storedBillableIds, lines) } : {}),
     };
   };
 
@@ -300,6 +293,15 @@ export function InvoiceForm() {
   const isPending = isEdit ? updateInvoice.isPending : createInvoice.isPending;
 
   if (!loaded) return <LoadingSpinner className="py-12" />;
+  if (loadError) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-gray-900">Edit Invoice</h1>
+        <p role="alert" className="text-sm text-red-600">{loadError}</p>
+        <Button type="button" variant="secondary" onClick={() => navigate(`/invoices/${editId}`)}>Back to invoice</Button>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -359,7 +361,14 @@ export function InvoiceForm() {
           {/* ── Desktop: two-row card layout ── */}
           <div className="hidden md:block space-y-2">
             {lines.map((line, i) => {
-              const lineAmount = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
+              const lineAmount = estimate.amounts[i] ?? '0.00';
+              if (line.kind !== 'line') {
+                return (
+                  <PricingLineRow key={i} line={line} amount={lineAmount}
+                    onDescription={(v) => updateLine(i, 'description', v)}
+                    onRemove={() => setLines((p) => p.filter((_, idx) => idx !== i))} />
+                );
+              }
               const fieldLabel = 'block text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1';
               return (
                 <div key={i} className="group relative rounded-lg border border-gray-200 bg-gray-50/60 p-3 pr-10 transition-colors hover:border-gray-300">
@@ -431,7 +440,7 @@ export function InvoiceForm() {
                     )}
                     <div className="ml-auto text-right">
                       <label className={`${fieldLabel} text-right`}>Amount</label>
-                      <div className="font-mono text-base font-semibold text-gray-900 leading-[38px]">${lineAmount.toFixed(2)}</div>
+                      <div className="font-mono text-base font-semibold text-gray-900 leading-[38px]">${lineAmount}</div>
                     </div>
                   </div>
                 </div>
@@ -444,7 +453,14 @@ export function InvoiceForm() {
               and the tag picker is present here too (it was desktop-only). ── */}
           <div className="md:hidden space-y-3">
             {lines.map((line, i) => {
-              const lineAmount = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0);
+              const lineAmount = estimate.amounts[i] ?? '0.00';
+              if (line.kind !== 'line') {
+                return (
+                  <PricingLineRow key={i} line={line} amount={lineAmount}
+                    onDescription={(v) => updateLine(i, 'description', v)}
+                    onRemove={() => setLines((p) => p.filter((_, idx) => idx !== i))} />
+                );
+              }
               const lbl = 'block text-xs font-medium text-gray-500 uppercase mb-1';
               return (
                 <div key={i} className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3">
@@ -504,7 +520,7 @@ export function InvoiceForm() {
                   </div>
                   <div className="col-span-2 text-right">
                     <span className={lbl}>Amount</span>
-                    <div className="font-mono text-base font-semibold text-gray-900 leading-[38px]">${lineAmount.toFixed(2)}</div>
+                    <div className="font-mono text-base font-semibold text-gray-900 leading-[38px]">${lineAmount}</div>
                   </div>
                   {ENTRY_FORMS_V2 && (
                     <div className="col-span-2">
@@ -522,11 +538,11 @@ export function InvoiceForm() {
 
           <div className="flex justify-end mt-4 border-t pt-4">
             <div className="w-64 space-y-1 text-sm">
-              <div className="flex justify-between"><span>Subtotal</span><span className="font-mono">${subtotal.toFixed(2)}</span></div>
-              {totalTax > 0 && (
-                <div className="flex justify-between text-gray-600"><span>Tax</span><span className="font-mono">${totalTax.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Subtotal</span><span className="font-mono">${estimate.subtotal}</span></div>
+              {estimate.tax !== '0.00' && (
+                <div className="flex justify-between text-gray-600"><span>Tax</span><span className="font-mono">${estimate.tax}</span></div>
               )}
-              <div className="flex justify-between font-bold text-lg border-t pt-2"><span>Total</span><span className="font-mono">${grandTotal.toFixed(2)}</span></div>
+              <div className="flex justify-between font-bold text-lg border-t pt-2"><span>Total</span><span className="font-mono">${estimate.total}</span></div>
             </div>
           </div>
         </div>
