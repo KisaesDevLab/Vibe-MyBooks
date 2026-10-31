@@ -41,6 +41,7 @@ import { batchRouter } from './routes/batch.routes.js';
 import { dailySalesRouter } from './routes/daily-sales.routes.js';
 import { jeTemplatesRouter } from './routes/je-templates.routes.js';
 import { itemsRouter } from './routes/items.routes.js';
+import { priceLevelsRouter } from './routes/price-levels.routes.js';
 import { paymentsRouter } from './routes/payments.routes.js';
 import { checksRouter } from './routes/checks.routes.js';
 import { checkSignaturesRouter } from './routes/check-signatures.routes.js';
@@ -299,6 +300,13 @@ app.post('/api/v1/csp-report',
   },
 );
 
+// POST /invoices/:id/email carries the invoice PDF as base64 (U-127: up to
+// 10 MB decoded, ~13.4 MB encoded): its own larger limit, on that route only.
+// The global parser below skips a body that is already parsed.
+import { invoiceEmailJson } from './routes/invoices.routes.js';
+// app.use, not app.post: a route here would be recorded as a second
+// (undocumented) operation by the OpenAPI generator.
+app.use('/api/v1/invoices/:id/email', invoiceEmailJson);
 app.use(express.json({ limit: '10mb' }));
 // Bound the array elements a body may carry before any schema sees it
 // (middleware/json-array-cap.ts): zod 3 keeps one issue per failing
@@ -576,6 +584,7 @@ app.use('/api/v1/batch', batchRouter);
 app.use('/api/v1/daily-sales', dailySalesRouter);
 app.use('/api/v1/je-templates', jeTemplatesRouter);
 app.use('/api/v1/items', itemsRouter);
+app.use('/api/v1/price-levels', priceLevelsRouter);
 app.use('/api/v1/payments', paymentsRouter);
 app.use('/api/v1/checks', checksRouter);
 app.use('/api/v1/check-signatures', checkSignaturesRouter);

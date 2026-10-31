@@ -390,6 +390,8 @@ export const SOFT_REFS: Record<string, SoftRefClass> = {
   'conditional_rules.forked_from_global_id': 'global-ref:null',
   'contacts.default_expense_account_id': 'tenant-ref:accounts',
   'contacts.company_id': 'tenant-ref:companies',
+  // The client's price level (U-40, migration 0243).
+  'contacts.price_level_id': 'tenant-ref:price_levels',
   'daily_sales_entries.company_id': 'tenant-ref:companies',
   'daily_sales_entries.template_id': 'tenant-ref:daily_sales_templates',
   'daily_sales_entries.transaction_id': 'tenant-ref:transactions',
@@ -408,6 +410,10 @@ export const SOFT_REFS: Record<string, SoftRefClass> = {
   // Document drafts and vendor layouts (U-92, migration 0233).
   'document_drafts.converted_by': 'identity',
   'document_drafts.created_by': 'identity',
+  // Form send history (U-126, migration 0242).
+  'document_send_events.company_id': 'tenant-ref:companies',
+  'document_send_events.transaction_id': 'tenant-ref:transactions',
+  'document_send_events.user_id': 'identity',
   'document_requests.reviewed_by': 'identity',
   'document_requests.bank_connection_id': 'tenant-ref:bank_connections',
   'duplicate_dismissals.transaction_id_a': 'tenant-ref:transactions',
@@ -421,6 +427,11 @@ export const SOFT_REFS: Record<string, SoftRefClass> = {
   'extraction_review_queue.job_id': 'tenant-ref:extraction_jobs',
   'extraction_review_queue.reviewer': 'identity',
   'finding_events.user_id': 'identity',
+  // Email Outbox of forms (U-127, migration 0244): the message only; the PDF
+  // is made at send time (Q-P20q), so archives carry no attachment bytes.
+  'form_email_queue.company_id': 'tenant-ref:companies',
+  'form_email_queue.transaction_id': 'tenant-ref:transactions',
+  'form_email_queue.user_id': 'identity',
   'findings.company_id': 'tenant-ref:companies',
   'findings.transaction_id': 'tenant-ref:transactions',
   'findings.vendor_id': 'tenant-ref:contacts',
@@ -470,6 +481,10 @@ export const SOFT_REFS: Record<string, SoftRefClass> = {
   'mcp_request_log.api_key_id': 'excluded-ref:api_keys',
   'mcp_request_log.oauth_client_id': 'excluded-ref:oauth_clients',
   'mcp_request_log.company_id': 'tenant-ref:companies',
+  // Price levels (U-40, migration 0243).
+  'price_levels.company_id': 'tenant-ref:companies',
+  'price_level_items.price_level_id': 'tenant-ref:price_levels',
+  'price_level_items.item_id': 'tenant-ref:items',
   'payment_applications.payment_id': 'tenant-ref:transactions',
   'payment_applications.invoice_id': 'tenant-ref:transactions',
   'payment_applications.company_id': 'tenant-ref:companies',
