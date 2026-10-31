@@ -65,6 +65,8 @@ export function emptyLine(mode: EntryMode, defaultTaxRate: string = '0'): Invoic
 }
 
 type StoredLine = JournalLine & {
+  /** GET /invoices/:id: the line's account systemTag (review N-1). */
+  accountSystemTag?: string | null;
   serviceDate?: string | null;
   discountPercent?: string | null;
   unitPriceSource?: string | null;
@@ -108,17 +110,28 @@ export function percentToRate(percent: string): string {
   return fromUnits(m[1] ? -rounded : rounded).replace(/0+$/, '').replace(/\.$/, '') || '0';
 }
 
+const SYSTEM_TAGS = new Set(['accounts_receivable', 'sales_tax_payable']);
+
+export type HydrateResult = { ok: true; lines: InvoiceLine[] } | { ok: false; error: string };
+
 /**
- * The form lines of a stored invoice. `systemAccountIds`: the A/R and Sales
- * Tax Payable accounts (their lines are the engine's own); `markupByLine`:
- * GET /invoices/:id billableCosts markupPercent by sourceLineId.
+ * The form lines of a stored invoice (GET /invoices/:id). The engine's own
+ * lines are told apart by their account's systemTag (`accountSystemTag`:
+ * A/R and Sales Tax Payable), never by paging the chart of accounts. When
+ * no line is recognised as A/R on an invoice whose total isn't 0, nothing
+ * is loaded (an error instead): saving guessed lines could change the
+ * books. `markupByLine`: billableCosts markupPercent by sourceLineId.
  */
 export function hydrateInvoiceLines(
   lines: readonly StoredLine[],
-  opts: { systemAccountIds: ReadonlySet<string>; defaultTaxRatePercent: string; markupByLine?: ReadonlyMap<string, string> },
-): InvoiceLine[] {
-  return lines
-    .filter((l) => l.accountId && !opts.systemAccountIds.has(l.accountId) && l.lineRole !== 'billable_markup')
+  opts: { total: string | null | undefined; defaultTaxRatePercent: string; markupByLine?: ReadonlyMap<string, string> },
+): HydrateResult {
+  const hasReceivable = lines.some((l) => l.accountSystemTag === 'accounts_receivable');
+  if (!hasReceivable && toUnits(opts.total) !== 0n) {
+    return { ok: false, error: 'This invoice cannot be edited here: its accounts receivable line was not recognised. Reload the page; if it keeps happening, edit it in the app that made it.' };
+  }
+  return { ok: true, lines: lines
+    .filter((l) => l.accountId && !SYSTEM_TAGS.has(l.accountSystemTag ?? '') && l.lineRole !== 'billable_markup')
     .map((l) => {
       const signed = signedAmount(l);
       const base: InvoiceLine = {
@@ -158,7 +171,7 @@ export function hydrateInvoiceLines(
         if (cents * 100n === toUnits(signed)) return { ...base, quantity: l.quantity, unitPrice: l.unitPrice };
       }
       return { ...base, quantity: '1', unitPrice: signed };
-    });
+    }) };
 }
 
 /** Lines the editor would leave out on save (no account, or no price on a plain line). */

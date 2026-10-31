@@ -27,18 +27,19 @@ function line(p: Partial<JournalLine> & Record<string, unknown>): JournalLine {
 // Invoice 1043 as GET /invoices/:id returns it: 1,068.00 taxable at 8.25 %,
 // a 10 % discount (-106.80, a debit), tax 79.30, total 1,040.50.
 const invoice1043 = [
-  line({ accountId: AR, debit: '1040.5000' }),
+  line({ accountId: AR, accountSystemTag: 'accounts_receivable', debit: '1040.5000' }),
   line({ credit: '1068.0000', quantity: '12.0000', unitPrice: '89.0000', isTaxable: true, taxRate: '0.0825', taxAmount: '88.1100',
     itemId: 'item-labor', unitPriceSource: 'input', serviceDate: '2026-10-28', description: 'Spring cleanup' }),
   line({ debit: '106.8000', isTaxable: true, taxRate: '0.0825', taxAmount: '-8.8100', itemId: 'item-disc10',
     discountPercent: '10.0000', unitPriceSource: 'item', description: 'Loyal client' }),
-  line({ accountId: TAX, credit: '79.3000', description: 'Sales Tax' }),
+  line({ accountId: TAX, accountSystemTag: 'sales_tax_payable', credit: '79.3000', description: 'Sales Tax' }),
 ];
-const opts = { systemAccountIds: new Set([AR, TAX]), defaultTaxRatePercent: '8.25' };
+const opts = { total: '1040.5000', defaultTaxRatePercent: '8.25' };
+const loaded = (r: ReturnType<typeof hydrateInvoiceLines>) => { if (!r.ok) throw new Error(r.error); return r.lines; };
 
 describe('invoice editor lines (B-1)', () => {
   it('a discounted invoice survives load + save with the same total', () => {
-    const form = hydrateInvoiceLines(invoice1043, opts);
+    const form = loaded(hydrateInvoiceLines(invoice1043, opts));
     expect(form.map((l) => l.kind)).toEqual(['line', 'discount']);
     expect(estimateInvoice(form)).toEqual({ amounts: ['1068.00', '-106.80'], subtotal: '961.20', tax: '79.30', total: '1040.50' });
 
@@ -56,7 +57,7 @@ describe('invoice editor lines (B-1)', () => {
 
   it('keeps subtotals, amount discounts, negative lines and billed costs; drops nothing but A/R and tax', () => {
     const stored = [
-      line({ accountId: AR, debit: '311.5000' }),
+      line({ accountId: AR, accountSystemTag: 'accounts_receivable', debit: '311.5000' }),
       line({ credit: '300.0000', quantity: '3.0000', unitPrice: '100.0000' }),
       line({ debit: '20.0000', quantity: '-1.0000', unitPrice: '20.0000', description: 'Return' }),
       line({ itemId: 'item-sub', unitPriceSource: 'none' }),
@@ -64,7 +65,7 @@ describe('invoice editor lines (B-1)', () => {
       line({ credit: '42.0000', quantity: '1.0000', unitPrice: '42.0000', lineRole: 'billable_cost', billableSourceLineId: 'src-1', itemId: 'item-pavers' }),
       line({ accountId: MARKUP, credit: '4.5000', lineRole: 'billable_markup', billableSourceLineId: 'src-1' }),
     ];
-    const form = hydrateInvoiceLines(stored, { ...opts, markupByLine: new Map([['src-1', '10.0000']]) });
+    const form = loaded(hydrateInvoiceLines(stored, { ...opts, total: '311.5000', markupByLine: new Map([['src-1', '10.0000']]) }));
     expect(form.map((l) => l.kind)).toEqual(['line', 'line', 'subtotal', 'discount', 'billable']);
     expect(invoiceLinesPayload(form)).toEqual([
       { accountId: REV, description: undefined, tagId: null, quantity: '3.0000', unitPrice: '100.0000', isTaxable: false, taxRate: '0' },
@@ -76,8 +77,17 @@ describe('invoice editor lines (B-1)', () => {
   });
 
   it('a line whose stored price does not give its amount goes back as 1 x the amount', () => {
-    const form = hydrateInvoiceLines([line({ credit: '33.3400', quantity: '3.0000', unitPrice: '11.1111' })], opts);
+    const form = loaded(hydrateInvoiceLines([line({ credit: '33.3400', quantity: '3.0000', unitPrice: '11.1111' })], { ...opts, total: '0' }));
     expect([form[0]!.quantity, form[0]!.unitPrice]).toEqual(['1', '33.3400']);
+  });
+
+  it('refuses to load when no line is recognised as A/R on a non-zero invoice (N-1)', () => {
+    // E.g. the response lost accountSystemTag: guessing would save the A/R line as revenue.
+    const untagged = invoice1043.map((l) => ({ ...l, accountSystemTag: null }));
+    const r = hydrateInvoiceLines(untagged, opts);
+    expect(r.ok).toBe(false);
+    // A $0 invoice with no A/R line loads.
+    expect(hydrateInvoiceLines([], { ...opts, total: '0.0000' }).ok).toBe(true);
   });
 
   it('rates and amounts convert exactly', () => {

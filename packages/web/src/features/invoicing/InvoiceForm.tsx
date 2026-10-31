@@ -10,7 +10,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { addCalendarDays, isCalendarDate, type Transaction } from '@kis-books/shared';
 import { useCreateInvoice } from '../../api/hooks/useInvoices';
 import { useItems } from '../../api/hooks/useItems';
-import { useAccounts } from '../../api/hooks/useAccounts';
 import {
   emptyLine, estimateInvoice, hydrateInvoiceLines, invoiceLinesPayload, type EntryMode, type InvoiceLine,
 } from './invoiceFormLines';
@@ -122,9 +121,8 @@ export function InvoiceForm() {
     if (!isEdit && !numberTouched && autoNumber) setInvoiceNumber(autoNumber);
   }, [autoNumber, isEdit, numberTouched]);
 
-  // A/R and Sales Tax Payable: their lines on a stored invoice are the
-  // engine's own, never form lines (review B-1).
-  const { data: systemAccountsData } = useAccounts({ accountType: ['asset', 'liability'], limit: 1000 });
+  // Set when a stored invoice can't be loaded safely (review N-1).
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Fetch existing invoice for edit mode
   const { data: existingData } = useQuery({
@@ -134,7 +132,7 @@ export function InvoiceForm() {
   });
 
   useEffect(() => {
-    if (!existingData?.invoice || !systemAccountsData || loaded) return;
+    if (!existingData?.invoice || loaded) return;
     const inv = existingData.invoice;
     setContactId(inv.contactId || '');
     setTxnDate(inv.txnDate || today);
@@ -146,22 +144,21 @@ export function InvoiceForm() {
     setNumberTouched(true);
     setDueDateManual(true);
 
-    // Every line but A/R and Sales Tax, signed, with its item, percent,
-    // service date and billed cost (review B-1): a save keeps discounts.
-    const systemAccountIds = new Set((systemAccountsData?.data ?? [])
-      .filter((a) => a.systemTag === 'accounts_receivable' || a.systemTag === 'sales_tax_payable')
-      .map((a) => a.id));
+    // Every line but A/R and Sales Tax (told apart by the line's
+    // accountSystemTag), signed, with its item, percent, service date and
+    // billed cost (review B-1, N-1): a save keeps discounts.
     const billable = (inv as Transaction & { billableCosts?: Array<{ sourceLineId: string; markupPercent: string }> }).billableCosts ?? [];
     const invLines = hydrateInvoiceLines(
       inv.lines || [],
-      { systemAccountIds, defaultTaxRatePercent, markupByLine: new Map(billable.map((b) => [b.sourceLineId, b.markupPercent])) },
+      { total: inv.total, defaultTaxRatePercent, markupByLine: new Map(billable.map((b) => [b.sourceLineId, b.markupPercent])) },
     );
-    if (invLines.length > 0) setLines(invLines);
+    if (!invLines.ok) setLoadError(invLines.error);
+    else if (invLines.lines.length > 0) setLines(invLines.lines);
     setLoaded(true);
     // Intentionally only [existingData]: this hydrates the form once from the
     // fetched invoice, snapshotting `today`/`defaultTaxRatePercent` at that
     // moment. Re-running on those would clobber the user's in-progress edits.
-  }, [existingData, systemAccountsData]);
+  }, [existingData]);
 
   const updateInvoice = useMutation({
     mutationFn: (input: Record<string, unknown>) =>
@@ -287,6 +284,15 @@ export function InvoiceForm() {
   const isPending = isEdit ? updateInvoice.isPending : createInvoice.isPending;
 
   if (!loaded) return <LoadingSpinner className="py-12" />;
+  if (loadError) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-gray-900">Edit Invoice</h1>
+        <p role="alert" className="text-sm text-red-600">{loadError}</p>
+        <Button type="button" variant="secondary" onClick={() => navigate(`/invoices/${editId}`)}>Back to invoice</Button>
+      </div>
+    );
+  }
 
   return (
     <div>
