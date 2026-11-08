@@ -44,10 +44,14 @@ RUN apk add --no-cache \
 ENV PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-# Copy root workspace files
+# Copy root workspace files. The engine (packages api + shared) is the
+# kisaes-gl-engine git submodule at engine/; build from a checkout made
+# with `--recurse-submodules`. The engine packages extend
+# ../../tsconfig.base.json, i.e. the engine's own engine/tsconfig.base.json.
 COPY package.json package-lock.json* tsconfig.base.json ./
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/api/package.json ./packages/api/
+COPY engine/tsconfig.base.json ./engine/
+COPY engine/packages/shared/package.json ./engine/packages/shared/
+COPY engine/packages/api/package.json ./engine/packages/api/
 COPY packages/worker/package.json ./packages/worker/
 
 # Install dependencies for all three workspaces. PUPPETEER_SKIP_DOWNLOAD
@@ -59,13 +63,22 @@ RUN npm install \
     --workspace=@kis-books/worker
 
 # Copy source
-COPY packages/shared/ ./packages/shared/
-COPY packages/api/ ./packages/api/
+COPY engine/packages/shared/ ./engine/packages/shared/
+COPY engine/packages/api/ ./engine/packages/api/
 COPY packages/worker/ ./packages/worker/
+
+# Compatibility paths: /app/packages/{api,shared} -> the engine. Published
+# commands (appliance manifest and compose files: `npx tsx
+# packages/api/src/migrate.ts`; operator runbooks) and consoles that pair a
+# newer manifest with an older image keep working unchanged. Node resolves
+# the real path, so import.meta.url and node_modules lookup are as before.
+RUN mkdir -p packages \
+  && ln -s ../engine/packages/api packages/api \
+  && ln -s ../engine/packages/shared packages/shared
 
 # Operator CLI scripts (reset-sentinel, recover-env, verify-installation,
 # disable-2fa, reset-admin-password, …). They import from
-# ../packages/api/src/*, which this image ships, so
+# ../engine/packages/api/src/*, which this image ships, so
 # `docker compose exec api npx tsx scripts/<name>.ts` works as documented.
 # Without this COPY every recovery runbook command failed with "Cannot find
 # module" on the published image.
@@ -93,4 +106,4 @@ EXPOSE 3001
 # Entry runs as root to chown /data, then su-exec's down to `app`.
 # Do NOT add `USER app` — the entrypoint handles privilege drop.
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["npx", "tsx", "packages/api/src/bootstrap.ts"]
+CMD ["npx", "tsx", "engine/packages/api/src/bootstrap.ts"]

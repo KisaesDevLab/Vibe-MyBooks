@@ -6,11 +6,12 @@ WORKDIR /app
 # is built for glibc and won't run on alpine anyway (see runtime stage).
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package.json package-lock.json* tsconfig.base.json ./
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/api/package.json ./packages/api/
+COPY engine/tsconfig.base.json ./engine/
+COPY engine/packages/shared/package.json ./engine/packages/shared/
+COPY engine/packages/api/package.json ./engine/packages/api/
 RUN npm install --workspace=@kis-books/shared --workspace=@kis-books/api
-COPY packages/shared/ ./packages/shared/
-COPY packages/api/ ./packages/api/
+COPY engine/packages/shared/ ./engine/packages/shared/
+COPY engine/packages/api/ ./engine/packages/api/
 RUN npm run build --workspace=@kis-books/shared
 RUN npm run build --workspace=@kis-books/api
 
@@ -29,10 +30,11 @@ ENV VITE_BASE_URL=$VITE_BASE_URL
 ARG VITE_ENTRY_FORMS_V2=true
 ENV VITE_ENTRY_FORMS_V2=$VITE_ENTRY_FORMS_V2
 COPY package.json package-lock.json* tsconfig.base.json ./
-COPY packages/shared/package.json ./packages/shared/
+COPY engine/tsconfig.base.json ./engine/
+COPY engine/packages/shared/package.json ./engine/packages/shared/
 COPY packages/web/package.json ./packages/web/
 RUN npm install --workspace=@kis-books/shared --workspace=@kis-books/web
-COPY packages/shared/ ./packages/shared/
+COPY engine/packages/shared/ ./engine/packages/shared/
 COPY packages/web/ ./packages/web/
 RUN npm run build --workspace=@kis-books/shared
 RUN npm run build --workspace=@kis-books/web
@@ -41,7 +43,7 @@ RUN npm run build --workspace=@kis-books/web
 FROM node:24-alpine AS runtime
 
 # OCI image labels for the combined-build image (root Dockerfile is not
-# used by CI — see packages/api/Dockerfile and packages/web/Dockerfile
+# used by CI — see docker/api/Dockerfile and packages/web/Dockerfile
 # for the published images — but keep labels here for parity if someone
 # `docker build`s this Dockerfile directly).
 LABEL org.opencontainers.image.source="https://github.com/KisaesDevLab/Vibe-MyBooks" \
@@ -58,7 +60,7 @@ WORKDIR /app
 # (musl libc), so we install Chromium from apk and point Puppeteer at it
 # via PUPPETEER_EXECUTABLE_PATH. The font packages are required for
 # Chromium to render text — without them PDFs render as empty boxes.
-# This must match packages/api/Dockerfile's install block; the two
+# This must match docker/api/Dockerfile's install block; the two
 # Dockerfiles are used by different compose setups (production vs dev)
 # but both need a working Chromium at runtime.
 RUN apk add --no-cache \
@@ -79,17 +81,25 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true \
 # above) prevents npm from pulling the broken-on-alpine bundled Chromium
 # when puppeteer is installed as a production dependency.
 COPY package.json package-lock.json* tsconfig.base.json ./
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/api/package.json ./packages/api/
+COPY engine/tsconfig.base.json ./engine/
+COPY engine/packages/shared/package.json ./engine/packages/shared/
+COPY engine/packages/api/package.json ./engine/packages/api/
 RUN npm install --workspace=@kis-books/shared --workspace=@kis-books/api --omit=dev
 
 # Copy built artifacts
-COPY --from=api-build /app/packages/shared/dist ./packages/shared/dist
-COPY --from=api-build /app/packages/api/dist ./packages/api/dist
-COPY --from=api-build /app/packages/api/src/db/migrations ./packages/api/src/db/migrations
+COPY --from=api-build /app/engine/packages/shared/dist ./engine/packages/shared/dist
+COPY --from=api-build /app/engine/packages/api/dist ./engine/packages/api/dist
+COPY --from=api-build /app/engine/packages/api/src/db/migrations ./engine/packages/api/src/db/migrations
 # Bundled OFL fonts embedded into report-ready financial statement PDFs.
-COPY --from=api-build /app/packages/api/assets ./packages/api/assets
+COPY --from=api-build /app/engine/packages/api/assets ./engine/packages/api/assets
+# app.ts serves the SPA from <cwd>/packages/web/dist.
 COPY --from=web-build /app/packages/web/dist ./packages/web/dist
+
+# Compatibility paths /app/packages/{api,shared} -> the engine, as in
+# docker/api/Dockerfile (published commands use packages/api/...).
+RUN mkdir -p packages \
+  && ln -s ../engine/packages/api packages/api \
+  && ln -s ../engine/packages/shared packages/shared
 
 # Copy scripts
 COPY scripts/ ./scripts/
@@ -135,4 +145,4 @@ RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 # line of Node.js / bootstrap / migration code still runs as UID 1001 —
 # only the first few ms of /docker-entrypoint.sh execute as root.
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["node", "packages/api/dist/bootstrap.js"]
+CMD ["node", "engine/packages/api/dist/bootstrap.js"]

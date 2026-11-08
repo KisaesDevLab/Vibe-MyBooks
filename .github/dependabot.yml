@@ -29,7 +29,7 @@ updates:
   # short-lived "Current" releases and never become LTS, so Dependabot must
   # not propose a Node major; moving to the next even LTS is done by hand.
   - package-ecosystem: docker
-    directory: "/packages/api"
+    directory: "/docker/api"
     schedule: { interval: weekly, day: monday }
     ignore:
       - dependency-name: "node"

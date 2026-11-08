@@ -21,13 +21,16 @@ WORKDIR /app
 ARG VITE_ENTRY_FORMS_V2=true
 ENV VITE_ENTRY_FORMS_V2=$VITE_ENTRY_FORMS_V2
 
+# packages/shared is the engine's (kisaes-gl-engine submodule at engine/);
+# it extends ../../tsconfig.base.json = engine/tsconfig.base.json.
 COPY package.json package-lock.json* tsconfig.base.json ./
-COPY packages/shared/package.json ./packages/shared/
+COPY engine/tsconfig.base.json ./engine/
+COPY engine/packages/shared/package.json ./engine/packages/shared/
 COPY packages/web/package.json ./packages/web/
 
 RUN npm install --workspace=@kis-books/shared --workspace=@kis-books/web
 
-COPY packages/shared/ ./packages/shared/
+COPY engine/packages/shared/ ./engine/packages/shared/
 COPY packages/web/ ./packages/web/
 
 RUN npm run build --workspace=@kis-books/shared
@@ -41,7 +44,7 @@ RUN npm run build --workspace=@kis-books/web
 # ── Stage 2: serve ────────────────────────────────────────────────
 FROM nginx:1.27-alpine
 
-# OCI image labels — see packages/api/Dockerfile for rationale.
+# OCI image labels — see docker/api/Dockerfile for rationale.
 LABEL org.opencontainers.image.source="https://github.com/KisaesDevLab/Vibe-MyBooks" \
       org.opencontainers.image.url="https://github.com/KisaesDevLab/Vibe-MyBooks" \
       org.opencontainers.image.title="Vibe MyBooks Web" \

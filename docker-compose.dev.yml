@@ -8,11 +8,11 @@ services:
   shared:
     build:
       context: .
-      dockerfile: packages/api/Dockerfile
+      dockerfile: docker/api/Dockerfile
     volumes:
-      - ./packages/shared/src:/app/packages/shared/src
-      - ./packages/shared/dist:/app/packages/shared/dist
-    working_dir: /app/packages/shared
+      - ./engine/packages/shared/src:/app/engine/packages/shared/src
+      - ./engine/packages/shared/dist:/app/engine/packages/shared/dist
+    working_dir: /app/engine/packages/shared
     command: ["npx", "tsc", "--watch", "--preserveWatchOutput"]
     environment:
       NODE_ENV: development
@@ -22,22 +22,22 @@ services:
   api:
     build:
       context: .
-      dockerfile: packages/api/Dockerfile
+      dockerfile: docker/api/Dockerfile
     volumes:
       # Source bind mounts for hot reload. The /data bind mount is inherited
       # from the base docker-compose.yml — don't duplicate it here.
-      - ./packages/shared/src:/app/packages/shared/src
+      - ./engine/packages/shared/src:/app/engine/packages/shared/src
       # The shared service writes to this dist; mounting it here means the
       # api always sees the freshly-compiled output.
-      - ./packages/shared/dist:/app/packages/shared/dist
-      - ./packages/api/src:/app/packages/api/src
+      - ./engine/packages/shared/dist:/app/engine/packages/shared/dist
+      - ./engine/packages/api/src:/app/engine/packages/api/src
       # Read-only mount of the web source so the chat-knowledge
       # generator (services/chat-knowledge-generator.ts) can scan
       # App.tsx + page files to build the screen catalog. Read-only
       # so the API process can never write to web source by accident.
       - ./packages/web/src:/app/packages/web/src:ro
       - ./packages/web/index.html:/app/packages/web/index.html:ro
-    command: ["npx", "tsx", "watch", "packages/api/src/bootstrap.ts"]
+    command: ["npx", "tsx", "watch", "engine/packages/api/src/bootstrap.ts"]
     environment:
       NODE_ENV: development
       # Windows host -> Linux container bind mounts don't deliver inotify
@@ -53,8 +53,8 @@ services:
       context: .
       dockerfile: packages/web/Dockerfile
     volumes:
-      - ./packages/shared/src:/app/packages/shared/src
-      - ./packages/shared/dist:/app/packages/shared/dist
+      - ./engine/packages/shared/src:/app/engine/packages/shared/src
+      - ./engine/packages/shared/dist:/app/engine/packages/shared/dist
       - ./packages/web/src:/app/packages/web/src
       - ./packages/web/index.html:/app/packages/web/index.html
       - ./packages/web/vite.config.ts:/app/packages/web/vite.config.ts
@@ -68,14 +68,14 @@ services:
 
   worker:
     volumes:
-      - ./packages/shared/src:/app/packages/shared/src
-      - ./packages/shared/dist:/app/packages/shared/dist
+      - ./engine/packages/shared/src:/app/engine/packages/shared/src
+      - ./engine/packages/shared/dist:/app/engine/packages/shared/dist
       - ./packages/worker/src:/app/packages/worker/src
       # The worker imports scheduler bootstrap functions from the API
       # package (see packages/worker/src/index.ts). Mount the API source
       # read-only so tsx watch picks up API-side scheduler changes and
       # the worker doesn't diverge from the baked image.
-      - ./packages/api/src:/app/packages/api/src:ro
+      - ./engine/packages/api/src:/app/engine/packages/api/src:ro
     command: ["npx", "tsx", "watch", "packages/worker/src/index.ts"]
     environment:
       NODE_ENV: development

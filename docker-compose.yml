@@ -53,7 +53,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: packages/api/Dockerfile
+      dockerfile: docker/api/Dockerfile
     restart: unless-stopped
     ports:
       - "${PORT:-3001}:3001"
@@ -124,7 +124,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: packages/api/Dockerfile
+      dockerfile: docker/api/Dockerfile
     restart: unless-stopped
     command: ["npx", "tsx", "packages/worker/src/index.ts"]
     env_file: .env
