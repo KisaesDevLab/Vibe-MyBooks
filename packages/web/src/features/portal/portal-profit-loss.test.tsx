@@ -5,6 +5,8 @@
 // PortalProfitLossPage:
 //   - loads the P&L for the selected range with BASE_URL-prefixed URLs
 //   - an error shows Retry
+//   - the unposted bank feed line is plain text (no drill-down), shown even
+//     when the statement is empty
 //   - clicking a row opens the account's transactions
 //   - "Ask a question" posts the transactionId to the existing ask endpoint
 //   - no ask button without questionsForUsAccess
@@ -45,6 +47,7 @@ const pl = {
   otherRevenue: [], totalOtherRevenue: 0,
   otherExpenses: [], totalOtherExpenses: 0,
   grossProfit: null, operatingIncome: null, netIncome: 150,
+  unpostedBankFeed: { count: 3, amount: 1234.5 },
 };
 
 const txns = {
@@ -91,6 +94,31 @@ describe('PortalProfitLossPage', () => {
     const url = String(fetchMock.mock.calls[0]?.[0]);
     expect(url).toMatch(/^\/mb\/api\/portal\/profit-loss\?companyId=co1&start_date=\d{4}-\d{2}-\d{2}&end_date=\d{4}-\d{2}-\d{2}$/);
     expect(screen.getAllByText('$150.00').length).toBeGreaterThan(0);
+  });
+
+  it('shows the unposted bank feed line as plain text, not a drill-down', async () => {
+    routeFetch();
+    renderRoute(<PortalProfitLossPage />);
+    await waitFor(() => expect(screen.getByText('Unposted bank feed activity')).toBeTruthy());
+    const line = screen.getByTestId('unposted-bank-feed');
+    expect(line.textContent).toContain('$1,234.50');
+    expect(line.textContent).toContain('3 transactions');
+    expect(line.querySelector('button')).toBeNull();
+    expect(line.closest('button')).toBeNull();
+    // Clicking it opens nothing.
+    fireEvent.click(screen.getByText('Unposted bank feed activity'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('still shows the unposted line when the P&L is empty', async () => {
+    fetchMock.mockImplementation(() => json({
+      ...pl, revenue: [], totalRevenue: 0, netIncome: 0, unpostedBankFeed: { count: 1, amount: 75 },
+    }));
+    renderRoute(<PortalProfitLossPage />);
+    await waitFor(() => expect(screen.getByText(/No income or expenses were recorded/)).toBeTruthy());
+    const line = screen.getByTestId('unposted-bank-feed');
+    expect(line.textContent).toContain('$75.00');
+    expect(line.textContent).toContain('1 transaction');
   });
 
   it('shows an error with a working Retry', async () => {
