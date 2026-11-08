@@ -10,7 +10,7 @@ any other client that wants to read or write Vibe MyBooks data.
 needed to authenticate and manage API keys. `/api/v1` has ~40 additional route
 modules that mirror the admin UI — this reference focuses on the subset most
 useful for integrations. When a feature isn't covered here, consult the live
-Swagger UI at `<base>/api/docs` or the source in `packages/api/src/routes/`.
+Swagger UI at `<base>/api/docs` or the source in `engine/packages/api/src/routes/`.
 
 ---
 
@@ -2018,7 +2018,7 @@ Everything else — accounts, contacts, transactions, invoices, bills,
 bill payments, vendor credits, customer payments, checks, recurring,
 budgets, tags, dashboard, bank feed, reports — is in v2.
 
-For any of these, inspect the route file under `packages/api/src/routes/`
+For any of these, inspect the route file under `engine/packages/api/src/routes/`
 or hit the live Swagger UI at `<base>/api/docs`.
 
 ---
@@ -2087,7 +2087,7 @@ or hit the live Swagger UI at `<base>/api/docs`.
 - Check the live Swagger UI at `<base>/api/docs` — some endpoints are
   documented there but not in this file.
 - For anything under `/api/v1`, read the corresponding file in
-  `packages/api/src/routes/` for the exact request shape. Treat these as
+  `engine/packages/api/src/routes/` for the exact request shape. Treat these as
   unstable — they may change when the UI changes.
 - File a request with the project maintainer to add the endpoint to v2.
 
