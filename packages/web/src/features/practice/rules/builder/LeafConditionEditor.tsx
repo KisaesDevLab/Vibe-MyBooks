@@ -260,7 +260,7 @@ function BankSourceAccountInput({
 
 function defaultValueForOperator(field: ConditionField, operator: string): LeafCondition['value'] {
   if (operator === 'between') return ['', ''] as string[];
-  if (field === 'amount' || field === 'amount_sign') return 0;
+  if (field === 'amount' || field === 'amount_sign' || field === 'amount_abs') return 0;
   if (field === 'day_of_week' || operator === 'on_day_of_week') return 0;
   return '';
 }
@@ -271,6 +271,7 @@ function prettyField(f: string): string {
   // matches the raw bank/Plaid text (not the cleaned name).
   const OVERRIDES: Record<string, string> = {
     amount_sign: 'Deposit or Withdrawal',
+    amount_abs: 'Amount (in or out)',
     descriptor: 'Descriptor (raw bank text)',
   };
   return OVERRIDES[f] ?? f.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());

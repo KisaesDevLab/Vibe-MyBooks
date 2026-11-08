@@ -26,6 +26,7 @@ const sampleRule: ConditionalRule & { stats: { lastFiredAt: string | null; fires
   ownerUserId: 'u1',
   ownerFirmId: null,
   forkedFromGlobalId: null,
+  autoAccept: false,
   createdAt: '2026-04-01T00:00:00.000Z',
   updatedAt: '2026-04-01T00:00:00.000Z',
   stats: { lastFiredAt: '2026-04-15T00:00:00.000Z', fires30d: 12, overrideRate: 0.08 },
