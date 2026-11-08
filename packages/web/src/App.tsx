@@ -4,6 +4,7 @@
 
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AR_KIND_LABELS, ArAgingNote, CustomerBalanceNote } from './features/reports/arReconcileNotes';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useDocumentTitleBranding } from './api/hooks/useBranding';
 import { AppShell } from './components/layout/AppShell';
@@ -530,10 +531,10 @@ export function App() {
             <Route path="/reports/profit-loss" element={<ProfitAndLossReport />} />
             <Route path="/reports/balance-sheet" element={<BalanceSheetReport />} />
             <Route path="/reports/cash-flow" element={<CashFlowReport />} />
-            <Route path="/reports/ar-aging-summary" element={<GenericReport title="AR Aging Summary" endpoint="ar-aging-summary" useDateRange={false} useAsOfDate useTagFilter columns={[{key:'customer_name',label:'Customer'},{key:'bucket',label:'Bucket'},{key:'balance',label:'Amount',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} dataKey="details" />} />
-            <Route path="/reports/ar-aging-detail" element={<GenericReport title="AR Aging Detail" endpoint="ar-aging-detail" useDateRange={false} useAsOfDate useTagFilter columns={[{key:'txn_number',label:'Invoice',drillDown:drillToTxn('id')},{key:'customer_name',label:'Customer'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'balance',label:'Balance',align:'right',format:'money'}]} dataKey="details" />} />
-            <Route path="/reports/customer-balance-summary" element={<GenericReport title="Customer Balance Summary" endpoint="customer-balance-summary" useDateRange={false} useTagFilter columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
-            <Route path="/reports/customer-balance-detail" element={<GenericReport title="Customer Balance Detail" endpoint="customer-balance-detail" useDateRange={false} useTagFilter columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} />} />
+            <Route path="/reports/ar-aging-summary" element={<GenericReport title="AR Aging Summary" endpoint="ar-aging-summary" useDateRange={false} useAsOfDate useTagFilter columns={[{key:'customer_name',label:'Customer'},{key:'kind',label:'Type'},{key:'bucket',label:'Bucket'},{key:'balance',label:'Amount',align:'right',format:'money',drillDown:drillByContact('contact_id')}]} dataKey="details" note={<ArAgingNote />} valueLabels={{ kind: AR_KIND_LABELS }} />} />
+            <Route path="/reports/ar-aging-detail" element={<GenericReport title="AR Aging Detail" endpoint="ar-aging-detail" useDateRange={false} useAsOfDate useTagFilter columns={[{key:'txn_number',label:'Invoice',drillDown:drillToTxn('id')},{key:'kind',label:'Type'},{key:'customer_name',label:'Customer'},{key:'txn_date',label:'Date'},{key:'due_date',label:'Due'},{key:'balance',label:'Balance',align:'right',format:'money'}]} dataKey="details" note={<ArAgingNote />} valueLabels={{ kind: AR_KIND_LABELS }} />} />
+            <Route path="/reports/customer-balance-summary" element={<GenericReport title="Customer Balance Summary" endpoint="customer-balance-summary" useDateRange={false} useTagFilter columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} note={<CustomerBalanceNote />} />} />
+            <Route path="/reports/customer-balance-detail" element={<GenericReport title="Customer Balance Detail" endpoint="customer-balance-detail" useDateRange={false} useTagFilter columns={[{key:'display_name',label:'Customer'},{key:'balance',label:'Balance',align:'right',format:'money',drillDown:drillByContact('id')}]} note={<CustomerBalanceNote />} />} />
             <Route path="/reports/invoice-list" element={<GenericReport title="Invoice List" endpoint="invoice-list" useTagFilter columns={[{key:'txn_number',label:'Number',drillDown:drillToTxn('id')},{key:'customer_name',label:'Customer'},{key:'txn_date',label:'Date'},{key:'invoice_status',label:'Status'},{key:'total',label:'Total',align:'right',format:'money'},{key:'balance_due',label:'Balance',align:'right',format:'money'}]} />} />
             <Route path="/reports/expense-by-vendor" element={<ExpensesByVendorReport />} />
             <Route path="/reports/expense-by-category" element={<ExpensesByCategoryReport />} />
