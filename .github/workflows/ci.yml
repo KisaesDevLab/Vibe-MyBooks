@@ -21,6 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The engine (packages api + shared) is the kisaes-gl-engine
+          # submodule at engine/ (public, no token needed).
+          submodules: true
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
@@ -34,13 +38,13 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Build shared
         run: npm run build --workspace=@kis-books/shared
-      - name: Typecheck api
-        run: npx tsc --noEmit
-        working-directory: packages/api
       - name: Typecheck web
         run: npx tsc -b --noEmit
         working-directory: packages/web
       - name: Typecheck worker
+        # The worker's tsconfig includes engine/packages/api/src and
+        # engine/packages/shared/src, so this also typechecks the pinned
+        # engine sources the worker imports.
         run: npx tsc --noEmit
         working-directory: packages/worker
       - name: Guard against new `any` types
@@ -48,53 +52,16 @@ jobs:
         # occurrences and this step fails the build if the count grows.
         # Debt paydown is expected (the script prints "update BASELINE_*").
         run: npm run any:check
-      - name: OpenAPI spec is current
-        # Regenerates openapi.json from the route registrations (no DB or
-        # Redis needed) and fails if the committed file differs. Fix with
-        # `npm run openapi:export` and commit the result.
-        run: npm run openapi:check
 
   test:
-    # The api suite is ~560 DB-backed files run serially (singleFork, shared
-    # DB), ~26 min on one runner. Split it across shards; each shard has its
-    # own postgres + redis service so the single-DB assumption still holds.
-    name: test (${{ matrix.shard }}/4)
+    # Web unit tests. The engine's api and shared suites (and the OpenAPI,
+    # migration-policy and tax-oracle checks) run in kisaes-gl-engine's own
+    # CI; this repository pins engine commits that already passed there.
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
-    services:
-      # Mirror the dev/test DB setup. test-setup.ts points vitest at
-      # postgresql://kisbooks:kisbooks@localhost:5434/kisbooks_test —
-      # align the port/creds with that URL so the same code paths run.
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: kisbooks
-          POSTGRES_PASSWORD: kisbooks
-          POSTGRES_DB: kisbooks_test
-        ports:
-          - 5434:5432
-        options: >-
-          --health-cmd "pg_isready -U kisbooks"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      # test-setup.ts never defaults to the production Redis port (D13): CI
-      # supplies the TEST instance on 6390 that the estimate / snapshot / portal
-      # cache tests expect.
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6390:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
@@ -104,26 +71,7 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Build shared
         run: npm run build --workspace=@kis-books/shared
-      - name: Run migrations against test DB
-        env:
-          DATABASE_URL: postgresql://kisbooks:kisbooks@localhost:5434/kisbooks_test
-        # migrate.ts resolves the migrations folder via import.meta.url
-        # so it works from any cwd. Repo root is fine.
-        run: npx tsx packages/api/src/migrate.ts
-      - name: Run api unit tests
-        env:
-          DATABASE_URL: postgresql://kisbooks:kisbooks@localhost:5434/kisbooks_test
-          REDIS_URL: redis://127.0.0.1:6390
-          JWT_SECRET: test-secret-key-for-testing-only
-        run: npx vitest run --shard=${{ matrix.shard }}/4
-        working-directory: packages/api
-      # shared + web are small (~2.5 min total); run them once, on shard 1.
-      - name: Run shared unit tests
-        if: matrix.shard == 1
-        run: npm test
-        working-directory: packages/shared
       - name: Run web unit tests
-        if: matrix.shard == 1
         run: npm test
         working-directory: packages/web
 
@@ -151,6 +99,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The engine (packages api + shared) is the kisaes-gl-engine
+          # submodule at engine/ (public, no token needed).
+          submodules: true
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
