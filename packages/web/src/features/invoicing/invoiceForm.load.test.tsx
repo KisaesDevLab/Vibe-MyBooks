@@ -89,4 +89,22 @@ describe('InvoiceForm load (N-1)', () => {
     expect(screen.queryByDisplayValue('Mowing')).toBeNull();
     expect(screen.queryByText('Save Changes')).toBeNull();
   });
+
+  // Owner decision E7 (engine QA 2026-11-08): a save would drop the sales tax
+  // item and the units, so the form refuses the invoice instead.
+  it('refuses to load an invoice with a sales tax item or units (made in ClientLedger)', async () => {
+    invoice.current = {
+      ...base,
+      salesTaxId: 'st-1',
+      lines: [
+        ln({ accountId: 'ar', accountSystemTag: 'accounts_receivable', debit: '100.0000' }),
+        ln({ accountId: 'rev', accountSystemTag: null, credit: '100.0000', quantity: '2.0000', unitPrice: '50.0000', description: 'Mowing', unitId: 'u-case' }),
+      ],
+    };
+    renderRoute(<InvoiceForm />, { route: '/invoices/i1/edit', path: '/invoices/:id/edit' });
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/sales tax item and units of measure.*ClientLedger/));
+    expect(screen.queryByDisplayValue('Mowing')).toBeNull();
+    expect(screen.queryByText('Save Changes')).toBeNull();
+    expect(screen.getByText('Back to invoice')).toBeTruthy();
+  });
 });

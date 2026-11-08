@@ -72,7 +72,31 @@ type StoredLine = JournalLine & {
   unitPriceSource?: string | null;
   lineRole?: string | null;
   billableSourceLineId?: string | null;
+  /** The line's sales tax code (U-147). Not in the shared JournalLine type yet. */
+  taxCodeId?: string | null;
 };
+
+/**
+ * Why this form must not edit a stored invoice, or null when it may (owner
+ * decision E7, engine QA 2026-11-08). The form can't round-trip a document
+ * sales tax item or group (`salesTaxId`), a line's unit of measure
+ * (`unitId`) or a line's tax code (`taxCodeId`): it always sends a per-line
+ * `taxRate` and no units, so a save would drop them (the engine takes the
+ * legacy rate path and stores `salesTaxId: null`, the base unit and no tax
+ * code). Such invoices come from ClientLedger; they are edited there.
+ */
+export function unsupportedInvoiceFields(
+  inv: { salesTaxId?: string | null; lines?: readonly Pick<StoredLine, 'unitId' | 'taxCodeId'>[] | null },
+): string | null {
+  const lines = inv.lines ?? [];
+  const parts: string[] = [];
+  if (inv.salesTaxId) parts.push('a sales tax item');
+  if (lines.some((l) => l.unitId)) parts.push('units of measure');
+  if (lines.some((l) => l.taxCodeId)) parts.push('sales tax codes');
+  if (parts.length === 0) return null;
+  const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  return `This invoice uses ${list}, which this form can't keep yet. Saving here would remove them, so edit it in ClientLedger instead.`;
+}
 
 // Exact decimal strings (at most 4 places) as integers of 1/10000, so no
 // amount goes through floating point.

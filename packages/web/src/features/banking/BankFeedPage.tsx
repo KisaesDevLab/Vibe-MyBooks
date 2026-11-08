@@ -5,6 +5,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { BankFeedStatus, BankFeedItem } from '@kis-books/shared';
+import { STAGED_SPLIT_NOTICE, hasStagedSplit } from './stagedSplit';
 import { useBankFeed, useBankConnections, useAssignFeedItem, useApproveFeedItem, useBulkAssign, useExcludeFeedItem, useBulkApprove, useBulkExclude, useBulkUnexclude, useBulkRecleanse, useBulkReprocessRules, useBulkSetTag, useBulkSetName, useMatchFeedItem, useMatchCandidates, usePayrollOverlapCheck, useSuggestAccountForContact, useBackfillFeedCheckPayees } from '../../api/hooks/useBanking';
 import type { ReprocessRulesResultDto, FeedPayeeBackfillReportDto } from '../../api/hooks/useBanking';
 import { LineTagPicker } from '../../components/forms/SplitRowV2';
@@ -1000,6 +1001,11 @@ export function BankFeedPage() {
                               )}
                             </p>
                           )}
+                          {hasStagedSplit(item) && (item.status === 'pending' || item.status === 'assigned') && (
+                            <p role="note" className="text-xs text-amber-700 mt-0.5">
+                              {STAGED_SPLIT_NOTICE}
+                            </p>
+                          )}
                         </div>
                       )}
                     </td>
@@ -1138,7 +1144,8 @@ export function BankFeedPage() {
                         ) : item.status === 'pending' ? (
                           <>
                             {item.suggestedAccountId && (
-                              <Button size="sm" variant="secondary" onClick={() => handleAcceptSuggestion(item)} loading={assign.isPending} title="Accept suggestion (stages it)">
+                              <Button size="sm" variant="secondary" onClick={() => handleAcceptSuggestion(item)} loading={assign.isPending}
+                                title={hasStagedSplit(item) ? `Accept suggestion (stages it). ${STAGED_SPLIT_NOTICE}` : 'Accept suggestion (stages it)'}>
                                 <Check className="h-3.5 w-3.5" />
                               </Button>
                             )}

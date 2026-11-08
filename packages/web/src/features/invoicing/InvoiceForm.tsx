@@ -11,7 +11,7 @@ import { addCalendarDays, isCalendarDate, type Transaction } from '@kis-books/sh
 import { useCreateInvoice } from '../../api/hooks/useInvoices';
 import { useItems } from '../../api/hooks/useItems';
 import {
-  emptyLine, estimateInvoice, hydrateInvoiceLines, invoiceLinesPayload, releasedBillableIds, type EntryMode, type InvoiceLine,
+  emptyLine, estimateInvoice, hydrateInvoiceLines, invoiceLinesPayload, releasedBillableIds, unsupportedInvoiceFields, type EntryMode, type InvoiceLine,
 } from './invoiceFormLines';
 import { useCompanySettings } from '../../api/hooks/useCompany';
 import { apiClient } from '../../api/client';
@@ -150,6 +150,13 @@ export function InvoiceForm() {
     // accountSystemTag), signed, with its item, percent, service date and
     // billed cost (review B-1, N-1): a save keeps discounts.
     const billable = (inv as Transaction & { billableCosts?: Array<{ sourceLineId: string; markupPercent: string }> }).billableCosts ?? [];
+    // A save would drop a sales tax item, units or tax codes (E7): refuse.
+    const unsupported = unsupportedInvoiceFields(inv as Transaction & { salesTaxId?: string | null });
+    if (unsupported) {
+      setLoadError(unsupported);
+      setLoaded(true);
+      return;
+    }
     const invLines = hydrateInvoiceLines(
       inv.lines || [],
       { total: inv.total, defaultTaxRatePercent, markupByLine: new Map(billable.map((b) => [b.sourceLineId, b.markupPercent])) },
