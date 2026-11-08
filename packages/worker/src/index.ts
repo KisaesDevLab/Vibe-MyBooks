@@ -23,31 +23,31 @@
 // copy to drift. The worker's tsconfig widens `include` to let this
 // resolve; runtime uses `tsx` so no emit step is needed.
 
-import { startBackupScheduler } from '../../api/src/services/backup-scheduler.service.js';
-import { startRecurringScheduler } from '../../api/src/services/recurring.service.js';
-import { runChunkedTagBackfill } from '../../api/src/services/tags/backfill-sweep.service.js';
-import { startCloudflaredAlerter, stopCloudflaredAlerter } from '../../api/src/services/cloudflared/alert.service.js';
-import { startBackupVerifier, stopBackupVerifier } from '../../api/src/services/backup-verify.service.js';
-import { startClassificationStateBackfill } from '../../api/src/services/classification-state-backfill.service.js';
-import { startPortalRecurringScheduler, stopPortalRecurringScheduler } from '../../api/src/services/portal-recurring-scheduler.service.js';
-import { startPortalReminderScheduler, stopPortalReminderScheduler } from '../../api/src/services/portal-reminder-scheduler.service.js';
-import { startRecurringDocRequestScheduler, stopRecurringDocRequestScheduler } from '../../api/src/services/recurring-doc-request-scheduler.service.js';
-import { startAiRetentionScheduler, stopAiRetentionScheduler } from '../../api/src/services/ai-retention.service.js';
-import { startReportPackSweepScheduler, stopReportPackSweepScheduler } from '../../api/src/services/report-pack-sweep.service.js';
-import { startBalanceValidationScheduler } from '../../api/src/services/balance-validation.service.js';
-import { startPlaidSyncScheduler, stopPlaidSyncScheduler } from '../../api/src/services/plaid-sync-scheduler.service.js';
-import { pool } from '../../api/src/db/index.js';
-import { startHeartbeat, closeWorkerHeartbeatClients } from '../../api/src/utils/worker-heartbeat.js';
-import { env } from '../../api/src/config/env.js';
+import { startBackupScheduler } from '../../../engine/packages/api/src/services/backup-scheduler.service.js';
+import { startRecurringScheduler } from '../../../engine/packages/api/src/services/recurring.service.js';
+import { runChunkedTagBackfill } from '../../../engine/packages/api/src/services/tags/backfill-sweep.service.js';
+import { startCloudflaredAlerter, stopCloudflaredAlerter } from '../../../engine/packages/api/src/services/cloudflared/alert.service.js';
+import { startBackupVerifier, stopBackupVerifier } from '../../../engine/packages/api/src/services/backup-verify.service.js';
+import { startClassificationStateBackfill } from '../../../engine/packages/api/src/services/classification-state-backfill.service.js';
+import { startPortalRecurringScheduler, stopPortalRecurringScheduler } from '../../../engine/packages/api/src/services/portal-recurring-scheduler.service.js';
+import { startPortalReminderScheduler, stopPortalReminderScheduler } from '../../../engine/packages/api/src/services/portal-reminder-scheduler.service.js';
+import { startRecurringDocRequestScheduler, stopRecurringDocRequestScheduler } from '../../../engine/packages/api/src/services/recurring-doc-request-scheduler.service.js';
+import { startAiRetentionScheduler, stopAiRetentionScheduler } from '../../../engine/packages/api/src/services/ai-retention.service.js';
+import { startReportPackSweepScheduler, stopReportPackSweepScheduler } from '../../../engine/packages/api/src/services/report-pack-sweep.service.js';
+import { startBalanceValidationScheduler } from '../../../engine/packages/api/src/services/balance-validation.service.js';
+import { startPlaidSyncScheduler, stopPlaidSyncScheduler } from '../../../engine/packages/api/src/services/plaid-sync-scheduler.service.js';
+import { pool } from '../../../engine/packages/api/src/db/index.js';
+import { startHeartbeat, closeWorkerHeartbeatClients } from '../../../engine/packages/api/src/utils/worker-heartbeat.js';
+import { env } from '../../../engine/packages/api/src/config/env.js';
 import { startDocRenderWorker } from './processors/doc-render.processor.js';
 import { startDocExtractWorker } from './processors/doc-extract.processor.js';
 import { startStatementParseWorker } from './processors/statement-parse.processor.js';
 import { startBillCaptureWorker } from './processors/bill-capture.processor.js';
 import { startReportPackWorker } from './processors/report-pack.processor.js';
 import { startTaxParamAiCheckWorker } from './processors/tax-param-ai-check.processor.js';
-import { checkPdftoppmAvailable } from '../../api/src/services/extraction/pdf-render.service.js';
-import { healthCheck as extractionHealthCheck } from '../../api/src/services/extraction/qwen-client.service.js';
-import type { WorkerHandle } from '../../api/src/queue/job-queue.js';
+import { checkPdftoppmAvailable } from '../../../engine/packages/api/src/services/extraction/pdf-render.service.js';
+import { healthCheck as extractionHealthCheck } from '../../../engine/packages/api/src/services/extraction/qwen-client.service.js';
+import type { WorkerHandle } from '../../../engine/packages/api/src/queue/job-queue.js';
 
 const startedAt = new Date().toISOString();
 console.log(`[Worker] Vibe MyBooks worker starting at ${startedAt}`);

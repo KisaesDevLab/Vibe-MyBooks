@@ -1,15 +1,15 @@
 // Copyright 2026 Kisaes LLC
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
-import { db } from '../packages/api/src/db/index.js';
-import { accounts, contacts, tenants } from '../packages/api/src/db/schema/index.js';
+import { db } from '../engine/packages/api/src/db/index.js';
+import { accounts, contacts, tenants } from '../engine/packages/api/src/db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
-import * as ledger from '../packages/api/src/services/ledger.service.js';
-import * as contactsService from '../packages/api/src/services/contacts.service.js';
+import * as ledger from '../engine/packages/api/src/services/ledger.service.js';
+import * as contactsService from '../engine/packages/api/src/services/contacts.service.js';
 
 async function seed() {
   // Find demo tenant
-  const user = await db.query.users.findFirst({ where: eq((await import('../packages/api/src/db/schema/index.js')).users.email, 'demo@demo.com') });
+  const user = await db.query.users.findFirst({ where: eq((await import('../engine/packages/api/src/db/schema/index.js')).users.email, 'demo@demo.com') });
   if (!user) { console.log('demo@demo.com not found'); process.exit(1); }
   const tenantId = user.tenantId;
   console.log('Tenant:', tenantId);

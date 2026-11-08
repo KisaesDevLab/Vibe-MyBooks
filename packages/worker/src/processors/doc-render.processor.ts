@@ -11,10 +11,10 @@
 // queue/handlers.ts); the backend (BullMQ on the server), concurrency, retries
 // and log lines come from the JobQueue and its spec (api queue/specs.ts).
 
-import { DOC_RENDER_QUEUE } from '../../../api/src/services/extraction/queue.js';
-import { getJobQueue } from '../../../api/src/queue/index.js';
-import { JOB_HANDLERS } from '../../../api/src/queue/handlers.js';
-import type { WorkerHandle } from '../../../api/src/queue/job-queue.js';
+import { DOC_RENDER_QUEUE } from '../../../../engine/packages/api/src/services/extraction/queue.js';
+import { getJobQueue } from '../../../../engine/packages/api/src/queue/index.js';
+import { JOB_HANDLERS } from '../../../../engine/packages/api/src/queue/handlers.js';
+import type { WorkerHandle } from '../../../../engine/packages/api/src/queue/job-queue.js';
 
 export async function startDocRenderWorker(): Promise<WorkerHandle> {
   return (await getJobQueue()).work(DOC_RENDER_QUEUE, JOB_HANDLERS[DOC_RENDER_QUEUE]);

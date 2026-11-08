@@ -25,14 +25,14 @@ async function main() {
   // Dynamic imports so this script can run even when the main app is
   // stuck in diagnostic mode (its process is listening; this script's
   // process is separate).
-  const sentinelService = await import('../packages/api/src/services/sentinel.service.js');
-  const { readHostId, hostIdExists } = await import('../packages/api/src/services/host-id.service.js');
-  const { recoveryFileExists } = await import('../packages/api/src/services/env-recovery.service.js');
+  const sentinelService = await import('../engine/packages/api/src/services/sentinel.service.js');
+  const { readHostId, hostIdExists } = await import('../engine/packages/api/src/services/host-id.service.js');
+  const { recoveryFileExists } = await import('../engine/packages/api/src/services/env-recovery.service.js');
   const { readFingerprint, captureFingerprint } = await import(
-    '../packages/api/src/services/db-fingerprint.service.js'
+    '../engine/packages/api/src/services/db-fingerprint.service.js'
   );
-  const { getSetting } = await import('../packages/api/src/services/admin.service.js');
-  const { SystemSettingsKeys } = await import('../packages/api/src/constants/system-settings-keys.js');
+  const { getSetting } = await import('../engine/packages/api/src/services/admin.service.js');
+  const { SystemSettingsKeys } = await import('../engine/packages/api/src/constants/system-settings-keys.js');
 
   let verdict: 'healthy' | 'needs-attention' | 'blocked' = 'healthy';
   const warnings: string[] = [];

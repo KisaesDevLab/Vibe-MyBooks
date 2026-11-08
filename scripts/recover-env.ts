@@ -59,7 +59,7 @@ async function main() {
   }
 
   const { recoveryFileExists, readRecoveryFile } = await import(
-    '../packages/api/src/services/env-recovery.service.js'
+    '../engine/packages/api/src/services/env-recovery.service.js'
   );
 
   if (!recoveryFileExists()) {
@@ -92,7 +92,7 @@ async function main() {
 
   if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
 
-  const { renderRecoveredEnv } = await import('../packages/api/src/startup/env-missing-app.js');
+  const { renderRecoveredEnv } = await import('../engine/packages/api/src/startup/env-missing-app.js');
   if (!contents.plaidEncryptionKey && !(process.env['PLAID_ENCRYPTION_KEY'] || '').trim()) {
     console.log('\n  WARNING: this recovery file predates v2 and carries no PLAID_ENCRYPTION_KEY,');
     console.log('  and the environment does not supply one. The api will not start until it is set.');

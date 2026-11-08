@@ -2,10 +2,10 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 import bcrypt from 'bcrypt';
-import { db } from '../packages/api/src/db/index.js';
-import { users } from '../packages/api/src/db/schema/index.js';
+import { db } from '../engine/packages/api/src/db/index.js';
+import { users } from '../engine/packages/api/src/db/schema/index.js';
 import { eq } from 'drizzle-orm';
-import { auditLog } from '../packages/api/src/db/schema/index.js';
+import { auditLog } from '../engine/packages/api/src/db/schema/index.js';
 
 const email = process.argv[2];
 const newPassword = process.argv[3];

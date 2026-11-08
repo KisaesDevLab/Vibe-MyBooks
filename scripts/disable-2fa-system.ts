@@ -22,8 +22,8 @@ async function main() {
   console.log('\n  WARNING: This will disable 2FA for the entire system.');
   console.log('  Individual user 2FA settings will be preserved.\n');
 
-  const { db } = await import('../packages/api/src/db/index.js');
-  const { tfaConfig } = await import('../packages/api/src/db/schema/index.js');
+  const { db } = await import('../engine/packages/api/src/db/index.js');
+  const { tfaConfig } = await import('../engine/packages/api/src/db/schema/index.js');
 
   // Check current state
   const config = await db.query.tfaConfig.findFirst();

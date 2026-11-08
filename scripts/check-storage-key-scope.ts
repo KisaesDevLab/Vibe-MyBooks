@@ -18,7 +18,7 @@
  */
 
 import pg from 'pg';
-import { keyBelongsToTenant } from '../packages/api/src/utils/contained-path.js';
+import { keyBelongsToTenant } from '../engine/packages/api/src/utils/contained-path.js';
 
 interface Source {
   label: string;

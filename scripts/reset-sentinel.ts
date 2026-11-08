@@ -49,9 +49,9 @@ async function main() {
   // Dynamic imports so this script runs in its own process, independent of
   // whether the main API container is in normal or diagnostic mode.
   const { sentinelExists, readSentinelHeader, deleteSentinel } = await import(
-    '../packages/api/src/services/sentinel.service.js'
+    '../engine/packages/api/src/services/sentinel.service.js'
   );
-  const { sentinelAudit } = await import('../packages/api/src/startup/sentinel-audit.js');
+  const { sentinelAudit } = await import('../engine/packages/api/src/startup/sentinel-audit.js');
 
   if (!sentinelExists()) {
     console.log('\n  No sentinel file found — nothing to reset.\n');
