@@ -44,6 +44,19 @@ describe('SplitActionEditor', () => {
     expect(screen.getByText(/must total 100/)).toBeInTheDocument();
   });
 
+  it('needs exactly 100, as the server does (U-164): 33.333 x 3 is not 100', () => {
+    const action: Action = {
+      type: 'split_by_percentage',
+      splits: [
+        { accountId: 'a1', percent: 33.333 },
+        { accountId: 'a2', percent: 33.333 },
+        { accountId: 'a3', percent: 33.333 },
+      ],
+    };
+    renderRoute(<SplitActionEditor action={action} onChange={vi.fn()} />);
+    expect(screen.getByText(/must total 100/)).toBeInTheDocument();
+  });
+
   it('disables remove button when only 2 rows remain', () => {
     const action: Action = {
       type: 'split_by_percentage',

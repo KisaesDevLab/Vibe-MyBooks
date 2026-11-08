@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { Plus, Trash2 } from 'lucide-react';
-import type { Action } from '@kis-books/shared';
+import { percentsTotalExactly100, type Action } from '@kis-books/shared';
 import { AccountSelector } from '../../../../components/forms/AccountSelector';
 import { NumericInput } from '../../../../components/forms/NumericInput';
 
@@ -47,7 +47,10 @@ export function SplitActionEditor({ action, onChange }: Props) {
   const sum = isPercentage
     ? (action.splits as Array<{ percent: number }>).reduce((s, r) => s + (r.percent || 0), 0)
     : null;
-  const sumOk = sum === null ? true : Math.abs(sum - 100) < 0.01;
+  // Exactly 100 as decimals, the same check the server makes (U-164).
+  const sumOk = sum === null
+    ? true
+    : percentsTotalExactly100((action.splits as Array<{ percent: number }>).map((r) => r.percent || 0));
 
   return (
     <div className="flex flex-col gap-2">
