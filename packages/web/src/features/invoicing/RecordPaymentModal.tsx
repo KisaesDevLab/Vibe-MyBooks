@@ -14,6 +14,7 @@ import { MoneyInput } from '../../components/forms/MoneyInput';
 import { PaymentMethodSelect } from '../../components/forms/PaymentMethodSelect';
 import { Input } from '../../components/ui/Input';
 import { X } from 'lucide-react';
+import { roundCents, splitPayment } from './paymentAmount';
 
 interface RecordPaymentModalProps {
   invoice: Transaction;
@@ -22,9 +23,13 @@ interface RecordPaymentModalProps {
 
 export function RecordPaymentModal({ invoice, onClose }: RecordPaymentModalProps) {
   const today = todayLocalISO();
-  const balanceDue = parseFloat(invoice.balanceDue || invoice.total || '0');
+  // Exact cents from the decimal strings, rounded half away from zero like
+  // the engine (no float: 10.005 must default to 10.01, the engine's cap).
+  // A paid invoice takes nothing; the whole payment would be a credit.
+  const balanceRaw = roundCents(invoice.balanceDue || invoice.total || '0') ?? '0.00';
+  const balanceDue = invoice.invoiceStatus === 'paid' || balanceRaw.startsWith('-') ? '0.00' : balanceRaw;
 
-  const [amount, setAmount] = useState(balanceDue.toFixed(2));
+  const [amount, setAmount] = useState(balanceDue);
   const [txnDate, setTxnDate] = useState(today);
   const [depositToAccountId, setDepositToAccountId] = useState('');
   const [memo, setMemo] = useState('');
@@ -32,6 +37,7 @@ export function RecordPaymentModal({ invoice, onClose }: RecordPaymentModalProps
   const [refNo, setRefNo] = useState('');
 
   const recordPayment = useRecordPayment();
+  const split = splitPayment(amount, balanceDue);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -56,12 +62,21 @@ export function RecordPaymentModal({ invoice, onClose }: RecordPaymentModalProps
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm">
-            <div className="flex justify-between"><span>Invoice Total</span><span className="font-mono">${parseFloat(invoice.total || '0').toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>Amount Paid</span><span className="font-mono">${parseFloat(invoice.amountPaid || '0').toFixed(2)}</span></div>
-            <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Balance Due</span><span className="font-mono">${balanceDue.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span>Invoice Total</span><span className="font-mono">${roundCents(invoice.total || '0') ?? '0.00'}</span></div>
+            <div className="flex justify-between"><span>Amount Paid</span><span className="font-mono">${roundCents(invoice.amountPaid || '0') ?? '0.00'}</span></div>
+            <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Balance Due</span><span className="font-mono">${balanceDue}</span></div>
           </div>
 
           <MoneyInput label="Payment Amount" value={amount} onChange={setAmount} required />
+          {split && split.excess !== '0.00' && (
+            // Allowed, not an error: the engine applies the balance and keeps
+            // the rest on the customer's account as an unapplied credit.
+            <div role="note" className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+              This is ${split.excess} more than the balance due. ${split.applied} pays this invoice
+              {split.applied === balanceDue && balanceDue !== '0.00' ? ' in full' : ''}, and the
+              extra ${split.excess} becomes a credit for the customer that you can apply to another invoice.
+            </div>
+          )}
           <DatePicker label="Payment Date" value={txnDate} onChange={(e) => setTxnDate(e.target.value)} required />
           <AccountSelector label="Deposit To" value={depositToAccountId} onChange={setDepositToAccountId}
             accountTypeFilter="asset" required />

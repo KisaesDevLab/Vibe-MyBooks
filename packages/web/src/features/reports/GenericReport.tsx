@@ -2,6 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
+import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, API_BASE } from '../../api/client';
 import { useSessionState } from '../../hooks/useSessionState';
@@ -44,9 +45,15 @@ interface GenericReportProps {
   // mapped field resolves to a number, ReportTable renders its totals
   // row. Purely additive — reports without it are unchanged.
   totalsFrom?: Record<string, string>;
+  // Optional explanation shown above the table (e.g. how this report
+  // relates to another one whose totals can differ).
+  note?: ReactNode;
+  // Optional display labels for coded values, per column key (e.g.
+  // { kind: { credit: 'Credit' } }). Unknown values show as is.
+  valueLabels?: Record<string, Record<string, string>>;
 }
 
-export function GenericReport({ title, endpoint, columns, useDateRange = true, useAsOfDate, useTagFilter = false, useBasis = false, extraParams, dataKey = 'data', totalsFrom }: GenericReportProps) {
+export function GenericReport({ title, endpoint, columns, useDateRange = true, useAsOfDate, useTagFilter = false, useBasis = false, extraParams, dataKey = 'data', totalsFrom, note, valueLabels }: GenericReportProps) {
   const today = new Date();
   // Selection criteria persist for the tab session — namespaced per
   // report endpoint so the Trial Balance and AR Aging (etc.) each keep
@@ -96,6 +103,18 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
     if (entries.length > 0) totals = Object.fromEntries(entries);
   }
 
+  const rawRows: Array<Record<string, unknown>> | undefined = data?.[dataKey];
+  const rows = rawRows && valueLabels
+    ? rawRows.map((row) => {
+      const out = { ...row };
+      for (const [key, labels] of Object.entries(valueLabels)) {
+        const v = row[key];
+        if (typeof v === 'string' && labels[v] !== undefined) out[key] = labels[v];
+      }
+      return out;
+    })
+    : rawRows;
+
   return (
     <ReportShell title={title}
       exportBaseUrl={exportBaseUrl}
@@ -114,12 +133,17 @@ export function GenericReport({ title, endpoint, columns, useDateRange = true, u
           <ReportScopeSelector scope={scope} onScopeChange={setScope} />
         </div>
       }>
+      {note && (
+        <div role="note" className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          {note}
+        </div>
+      )}
       {isLoading ? <LoadingSpinner className="py-12" /> :
        isError ? <ErrorMessage onRetry={refetch} /> :
-       data?.[dataKey] && data[dataKey].length > 0 ? (
+       rows && rows.length > 0 ? (
         <ReportTable
           columns={columns}
-          data={data[dataKey]}
+          data={rows}
           totals={totals}
           drillContext={{
             startDate: useDateRange ? startDate : undefined,
