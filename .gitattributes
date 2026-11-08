@@ -15,3 +15,10 @@ openapi.json    text eol=lf
 
 # Git hooks run under sh on every platform.
 .husky/*        text eol=lf
+
+# The web Dockerfile hashes the inline <script> blocks of index.html and
+# compares them with the CSP sha256 list in nginx/security-headers.conf. A
+# Windows clone with core.autocrlf=true checks index.html out with CRLF, the
+# hashes change, and `docker compose build web` fails the CSP guard. Keep
+# it LF everywhere so a local build matches CI.
+packages/web/index.html text eol=lf
