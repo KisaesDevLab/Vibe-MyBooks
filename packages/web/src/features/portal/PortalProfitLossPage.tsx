@@ -36,6 +36,8 @@ interface PLData {
   grossProfit: number | null;
   operatingIncome: number | null;
   netIncome: number;
+  /** Open bank feed items dated in range — activity the P&L does not include yet. */
+  unpostedBankFeed?: { count: number; amount: number };
 }
 
 interface TxnLine {
@@ -284,9 +286,12 @@ export function PortalProfitLossPage() {
       )}
 
       {!loading && !error && data && !hasRows && (
-        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
-          No income or expenses were recorded between {formatDay(data.startDate)} and {formatDay(data.endDate)}.
-        </div>
+        <>
+          <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+            No income or expenses were recorded between {formatDay(data.startDate)} and {formatDay(data.endDate)}.
+          </div>
+          {data.unpostedBankFeed && <UnpostedBankFeedLine {...data.unpostedBankFeed} />}
+        </>
       )}
 
       {!loading && !error && data && hasRows && (
@@ -317,6 +322,7 @@ export function PortalProfitLossPage() {
               </tbody>
             </table>
           </div>
+          {data.unpostedBankFeed && <UnpostedBankFeedLine {...data.unpostedBankFeed} />}
           <p className="text-xs text-gray-400">Percentages are shares of total revenue.</p>
         </>
       )}
@@ -331,6 +337,27 @@ export function PortalProfitLossPage() {
           onClose={() => setDrill(null)}
         />
       )}
+    </div>
+  );
+}
+
+// Memo line, not part of the statement: bank feed items the bookkeeper
+// has not posted yet, so the figures above do not include them. Plain
+// text on purpose — there is nothing in the ledger to drill into.
+function UnpostedBankFeedLine({ count, amount }: { count: number; amount: number }) {
+  const detail = count === 0
+    ? 'Nothing waiting in the bank feed'
+    : `Not included above · ${count} ${count === 1 ? 'transaction' : 'transactions'}`;
+  return (
+    <div
+      className="bg-white border border-gray-200 rounded-xl flex items-center justify-between gap-3 py-2.5 pl-4 pr-4 sm:pl-6 sm:pr-6 text-sm"
+      data-testid="unposted-bank-feed"
+    >
+      <div className="min-w-0">
+        <p className="text-gray-800">Unposted bank feed activity</p>
+        <p className="text-xs text-gray-500">{detail}</p>
+      </div>
+      <p className="tabular-nums text-gray-900 shrink-0">{money.format(amount)}</p>
     </div>
   );
 }
