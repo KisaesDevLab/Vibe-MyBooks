@@ -1,7 +1,7 @@
 # Copyright 2026 Kisaes LLC
 # Licensed under the PolyForm Small Business License 1.0.0.
 # Free for small businesses; see LICENSE for terms.
-"""Generate packages/shared/src/constants/coa-templates.ts from BusinessCategoryList.xlsx.
+"""Generate engine/packages/shared/src/constants/coa-templates.ts from BusinessCategoryList.xlsx.
 
 The xlsx is the source of truth for per-business-type COAs. This script:
 - Reads each row of the spreadsheet
@@ -24,7 +24,7 @@ from pathlib import Path
 
 ROOT = Path(r"C:\Users\kwkcp\Projects\myBooks")
 XLSX = ROOT / "BusinessCategoryList.xlsx"
-OUT = ROOT / "packages" / "shared" / "src" / "constants" / "coa-templates.ts"
+OUT = ROOT / "engine" / "packages" / "shared" / "src" / "constants" / "coa-templates.ts"
 
 TYPE_MAP = {
     "Asset": "asset",

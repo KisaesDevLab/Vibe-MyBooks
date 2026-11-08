@@ -49,11 +49,14 @@ Source: "..\docker-compose.yml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\docker-compose.dev.yml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\docker-compose.prod.yml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\Dockerfile"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\packages\api\Dockerfile"; DestDir: "{app}\packages\api"; Flags: ignoreversion
+Source: "..\docker\api\Dockerfile"; DestDir: "{app}\docker\api"; Flags: ignoreversion
 Source: "..\packages\web\Dockerfile"; DestDir: "{app}\packages\web"; Flags: ignoreversion
 Source: "..\package.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\package-lock.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\packages\*"; DestDir: "{app}\packages"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "node_modules\*,dist\*,*.tsbuildinfo"
+; The engine (kisaes-gl-engine submodule): compile the installer from a
+; checkout made with `git clone --recurse-submodules`.
+Source: "..\engine\*"; DestDir: "{app}\engine"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "node_modules\*,dist\*,*.tsbuildinfo,.git,.git\*"
 Source: "..\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesubdirs
 Source: "..\e2e\*"; DestDir: "{app}\e2e"; Flags: ignoreversion recursesubdirs
 Source: "..\tsconfig.base.json"; DestDir: "{app}"; Flags: ignoreversion

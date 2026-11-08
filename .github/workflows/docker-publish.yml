@@ -67,7 +67,7 @@ jobs:
       matrix:
         target:
           - image: vibe-mybooks-api
-            dockerfile: packages/api/Dockerfile
+            dockerfile: docker/api/Dockerfile
           - image: vibe-mybooks-web
             dockerfile: packages/web/Dockerfile
         platform:
@@ -76,6 +76,8 @@ jobs:
     runs-on: ${{ matrix.platform.runner }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4

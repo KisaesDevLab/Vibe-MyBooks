@@ -5,11 +5,12 @@ Contributions are welcome! By contributing, you agree that your contributions ar
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork and create a branch
+2. Clone your fork with `git clone --recurse-submodules` and create a branch
 3. Set up the development environment:
 
 ```bash
-npm install
+git submodule update --init   # engine/ = kisaes-gl-engine
+npm install                   # at the repository root only, never inside engine/
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
@@ -29,9 +30,11 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 ## Architecture
 
-- **Business logic** lives in `packages/api/src/services/`, not route handlers
+- **The engine** (`@kis-books/api` + `@kis-books/shared`, `openapi.json`, migrations) lives in [KisaesDevLab/kisaes-gl-engine](https://github.com/KisaesDevLab/kisaes-gl-engine), mounted here as the `engine/` git submodule. Engine changes are pull requests on that repository; this repository then moves the pin (`git -C engine checkout <commit>`, `npm install` at the root, commit the gitlink and lockfile).
+- Until the engine's knowledge-generator path fix lands, don't run `generate-knowledge` from a checkout (it looks for `packages/api/src/knowledge` at the repository root); the Docker images are unaffected.
+- **Business logic** lives in `engine/packages/api/src/services/`, not route handlers
 - **Route handlers** validate input, call services, and format responses
-- **Shared types** go in `packages/shared/src/`
+- **Shared types** go in `engine/packages/shared/src/`
 - **React hooks** for data fetching use TanStack Query in `packages/web/src/api/`
 
 See [CLAUDE.md](../CLAUDE.md) for the complete coding conventions and patterns.

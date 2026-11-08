@@ -8,7 +8,7 @@
 #   PLAID_ENCRYPTION_KEY  wraps every stored credential (Plaid, SMS/2FA,
 #                         AI/Stripe keys, storage + backup creds, 1099 TINs,
 #                         check-signature images). Rotated by re-encrypting
-#                         every ciphertext (packages/api/src/scripts/
+#                         every ciphertext (engine/packages/api/src/scripts/
 #                         rotate-encryption-keys.ts) — DB + files.
 #   ENCRYPTION_KEY        wraps the installation sentinel (/data/.sentinel)
 #                         and peppers screen-share join codes. Holds no DB
@@ -63,8 +63,8 @@ done
 
 DEPLOY_DIR="$(pwd)"
 [ -f "$DEPLOY_DIR/.env" ] || { echo "run from the deployment directory (no .env here: $DEPLOY_DIR)" >&2; exit 2; }
-SCRIPT_TS="$DEPLOY_DIR/packages/api/src/scripts/rotate-encryption-keys.ts"
-[ -f "$SCRIPT_TS" ] || { echo "missing $SCRIPT_TS — pull the repo first" >&2; exit 2; }
+SCRIPT_TS="$DEPLOY_DIR/engine/packages/api/src/scripts/rotate-encryption-keys.ts"
+[ -f "$SCRIPT_TS" ] || { echo "missing $SCRIPT_TS — pull the repo first (git pull && git submodule update --init)" >&2; exit 2; }
 command -v docker >/dev/null || { echo "docker not found" >&2; exit 2; }
 
 # `|| true`: with pipefail a missing key would otherwise abort the script
@@ -97,10 +97,10 @@ run_rotate() { # $1 = extra args ("" or "--apply")
   # argv / in `ps`.
   OLD_PLAID_ENCRYPTION_KEY="$OLD_PLAID" PLAID_ENCRYPTION_KEY="$NEW_PLAID" \
   docker compose run --rm --no-deps --user 1001 --entrypoint '' \
-    -v "$SCRIPT_TS:/app/packages/api/src/scripts/rotate-encryption-keys.ts:ro" \
+    -v "$SCRIPT_TS:/app/engine/packages/api/src/scripts/rotate-encryption-keys.ts:ro" \
     -e OLD_PLAID_ENCRYPTION_KEY \
     -e PLAID_ENCRYPTION_KEY \
-    api npx tsx packages/api/src/scripts/rotate-encryption-keys.ts $1
+    api npx tsx engine/packages/api/src/scripts/rotate-encryption-keys.ts $1
 }
 
 if [ "$MODE" = dry ]; then

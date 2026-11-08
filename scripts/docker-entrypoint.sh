@@ -4,7 +4,7 @@
 # Free for small businesses; see LICENSE for terms.
 
 # Entry point for both the production image (Dockerfile at repo root)
-# and the dev image (packages/api/Dockerfile). Two responsibilities:
+# and the api/worker image (docker/api/Dockerfile). Two responsibilities:
 #
 #   1. If the image started as root, normalize the bind-mounted /data
 #      volume to UID 1001 (the "app" user) and then drop privileges via

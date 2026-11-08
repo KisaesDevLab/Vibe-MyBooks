@@ -22,9 +22,9 @@ async function main() {
   console.log('\n  WARNING: This will disable 2FA for a user account.\n');
 
   // Dynamic imports so this works standalone
-  const { db } = await import('../packages/api/src/db/index.js');
-  const { users, tfaTrustedDevices, tfaCodes } = await import('../packages/api/src/db/schema/index.js');
-  const { auditLog } = await import('../packages/api/src/middleware/audit.js');
+  const { db } = await import('../engine/packages/api/src/db/index.js');
+  const { users, tfaTrustedDevices, tfaCodes } = await import('../engine/packages/api/src/db/schema/index.js');
+  const { auditLog } = await import('../engine/packages/api/src/middleware/audit.js');
 
   const email = await ask('  Enter the email address of the account: ');
   const user = await db.query.users.findFirst({ where: eq(users.email, email.trim()) });

@@ -17,6 +17,10 @@ For commercial licensing inquiries (larger organizations or
 client-facing portal access), see COMMERCIAL_LICENSE.md or contact:
 licensing@kisaes.com
 
+The engine in engine/ (the kisaes-gl-engine git submodule: packages
+api and shared) is a separate work under its own terms: see
+engine/LICENSE and engine/NOTICE.md.
+
 ---
 
 Third-Party Software Notices

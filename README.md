@@ -196,9 +196,11 @@ docker compose -f docker-compose.prod.yml logs -f   # tail logs
 
 ## Quick Start (Manual)
 
+> **The engine is a git submodule.** `engine/` is [kisaes-gl-engine](https://github.com/KisaesDevLab/kisaes-gl-engine) (the `@kis-books/api` and `@kis-books/shared` packages, `openapi.json` and the migrations), pinned to a commit. Clone with `--recurse-submodules` (or run `git submodule update --init` in an existing clone, and again after every `git pull` that moves the pin). GitHub's "Source code" zip/tarball downloads do **not** contain the engine, so they cannot build.
+
 ```bash
 # Clone the repository
-git clone https://github.com/KisaesDevLab/Vibe-MyBooks.git
+git clone --recurse-submodules https://github.com/KisaesDevLab/Vibe-MyBooks.git
 cd Vibe-MyBooks
 
 # Copy environment config
@@ -238,11 +240,19 @@ For details on the design (one image, two modes; configuration over forks; emerg
 ```bash
 # Prerequisites: Node.js 20+, Docker
 
-# Install dependencies (host-side, so your IDE's type-checker works)
+# The engine is the engine/ submodule; fetch it first.
+git submodule update --init
+
+# Install dependencies (host-side, so your IDE's type-checker works).
+# Run npm only at the repository root, never inside engine/: the root
+# workspaces include engine/packages/{shared,api}, and engine/ has its own
+# lockfile that this repository ignores. After moving the engine pin, run
+# `npm install` at the root so package-lock.json follows the engine's
+# package.json files.
 npm install
 
 # Pre-build the shared package. The dev compose stack bind-mounts
-# ./packages/shared/dist into the api/web/worker containers; on a
+# ./engine/packages/shared/dist into the api/web/worker containers; on a
 # fresh clone that directory doesn't exist yet, Docker would create
 # it root-owned, and the in-container tsc --watch (running as UID
 # 1001) then can't write to it. Building once up-front creates the
@@ -265,9 +275,11 @@ npm test
 
 ```
 Vibe-MyBooks/
+├── engine/              # git submodule: kisaes-gl-engine (pinned commit)
+│   ├── packages/shared/ # Shared types, Zod schemas, constants, utilities
+│   ├── packages/api/    # Express backend (Drizzle ORM, TypeScript), migrations
+│   └── openapi.json     # Generated API spec
 ├── packages/
-│   ├── shared/          # Shared types, Zod schemas, constants, utilities
-│   ├── api/             # Express backend (Node.js 20, Drizzle ORM, TypeScript)
 │   ├── web/             # React frontend (Vite, Tailwind CSS, TanStack Query)
 │   └── worker/          # BullMQ background job processor
 ├── scripts/             # CLI tools (install, migrate, backup, seed)

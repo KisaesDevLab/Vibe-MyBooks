@@ -11,10 +11,10 @@
 // queue/handlers.ts); the backend (BullMQ on the server), concurrency, retries
 // and log lines come from the JobQueue and its spec (api queue/specs.ts).
 
-import { REPORT_PACK_QUEUE } from '../../../api/src/services/extraction/queue.js';
-import { getJobQueue } from '../../../api/src/queue/index.js';
-import { JOB_HANDLERS } from '../../../api/src/queue/handlers.js';
-import type { WorkerHandle } from '../../../api/src/queue/job-queue.js';
+import { REPORT_PACK_QUEUE } from '../../../../engine/packages/api/src/services/extraction/queue.js';
+import { getJobQueue } from '../../../../engine/packages/api/src/queue/index.js';
+import { JOB_HANDLERS } from '../../../../engine/packages/api/src/queue/handlers.js';
+import type { WorkerHandle } from '../../../../engine/packages/api/src/queue/job-queue.js';
 
 export async function startReportPackWorker(): Promise<WorkerHandle> {
   return (await getJobQueue()).work(REPORT_PACK_QUEUE, JOB_HANDLERS[REPORT_PACK_QUEUE]);

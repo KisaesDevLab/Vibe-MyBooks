@@ -3,6 +3,7 @@
 ## Building the Installer
 
 ### Prerequisites
+0. A checkout made with `git clone --recurse-submodules` (the engine is the `engine/` git submodule; the installer copies it). GitHub "Source code" zips do not contain the engine.
 1. Install [Inno Setup 6+](https://jrsoftware.org/isinfo.php) on your Windows machine
 2. Optionally create an `icon.ico` file (256x256 app icon) in this directory
 

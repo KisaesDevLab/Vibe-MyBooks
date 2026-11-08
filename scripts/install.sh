@@ -216,6 +216,10 @@ if [ "$UPDATE_MODE" = true ]; then
     error "Run: cd $INSTALL_DIR && git pull"
     exit 1
   }
+  # The engine (engine/) is a git submodule. The running stack uses the
+  # prebuilt images, but operator scripts (rotate-encryption-keys.sh) read
+  # engine sources from the checkout, so keep it in step with the pin.
+  git submodule update --init || error "Could not update the engine submodule (engine/); run: cd $INSTALL_DIR && git submodule update --init"
 
   # Save the recovery key / sentinel BEFORE recreating, in case this update is
   # the one that moves /data from the container layer onto a host bind mount.
@@ -240,7 +244,7 @@ if [ -d "$INSTALL_DIR" ]; then
   fi
 else
   info "Cloning Vibe MyBooks to $INSTALL_DIR..."
-  git clone "$REPO" "$INSTALL_DIR"
+  git clone --recurse-submodules "$REPO" "$INSTALL_DIR"
 fi
 
 cd "$INSTALL_DIR"

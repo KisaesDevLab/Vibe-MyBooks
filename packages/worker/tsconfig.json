@@ -8,5 +8,5 @@
     // API scheduler bootstrap) without producing tangled dist trees.
     "noEmit": true
   },
-  "include": ["src", "../api/src", "../shared/src"]
+  "include": ["src", "../../engine/packages/api/src", "../../engine/packages/shared/src"]
 }

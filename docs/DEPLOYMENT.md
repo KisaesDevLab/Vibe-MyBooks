@@ -88,6 +88,7 @@ curl -fsSL https://raw.githubusercontent.com/KisaesDevLab/Vibe-MyBooks/main/scri
 Or manually:
 ```bash
 git pull
+git submodule update --init   # the engine (engine/) is a git submodule
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 # Migrations run automatically on startup

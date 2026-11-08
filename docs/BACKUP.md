@@ -39,7 +39,7 @@ exported nor consciously excluded.
   sessions, one-time OTP codes, magic links, portal session tokens, password
   reset tokens, OAuth authorization codes. Users simply sign in again after a
   restore. Each exclusion is documented in
-  `packages/api/src/services/backup-table-plan.ts`.
+  `engine/packages/api/src/services/backup-table-plan.ts`.
 
 **Compatibility:** v1 bundles (`kis-books-system-v1`, pre-v2 releases) still
 restore; current code additionally applies their `system_config` section
