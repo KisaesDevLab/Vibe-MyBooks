@@ -25,6 +25,9 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
 import { Check, X, CheckCheck, Brain, Sparkles, ChevronDown, ChevronUp, Save, Trash2, FolderInput, Search, RefreshCw, Link2, Wand2, ScanLine, RotateCcw } from 'lucide-react';
 import { apiClient } from '../../api/client';
+import { formatMoney } from '../../utils/money';
+import { bulkFailureError, describeFeedActionError, lineRequiredIds } from './feedActionError';
+import type { MatchCandidate } from '../../api/hooks/useBanking';
 import { CommitInput } from '../../components/forms/CommitInput';
 import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
 
@@ -240,6 +243,17 @@ export function BankFeedPage() {
   const aiCategorize = useAiCategorize();
   const aiBatch = useAiBatchCategorize();
   const matchFeedItem = useMatchFeedItem();
+  // Match refusals the modal shows inline (it stays open so the user can
+  // pick another row or line).
+  const [matchError, setMatchError] = useState<{ message: string; journalLineIds: string[] | null } | null>(null);
+
+  // Every feed action shows why the engine refused it. When the row's state
+  // on the server moved on (already handled elsewhere), reload the feed.
+  const onFeedError = (fallback: string) => (e: unknown) => {
+    const r = describeFeedActionError(e, fallback);
+    toast.error(r.message, r.detail && r.detail !== r.message ? { detail: r.detail } : undefined);
+    if (r.refresh) refetch();
+  };
 
   const aiEnabled = aiConfig?.isEnabled === true;
   const firstLoad = isLoading && !data;
@@ -358,20 +372,25 @@ export function BankFeedPage() {
   // Expanded-editor save action: persist the row edits, then STAGE the
   // category via assign() — no ledger post happens here (that's Approve).
   const handleAssign = async (itemId: string) => {
-    await apiClient(`/banking/feed/${itemId}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        feedDate: editState.feedDate, description: editState.description,
-        memo: editState.memo, contactId: editState.contactId || undefined,
-      }),
-    });
+    try {
+      await apiClient(`/banking/feed/${itemId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          feedDate: editState.feedDate, description: editState.description,
+          memo: editState.memo, contactId: editState.contactId || undefined,
+        }),
+      });
+    } catch (e) {
+      onFeedError('Could not save the bank line.')(e);
+      return;
+    }
     if (catAccountId) {
       assign.mutate({
         id: itemId, accountId: catAccountId,
         contactId: editState.contactId || null, memo: editState.memo || null,
         // Explicit id or null (picker pre-seeded), never undefined.
         tagId: catTagId || null,
-      }, { onSuccess: () => { setExpandedId(null); } });
+      }, { onSuccess: () => { setExpandedId(null); }, onError: onFeedError('Could not assign the category.') });
     } else {
       refetch();
       setExpandedId(null);
@@ -389,12 +408,12 @@ export function BankFeedPage() {
       contactId: item.assignedContactId || item.suggestedContactId || null,
       tagId: item.assignedTagId || item.suggestedTagId || null,
       memo: item.assignedMemo || null,
-    }, { onSettled: () => setInlineCatId(null) });
+    }, { onSettled: () => setInlineCatId(null), onError: onFeedError('Could not assign the category.') });
   };
 
   // Per-row Approve — posts a staged ('assigned') item to the ledger.
   const handleApprove = (itemId: string) => {
-    approve.mutate(itemId);
+    approve.mutate(itemId, { onError: onFeedError('Could not approve the bank line.') });
   };
 
   // "Accept suggestion" now STAGES the AI guess as an assignment (no post),
@@ -412,6 +431,7 @@ export function BankFeedPage() {
           console.warn('[BankFeedPage] AI-accept telemetry failed:', err);
         });
       },
+      onError: onFeedError('Could not accept the suggestion.'),
     });
   };
 
@@ -515,6 +535,7 @@ export function BankFeedPage() {
               for (const id of ids) next.delete(id);
               return next;
             }),
+            onError: onFeedError('Could not exclude the selected lines.'),
           });
           setShowExcludeConfirm(false);
         }}
@@ -548,9 +569,17 @@ export function BankFeedPage() {
               const parts = [`${r.approved} approved`];
               if (r.skipped) parts.push(`${r.skipped} skipped (no category)`);
               if (r.failed) parts.push(`${r.failed} failed`);
-              if (r.failed) toast.error(parts.join(' · '));
-              else toast.success(parts.join(' · '));
+              if (r.failed) {
+                // Say why, from the first failure (e.g. a locked period or
+                // a split that doesn't add up).
+                const first = r.failures?.[0];
+                const why = first
+                  ? describeFeedActionError(bulkFailureError(first), first.error).message
+                  : undefined;
+                toast.error(parts.join(' · '), why ? { detail: why } : undefined);
+              } else toast.success(parts.join(' · '));
             },
+            onError: onFeedError('Bulk approve failed.'),
           });
         }}
       />
@@ -720,7 +749,7 @@ export function BankFeedPage() {
               <Button size="sm" disabled={!batchCatAccountId} loading={bulkAssign.isPending}
                 onClick={() => bulkAssign.mutate(
                   { feedItemIds: [...selected], accountId: batchCatAccountId },
-                  { onSuccess: () => { setShowBatchCategorize(false); setBatchCatAccountId(''); } },
+                  { onSuccess: () => { setShowBatchCategorize(false); setBatchCatAccountId(''); }, onError: onFeedError('Could not categorize the selected lines.') },
                 )}>Apply</Button>
               <Button size="sm" variant="ghost" onClick={() => { setShowBatchCategorize(false); setBatchCatAccountId(''); }}>Cancel</Button>
             </div>
@@ -829,7 +858,7 @@ export function BankFeedPage() {
                       return next;
                     });
                   },
-                  onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not restore.'),
+                  onError: onFeedError('Could not restore.'),
                 });
               }}
               loading={bulkUnexclude.isPending}>
@@ -1167,7 +1196,7 @@ export function BankFeedPage() {
                                 <Link2 className="h-4 w-4" />
                               </button>
                             )}
-                            <button onClick={() => exclude.mutate(item.id)}
+                            <button onClick={() => exclude.mutate(item.id, { onError: onFeedError('Could not exclude the bank line.') })}
                               className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500" title="Exclude">
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -1182,7 +1211,7 @@ export function BankFeedPage() {
                               className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-primary-600" title="Re-assign">
                               <ChevronDown className="h-4 w-4" />
                             </button>
-                            <button onClick={() => exclude.mutate(item.id)}
+                            <button onClick={() => exclude.mutate(item.id, { onError: onFeedError('Could not exclude the bank line.') })}
                               className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500" title="Exclude">
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -1202,28 +1231,52 @@ export function BankFeedPage() {
       {matchModalFor && (
         <MatchCandidatesModal
           feedItemId={matchModalFor}
-          onClose={() => setMatchModalFor(null)}
-          onMatch={(transactionId) => {
+          onClose={() => { setMatchModalFor(null); setMatchError(null); }}
+          onMatch={(c) => {
+            setMatchError(null);
             matchFeedItem.mutate(
-              { id: matchModalFor, transactionId },
-              { onSuccess: () => { setMatchModalFor(null); refetch(); } },
+              { id: matchModalFor, transactionId: c.id, journalLineId: c.journalLineId || undefined },
+              {
+                onSuccess: () => { setMatchModalFor(null); refetch(); },
+                onError: (e) => {
+                  const r = describeFeedActionError(e, 'Could not match the bank line.');
+                  if (r.refresh) {
+                    // The row or the line moved on: close and reload.
+                    toast.error(r.message, r.detail && r.detail !== r.message ? { detail: r.detail } : undefined);
+                    setMatchModalFor(null);
+                    refetch();
+                    return;
+                  }
+                  // Keep the modal open so another row or line can be picked.
+                  setMatchError({ message: r.message, journalLineIds: lineRequiredIds(e) });
+                },
+              },
             );
           }}
           isPending={matchFeedItem.isPending}
+          error={matchError}
         />
       )}
     </div>
   );
 }
 
-function MatchCandidatesModal({ feedItemId, onClose, onMatch, isPending }: {
+function MatchCandidatesModal({ feedItemId, onClose, onMatch, isPending, error }: {
   feedItemId: string;
   onClose: () => void;
-  onMatch: (transactionId: string) => void;
+  onMatch: (candidate: MatchCandidate) => void;
   isPending: boolean;
+  /** A refusal of the last Match click, shown above the list. */
+  error?: { message: string; journalLineIds: string[] | null } | null;
 }) {
-  const { data, isLoading } = useMatchCandidates(feedItemId);
+  const { data, isLoading, isError, refetch } = useMatchCandidates(feedItemId);
   const candidates = data?.candidates || [];
+  // Candidates are one row per journal line, so one entry can appear more
+  // than once (e.g. a payroll entry with net pay and taxes on the bank).
+  const entryRows = new Map<string, number>();
+  for (const c of candidates) entryRows.set(c.id, (entryRows.get(c.id) ?? 0) + 1);
+  // After a 400 LINE_REQUIRED, the lines the engine offered.
+  const offered = error?.journalLineIds && error.journalLineIds.length > 0 ? new Set(error.journalLineIds) : null;
 
   const typeLabel = (type: string) => {
     if (type === 'bill_payment') return 'Bill Payment';
@@ -1238,16 +1291,23 @@ function MatchCandidatesModal({ feedItemId, onClose, onMatch, isPending }: {
       <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold">Match to Existing Transaction</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">
             <X className="h-5 w-5" />
           </button>
         </div>
         <p className="text-sm text-gray-600 mb-4">
           Same-amount transactions within ±15 days. Bill payments are listed first — match them
-          to avoid creating a duplicate expense.
+          to avoid creating a duplicate expense. An entry with more than one bank line is listed once per line.
         </p>
+        {error && (
+          <div role="alert" className="mb-4 p-2 rounded border border-red-200 bg-red-50 text-sm text-red-700">
+            {error.message}
+          </div>
+        )}
         {isLoading ? (
           <LoadingSpinner className="py-8" />
+        ) : isError ? (
+          <ErrorMessage message="Couldn't load matching transactions." onRetry={() => refetch()} />
         ) : candidates.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-8">No matching transactions found.</p>
         ) : (
@@ -1263,22 +1323,36 @@ function MatchCandidatesModal({ feedItemId, onClose, onMatch, isPending }: {
               </tr>
             </thead>
             <tbody>
-              {candidates.map((c) => (
-                <tr key={c.id} className="border-b last:border-0">
-                  <td className="py-2 text-sm">{typeLabel(c.txnType)}</td>
-                  <td className="py-2 text-sm font-mono">
-                    {c.checkNumber ? `#${c.checkNumber}` : c.txnNumber}
-                  </td>
-                  <td className="py-2 text-sm">{c.txnDate}</td>
-                  <td className="py-2 text-sm">{c.contactName || '—'}</td>
-                  <td className="py-2 text-sm text-right font-mono">${parseFloat(c.total).toFixed(2)}</td>
-                  <td className="py-2 text-right">
-                    <Button size="sm" onClick={() => onMatch(c.id)} disabled={isPending}>
-                      Match
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {candidates.map((c, i) => {
+                const multiLine = (entryRows.get(c.id) ?? 0) > 1;
+                const dimmed = offered !== null && !offered.has(c.journalLineId);
+                return (
+                  <tr key={c.journalLineId || `${c.id}:${i}`} className={`border-b last:border-0 ${dimmed ? 'opacity-50' : ''}`}>
+                    <td className="py-2 text-sm">
+                      {typeLabel(c.txnType)}
+                      {(multiLine || c.lineDescription) && (
+                        <div className="text-xs text-gray-500">{c.lineDescription || 'Bank line'}</div>
+                      )}
+                    </td>
+                    <td className="py-2 text-sm font-mono">
+                      {c.checkNumber ? `#${c.checkNumber}` : c.txnNumber}
+                    </td>
+                    <td className="py-2 text-sm">{c.txnDate}</td>
+                    <td className="py-2 text-sm">{c.contactName || '—'}</td>
+                    <td className="py-2 text-sm text-right font-mono">
+                      {formatMoney(c.total)}
+                      {multiLine && c.amount && (
+                        <div className="text-xs text-gray-500">line {formatMoney(c.amount.replace(/^-/, ''))}</div>
+                      )}
+                    </td>
+                    <td className="py-2 text-right">
+                      <Button size="sm" onClick={() => onMatch(c)} disabled={isPending || dimmed}>
+                        Match
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

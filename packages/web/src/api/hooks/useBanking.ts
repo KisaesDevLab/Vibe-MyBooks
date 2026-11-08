@@ -116,14 +116,26 @@ export function usePayrollOverlapCheck(feedItemId: string | null) {
 export function useMatchFeedItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, transactionId }: { id: string; transactionId: string }) =>
-      apiClient(`/banking/feed/${id}/match`, { method: 'PUT', body: JSON.stringify({ transactionId }) }),
+    // journalLineId names the entry's line on the bank account. The engine
+    // needs it when more than one line of the entry fits (400 LINE_REQUIRED).
+    mutationFn: ({ id, transactionId, journalLineId }: { id: string; transactionId: string; journalLineId?: string }) =>
+      apiClient(`/banking/feed/${id}/match`, {
+        method: 'PUT',
+        body: JSON.stringify(journalLineId ? { transactionId, journalLineId } : { transactionId }),
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-feed'] }),
   });
 }
 
+// One row per journal line: a payroll entry with two bank lines is two rows
+// with the same `id` (the entry) and different `journalLineId`s.
 export interface MatchCandidate {
   id: string;
+  journalLineId: string;
+  /** The line's amount in the feed sign (equal to the feed item's amount). */
+  amount?: string;
+  lineDescription?: string | null;
+  source?: string | null;
   txnType: string;
   txnNumber: string | null;
   txnDate: string;
@@ -154,7 +166,7 @@ export function useBulkApprove() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (feedItemIds: string[]) =>
-      apiClient<{ approved: number; skipped: number; failed: number; failures?: Array<{ id: string; error: string }> }>('/banking/feed/bulk-approve', { method: 'POST', body: JSON.stringify({ feedItemIds }) }),
+      apiClient<{ approved: number; skipped: number; failed: number; failures?: Array<{ id: string; error: string; code?: string }> }>('/banking/feed/bulk-approve', { method: 'POST', body: JSON.stringify({ feedItemIds }) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['bank-feed'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); },
   });
 }
