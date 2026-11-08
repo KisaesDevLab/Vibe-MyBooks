@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import type { JournalLine } from '@kis-books/shared';
 import {
   hydrateInvoiceLines, invoiceLinesPayload, estimateInvoice, percentToRate, rateToPercent, signedAmount, releasedBillableIds,
-  emptyLine, type InvoiceLine,
+  emptyLine, unsupportedInvoiceFields, type InvoiceLine,
 } from './invoiceFormLines';
 
 const AR = 'acct-ar';
@@ -115,5 +115,25 @@ describe('invoice editor lines (B-1)', () => {
     expect(percentToRate('8.25')).toBe('0.0825');
     expect(percentToRate('0')).toBe('0');
     expect(signedAmount({ credit: '0.0000', debit: '106.8000' })).toBe('-106.8000');
+  });
+});
+
+// Owner decision E7 (engine QA 2026-11-08): the form can't keep a document
+// sales tax item, units of measure or tax codes, so it refuses those invoices.
+describe('unsupportedInvoiceFields', () => {
+  it('allows an invoice made in MyBooks (per-line rates only)', () => {
+    expect(unsupportedInvoiceFields({ salesTaxId: null, lines: [line({ unitId: null }), line({})] })).toBeNull();
+    expect(unsupportedInvoiceFields({ lines: null })).toBeNull();
+  });
+
+  it('refuses an invoice with a sales tax item', () => {
+    expect(unsupportedInvoiceFields({ salesTaxId: 'st-1', lines: [line({})] })).toMatch(/uses a sales tax item, which/);
+  });
+
+  it('refuses an invoice with a unit or a tax code on a line, naming each', () => {
+    const msg = unsupportedInvoiceFields({ salesTaxId: 'st-1', lines: [line({ unitId: 'u-case' }), line({ taxCodeId: 'tc-tax' })] });
+    expect(msg).toMatch(/uses a sales tax item, units of measure and sales tax codes, which this form can't keep yet/);
+    expect(msg).toMatch(/edit it in ClientLedger/);
+    expect(unsupportedInvoiceFields({ lines: [line({ taxCodeId: 'tc-tax' })] })).toMatch(/uses sales tax codes,/);
   });
 });

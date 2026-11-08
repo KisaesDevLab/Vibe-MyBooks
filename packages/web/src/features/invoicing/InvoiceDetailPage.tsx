@@ -19,6 +19,7 @@ import { TransactionReportButton } from '../transactions/TransactionReportButton
 import { usePermissions } from '../../api/hooks/usePermissions';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { isNonZeroAmount, voidInvoiceErrorMessage } from './voidInvoiceError';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -68,6 +69,11 @@ export function InvoiceDetailPage() {
   const lines = inv.lines || [];
   const revenueLines = lines.filter((l) => parseFloat(l.credit) > 0);
   const currentStep = statusSteps.indexOf(inv.invoiceStatus || 'draft');
+  // Payments applied block a void (409 INVOICE_HAS_PAYMENTS). The engine
+  // also counts a refund applied to the invoice, which amountPaid may not
+  // show; that case still gets the explained error from the server.
+  const hasPayments = isNonZeroAmount(inv.amountPaid);
+  const closeVoid = () => { setShowVoid(false); voidInvoice.reset(); };
 
   const handleDownloadPdf = async () => {
     setPdfLoading(true);
@@ -262,7 +268,11 @@ export function InvoiceDetailPage() {
 
       {/* The payments and credits applied to this invoice. Served by the
           transactions API, so it follows that permission. */}
-      {canTransactions && <RelatedTransactionsCard transactionId={inv.id} />}
+      {canTransactions && (
+        <div id="related-transactions">
+          <RelatedTransactionsCard transactionId={inv.id} />
+        </div>
+      )}
 
       {/* Modals */}
       {showPayment && <RecordPaymentModal invoice={inv} onClose={() => { setShowPayment(false); refetch(); }} />}
@@ -272,12 +282,32 @@ export function InvoiceDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
             <h2 className="text-lg font-semibold">Void Invoice</h2>
-            <textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
-              placeholder="Reason..." className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" rows={3} />
+            {hasPayments ? (
+              <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                {`This invoice has payments applied, so it can't be voided yet. Void the payments first ${
+                  canTransactions ? '(listed under Related Transactions on this page)' : '(ask someone with access to transactions)'
+                }, then void the invoice.`}
+              </p>
+            ) : (
+              <textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="Reason..." className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" rows={3} />
+            )}
+            {voidInvoice.isError && (
+              <p role="alert" className="text-sm text-red-600">{voidInvoiceErrorMessage(voidInvoice.error)}</p>
+            )}
             <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={() => setShowVoid(false)}>Cancel</Button>
-              <Button variant="danger" disabled={!voidReason.trim()} loading={voidInvoice.isPending}
-                onClick={() => voidInvoice.mutate({ id: inv.id, reason: voidReason }, { onSuccess: () => { setShowVoid(false); refetch(); } })}>Void</Button>
+              <Button variant="secondary" onClick={closeVoid}>{hasPayments ? 'Close' : 'Cancel'}</Button>
+              {hasPayments ? (
+                canTransactions && (
+                  <Button variant="primary" onClick={() => {
+                    closeVoid();
+                    document.getElementById('related-transactions')?.scrollIntoView({ behavior: 'smooth' });
+                  }}>Show payments</Button>
+                )
+              ) : (
+                <Button variant="danger" disabled={!voidReason.trim()} loading={voidInvoice.isPending}
+                  onClick={() => voidInvoice.mutate({ id: inv.id, reason: voidReason }, { onSuccess: () => { setShowVoid(false); refetch(); } })}>Void</Button>
+              )}
             </div>
           </div>
         </div>
