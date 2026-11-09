@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useReconciliations, useUndoReconciliation } from '../../api/hooks/useBanking';
+import { useMe } from '../../api/hooks/useAuth';
 import { AccountSelector } from '../../components/forms/AccountSelector';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -15,6 +16,7 @@ import { useColumnView } from '../../hooks/useColumnView';
 import { selectRows } from '../../utils/columnView';
 import { reconSignoffBadge } from '@kis-books/shared';
 import { ReconSignoffStatusBadge } from '../reports/reconciliation/ReconProofSections';
+import { reconcileErrorMessage } from './reconcileErrors';
 
 type HistorySortKey = 'statementDate' | 'endingBalance' | 'status' | 'completed';
 
@@ -23,6 +25,11 @@ export function ReconciliationHistoryPage() {
   const { data, isLoading, isError, refetch } = useReconciliations(accountId);
   const undoRecon = useUndoReconciliation();
   const toast = useToast();
+  // Undo is a company-admin act (kisaes-gl-engine reconcile-undo-v2): the
+  // company owner or a super admin. Others never see the button; the server
+  // refuses them anyway (403 RECONCILE_ADMIN_REQUIRED).
+  const { data: meData } = useMe();
+  const canUndo = meData?.user?.role === 'owner' || meData?.user?.isSuperAdmin === true;
   // Column sort for display only; the undo gate below reads the server
   // order (newest first), never the sorted rows.
   const view = useColumnView<HistorySortKey>('vibe:reconcile-history:view', {
@@ -40,9 +47,10 @@ export function ReconciliationHistoryPage() {
   // History is ordered by statement date DESC, so the first completed row is the
   // most recent — the ONLY one eligible to undo (server enforces this too).
   const latestCompleteId = data?.reconciliations.find((r) => r.status === 'complete')?.id;
-  const onUndo = (id: string) => undoRecon.mutate(id, {
+  // clear_checks: reopen with every line unticked, as this screen always did.
+  const onUndo = (id: string) => undoRecon.mutate({ id, mode: 'clear_checks' }, {
     onSuccess: () => toast.success('Reconciliation undone.'),
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not undo reconciliation.'),
+    onError: (err) => toast.error(reconcileErrorMessage(err, 'Could not undo reconciliation.')),
   });
 
   return (
@@ -104,9 +112,9 @@ export function ReconciliationHistoryPage() {
                         Summary
                       </Link>
                     )}
-                    {r.status === 'complete' && r.id === latestCompleteId ? (
+                    {r.status === 'complete' && r.id === latestCompleteId && canUndo ? (
                       <Button variant="ghost" size="sm" onClick={() => onUndo(r.id)} loading={undoRecon.isPending}>Undo</Button>
-                    ) : r.status === 'complete' ? (
+                    ) : r.status === 'complete' && canUndo ? (
                       <span className="text-xs text-gray-400" title="Undo a newer reconciliation first">Locked</span>
                     ) : null}
                   </td>

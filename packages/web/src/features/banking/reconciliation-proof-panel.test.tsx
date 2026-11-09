@@ -19,7 +19,7 @@ let currentProof: ReconProof = makeProof();
 
 const inProgressRecon = {
   id: 'rec-1', accountId: 'acct-1', statementDate: '2026-09-30', statementEndingBalance: '25526.7900',
-  beginningBalance: '54533.9500', status: 'in_progress', clearedBalance: 25526.79, difference: 0,
+  beginningBalance: '54533.9500', status: 'in_progress', clearedBalance: 25526.79, difference: 0, clearedBalanceExact: '25526.7900', differenceExact: '0.0000',
   statement: null, continuityWarning: null,
   lines: [
     {

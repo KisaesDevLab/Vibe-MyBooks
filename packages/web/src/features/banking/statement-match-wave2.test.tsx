@@ -98,7 +98,9 @@ const inProgressRecon = {
   status: 'in_progress',
   lines: [],
   clearedBalance: 0,
+  clearedBalanceExact: '0.0000',
   difference: 170,
+  differenceExact: '-170.0000',
   statement: {
     id: 'stmt-1', periodStart: '2026-04-01', periodEnd: '2026-04-30',
     openingBalance: '0.0000', closingBalance: '170.0000', attachmentId: null, lineCount: 5,

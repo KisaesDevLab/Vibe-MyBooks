@@ -17,6 +17,7 @@ import { RelatedTransactionsCard } from './RelatedTransactionsCard';
 import { TransactionActivityCard } from './TransactionActivityCard';
 import { TransactionReportButton } from './TransactionReportButton';
 import { NonRecurringFlagCard } from '../tax-estimator/register/NonRecurringFlagCard';
+import { reconcileErrorMessage } from '../banking/reconcileErrors';
 
 const billStatusColors: Record<string, string> = {
   unpaid: 'bg-yellow-100 text-yellow-700',
@@ -278,8 +279,14 @@ export function TransactionDetail() {
               rows={3}
               required
             />
+            {/* A refused void (409 RECONCILED_TRANSACTION, 423 TB_PERIOD_LOCKED, ...) used to fail silently. */}
+            {voidTxn.isError && (
+              <p role="alert" className="text-sm text-red-600">
+                {reconcileErrorMessage(voidTxn.error, 'Could not void the transaction.')}
+              </p>
+            )}
             <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={() => setShowVoidDialog(false)}>Cancel</Button>
+              <Button variant="secondary" onClick={() => { setShowVoidDialog(false); voidTxn.reset(); }}>Cancel</Button>
               <Button variant="danger" onClick={handleVoid} disabled={!voidReason.trim()} loading={voidTxn.isPending}>Void</Button>
             </div>
           </div>

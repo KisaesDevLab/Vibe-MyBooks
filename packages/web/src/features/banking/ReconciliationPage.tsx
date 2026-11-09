@@ -44,6 +44,8 @@ import { ReconProofPanel } from './ReconProofPanel';
 import { ReconSignoffPanel } from './ReconSignoffPanel';
 import { ReconFlagBadge } from '../reports/reconciliation/ReconProofSections';
 import { STICKY_TABLE_CARD, STICKY_THEAD } from '../../components/ui/stickyTable';
+import { formatExactMoney, exactAbs, isExactZero } from '../../utils/money';
+import { reconcileErrorMessage } from './reconcileErrors';
 
 const money = (v: string | number | null | undefined) =>
   v == null || v === '' ? '—' : `$${parseFloat(String(v)).toFixed(2)}`;
@@ -226,7 +228,7 @@ function StatementsTable({ onStarted }: { onStarted: (reconId: string) => void }
     setStartingId(stmt.id);
     startRecon.mutate({ statementId: stmt.id }, {
       onSuccess: (res) => onStarted(res.reconciliation.id),
-      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not start reconciliation.'),
+      onError: (err) => toast.error(reconcileErrorMessage(err, 'Could not start reconciliation.')),
       onSettled: () => setStartingId(''),
     });
   };
@@ -1224,7 +1226,7 @@ export function ReconciliationPage() {
           setEditingBalance(false);
           toast.success('Ending balance updated.');
         },
-        onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not update balance.'),
+        onError: (err) => toast.error(reconcileErrorMessage(err, 'Could not update balance.')),
       },
     );
   };
@@ -1242,7 +1244,14 @@ export function ReconciliationPage() {
           toast.info('Worksheet is up to date. (Anything dated after the statement date won’t appear here.)');
         }
       },
-      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not refresh transactions.'),
+      onError: (err) => toast.error(reconcileErrorMessage(err, 'Could not refresh transactions.')),
+    });
+  };
+
+  const handleComplete = () => {
+    completeRecon.mutate(reconId, {
+      onSuccess: () => toast.success('Reconciliation complete.'),
+      onError: (err) => toast.error(reconcileErrorMessage(err, 'Could not finish the reconciliation.')),
     });
   };
 
@@ -1253,7 +1262,7 @@ export function ReconciliationPage() {
         setShowCancelConfirm(false);
         toast.success('Reconciliation canceled.');
       },
-      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not cancel reconciliation.'),
+      onError: (err) => toast.error(reconcileErrorMessage(err, 'Could not cancel reconciliation.')),
     });
   };
 
@@ -1307,7 +1316,7 @@ export function ReconciliationPage() {
           onError: () => toast.success('Transaction voided — click Refresh transactions to update the worksheet.'),
         });
       },
-      onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not void the transaction.'),
+      onError: (err) => toast.error(reconcileErrorMessage(err, 'Could not void the transaction.')),
     });
   };
 
@@ -1384,7 +1393,7 @@ export function ReconciliationPage() {
           </Button>
           {startRecon.isError && (
             <p className="text-sm text-red-600">
-              {startRecon.error instanceof Error ? startRecon.error.message : 'Could not start reconciliation.'}
+              {reconcileErrorMessage(startRecon.error, 'Could not start reconciliation.')}
             </p>
           )}
         </div>
@@ -1401,8 +1410,10 @@ export function ReconciliationPage() {
   if (isError) return <ErrorMessage message="Couldn't load this reconciliation." onRetry={() => refetch()} />;
   if (!recon) return <ErrorMessage message="Reconciliation not found." onRetry={() => refetch()} />;
 
-  const diff = recon.difference ?? 0;
-  const isBalanced = Math.abs(diff) < 0.01;
+  // Finish only at exactly zero (kisaes-gl-engine reconcile-exact-v1): the
+  // exact string decides, never the rounded legacy number ("0.0040" is not
+  // zero although it shows as $0.00).
+  const isBalanced = isExactZero(recon.differenceExact);
   const m = (n: number) => `$${n.toFixed(2)}`;
   const isComplete = recon.status === 'complete';
   // Select-all state is derived from the currently-visible (filtered) rows.
@@ -1496,11 +1507,11 @@ export function ReconciliationPage() {
         </div>
         <div className="bg-white rounded-lg border p-4 text-center">
           <p className="text-xs text-gray-500 uppercase">Cleared</p>
-          <p className="text-lg font-mono">${recon.clearedBalance.toFixed(2)}</p>
+          <p className="text-lg font-mono">{formatExactMoney(recon.clearedBalanceExact)}</p>
         </div>
         <div className={`rounded-lg border p-4 text-center ${isBalanced ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
           <p className="text-xs text-gray-500 uppercase">Difference</p>
-          <p className={`text-lg font-mono font-bold ${isBalanced ? 'text-green-600' : 'text-red-600'}`}>${Math.abs(diff).toFixed(2)}</p>
+          <p className={`text-lg font-mono font-bold ${isBalanced ? 'text-green-600' : 'text-red-600'}`}>{formatExactMoney(exactAbs(recon.differenceExact))}</p>
         </div>
       </div>
 
@@ -1666,7 +1677,7 @@ export function ReconciliationPage() {
 
       {!isComplete && (
         <div className="flex items-center gap-3 flex-wrap">
-          <Button onClick={() => completeRecon.mutate(reconId)} disabled={!isBalanced} loading={completeRecon.isPending}>
+          <Button onClick={handleComplete} disabled={!isBalanced} loading={completeRecon.isPending}>
             Complete Reconciliation
           </Button>
           <Button variant="secondary" onClick={() => setShowCancelConfirm(true)}>
