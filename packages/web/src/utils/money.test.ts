@@ -3,7 +3,7 @@
 // Free for small businesses; see LICENSE for terms.
 
 import { describe, it, expect } from 'vitest';
-import { formatMoney, formatMoneyWith, formatAmount, toNumber } from './money';
+import { formatMoney, formatMoneyWith, formatAmount, toNumber, isExactZero, exactToCents, formatExactMoney, exactAbs } from './money';
 
 describe('formatMoney', () => {
   it('formats a string amount as USD', () => {
@@ -48,5 +48,36 @@ describe('toNumber', () => {
   it('returns 0 for non-finite input', () => {
     expect(toNumber('Infinity')).toBe(0);
     expect(toNumber(NaN)).toBe(0);
+  });
+});
+
+describe('exact decimal strings', () => {
+  it('isExactZero is true only for exact zero', () => {
+    expect(isExactZero('0')).toBe(true);
+    expect(isExactZero('0.0000')).toBe(true);
+    expect(isExactZero('-0.00')).toBe(true);
+    expect(isExactZero('0.0040')).toBe(false);
+    expect(isExactZero('-0.0001')).toBe(false);
+    expect(isExactZero('12.00')).toBe(false);
+    expect(isExactZero(null)).toBe(false);
+    expect(isExactZero('abc')).toBe(false);
+  });
+
+  it('exactToCents rounds half away from zero without floats', () => {
+    expect(exactToCents('1234.5650')).toBe('1234.57');
+    expect(exactToCents('-1234.5650')).toBe('-1234.57');
+    expect(exactToCents('0.0040')).toBe('0.00');
+    expect(exactToCents('-0.0040')).toBe('0.00');
+    expect(exactToCents('0.0050')).toBe('0.01');
+    expect(exactToCents('5')).toBe('5.00');
+    expect(exactToCents('90071992547409.9950')).toBe('90071992547410.00');
+    expect(exactToCents('x')).toBeNull();
+  });
+
+  it('formatExactMoney groups thousands and signs', () => {
+    expect(formatExactMoney('1234567.8900')).toBe('$1,234,567.89');
+    expect(formatExactMoney('-25.5000')).toBe('-$25.50');
+    expect(formatExactMoney(undefined)).toBe('—');
+    expect(exactAbs('-12.3400')).toBe('12.3400');
   });
 });

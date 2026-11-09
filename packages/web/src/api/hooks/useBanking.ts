@@ -458,8 +458,15 @@ export interface ReconciliationLineRow {
 // Omit+intersection avoids `string & number = never` intersection bugs.
 export type ReconciliationWithLines = Omit<Reconciliation, 'clearedBalance' | 'difference'> & {
   lines: ReconciliationLineRow[];
+  // Legacy JSON numbers, kept by the engine for older clients. Display and
+  // the finish decision read the exact strings below instead (U-188).
   clearedBalance: number;
   difference: number;
+  // Exact decimal strings (4 places) from kisaes-gl-engine
+  // reconcile-exact-v1. Finish is allowed only when differenceExact is
+  // exactly zero; "0.0040" is not zero.
+  clearedBalanceExact: string;
+  differenceExact: string;
   // Statement-driven reconciliation: the linked bank_statements row (null
   // for manual reconciliations) + the opening-balance continuity warning.
   statement?: {
@@ -800,10 +807,21 @@ export function useExcludeStatementLine() {
   });
 }
 
+// How an undo treats the cleared ticks (kisaes-gl-engine reconcile-undo-v2):
+// clear_checks reopens with every line unticked (this screen's behaviour
+// before modes existed), keep_checks keeps the ticks, discard also cancels
+// the reopened worksheet. Undo is owner / super admin only (403
+// RECONCILE_ADMIN_REQUIRED).
+export type ReconciliationUndoMode = 'clear_checks' | 'keep_checks' | 'discard';
+
 export function useUndoReconciliation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiClient(`/banking/reconciliations/${id}/undo`, { method: 'POST' }),
+    mutationFn: ({ id, mode = 'clear_checks' }: { id: string; mode?: ReconciliationUndoMode }) =>
+      apiClient<{ message: string; mode: ReconciliationUndoMode }>(`/banking/reconciliations/${id}/undo`, {
+        method: 'POST',
+        body: JSON.stringify({ mode }),
+      }),
     // Undo resets every auto/confirmed statement-line match of the linked
     // statement — the match panel must not keep showing them.
     onSuccess: () => {
