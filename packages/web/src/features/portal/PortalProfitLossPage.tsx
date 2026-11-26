@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, X } from 'lucide-react';
+import type { PortalUnpostedBankFeed } from '@kis-books/shared';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { usePortal } from './PortalLayout';
 
@@ -39,17 +40,11 @@ interface PLData {
   unpostedBankFeed?: UnpostedBankFeed;
 }
 
-// Bank feed items dated in range that the bookkeeper has not posted yet.
-// The API sends it to every contact who can open the P&L. Same shape as the
-// engine's PortalUnpostedBankFeed (@kis-books/shared); declared here until
-// the engine pin includes that export. moneyIn / moneyOut are optional so an
-// engine that sends only the gross amount still renders.
-interface UnpostedBankFeed {
-  count: number;
-  amount: number;
-  moneyIn?: number;
-  moneyOut?: number;
-}
+// Bank feed items dated in range that the bookkeeper has not posted yet,
+// sent to every contact who can open the P&L. moneyIn / moneyOut are
+// optional here so a response carrying only the gross amount still renders.
+type UnpostedBankFeed = Pick<PortalUnpostedBankFeed, 'count' | 'amount'>
+  & Partial<Pick<PortalUnpostedBankFeed, 'moneyIn' | 'moneyOut'>>;
 
 interface TxnLine {
   transactionId: string;
