@@ -121,6 +121,14 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.target.image }}-${{ steps.pair.outputs.pair }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target.image }}-${{ steps.pair.outputs.pair }}
 
+      # An image that cannot start must never be tagged: 0.9.242 passed the
+      # build and the tests and exited at boot. Start what was just built
+      # (on this job's own architecture) before its digest goes to the
+      # merge job. A failure here stops the tag and `latest` from moving.
+      - name: Boot check
+        if: matrix.target.image == 'vibe-mybooks-api'
+        run: bash scripts/boot-check.sh "${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}"
+
       - name: Export digest
         run: |
           mkdir -p /tmp/digests
