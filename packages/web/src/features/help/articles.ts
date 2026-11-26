@@ -2505,29 +2505,73 @@ If you only notice after the statement was saved, open the reconciliation for th
     id: 'mcp-server',
     title: 'MCP Server (AI Assistant Integration)',
     category: 'API & Integrations',
-    summary: 'Connect Claude, GPT, or other AI assistants to your books via MCP.',
+    summary: "Connect Claude or another AI assistant to your books, or to your clients' books, via MCP.",
     body: `
 ## MCP Server
 
-The MCP server lets AI assistants interact with your data — read context, query
-balances, create and void transactions, run reports. It speaks the
-Model Context Protocol over JSON-RPC at \`/mcp\`.
+The MCP server lets an AI assistant work in your books: enter and void
+transactions, work the bank feed, reconcile accounts, run reports. It speaks
+the Model Context Protocol (2025-11-25) over JSON-RPC at \`/mcp\`.
 
-### Quick Start
-1. Create an API key in **Settings > API Keys** (pick scopes and optionally lock it to specific companies)
+### Turn it on
+1. An administrator enables MCP in **Admin > MCP / API**
 2. Turn on MCP for each company under **Settings > Company Profile > API & MCP Access** (off by default)
-3. Point your AI assistant at \`https://your-instance.com/mcp\` with \`Authorization: Bearer <api-key>\`
-4. Use \`tools/list\` to see every tool, \`resources/list\` to see read-only resources
+3. To let people sign in from Claude instead of pasting a key, the administrator also turns on **OAuth sign-in** in **Admin > MCP / API**
 
-### Tools (79+)
+### Connect Claude by signing in
+1. In Claude, open **Settings > Connectors > Add custom connector**
+2. Enter \`https://your-instance.com/mcp\`
+3. Claude sends you to Vibe MyBooks. Sign in, check the app name and the address your sign-in is sent to, and click **Authorize**
 
-**Context:** list_companies, set_active_company, get_active_company, get_company_info.
+Claude's connectors call from Anthropic's servers, including when you use
+Claude Desktop. Your instance must be reachable from the internet at a public
+HTTPS address. If your firm limits staff to office IP addresses (the staff IP
+allowlist), connector calls are refused unless Anthropic's addresses are on
+the list.
+
+### Connect with an API key
+1. Create a key in **Settings > API Keys** (pick scopes and optionally lock it to specific companies)
+2. Send it as \`Authorization: Bearer <api-key>\` to \`https://your-instance.com/mcp\`
+
+For Claude Desktop on an instance that is only reachable inside your office,
+use the \`mcp-remote\` bridge, which connects from your own computer. In
+\`claude_desktop_config.json\`:
+
+\`\`\`json
+{
+  "mcpServers": {
+    "mybooks": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://your-instance.com/mcp",
+               "--header", "Authorization: Bearer YOUR_API_KEY"]
+    }
+  }
+}
+\`\`\`
+
+### Firm staff: working on clients
+A staff member connects once, as themselves, and can work in every client
+they have access to (**Firm > Staff > Tenant access**).
+
+- \`list_companies\` shows those clients, your role in each, and whether MCP is on for it
+- Name the client on each request, or choose one with \`set_active_company\`. Each chat keeps its own choice
+- Anything that changes data lands only in the client it names. A remembered choice is used for changes only when the connection keeps its own session; otherwise the request must name the client, or it is refused and nothing is posted
+- Every entry is stamped with the company it was made in, and an account, contact or transaction that belongs to another client is refused
+- Every result ends with the client it ran in
+- What you can do in a client is what your role there allows in the app. Read-only in a client is read-only through MCP, whatever the key or sign-in was granted
+- Losing access to a client takes effect on the next call
+- A client with accounts hidden for your role cannot be opened through MCP
+- Entries in a closed period are refused; the closing-date password cannot be given through MCP
+
+### Tools (89)
+
+**Clients:** list_companies, set_active_company, get_active_company, get_company_info.
 
 **Chart of Accounts:** list_accounts, get_account_balance.
 
 **Contacts:** list_contacts, get_contact, create_contact.
 
-**Items & Tags:** list_items, create_item, list_tags, tag_transaction.
+**Items & Tags:** list_items, create_item, list_tags, tag_transaction, set_transaction_tag.
 
 **Transactions:** list_transactions, get_transaction, create_expense,
 create_deposit, create_transfer, create_journal_entry, create_cash_sale,
@@ -2551,10 +2595,13 @@ get_revexp_trend.
 
 **Bank feed:** list_bank_feed_items, categorize_feed_item, match_feed_item,
 find_feed_match_candidates, exclude_feed_item, bulk_approve_feed_items,
-get_bank_connections, sync_bank_connection.
+bulk_set_bank_feed_tag, get_bank_connections, sync_bank_connection.
 
 **Reconciliation:** get_reconciliation_status, get_reconciliation_history,
-start_reconciliation.
+start_reconciliation, get_reconciliation, update_reconciliation_lines,
+update_reconciliation, refresh_reconciliation, auto_clear_reconciliation,
+complete_reconciliation, cancel_reconciliation, undo_reconciliation
+(owners only).
 
 **Attachments:** list_attachments.
 
@@ -2564,66 +2611,87 @@ run_expense_by_vendor, run_expense_by_category, run_vendor_balance,
 run_customer_balance, run_1099_vendor_summary, run_sales_tax_liability,
 run_check_register, run_budget_vs_actual.
 
-Array / object tool arguments (lines, applications, bills, credits, tag_ids,
-feed_item_ids) accept either a native array or a JSON string — handy
-because some MCP clients only send flat string parameters.
+Each tool publishes a JSON Schema for its arguments. Lists (lines,
+applications, bills, credits, tag_ids, feed_item_ids) are arrays; a JSON
+string of the same array is still accepted, for clients that only send
+strings.
+
+### Reconciling an account
+1. \`start_reconciliation\` with the account, statement date and ending balance
+2. \`get_reconciliation\` returns the worksheet lines
+3. \`update_reconciliation_lines\` ticks the lines that are on the statement
+4. \`complete_reconciliation\` finishes it once the difference is 0
 
 ### Resources
-Read-only snapshots the assistant can subscribe to:
+Read-only snapshots:
 - \`kisbooks://companies\`
-- \`kisbooks://company/{id}/chart-of-accounts\`
-- \`kisbooks://company/{id}/contacts\`
-- \`kisbooks://company/{id}/recent-transactions\`
-- \`kisbooks://company/{id}/bank-feed/pending\`
-- \`kisbooks://company/{id}/invoices/overdue\`
-- \`kisbooks://company/{id}/bills/payable\`
-- \`kisbooks://company/{id}/bill-payments\`
-- \`kisbooks://company/{id}/vendor-credits\`
-- \`kisbooks://company/{id}/recurring\`
-- \`kisbooks://company/{id}/budgets\`
-- \`kisbooks://company/{id}/checks/print-queue\`
-- \`kisbooks://company/{id}/reconciliations\`
-- \`kisbooks://company/{id}/items\`
-- \`kisbooks://company/{id}/tags\`
-- \`kisbooks://company/{id}/dashboard\`
+- \`kisbooks://company/{company_id}/chart-of-accounts\`
+- \`kisbooks://company/{company_id}/contacts\`
+- \`kisbooks://company/{company_id}/recent-transactions\`
+- \`kisbooks://company/{company_id}/bank-feed/pending\`
+- \`kisbooks://company/{company_id}/invoices/overdue\`
+- \`kisbooks://company/{company_id}/bills/payable\`
+- \`kisbooks://company/{company_id}/bill-payments\`
+- \`kisbooks://company/{company_id}/vendor-credits\`
+- \`kisbooks://company/{company_id}/recurring\`
+- \`kisbooks://company/{company_id}/budgets\`
+- \`kisbooks://company/{company_id}/checks/print-queue\`
+- \`kisbooks://company/{company_id}/reconciliations\`
+- \`kisbooks://company/{company_id}/items\`
+- \`kisbooks://company/{company_id}/tags\`
+- \`kisbooks://company/{company_id}/dashboard\`
 
-### Company Context
-If your key has access to exactly one company, it's auto-selected. When
-multiple companies are available, pass \`company_id\` on every call or
-persist one with \`set_active_company\`.
+### Scopes & Permissions
+Scopes gate each tool: \`read\`, \`write\`, \`reports\`, \`invoicing\`,
+\`banking\` (and \`all\`, for API keys). A tool also needs the matching
+permission in the client's books, for example Banking for the bank feed and
+reconciliation.
 
-### Scopes & Roles
-Scopes gate each tool: \`all\` (full), \`read\`, \`write\`, \`reports\`,
-\`invoicing\`, \`banking\`. Assign scopes when generating the key.
+### Errors
+A failed call returns an error result that starts with a code and says what
+to do: \`COMPANY_REQUIRED\` (name the client), \`PERMISSION_DENIED\` (your
+role in that client does not allow it), \`MCP_DISABLED\` (MCP is off for that
+company), \`ACCESS_DENIED\`, \`INVALID_PARAMS\`, \`SCOPE_DENIED\`.
 
 ### Rate Limiting
 Default 60 requests/minute per key. System-wide limits are configured in
 **Admin > MCP / API**.
 
 ### Audit Trail
-Every MCP call is logged (tool, company, sanitized parameters, status,
-duration). View under **Admin > MCP Audit Log**.
-
-### Admin
-Enable MCP system-wide in **Admin > MCP / API**. Then enable it per-company
-in **Settings > Company Profile > API & MCP Access** — it is off by default.
+Every MCP call is logged (tool, client, sanitized parameters, status,
+duration). View under **Admin > MCP Audit Log**. Entries posted through MCP
+carry the person's name in the audit trail, as in the app.
 `,
   },
   {
     id: 'oauth-integration',
-    title: 'OAuth 2.0 Integration',
+    title: 'OAuth Sign-in for Connectors',
     category: 'API & Integrations',
-    summary: 'Connect third-party apps via OAuth.',
+    summary: 'Let Claude and other MCP apps sign in as you instead of using an API key.',
     body: `
-## OAuth 2.0
+## OAuth Sign-in
 
-Third-party apps can request access to your data via OAuth authorization code flow.
+An MCP app such as Claude can sign in as you with OAuth (authorization code
+with PKCE), so no API key has to be copied anywhere. An administrator turns
+it on in **Admin > MCP / API > OAuth sign-in**; it is off by default.
 
 ### How It Works
-1. App redirects you to Vibe MyBooks consent screen
-2. You see the app name and requested permissions
-3. Click **Authorize** or **Deny**
-4. App receives tokens to make API calls on your behalf
+1. You add \`https://your-instance.com/mcp\` to the app
+2. The app sends you to the Vibe MyBooks consent screen
+3. You see the app's name, where your sign-in will be sent, and what it asks to do
+4. Click **Authorize** or **Deny**
+5. The app receives a token that works as you. It lasts an hour and is renewed automatically
+
+### What to check before you authorize
+An app gives its own name when it registers, so the name alone proves
+nothing. Authorize only when you started the connection yourself, just now,
+and the address shown is the one you expect (\`claude.ai\` for Claude, or
+"an app on this computer" for a desktop tool).
+
+### Which apps can register
+An app that registers itself may only send your sign-in to your own computer
+or to an address the administrator allows. Claude's connector address is
+allowed by default (\`MCP_OAUTH_REDIRECT_ALLOWLIST\`).
 
 ### Managing Apps
 Go to **Settings > Connected Apps** to see authorized apps and revoke access.

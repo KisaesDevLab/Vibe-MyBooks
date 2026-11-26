@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0.
 // Free for small businesses; see LICENSE for terms.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderRoute } from '../../test-utils';
 
@@ -24,6 +24,7 @@ import { ForgotPasswordPage } from './ForgotPasswordPage';
 import { ResetPasswordPage } from './ResetPasswordPage';
 import { MagicLinkVerifyPage } from './MagicLinkVerifyPage';
 import { OAuthConsentPage } from './OAuthConsentPage';
+import { clearTokens, setTokens } from '../../api/client';
 
 describe('auth pages', () => {
   it('LoginPage renders the sign-in form', () => {
@@ -66,13 +67,64 @@ describe('auth pages', () => {
     expect(await screen.findByText(/invalid|expired/i)).toBeInTheDocument();
   });
 
-  it('OAuthConsentPage renders the authorization prompt', () => {
-    renderRoute(<OAuthConsentPage />, {
-      route: '/oauth/consent?client_id=x&redirect_uri=https://example.com/cb&scope=read&state=s',
+  describe('OAuthConsentPage', () => {
+    const details = {
+      clientName: 'Claude', isDynamic: true, redirectUri: 'https://claude.ai/api/mcp/auth_callback',
+      redirectHost: 'claude.ai', redirectIsThisComputer: false, scopes: ['read', 'banking'],
+    };
+    const reply = (status: number, body: unknown) => ({ ok: status < 400, status, json: async () => body } as Partial<Response>);
+
+    /** Answers the consent page's own calls with `oauth`; everything else the layout asks for gets an empty 200. */
+    function stubOAuth(oauth: () => Promise<Partial<Response>>) {
+      const calls: string[] = [];
+      vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/oauth/')) {
+          calls.push(url);
+          return oauth();
+        }
+        return reply(200, {});
+      }));
+      return calls;
+    }
+
+    beforeEach(() => { setTokens({ accessToken: 'session' }); });
+    afterEach(() => { clearTokens(); });
+
+    it('shows what the server says about the request, never what the URL says', async () => {
+      const calls = stubOAuth(async () => reply(200, details));
+      // client_name in the URL is ignored: only `request` is used.
+      renderRoute(<OAuthConsentPage />, { route: '/oauth/consent?request=signed.value&client_name=Trusted%20Bank' });
+      expect(await screen.findByText('Claude')).toBeInTheDocument();
+      expect(screen.queryByText(/Trusted Bank/)).not.toBeInTheDocument();
+      expect(screen.getByText('claude.ai')).toBeInTheDocument();
+      expect(screen.getByText(/nobody has checked it/i)).toBeInTheDocument();
+      expect(screen.getByText(/reconcile accounts/i)).toBeInTheDocument();
+      // Both actions are offered.
+      expect(screen.getByRole('button', { name: /authorize/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /deny/i })).toBeInTheDocument();
+      expect(calls[0]).toContain('/oauth/authorize/details?request=signed.value');
     });
-    // The page renders both Authorize and Deny buttons — assert both are
-    // present so the test protects the "Deny" action too.
-    expect(screen.getByRole('button', { name: /authorize/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /deny/i })).toBeInTheDocument();
+
+    it('a link without a request is refused without asking the server', async () => {
+      const calls = stubOAuth(async () => reply(200, details));
+      renderRoute(<OAuthConsentPage />, { route: '/oauth/consent?client_id=x&redirect_uri=https://example.com/cb' });
+      expect(await screen.findByRole('alert')).toHaveTextContent(/not complete/i);
+      expect(screen.queryByRole('button', { name: /authorize/i })).not.toBeInTheDocument();
+      expect(calls).toEqual([]);
+    });
+
+    it('an expired request says so and offers nothing to approve', async () => {
+      stubOAuth(async () => reply(400, { error: 'invalid_request', error_description: 'This sign-in request has expired.' }));
+      renderRoute(<OAuthConsentPage />, { route: '/oauth/consent?request=old' });
+      expect(await screen.findByRole('alert')).toHaveTextContent(/expired/i);
+      expect(screen.queryByRole('button', { name: /authorize/i })).not.toBeInTheDocument();
+    });
+
+    it('a server that cannot be reached offers a retry', async () => {
+      stubOAuth(async () => { throw new Error('network'); });
+      renderRoute(<OAuthConsentPage />, { route: '/oauth/consent?request=signed.value' });
+      expect(await screen.findByRole('button', { name: /try again/i })).toBeInTheDocument();
+    });
   });
 });
