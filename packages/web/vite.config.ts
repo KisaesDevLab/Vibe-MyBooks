@@ -101,6 +101,22 @@ export default defineConfig(({ command }) => ({
         ws: true,
         changeOrigin: true,
       },
+      // MCP endpoint, the OAuth discovery documents and the OAuth endpoints
+      // (dev parity with the nginx locations in packages/web/Dockerfile).
+      // /oauth/consent is a page of the app, so it is not proxied.
+      '/mcp': {
+        target: process.env.VITE_API_URL || `http://localhost:${process.env.PORT || '3001'}`,
+        changeOrigin: true,
+      },
+      '/.well-known': {
+        target: process.env.VITE_API_URL || `http://localhost:${process.env.PORT || '3001'}`,
+        changeOrigin: true,
+      },
+      '/oauth': {
+        target: process.env.VITE_API_URL || `http://localhost:${process.env.PORT || '3001'}`,
+        changeOrigin: true,
+        bypass: (req) => (req.url?.split('?')[0] === '/oauth/consent' ? req.url : undefined),
+      },
     },
   },
 }));

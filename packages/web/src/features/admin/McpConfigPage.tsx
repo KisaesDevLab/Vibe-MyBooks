@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../../api/client';
+import { apiClient, APP_BASE } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -172,16 +172,32 @@ export function McpConfigPage() {
 
         {/* OAuth */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-gray-800">OAuth 2.0</h2>
+          <h2 className="text-lg font-semibold text-gray-800">OAuth sign-in</h2>
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" checked={form.oauthEnabled}
               onChange={(e) => setForm((f) => ({ ...f, oauthEnabled: e.target.checked }))}
               className="rounded border-gray-300 text-primary-600 h-4 w-4" />
             <div>
-              <span className="text-sm text-gray-700">Enable OAuth 2.0</span>
-              <p className="text-xs text-gray-500">Allow third-party applications to request user authorization</p>
+              <span className="text-sm text-gray-700">Let people connect AI assistants by signing in</span>
+              <p className="text-xs text-gray-500">
+                A connector such as Claude sends the person here to sign in and approve, then works as that person:
+                in the companies they can open, with the rights they have in each. Off: only API keys connect.
+              </p>
             </div>
           </label>
+          <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600 space-y-2">
+            <p>
+              Connector address to give your team:{' '}
+              <code className="font-mono text-gray-900 break-all">{`${window.location.origin}${APP_BASE}/mcp`}</code>
+            </p>
+            <p>
+              Claude&apos;s connectors call from Anthropic&apos;s servers, so this address must be reachable from the internet
+              over HTTPS, and must match the server&apos;s PUBLIC_URL setting. An app that registers itself may only send
+              sign-ins to the person&apos;s own computer or to an address listed in MCP_OAUTH_REDIRECT_ALLOWLIST
+              (Claude&apos;s by default).
+            </p>
+            <p>Each company still has to turn on MCP under Settings &gt; Company Profile &gt; API &amp; MCP Access.</p>
+          </div>
         </div>
 
         <Button onClick={handleSave} loading={saving}>Save Configuration</Button>
