@@ -2555,6 +2555,8 @@ they have access to (**Firm > Staff > Tenant access**).
 
 - \`list_companies\` shows those clients, your role in each, and whether MCP is on for it
 - Name the client on each request, or choose one with \`set_active_company\`. Each chat keeps its own choice
+- Anything that changes data lands only in the client it names. A remembered choice is used for changes only when the connection keeps its own session; otherwise the request must name the client, or it is refused and nothing is posted
+- Every entry is stamped with the company it was made in, and an account, contact or transaction that belongs to another client is refused
 - Every result ends with the client it ran in
 - What you can do in a client is what your role there allows in the app. Read-only in a client is read-only through MCP, whatever the key or sign-in was granted
 - Losing access to a client takes effect on the next call
