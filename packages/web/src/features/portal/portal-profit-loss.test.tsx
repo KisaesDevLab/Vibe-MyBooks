@@ -5,8 +5,11 @@
 // PortalProfitLossPage:
 //   - loads the P&L for the selected range with BASE_URL-prefixed URLs
 //   - an error shows Retry
-//   - the unposted bank feed line is plain text (no drill-down), shown even
-//     when the statement is empty
+//   - the unposted bank feed line is plain text (no drill-down), shows money
+//     in and out apart, sits after the percentages note, and appears only
+//     when the API sends it with something waiting
+//   - an invalid date range hides the statement instead of leaving the old
+//     one (or the skeleton) on screen
 //   - clicking a row opens the account's transactions
 //   - "Ask a question" posts the transactionId to the existing ask endpoint
 //   - no ask button without questionsForUsAccess
@@ -47,7 +50,7 @@ const pl = {
   otherRevenue: [], totalOtherRevenue: 0,
   otherExpenses: [], totalOtherExpenses: 0,
   grossProfit: null, operatingIncome: null, netIncome: 150,
-  unpostedBankFeed: { count: 3, amount: 1234.5 },
+  unpostedBankFeed: { count: 3, moneyIn: 234.5, moneyOut: 1000, amount: 1234.5 },
 };
 
 const txns = {
@@ -99,26 +102,82 @@ describe('PortalProfitLossPage', () => {
   it('shows the unposted bank feed line as plain text, not a drill-down', async () => {
     routeFetch();
     renderRoute(<PortalProfitLossPage />);
-    await waitFor(() => expect(screen.getByText('Unposted bank feed activity')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Bank transactions not yet reviewed')).toBeTruthy());
     const line = screen.getByTestId('unposted-bank-feed');
-    expect(line.textContent).toContain('$1,234.50');
-    expect(line.textContent).toContain('3 transactions');
+    expect(line.textContent).toContain('3 transactions in this period');
+    // Money in and out apart, never one figure that reads like a missing total.
+    expect(line.textContent).toContain('Money in$234.50');
+    expect(line.textContent).toContain('Money out$1,000.00');
+    expect(line.textContent).not.toContain('$1,234.50');
     expect(line.querySelector('button')).toBeNull();
     expect(line.closest('button')).toBeNull();
     // Clicking it opens nothing.
-    fireEvent.click(screen.getByText('Unposted bank feed activity'));
+    fireEvent.click(screen.getByText('Bank transactions not yet reviewed'));
     expect(screen.queryByRole('dialog')).toBeNull();
+    // The percentages note stays with the table it explains.
+    const note = screen.getByText('Percentages are shares of total revenue.');
+    expect(note.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('still shows the unposted line when the P&L is empty', async () => {
     fetchMock.mockImplementation(() => json({
-      ...pl, revenue: [], totalRevenue: 0, netIncome: 0, unpostedBankFeed: { count: 1, amount: 75 },
+      ...pl, revenue: [], totalRevenue: 0, netIncome: 0, unpostedBankFeed: { count: 1, moneyIn: 0, moneyOut: 75, amount: 75 },
     }));
     renderRoute(<PortalProfitLossPage />);
     await waitFor(() => expect(screen.getByText(/No income or expenses were recorded/)).toBeTruthy());
     const line = screen.getByTestId('unposted-bank-feed');
     expect(line.textContent).toContain('$75.00');
-    expect(line.textContent).toContain('1 transaction');
+    expect(line.textContent).toContain('1 transaction in this period');
+  });
+
+  it('shows one gross total when the API sends no in/out split', async () => {
+    fetchMock.mockImplementation(() => json({ ...pl, unpostedBankFeed: { count: 2, amount: 310 } }));
+    renderRoute(<PortalProfitLossPage />);
+    await waitFor(() => expect(screen.getByTestId('unposted-bank-feed')).toBeTruthy());
+    expect(screen.getByTestId('unposted-bank-feed').textContent).toContain('Total in and out$310.00');
+  });
+
+  it('shows no unposted line when the API leaves the field off', async () => {
+    // An engine without the field, or a contact without banking access.
+    const { unpostedBankFeed: _omitted, ...withoutField } = pl;
+    fetchMock.mockImplementation(() => json(withoutField));
+    renderRoute(<PortalProfitLossPage />);
+    await waitFor(() => expect(screen.getByText('Sales')).toBeTruthy());
+    expect(screen.queryByTestId('unposted-bank-feed')).toBeNull();
+  });
+
+  it('shows no unposted line when nothing is waiting', async () => {
+    fetchMock.mockImplementation(() => json({
+      ...pl, unpostedBankFeed: { count: 0, moneyIn: 0, moneyOut: 0, amount: 0 },
+    }));
+    renderRoute(<PortalProfitLossPage />);
+    await waitFor(() => expect(screen.getByText('Sales')).toBeTruthy());
+    expect(screen.queryByTestId('unposted-bank-feed')).toBeNull();
+  });
+
+  it('hides the statement while the date range is invalid, and brings it back', async () => {
+    routeFetch();
+    renderRoute(<PortalProfitLossPage />);
+    await waitFor(() => expect(screen.getByText('Sales')).toBeTruthy());
+    const from = screen.getByLabelText('From') as HTMLInputElement;
+    const valid = from.value;
+
+    fireEvent.change(from, { target: { value: '2999-01-01' } });
+    await waitFor(() => expect(screen.getByText('Choose a start date on or before the end date.')).toBeTruthy());
+    expect(screen.queryByText('Sales')).toBeNull();
+    expect(screen.queryByTestId('unposted-bank-feed')).toBeNull();
+    expect(screen.queryByLabelText('Loading profit and loss')).toBeNull();
+
+    fireEvent.change(from, { target: { value: valid } });
+    await waitFor(() => expect(screen.getByText('Sales')).toBeTruthy());
+  });
+
+  it('does not stick on the skeleton when the range turns invalid mid-load', async () => {
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}));
+    renderRoute(<PortalProfitLossPage />);
+    expect(screen.getByLabelText('Loading profit and loss')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('From'), { target: { value: '' } });
+    await waitFor(() => expect(screen.queryByLabelText('Loading profit and loss')).toBeNull());
   });
 
   it('shows an error with a working Retry', async () => {

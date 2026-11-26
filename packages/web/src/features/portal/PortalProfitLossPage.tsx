@@ -36,8 +36,19 @@ interface PLData {
   grossProfit: number | null;
   operatingIncome: number | null;
   netIncome: number;
-  /** Open bank feed items dated in range — activity the P&L does not include yet. */
-  unpostedBankFeed?: { count: number; amount: number };
+  unpostedBankFeed?: UnpostedBankFeed;
+}
+
+// Bank feed items dated in range that the bookkeeper has not posted yet.
+// The API sends it only to a contact with banking access. Same shape as the
+// engine's PortalUnpostedBankFeed (@kis-books/shared); declared here until
+// the engine pin includes that export. moneyIn / moneyOut are optional so an
+// engine that sends only the gross amount still renders.
+interface UnpostedBankFeed {
+  count: number;
+  amount: number;
+  moneyIn?: number;
+  moneyOut?: number;
 }
 
 interface TxnLine {
@@ -124,7 +135,12 @@ export function PortalProfitLossPage() {
   const rangeValid = !!start && !!end && start <= end;
 
   useEffect(() => {
-    if (!activeCompanyId || !rangeValid) return;
+    if (!activeCompanyId || !rangeValid) {
+      // Nothing to load. A request cancelled on the way here never clears
+      // the flag itself, so clear it or the skeleton stays up for good.
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -203,6 +219,16 @@ export function PortalProfitLossPage() {
 
   const netLoss = !!data && data.netIncome < 0;
 
+  // The statement on screen belongs to the last valid range. While the
+  // inputs hold an invalid one, hide it rather than show it under dates it
+  // was not built for.
+  const shown = rangeValid ? data : null;
+  // Only when there is something waiting: a company with no bank feed, or
+  // none in this period, gets no line at all.
+  const unposted = shown?.unpostedBankFeed && shown.unpostedBankFeed.count > 0
+    ? shown.unpostedBankFeed
+    : null;
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
       <div>
@@ -211,10 +237,10 @@ export function PortalProfitLossPage() {
         </Link>
         <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <h1 className="text-2xl font-semibold text-gray-900">Profit &amp; Loss</h1>
-          {data && (
+          {shown && (
             <p className="text-sm text-gray-500">
-              {formatDay(data.startDate)} – {formatDay(data.endDate)}
-              <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 capitalize">{data.basis} basis</span>
+              {formatDay(shown.startDate)} – {formatDay(shown.endDate)}
+              <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 capitalize">{shown.basis} basis</span>
             </p>
           )}
         </div>
@@ -285,16 +311,16 @@ export function PortalProfitLossPage() {
         </div>
       )}
 
-      {!loading && !error && data && !hasRows && (
+      {!loading && !error && shown && !hasRows && (
         <>
           <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
-            No income or expenses were recorded between {formatDay(data.startDate)} and {formatDay(data.endDate)}.
+            No income or expenses were recorded between {formatDay(shown.startDate)} and {formatDay(shown.endDate)}.
           </div>
-          {data.unpostedBankFeed && <UnpostedBankFeedLine {...data.unpostedBankFeed} />}
+          {unposted && <UnpostedBankFeedLine {...unposted} />}
         </>
       )}
 
-      {!loading && !error && data && hasRows && (
+      {!loading && !error && shown && data && hasRows && (
         <>
           <div className="grid grid-cols-3 gap-3">
             <SummaryTile label={data.labels.revenue} value={data.totalRevenue + data.totalOtherRevenue} />
@@ -322,8 +348,8 @@ export function PortalProfitLossPage() {
               </tbody>
             </table>
           </div>
-          {data.unpostedBankFeed && <UnpostedBankFeedLine {...data.unpostedBankFeed} />}
           <p className="text-xs text-gray-400">Percentages are shares of total revenue.</p>
+          {unposted && <UnpostedBankFeedLine {...unposted} />}
         </>
       )}
 
@@ -341,23 +367,43 @@ export function PortalProfitLossPage() {
   );
 }
 
-// Memo line, not part of the statement: bank feed items the bookkeeper
-// has not posted yet, so the figures above do not include them. Plain
-// text on purpose — there is nothing in the ledger to drill into.
-function UnpostedBankFeedLine({ count, amount }: { count: number; amount: number }) {
-  const detail = count === 0
-    ? 'Nothing waiting in the bank feed'
-    : `Not included above · ${count} ${count === 1 ? 'transaction' : 'transactions'}`;
+// Memo line, not part of the statement: bank transactions in the period
+// that the bookkeeper has not reviewed and posted yet. It is bank activity,
+// not profit or loss — a transfer, a card payment or a payment of a bill
+// already on the books is in here too — so the wording never says the
+// amount belongs in the figures above, and money in and money out are
+// shown apart rather than as one number that reads like a missing total.
+// Plain text on purpose: there is nothing in the ledger to drill into.
+function UnpostedBankFeedLine({ count, amount, moneyIn, moneyOut }: UnpostedBankFeed) {
+  const split = moneyIn !== undefined && moneyOut !== undefined;
   return (
     <div
-      className="bg-white border border-gray-200 rounded-xl flex items-center justify-between gap-3 py-2.5 pl-4 pr-4 sm:pl-6 sm:pr-6 text-sm"
+      className="bg-white border border-gray-200 rounded-xl flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5 pl-4 pr-4 sm:pl-6 sm:pr-6 text-sm"
       data-testid="unposted-bank-feed"
     >
       <div className="min-w-0">
-        <p className="text-gray-800">Unposted bank feed activity</p>
-        <p className="text-xs text-gray-500">{detail}</p>
+        <p className="text-gray-800">Bank transactions not yet reviewed</p>
+        <p className="text-xs text-gray-500">
+          {count} {count === 1 ? 'transaction' : 'transactions'} in this period. Not in the figures above, and some may not change profit.
+        </p>
       </div>
-      <p className="tabular-nums text-gray-900 shrink-0">{money.format(amount)}</p>
+      {split ? (
+        <dl className="flex gap-4 shrink-0 text-right">
+          <div>
+            <dt className="text-xs text-gray-500">Money in</dt>
+            <dd className="tabular-nums text-gray-900">{money.format(moneyIn)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-gray-500">Money out</dt>
+            <dd className="tabular-nums text-gray-900">{money.format(moneyOut)}</dd>
+          </div>
+        </dl>
+      ) : (
+        <dl className="shrink-0 text-right">
+          <dt className="text-xs text-gray-500">Total in and out</dt>
+          <dd className="tabular-nums text-gray-900">{money.format(amount)}</dd>
+        </dl>
+      )}
     </div>
   );
 }
