@@ -138,7 +138,7 @@ describe('PortalProfitLossPage', () => {
   });
 
   it('shows no unposted line when the API leaves the field off', async () => {
-    // An engine without the field, or a contact without banking access.
+    // An engine that does not send the field yet.
     const { unpostedBankFeed: _omitted, ...withoutField } = pl;
     fetchMock.mockImplementation(() => json(withoutField));
     renderRoute(<PortalProfitLossPage />);

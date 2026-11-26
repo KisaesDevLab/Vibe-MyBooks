@@ -40,7 +40,7 @@ interface PLData {
 }
 
 // Bank feed items dated in range that the bookkeeper has not posted yet.
-// The API sends it only to a contact with banking access. Same shape as the
+// The API sends it to every contact who can open the P&L. Same shape as the
 // engine's PortalUnpostedBankFeed (@kis-books/shared); declared here until
 // the engine pin includes that export. moneyIn / moneyOut are optional so an
 // engine that sends only the gross amount still renders.
