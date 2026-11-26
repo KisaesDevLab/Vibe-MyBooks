@@ -2562,6 +2562,8 @@ they have access to (**Firm > Staff > Tenant access**).
 - Losing access to a client takes effect on the next call
 - A client with accounts hidden for your role cannot be opened through MCP
 - Entries in a closed period are refused; the closing-date password cannot be given through MCP
+- In a client file with more than one company, reports and the transaction, invoice, bill and bank feed lists show the company named, and a transaction, bill, bank feed item or recurring schedule of another company in the file is refused (WRONG_COMPANY or not found). The chart of accounts, contacts, tags and the dashboard figures cover the whole file, as they do in the app; so does reconciliation, which follows the bank account. A file with one company is not filtered at all
+- send_invoice marks an invoice as sent. It does not email it; send the email from the invoice in the app
 
 ### Tools (89)
 
